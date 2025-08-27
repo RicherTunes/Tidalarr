@@ -1,37 +1,44 @@
+using System.Collections.Generic;
 using System.Text.Json;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
-using Polly;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
-using Tidalarr.Infrastructure.Resilience;
 
 namespace Tidalarr.Domain.Api;
 
-public class TidalApiClient : ITidalCore
+public class TidalApiClient : ITidalCore, IDisposable
 {
-    private readonly HttpClient _httpClient;
+    private readonly IEnhancedStreamingApiClient _apiClient;
     private readonly ITidalAuth _authService;
-    private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy;
     
     public TidalApiClient(HttpClient httpClient, ITidalAuth authService)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-        _retryPolicy = TidalResiliencePolicy.CreateHttpRetryPolicy();
+        _apiClient = new EnhancedStreamingApiClient(
+            httpClient ?? throw new ArgumentNullException(nameof(httpClient)),
+            "Tidal",
+            TidalConstants.API_V1_BASE);
     }
     
     public async Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
         var tokens = await _authService.GetValidTokensAsync();
-        var request = BuildAuthenticatedRequest($"tracks/{trackId}", tokens);
+        _apiClient.SetAuthenticationToken(tokens.AccessToken, AuthenticationType.Bearer);
         
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var parameters = new Dictionary<string, string>
+        {
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode,
+            ["limit"] = TidalConstants.DEFAULT_ITEM_LIMIT.ToString()
+        };
         
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        var trackDto = JsonSerializer.Deserialize<TidalTrackDto>(content);
+        var trackDto = await _apiClient.GetAsync<TidalTrackDto>(
+            $"tracks/{trackId}", 
+            parameters, 
+            CachePolicy.Medium, // Cache tracks for 30 minutes
+            cancellationToken);
         
         if (trackDto == null)
             throw new InvalidOperationException("Failed to parse track response");
@@ -42,13 +49,20 @@ public class TidalApiClient : ITidalCore
     public async Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
         var tokens = await _authService.GetValidTokensAsync();
-        var request = BuildAuthenticatedRequest($"albums/{albumId}", tokens);
+        _apiClient.SetAuthenticationToken(tokens.AccessToken, AuthenticationType.Bearer);
         
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var parameters = new Dictionary<string, string>
+        {
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode,
+            ["limit"] = TidalConstants.DEFAULT_ITEM_LIMIT.ToString()
+        };
         
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        var albumDto = JsonSerializer.Deserialize<TidalAlbumDto>(content);
+        var albumDto = await _apiClient.GetAsync<TidalAlbumDto>(
+            $"albums/{albumId}", 
+            parameters, 
+            CachePolicy.Long, // Cache albums for 2 hours
+            cancellationToken);
         
         if (albumDto == null)
             throw new InvalidOperationException("Failed to parse album response");
@@ -59,22 +73,22 @@ public class TidalApiClient : ITidalCore
     public async Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
         var tokens = await _authService.GetValidTokensAsync();
-        // Use shared library HTTP builder (architect fix)
-        var request = new StreamingApiRequestBuilder(TidalConstants.API_V1_BASE)
-            .Endpoint("search")
-            .Query("query", query)
-            .Query("types", "albums,tracks")
-            .Query("limit", limit.ToString())
-            .Query("sessionId", tokens.SessionId)
-            .Query("countryCode", tokens.CountryCode)
-            .BearerToken(tokens.AccessToken)
-            .WithStreamingDefaults("Tidalarr/1.0")
-            .Build();
+        _apiClient.SetAuthenticationToken(tokens.AccessToken, AuthenticationType.Bearer);
         
-        // Use shared retry logic (architect fix)
-        var response = await _httpClient.ExecuteWithRetryAsync(request, maxRetries: 3);
-        var content = await response.Content.ReadContentSafelyAsync();
-        var searchDto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content);
+        var parameters = new Dictionary<string, string>
+        {
+            ["query"] = query,
+            ["types"] = "albums,tracks",
+            ["limit"] = limit.ToString(),
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode
+        };
+        
+        var searchDto = await _apiClient.GetAsync<TidalSearchResponseDto>(
+            "search", 
+            parameters, 
+            CachePolicy.Short, // Cache searches for 5 minutes
+            cancellationToken);
         
         if (searchDto == null)
             throw new InvalidOperationException("Failed to parse search response");
@@ -85,14 +99,24 @@ public class TidalApiClient : ITidalCore
     public async Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
         var tokens = await _authService.GetValidTokensAsync();
+        _apiClient.SetAuthenticationToken(tokens.AccessToken, AuthenticationType.Bearer);
+        
         var qualityParam = TidalConstants.QualityParameters[quality];
-        var request = BuildAuthenticatedRequest($"tracks/{trackId}/playbackinfopostpaywall?audioquality={qualityParam}&playbackmode=STREAM&assetpresentation=FULL", tokens);
+        var parameters = new Dictionary<string, string>
+        {
+            ["audioquality"] = qualityParam,
+            ["playbackmode"] = "STREAM",
+            ["assetpresentation"] = "FULL",
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode
+        };
         
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        var playbackDto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
+        // Don't cache playback info as it contains temporary URLs
+        var playbackDto = await _apiClient.GetAsync<TidalPlaybackInfoDto>(
+            $"tracks/{trackId}/playbackinfopostpaywall", 
+            parameters, 
+            null, // No caching for stream URLs
+            cancellationToken);
         
         if (playbackDto == null)
             throw new InvalidOperationException("Failed to parse playback info response");
@@ -100,19 +124,8 @@ public class TidalApiClient : ITidalCore
         return MapToTidalStreamInfo(trackId, playbackDto);
     }
     
-    private HttpRequestMessage BuildAuthenticatedRequest(string endpoint, TidalTokens tokens)
-    {
-        var url = $"{TidalConstants.API_V1_BASE}{endpoint}";
-        
-        // Add session parameters to URL
-        var separator = url.Contains('?') ? "&" : "?";
-        url += $"{separator}sessionId={tokens.SessionId}&countryCode={tokens.CountryCode}&limit={TidalConstants.DEFAULT_ITEM_LIMIT}";
-        
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(tokens.TokenType, tokens.AccessToken);
-        
-        return request;
-    }
+    // Enhanced API client handles authentication, retry logic, and caching automatically
+    // No need for manual HTTP request building
     
     private static TidalTrackInfo MapToTidalTrackInfo(TidalTrackDto dto)
     {
@@ -177,5 +190,10 @@ public class TidalApiClient : ITidalCore
             "HI_RES_LOSSLESS" => TidalQuality.HiRes,
             _ => TidalQuality.High
         };
+    }
+    
+    public void Dispose()
+    {
+        _apiClient?.Dispose();
     }
 }
