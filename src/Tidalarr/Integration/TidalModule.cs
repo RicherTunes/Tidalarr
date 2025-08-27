@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;\nusing Microsoft.Extensions.Logging;\nusing Tidalarr.Infrastructure.Resilience;\nusing Tidalarr.Infrastructure.Telemetry;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Domain.Api;
 using Tidalarr.Domain.Authentication;
