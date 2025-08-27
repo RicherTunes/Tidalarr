@@ -1,0 +1,3 @@
+[submodule "ext/Lidarr.Plugin.Common"]
+	path = ext/Lidarr.Plugin.Common
+	url = https://github.com/RicherTunes/Lidarr.Plugin.Common.git
