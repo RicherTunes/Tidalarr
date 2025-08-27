@@ -64,7 +64,7 @@ public class TidalTelemetry
     public IDisposable StartActivity(string name)
     {
         var activity = ActivitySource.StartActivity(name);
-        return activity ?? new NullActivity();
+        return activity ?? (IDisposable)new NullActivity();
     }
     
     // Circuit breaker events
