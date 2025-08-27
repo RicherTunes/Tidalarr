@@ -6,7 +6,6 @@ using Tidalarr.Infrastructure.Storage;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
-using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Utilities;
@@ -20,7 +19,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     private TidalTokens? _currentTokens;
     
     public TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null)
-        : base(new PKCEGenerator())
+        : base(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator())
     {
         _httpClient = httpClient;
         _tokenStorage = tokenStorage ?? new JsonTokenStorage();
@@ -36,6 +35,19 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         var authUrl = BuildAuthorizationUrl(codeChallenge, state);
         
         return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state));
+    }
+
+    // Implement base class abstract method
+    protected override async Task<TidalTokens> PerformAuthenticationAsync(TidalCredentials credentials)
+    {
+        // For OAuth2 credentials, we can't authenticate directly without the authorization code
+        // This method should be called after the OAuth flow is complete
+        var tokens = await GetValidTokensAsync();
+        if (tokens == null)
+        {
+            throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.");
+        }
+        return tokens;
     }
 
     // Override OAuth base class methods
@@ -253,7 +265,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         return request;
     }
     
-    private static string GenerateSecureState()
+    protected override string GenerateSecureState()
     {
         using var rng = RandomNumberGenerator.Create();
         var bytes = new byte[32];
