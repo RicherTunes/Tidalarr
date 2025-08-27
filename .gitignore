@@ -1,0 +1,253 @@
+# Tidalarr Plugin .gitignore
+# Based on proven Qobuzarr patterns for scalable plugin development
+
+## .NET Build Artifacts
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+*.user
+*.suo
+*.cache
+*.log
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# .NET Core / .NET 6+
+project.assets.json
+*.njsproj
+*.sln.docstates
+
+# MSBuild
+_MSBuildProjectExtensionPath/
+
+## Visual Studio / Rider
+.vs/
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+
+# User-specific files
+*.rsuser
+*.user
+*.userosscache
+*.sln.docstates
+
+## Lidarr Integration
+ext/
+# Keep README in ext/ but ignore source files
+!ext/README.md
+
+# Plugin deployment testing
+deploy/
+deployment/
+*.deployed
+
+# Lidarr plugin artifacts  
+plugin-output/
+lidarr-plugins/
+
+## Development & Testing
+temp/
+tmp/
+test-data/
+test-results/
+coverage/
+TestResults/
+*.coverage
+*.coveragexml
+
+# Test artifacts
+**/test-output/
+**/test-logs/
+junit.xml
+coverage.opencover.xml
+
+# Performance testing
+**/*benchmark*/
+**/*perf*/
+*.benchmarkdotnet.artifacts/
+
+## Streaming Service Credentials
+# CRITICAL: Never commit authentication data
+config.json
+settings.json
+credentials.json
+tokens.json
+auth.json
+*.credentials
+*.tokens
+
+# Tidal-specific
+tidal-config/
+tidal-tokens/
+.tidal/
+
+# OAuth secrets
+oauth.json
+*.oauth
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+## Plugin Development
+# ML models and training data (if added later)
+models/
+training-data/
+*.model
+ml-cache/
+
+# Plugin packaging
+dist/
+build-output/
+package/
+releases/
+
+# Documentation generation
+docs-generated/
+api-docs/
+
+## Operating System
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+## Development Tools
+# JetBrains
+*.iml
+
+# SonarQube
+.sonarqube/
+
+# NCrunch
+*.ncrunch*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# Web Storm
+.idea_modules/
+
+## Plugin-Specific Ignores
+# Backup files from automated fixes
+*.bak
+*.backup
+*.orig
+
+# Assembly analysis outputs
+assembly-analysis/
+dependency-tree.txt
+
+# Plugin metadata generation
+plugin-manifest-generated.json
+version-info.json
+
+# Performance benchmarks
+benchmark-results/
+performance-logs/
+
+# Shared library local copies (use project reference instead)
+lidarr-plugin-common-local/
+
+## CI/CD
+# GitHub Actions artifacts
+.github-cache/
+action-artifacts/
+
+# Build logs
+build.log
+msbuild.log
+dotnet.log
+
+# Coverage reports
+coverage-report/
+lcov.info
+
+## Security
+# Certificate files
+*.pfx
+*.p12
+*.cer
+*.crt
+*.key
+
+# Security scan results
+security-scan/
+vulnerability-report.json
+
+## Future Plugin Extensions
+# Audio processing cache
+audio-cache/
+processing-temp/
+
+# Metadata cache
+metadata-cache/
+cover-art-cache/
+
+# Download staging
+downloads-staging/
+incomplete-downloads/
+
+# Logs from plugin testing
+tidalarr.log
+tidalarr-*.log
+plugin-test.log
+
+## Exclude from accidentally committing
+# Large files that might be created during development
+*.large
+*.huge
+test-audio-files/
+sample-downloads/
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary plugin builds for testing
+plugin-test/
+test-plugin/
+
+## Keep Important Files
+# Keep documentation
+!README.md
+!CHANGELOG.md
+!LICENSE
+!docs/
+!examples/
+
+# Keep configuration templates
+!config.template.json
+!settings.template.json
+
+# Keep plugin manifest template
+!plugin.json.template
+
+# Keep essential scripts
+!build.ps1
+!build.sh
+!setup.ps1
+!setup.sh
