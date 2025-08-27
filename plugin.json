@@ -1,0 +1,25 @@
+{
+  "name": "Tidalarr",
+  "version": "1.0.0",
+  "description": "Tidal integration for Lidarr - Search and download music from Tidal",
+  "author": "RicherTunes",
+  "homepage": "https://github.com/RicherTunes/Tidalarr",
+  "license": "MIT",
+  "minimumVersion": "2.2.4.4129",
+  "assembly": "Tidalarr.dll",
+  "protocols": ["TidalProtocol"],
+  "indexers": ["TidalIndexer"],
+  "downloadClients": ["TidalDownloadClient"],
+  "dependencies": [
+    "Lidarr.Plugin.Common",
+    "Polly"
+  ],
+  "features": [
+    "OAuth 2.0 PKCE Authentication",
+    "High Quality Audio (Lossless, Hi-Res)",
+    "Smart Quality Detection",
+    "Sequential Chunk Downloading",
+    "Manifest Parsing (DASH/BTS)",
+    "Error Recovery"
+  ]
+}
