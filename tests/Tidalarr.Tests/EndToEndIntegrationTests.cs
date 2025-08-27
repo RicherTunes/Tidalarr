@@ -101,9 +101,9 @@ public class EndToEndIntegrationTests
         }
     }
     
-    private static Microsoft.Extensions.DependencyInjection.IServiceProvider CreateServiceProvider(TidalSettings settings)
+    private static IServiceProvider CreateServiceProvider(TidalSettings settings)
     {
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        var services = new ServiceCollection();
         services.AddSingleton(settings);
         TidalModule.RegisterServices(services);
         return services.BuildServiceProvider();
