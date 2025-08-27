@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
+using Polly;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Infrastructure.Resilience;
 
 namespace Tidalarr.Domain.Api;
 
@@ -11,11 +13,13 @@ public class TidalApiClient : ITidalCore
 {
     private readonly HttpClient _httpClient;
     private readonly ITidalAuth _authService;
+    private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy;
     
     public TidalApiClient(HttpClient httpClient, ITidalAuth authService)
     {
-        _httpClient = httpClient;
-        _authService = authService;
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _retryPolicy = TidalResiliencePolicy.CreateHttpRetryPolicy();
     }
     
     public async Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
