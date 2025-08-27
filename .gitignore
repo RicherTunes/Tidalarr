@@ -43,7 +43,9 @@ _MSBuildProjectExtensionPath/
 *.sln.docstates
 
 ## Lidarr Integration
-ext/
+ext/*
+# Allow common library submodule
+!ext/Lidarr.Plugin.Common/
 # Keep README in ext/ but ignore source files
 !ext/README.md
 
