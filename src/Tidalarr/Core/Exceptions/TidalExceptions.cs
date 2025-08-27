@@ -1,3 +1,5 @@
+using Tidalarr.Core.Models;
+
 namespace Tidalarr.Core.Exceptions;
 
 // Custom exception hierarchy (architect requirement)
