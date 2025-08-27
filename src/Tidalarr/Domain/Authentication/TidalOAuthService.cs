@@ -8,21 +8,21 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services;
+using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Utilities;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService : ITidalAuth
+public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth
 {
     private readonly HttpClient _httpClient;
-    private readonly PKCEGenerator _pkceGenerator;
     private readonly ITokenStorage _tokenStorage;
     private TidalTokens? _currentTokens;
     
-    public TidalOAuthService(HttpClient httpClient, PKCEGenerator pkceGenerator, ITokenStorage? tokenStorage = null)
+    public TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null)
+        : base(new PKCEGenerator())
     {
         _httpClient = httpClient;
-        _pkceGenerator = pkceGenerator;
         _tokenStorage = tokenStorage ?? new JsonTokenStorage();
     }
     
@@ -36,6 +36,45 @@ public class TidalOAuthService : ITidalAuth
         var authUrl = BuildAuthorizationUrl(codeChallenge, state);
         
         return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state));
+    }
+
+    // Override OAuth base class methods
+    protected override async Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
+    {
+        return BuildAuthorizationUrl(codeChallenge, state);
+    }
+
+    protected override async Task<TidalTokens> ExchangeCodeForTokensInternalAsync(string authorizationCode, string codeVerifier, string redirectUri)
+    {
+        return await ExchangeCodeAsync(authorizationCode, codeVerifier);
+    }
+
+    protected override async Task<TidalTokens> RefreshTokensInternalAsync(string refreshToken)
+    {
+        return await RefreshTokensAsync(refreshToken);
+    }
+
+    protected override async Task RevokeTokensInternalAsync(TidalTokens session)
+    {
+        // Tidal doesn't have a specific revoke endpoint, just clear session
+        await LogoutAsync();
+    }
+
+    protected override string ExtractRefreshToken(TidalTokens session)
+    {
+        return session?.RefreshToken ?? string.Empty;
+    }
+
+    protected override async Task CacheSessionAsync(TidalTokens session)
+    {
+        _currentTokens = session;
+        await _tokenStorage.SaveTokensAsync(session);
+    }
+
+    protected override async Task ClearCachedSessionAsync()
+    {
+        _currentTokens = null;
+        await _tokenStorage.DeleteTokensAsync();
     }
     
     public async Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
