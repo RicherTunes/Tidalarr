@@ -7,7 +7,7 @@ public class TidalProtocol
     
     public static bool IsValidUrl(string url)
     {
-        return url.StartsWith("tidal://", StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrEmpty(url) && url.StartsWith("tidal://", StringComparison.OrdinalIgnoreCase);
     }
     
     public static (string type, string id) ParseUrl(string url)
@@ -16,7 +16,7 @@ public class TidalProtocol
             throw new ArgumentException($"Invalid Tidal URL: {url}");
             
         var parts = url.Substring(8).Split('/', 2); // Remove "tidal://"
-        if (parts.Length != 2)
+        if (parts.Length != 2 || string.IsNullOrEmpty(parts[0]) || string.IsNullOrEmpty(parts[1]))
             throw new ArgumentException($"Invalid Tidal URL format: {url}");
             
         return (parts[0], parts[1]);
