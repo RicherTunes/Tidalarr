@@ -6,6 +6,9 @@ using Tidalarr.Infrastructure.Storage;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Lidarr.Plugin.Common.Security;
+using Lidarr.Plugin.Common.Services;
+using Lidarr.Plugin.Common.Utilities;
 
 namespace Tidalarr.Domain.Authentication;
 
@@ -37,9 +40,19 @@ public class TidalOAuthService : ITidalAuth
     
     public async Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
     {
-        var request = BuildTokenExchangeRequest(authCode, codeVerifier);
-        var response = await _httpClient.SendAsync(request);
+        // Use shared library validation
+        Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
+        Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
         
+        var request = BuildTokenExchangeRequest(authCode, codeVerifier);
+        
+        // Use shared library safe execution
+        var (success, response) = await SafeOperationExecutor.TryExecuteAsync(() => 
+            _httpClient.SendAsync(request));
+            
+        if (!success || response == null)
+            throw new InvalidOperationException("Failed to exchange authorization code");
+
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync();
