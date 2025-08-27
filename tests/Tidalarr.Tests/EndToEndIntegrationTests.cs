@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
 using Xunit;
@@ -26,9 +27,10 @@ public class EndToEndIntegrationTests
         // Validate settings
         Assert.True(settings.IsValid(out var errorMessage), errorMessage);
         
-        // Act - Create plugin components
-        var indexer = TidalModule.CreateIndexer(settings);
-        var downloadClient = TidalModule.CreateDownloadClient(settings);
+        // Act - Create plugin components with DI
+        var serviceProvider = CreateServiceProvider(settings);
+        var indexer = TidalModule.CreateIndexer(serviceProvider, settings);
+        var downloadClient = TidalModule.CreateDownloadClient(serviceProvider, settings);
         
         // Assert - Verify components can be created
         Assert.NotNull(indexer);
@@ -97,5 +99,13 @@ public class EndToEndIntegrationTests
         {
             Assert.NotEmpty(errorMessage);
         }
+    }
+    
+    private static Microsoft.Extensions.DependencyInjection.IServiceProvider CreateServiceProvider(TidalSettings settings)
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(settings);
+        TidalModule.RegisterServices(services);
+        return services.BuildServiceProvider();
     }
 }
