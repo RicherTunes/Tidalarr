@@ -13,22 +13,36 @@ public class TidalChunkDownloader
     
     public async Task<Stream> DownloadAndAssembleAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
     {
-        // CRITICAL: Tidal chunks MUST be downloaded sequentially to preserve order
-        var memoryStream = new MemoryStream();
+        // ARCHITECT FIX: Stream directly to temp file for memory efficiency
+        var tempFilePath = Path.GetTempFileName();
+        var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
         
-        for (int i = 0; i < streamInfo.ChunkUrls.Length; i++)
+        try
         {
-            var chunkUrl = streamInfo.ChunkUrls[i];
-            var chunkData = await DownloadChunkWithRetryAsync(chunkUrl);
+            // CRITICAL: Tidal chunks MUST be downloaded sequentially to preserve order
+            for (int i = 0; i < streamInfo.ChunkUrls.Length; i++)
+            {
+                var chunkUrl = streamInfo.ChunkUrls[i];
+                
+                // Stream chunk directly to file (no memory loading)
+                using var response = await _httpClient.GetAsync(chunkUrl, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                
+                using var contentStream = await response.Content.ReadAsStreamAsync();
+                await contentStream.CopyToAsync(fileStream);
+                
+                // Report progress
+                progress?.Report(i + 1);
+            }
             
-            await memoryStream.WriteAsync(chunkData);
-            
-            // Report progress
-            progress?.Report(i + 1);
+            fileStream.Seek(0, SeekOrigin.Begin);
+            return fileStream;
         }
-        
-        memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
+        catch
+        {
+            fileStream?.Dispose();
+            throw;
+        }
     }
     
     public async Task<byte[]> DownloadAndAssembleBytesAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
