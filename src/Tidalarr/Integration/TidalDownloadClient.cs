@@ -4,11 +4,14 @@ using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Lidarr.Plugin.Common.Services.Download;
-using Lidarr.Plugin.Common.Services.Performance;
+using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Common.Base;
+using Lidarr.Plugin.Common.Models;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Core.Mappers;
 using Tidalarr.Domain.Api;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
@@ -17,125 +20,141 @@ using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration;
 
-public class TidalDownloadClient : BaseDownloadOrchestrator<TidalTrackInfo, TidalAlbumInfo, TidalSettings>
+public class TidalDownloadClient : BaseStreamingDownloadClient<TidalSettings>
 {
     private readonly TidalStreamService _streamService;
     private readonly TidalChunkDownloader _chunkDownloader;
     private readonly ITidalCore _apiClient;
     private readonly TidalQualityDetector _qualityDetector;
-    private readonly TidalSettings _settings;
+    private readonly TidalModelMapper _mapper;
+    
+    protected override string ServiceName => "Tidal";
+    protected override string ProtocolName => "tidal";
     
     public TidalDownloadClient(
         TidalStreamService streamService,
         TidalChunkDownloader chunkDownloader,
         ITidalCore apiClient,
         TidalQualityDetector qualityDetector,
-        TidalSettings settings)
-        : base("Tidal", maxConcurrentDownloads: 3) // 3 concurrent downloads max
+        TidalSettings settings,
+        ILogger logger = null)
+        : base(settings, logger)
     {
         _streamService = streamService;
         _chunkDownloader = chunkDownloader;
         _apiClient = apiClient;
         _qualityDetector = qualityDetector;
-        _settings = settings;
+        _mapper = new TidalModelMapper();
     }
     
-    // Public API methods
-    public async Task<TidalDownloadResult> DownloadTrackAsync(string trackId, TidalQuality? quality = null)
+    // Implement required abstract methods from BaseStreamingDownloadClient
+    protected override async Task<bool> AuthenticateAsync()
     {
-        var track = await _apiClient.GetTrackAsync(trackId);
-        var trackData = await DownloadTrackDataAsync(track, _settings, CancellationToken.None);
-        
-        var preferredQuality = quality ?? ParsePreferredQuality(_settings.PreferredQuality);
-        var outputPath = GetTempFilePath(track, ".flac"); // Default extension
-        await File.WriteAllBytesAsync(outputPath, trackData);
-        
-        return new TidalDownloadResult
+        try
         {
-            TrackId = trackId,
-            Title = track.Title,
-            Artist = string.Join(", ", track.Artists),
-            Quality = preferredQuality,
-            FileExtension = ".flac",
-            AudioData = trackData,
-            FilePath = outputPath,
-            Success = true,
-            ErrorMessage = string.Empty
-        };
-    }
-    
-    // Implement required abstract methods from BaseDownloadOrchestrator
-    protected override async Task<List<TidalTrackInfo>> GetAlbumTracksAsync(TidalAlbumInfo album, TidalSettings settings)
-    {
-        // If album doesn't have tracks loaded, fetch them
-        if (album.Tracks == null || !album.Tracks.Any())
-        {
-            var fullAlbum = await _apiClient.GetAlbumAsync(album.Id);
-            return fullAlbum.Tracks.ToList();
+            return await _apiClient.IsAuthenticatedAsync();
         }
-        return album.Tracks.ToList();
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "Tidal authentication failed");
+            return false;
+        }
     }
     
-    protected override async Task<byte[]> DownloadTrackDataAsync(TidalTrackInfo track, TidalSettings settings, CancellationToken cancellationToken)
+    protected override async Task<StreamingAlbum> GetAlbumAsync(string albumId)
     {
-        var preferredQuality = ParsePreferredQuality(settings.PreferredQuality);
-        var streamInfo = await _streamService.GetStreamInfoAsync(track.Id, preferredQuality);
+        var tidalAlbum = await _apiClient.GetAlbumWithTracksAsync(albumId);
+        var streamingAlbum = _mapper.ToStreamingAlbum(tidalAlbum);
         
-        var progress = new Progress<int>();
-        using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+        // Ensure tracks are populated in the streaming album
+        if (tidalAlbum.Tracks?.Any() == true)
+        {
+            var streamingTracks = _mapper.ToStreamingTracks(tidalAlbum);
+            // The mapper should handle track-to-album relationships
+        }
         
-        var audioData = new byte[audioStream.Length];
-        await audioStream.ReadAsync(audioData, cancellationToken);
-        return audioData;
+        return streamingAlbum;
     }
     
-    protected override string GenerateTrackFileName(TidalTrackInfo track, TidalAlbumInfo album = null, TidalSettings settings = null)
+    protected override async Task<StreamingTrack> GetTrackAsync(string trackId)
     {
-        var albumTitle = album?.Title ?? "Unknown Album";
-        var artistName = track.Artists?.FirstOrDefault() ?? "Unknown Artist";
-        var trackTitle = track.Title ?? "Unknown Track";
+        var tidalTrack = await _apiClient.GetTrackAsync(trackId);
+        return _mapper.ToStreamingTrack(tidalTrack);
+    }
+    
+    protected override async Task<string> GetStreamUrlAsync(string trackId, string quality)
+    {
+        var tidalQuality = ParseQualityFromString(quality);
+        var streamInfo = await _streamService.GetStreamInfoAsync(trackId, tidalQuality);
+        return streamInfo.ChunkUrls?.FirstOrDefault() ?? streamInfo.Url;
+    }
+    
+    protected override ValidationResult ValidateDownloadSettings(TidalSettings settings)
+    {
+        var result = new ValidationResult();
         
-        // Sanitize filename
-        var fileName = $"{artistName} - {albumTitle} - {track.TrackNumber:D2} - {trackTitle}.flac";
-        return SanitizeFileName(fileName);
+        if (!settings.IsValid(out var errorMessage))
+        {
+            result.Errors.Add(new FluentValidation.Results.ValidationFailure("Settings", errorMessage));
+        }
+        
+        return result;
     }
     
-    protected override string GetTrackTitle(TidalTrackInfo track)
+    protected override string GenerateFileName(StreamingTrack track, StreamingAlbum album)
     {
-        return track.Title ?? "Unknown Track";
+        var trackNumber = track.TrackNumber?.ToString("D2") ?? "00";
+        var title = FileNameSanitizer.SanitizeFileName(track.Title ?? "Unknown Track");
+        var artist = FileNameSanitizer.SanitizeFileName(track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist");
+        
+        return $"{trackNumber} - {artist} - {title}.flac";
     }
     
-    protected override string GetAlbumTitle(TidalAlbumInfo album)
-    {
-        return album.Title ?? "Unknown Album";
-    }
-    
-    // Use BaseDownloadOrchestrator for efficient album downloads
-    public async Task<List<TidalDownloadResult>> DownloadAlbumAsync(
-        string albumId, 
-        string outputDirectory = null,
-        IProgress<DownloadProgress>? progress = null,
+    /// <summary>
+    /// Download a track with enhanced metadata and chunked streaming support
+    /// </summary>
+    public async Task<StreamingDownloadResult> DownloadTrackWithMetadataAsync(
+        string trackId, 
+        string outputPath,
+        TidalQuality? preferredQuality = null,
         CancellationToken cancellationToken = default)
     {
-        var album = await _apiClient.GetAlbumAsync(albumId);
-        var outputDir = outputDirectory ?? Path.GetTempPath();
-        
-        var albumResult = await DownloadAlbumAsync(album, _settings, outputDir, progress, cancellationToken);
-        
-        return albumResult.TrackResults.Select(tr => new TidalDownloadResult
+        try
         {
-            TrackId = "unknown", // TrackDownloadResult doesn't contain track ID
-            Title = tr.TrackTitle,
-            Artist = "unknown", // Would need to extract from track title or metadata
-            Quality = ParsePreferredQuality(_settings.PreferredQuality),
-            FileExtension = Path.GetExtension(tr.OutputPath),
-            AudioData = tr.Success ? File.ReadAllBytes(tr.OutputPath) : Array.Empty<byte>(),
-            FilePath = tr.OutputPath,
-            Success = tr.Success,
-            ErrorMessage = tr.ErrorMessage
-        }).ToList();
+            var track = await GetTrackAsync(trackId);
+            var quality = preferredQuality ?? ParsePreferredQuality(Settings.PreferredQuality);
+            var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
+            
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+            
+            var progress = new Progress<int>();
+            using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            
+            await using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            await audioStream.CopyToAsync(fileStream, cancellationToken);
+            
+            return new StreamingDownloadResult
+            {
+                Success = true,
+                TrackId = trackId,
+                OutputPath = outputPath,
+                Track = track,
+                Quality = _mapper.ToStreamingQuality(quality),
+                FileSize = new FileInfo(outputPath).Length
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, $"Failed to download track {trackId}");
+            return new StreamingDownloadResult
+            {
+                Success = false,
+                TrackId = trackId,
+                ErrorMessage = ex.Message
+            };
+        }
     }
-    
+
     public async Task<bool> ValidateDownloadAsync(string trackId, TidalQuality quality)
     {
         try
@@ -161,38 +180,52 @@ public class TidalDownloadClient : BaseDownloadOrchestrator<TidalTrackInfo, Tida
         };
     }
     
-    // Helper methods
-    private static async Task StreamToFileAsync(Stream sourceStream, string outputPath)
+    private static TidalQuality ParseQualityFromString(string quality)
     {
-        using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536);
-        await sourceStream.CopyToAsync(fileStream);
-        await fileStream.FlushAsync();
+        return quality?.ToUpperInvariant() switch
+        {
+            "LOW" => TidalQuality.Low,
+            "HIGH" => TidalQuality.High,
+            "LOSSLESS" => TidalQuality.Lossless,
+            "HI_RES" => TidalQuality.HiRes,
+            _ => TidalQuality.Lossless
+        };
     }
     
-    private static long EstimateDownloadSize(int durationSeconds, TidalQuality quality)
+    // Legacy support methods
+    public async Task<TidalDownloadResult> DownloadTrackAsync(string trackId, TidalQuality? quality = null)
     {
-        var bitrate = quality switch
-        {
-            TidalQuality.Low => 96_000,
-            TidalQuality.High => 320_000,
-            TidalQuality.Lossless => 1_411_000,
-            TidalQuality.HiRes => 2_304_000,
-            _ => 320_000
-        };
+        var track = await _apiClient.GetTrackAsync(trackId);
+        var preferredQuality = quality ?? ParsePreferredQuality(Settings.PreferredQuality);
+        var outputPath = GetTempFilePath(track, ".flac");
         
-        return (long)(durationSeconds * bitrate / 8);
+        var result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);
+        
+        return new TidalDownloadResult
+        {
+            TrackId = trackId,
+            Title = track.Title,
+            Artist = string.Join(", ", track.Artists ?? new List<string>()),
+            Quality = preferredQuality,
+            FileExtension = ".flac",
+            AudioData = result.Success ? File.ReadAllBytes(outputPath) : Array.Empty<byte>(),
+            FilePath = outputPath,
+            Success = result.Success,
+            ErrorMessage = result.ErrorMessage
+        };
     }
     
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
-        var safeName = $"{string.Join(", ", track.Artists)} - {track.Title}";
-        safeName = SanitizeFileName(safeName);
+        var safeName = $"{string.Join(", ", track.Artists ?? new List<string>())} - {track.Title}";
+        safeName = FileNameSanitizer.SanitizeFileName(safeName);
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
-    
-    // SanitizeFileName method is inherited from BaseDownloadOrchestrator
 }
 
+/// <summary>
+/// Legacy TidalDownloadResult for backward compatibility
+/// </summary>
 public class TidalDownloadResult
 {
     public string TrackId { get; set; } = string.Empty;
@@ -201,7 +234,22 @@ public class TidalDownloadResult
     public TidalQuality Quality { get; set; }
     public string FileExtension { get; set; } = string.Empty;
     public byte[] AudioData { get; set; } = Array.Empty<byte>();
-    public string FilePath { get; set; } = string.Empty; // ARCHITECT FIX: File path for large files
+    public string FilePath { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Enhanced download result using shared library models
+/// </summary>
+public class StreamingDownloadResult
+{
+    public bool Success { get; set; }
+    public string TrackId { get; set; } = string.Empty;
+    public string OutputPath { get; set; } = string.Empty;
+    public StreamingTrack Track { get; set; }
+    public StreamingQuality Quality { get; set; }
+    public long FileSize { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 }
