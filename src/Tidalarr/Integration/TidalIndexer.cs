@@ -1,6 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Common.Base;
+using Lidarr.Plugin.Common.Models;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Core.Mappers;
 using Tidalarr.Domain.Api;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
@@ -8,22 +17,111 @@ using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration;
 
-public class TidalIndexer
+public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
 {
     private readonly TidalSearchService _searchService;
-    private readonly TidalSettings _settings;
+    private readonly ITidalCore _apiClient;
+    private readonly TidalModelMapper _mapper;
     
-    public TidalIndexer(TidalSearchService searchService, TidalSettings settings)
+    protected override string ServiceName => "Tidal";
+    protected override string ProtocolName => "tidal";
+    
+    public TidalIndexer(
+        TidalSearchService searchService, 
+        ITidalCore apiClient,
+        TidalSettings settings,
+        ILogger logger = null)
+        : base(settings, logger)
     {
         _searchService = searchService;
-        _settings = settings;
+        _apiClient = apiClient;
+        _mapper = new TidalModelMapper();
     }
     
+    // Implement required abstract methods from BaseStreamingIndexer
+    protected override async Task<bool> AuthenticateAsync()
+    {
+        try
+        {
+            return await _apiClient.IsAuthenticatedAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "Tidal authentication failed");
+            return false;
+        }
+    }
+    
+    protected override async Task<List<StreamingAlbum>> SearchAlbumsAsync(string searchTerm)
+    {
+        try
+        {
+            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var searchResults = await _searchService.SearchWithQualityDetectionAsync(searchTerm, preferredQuality);
+            
+            return searchResults.Albums?
+                .Select(_mapper.ToStreamingAlbum)
+                .Where(album => album != null)
+                .ToList() ?? new List<StreamingAlbum>();
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, $"Failed to search albums for: {searchTerm}");
+            return new List<StreamingAlbum>();
+        }
+    }
+    
+    protected override async Task<List<StreamingTrack>> SearchTracksAsync(string searchTerm)
+    {
+        try
+        {
+            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var searchResults = await _searchService.SearchWithQualityDetectionAsync(searchTerm, preferredQuality);
+            
+            return searchResults.Tracks?
+                .Select(_mapper.ToStreamingTrack)
+                .Where(track => track != null)
+                .ToList() ?? new List<StreamingTrack>();
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, $"Failed to search tracks for: {searchTerm}");
+            return new List<StreamingTrack>();
+        }
+    }
+    
+    protected override async Task<StreamingAlbum> GetAlbumDetailsAsync(string albumId)
+    {
+        try
+        {
+            var tidalAlbum = await _apiClient.GetAlbumAsync(albumId);
+            return _mapper.ToStreamingAlbum(tidalAlbum);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, $"Failed to get album details for: {albumId}");
+            return null;
+        }
+    }
+    
+    protected override ValidationResult ValidateSettings(TidalSettings settings)
+    {
+        var result = new ValidationResult();
+        
+        if (!settings.IsValid(out var errorMessage))
+        {
+            result.Errors.Add(new FluentValidation.Results.ValidationFailure("Settings", errorMessage));
+        }
+        
+        return result;
+    }
+    
+    // Public API methods for backward compatibility and additional functionality
     public async Task<List<TidalReleaseInfo>> SearchAsync(string query)
     {
         try
         {
-            var preferredQuality = ParsePreferredQuality(_settings.PreferredQuality);
+            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
             var searchResults = await _searchService.SearchWithQualityDetectionAsync(query, preferredQuality);
             
             return MapToReleaseInfo(searchResults);
@@ -34,40 +132,65 @@ public class TidalIndexer
         }
     }
     
+    /// <summary>
+    /// Enhanced search with streaming models
+    /// </summary>
+    public async Task<List<StreamingSearchResult>> SearchEnhancedAsync(string query)
+    {
+        try
+        {
+            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var searchResults = await _searchService.SearchWithQualityDetectionAsync(query, preferredQuality);
+            
+            return _mapper.ToStreamingSearchResults(searchResults);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, $"Enhanced search failed for: {query}");
+            return new List<StreamingSearchResult>();
+        }
+    }
+    
     private List<TidalReleaseInfo> MapToReleaseInfo(TidalSearchResults searchResults)
     {
         var releases = new List<TidalReleaseInfo>();
         
         // Add albums
-        foreach (var album in searchResults.Albums)
+        if (searchResults?.Albums != null)
         {
-            releases.Add(new TidalReleaseInfo
+            foreach (var album in searchResults.Albums)
             {
-                Id = album.Id,
-                Title = album.Title,
-                Artist = string.Join(", ", album.Artists),
-                Type = "Album",
-                Quality = GetHighestQuality(album.AvailableQualities),
-                DownloadUrl = $"tidal://album/{album.Id}",
-                PublishDate = album.ReleaseDate,
-                TrackCount = album.Tracks.Count
-            });
+                releases.Add(new TidalReleaseInfo
+                {
+                    Id = album.Id,
+                    Title = album.Title,
+                    Artist = string.Join(", ", album.Artists ?? new List<string>()),
+                    Type = "Album",
+                    Quality = GetHighestQuality(album.AvailableQualities),
+                    DownloadUrl = $"tidal://album/{album.Id}",
+                    PublishDate = album.ReleaseDate ?? DateTime.MinValue,
+                    TrackCount = album.TrackCount
+                });
+            }
         }
         
         // Add individual tracks as singles
-        foreach (var track in searchResults.Tracks)
+        if (searchResults?.Tracks != null)
         {
-            releases.Add(new TidalReleaseInfo
+            foreach (var track in searchResults.Tracks)
             {
-                Id = track.Id,
-                Title = track.Title,
-                Artist = string.Join(", ", track.Artists),
-                Type = "Track",
-                Quality = track.Quality.ToString(),
-                DownloadUrl = $"tidal://track/{track.Id}",
-                PublishDate = track.ReleaseDate,
-                TrackCount = 1
-            });
+                releases.Add(new TidalReleaseInfo
+                {
+                    Id = track.Id,
+                    Title = track.Title,
+                    Artist = string.Join(", ", track.Artists ?? new List<string>()),
+                    Type = "Track",
+                    Quality = track.Quality.ToString(),
+                    DownloadUrl = $"tidal://track/{track.Id}",
+                    PublishDate = track.Album?.ReleaseDate ?? DateTime.MinValue,
+                    TrackCount = 1
+                });
+            }
         }
         
         return releases;
@@ -75,7 +198,7 @@ public class TidalIndexer
     
     private static string GetHighestQuality(List<TidalQuality> qualities)
     {
-        if (!qualities.Any()) return "High";
+        if (qualities == null || !qualities.Any()) return "High";
         
         var highest = qualities.Max();
         return highest.ToString();
@@ -94,6 +217,9 @@ public class TidalIndexer
     }
 }
 
+/// <summary>
+/// Legacy release info for backward compatibility
+/// </summary>
 public class TidalReleaseInfo
 {
     public string Id { get; set; } = string.Empty;
