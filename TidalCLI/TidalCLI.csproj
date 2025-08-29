@@ -1,7 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Reference plugin for proper architecture -->
     <ProjectReference Include="..\src\Tidalarr\Tidalarr.csproj" />
+    <ProjectReference Include="..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

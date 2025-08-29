@@ -1,6 +1,14 @@
+using System.Text.Json;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Domain.Streaming;
+
+public class ChunkDownloadProgress
+{
+    public int TotalChunks { get; set; }
+    public int CompletedChunks { get; set; }
+    public double ProgressPercentage => TotalChunks > 0 ? (double)CompletedChunks / TotalChunks * 100 : 0;
+}
 
 public class TidalChunkDownloader
 {
@@ -11,6 +19,53 @@ public class TidalChunkDownloader
         _httpClient = httpClient;
     }
     
+    /// <summary>
+    /// Download and assemble chunks from Tidal DASH manifest
+    /// </summary>
+    public async Task<MemoryStream> DownloadAndAssembleAsync(
+        StreamManifest manifest, 
+        IProgress<ChunkDownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var outputStream = new MemoryStream();
+        var totalChunks = manifest.ChunkUrls.Length;
+        var completedChunks = 0;
+        
+        foreach (var chunkUrl in manifest.ChunkUrls)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            try
+            {
+                var response = await _httpClient.GetAsync(chunkUrl, cancellationToken);
+                response.EnsureSuccessStatusCode();
+                
+                var chunkData = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                await outputStream.WriteAsync(chunkData, 0, chunkData.Length, cancellationToken);
+                
+                completedChunks++;
+                progress?.Report(new ChunkDownloadProgress 
+                { 
+                    TotalChunks = totalChunks, 
+                    CompletedChunks = completedChunks 
+                });
+                
+                // Small delay to avoid overwhelming Tidal's servers
+                await Task.Delay(50, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to download chunk {chunkUrl}: {ex.Message}", ex);
+            }
+        }
+        
+        outputStream.Position = 0;
+        return outputStream;
+    }
+    
+    /// <summary>
+    /// Legacy method for backward compatibility with existing TidalStreamInfo
+    /// </summary>
     public async Task<Stream> DownloadAndAssembleAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
     {
         // ARCHITECT FIX: Stream directly to temp file for memory efficiency
@@ -88,5 +143,13 @@ public class TidalChunkDownloader
         {
             return false;
         }
+    }
+    
+    /// <summary>
+    /// Validate chunk accessibility for new StreamManifest format
+    /// </summary>
+    public async Task<bool> ValidateChunkAccessibilityAsync(StreamManifest manifest)
+    {
+        return await ValidateChunkAccessibilityAsync(manifest.ChunkUrls);
     }
 }
