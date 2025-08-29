@@ -9,6 +9,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- CLI project always needs CLI framework -->
+    <IncludeCLIFramework>true</IncludeCLIFramework>
   </PropertyGroup>
 
 </Project>
