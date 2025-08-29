@@ -17,7 +17,7 @@ using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration;
 
-public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
+public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 {
     private readonly TidalSearchService _searchService;
     private readonly ITidalCore _apiClient;
@@ -29,7 +29,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
     public TidalIndexer(
         TidalSearchService searchService, 
         ITidalCore apiClient,
-        TidalSettings settings,
+        TidalIndexerSettings settings,
         ILogger logger = null)
         : base(settings, logger)
     {
@@ -56,7 +56,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
     {
         try
         {
-            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var preferredQuality = TidalQuality.Lossless; // Use default for search
             var searchResults = await _searchService.SearchWithQualityDetectionAsync(searchTerm, preferredQuality);
             
             return searchResults.Albums?
@@ -75,7 +75,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
     {
         try
         {
-            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var preferredQuality = TidalQuality.Lossless; // Use default for search
             var searchResults = await _searchService.SearchWithQualityDetectionAsync(searchTerm, preferredQuality);
             
             return searchResults.Tracks?
@@ -104,24 +104,29 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
         }
     }
     
-    protected override ValidationResult ValidateSettings(TidalSettings settings)
+    protected override ValidationResult ValidateSettings(TidalIndexerSettings settings)
     {
         var result = new ValidationResult();
         
-        if (!settings.IsValid(out var errorMessage))
+        if (string.IsNullOrEmpty(settings.TidalMarket))
         {
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("Settings", errorMessage));
+            result.Errors.Add(new FluentValidation.Results.ValidationFailure("TidalMarket", "Tidal market is required"));
+        }
+        
+        if (string.IsNullOrEmpty(settings.ConfigPath))
+        {
+            result.Errors.Add(new FluentValidation.Results.ValidationFailure("ConfigPath", "Config path is required"));
         }
         
         return result;
     }
     
     // Public API methods for backward compatibility and additional functionality
-    public async Task<List<TidalReleaseInfo>> SearchAsync(string query)
+    public new async Task<List<TidalReleaseInfo>> SearchAsync(string query)
     {
         try
         {
-            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var preferredQuality = TidalQuality.Lossless; // Use default for search
             var searchResults = await _searchService.SearchWithQualityDetectionAsync(query, preferredQuality);
             
             return MapToReleaseInfo(searchResults);
@@ -139,7 +144,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
     {
         try
         {
-            var preferredQuality = ParsePreferredQuality(Settings.PreferredQuality);
+            var preferredQuality = TidalQuality.Lossless; // Use default for search
             var searchResults = await _searchService.SearchWithQualityDetectionAsync(query, preferredQuality);
             
             return _mapper.ToStreamingSearchResults(searchResults);
@@ -168,8 +173,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
                     Type = "Album",
                     Quality = GetHighestQuality(album.AvailableQualities),
                     DownloadUrl = $"tidal://album/{album.Id}",
-                    PublishDate = album.ReleaseDate ?? DateTime.MinValue,
-                    TrackCount = album.TrackCount
+                    PublishDate = album.ReleaseDate,
+                    TrackCount = album.Tracks?.Count ?? 0
                 });
             }
         }
@@ -187,7 +192,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalSettings>
                     Type = "Track",
                     Quality = track.Quality.ToString(),
                     DownloadUrl = $"tidal://track/{track.Id}",
-                    PublishDate = track.Album?.ReleaseDate ?? DateTime.MinValue,
+                    PublishDate = track.ReleaseDate,
                     TrackCount = 1
                 });
             }

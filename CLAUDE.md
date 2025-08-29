@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built using the Lidarr.Plugin.Common shared library architecture. It provides both indexing and download capabilities for high-quality audio content from Tidal.
 
+**ALWAYS**:
+- Use constants from `TidalConstants.cs` rather than hardcoding.
+- Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalIndexerSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
+- Be aware that this project shares a common library with http://github.com/RicherTunes/Lidarr.Plugin.Common so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
+
 ## Build Commands
 
 ### **Development Builds (with CLI tools)**
@@ -79,28 +84,56 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 
 ## Key Components
 
-- **TidalIndexer**: Implements `BaseStreamingIndexer<TidalSettings>` for Lidarr search integration
-- **TidalDownloadClient**: Implements `BaseStreamingDownloadClient<TidalSettings>` for downloads
+### **Plugin Architecture (Plugin-First Design)**
+- **TidalIndexer**: Implements `BaseStreamingIndexer<TidalIndexerSettings>` for Lidarr search integration
+- **TidalDownloadClient**: Implements `BaseStreamingDownloadClient<TidalDownloadSettings>` for downloads
 - **TidalApiClient**: HTTP client using StreamingApiRequestBuilder pattern
 - **TidalModelMapper**: Maps between Tidal models and shared library models
 - **TidalResponseCache**: Tidal-specific caching extending StreamingResponseCache
 
+### **Tidal-Specific Components (In Plugin)**
+- **TidalStreamManifest**: DASH manifest parser for chunk URLs (Tidal-specific XML/MPD format)
+- **TidalChunkDownloader**: Sequential chunk download and assembly (Tidal's streaming protocol)
+- **TidalAudioFormatHandler**: M4A container with FLAC codec extraction (Tidal's format)
+- **TidalQualityMapper**: Maps Lidarr quality to Tidal's AudioQuality enum
+- **TidalConcurrentDownloadManager**: Semaphore-controlled album downloads
+
+### **Shared Library Components (In Lidarr.Plugin.Common)**
+- **BaseStreamingIndexer/DownloadClient**: Common streaming service patterns
+- **StreamingApiRequestBuilder**: HTTP client with OAuth, rate limiting, retries
+- **StreamingResponseCache**: Generic caching with TTL and memory management
+- **OAuth2PKCEAuthenticationService**: Standard OAuth 2.0 + PKCE flow
+- **StreamingModels**: Common models (StreamingTrack, StreamingAlbum, etc.)
+
+### **CLI Architecture (Uses Plugin)**
+- **CLI commands invoke plugin methods directly**
+- **No business logic in CLI - pure interface layer**
+- **CLI focuses on user interaction, plugin handles all streaming logic**
+
 ## Development Workflow
 
-### **Standard Development**
+### **Plugin-First Development**
 
 ```bash
 # 1. Clone with submodules
 git clone --recursive <repo-url>
 
-# 2. Development build (includes CLI tools)
-dotnet build -p:IncludeCLIFramework=true
+# 2. Build plugin first (core functionality)
+dotnet build src/Tidalarr/
 
-# 3. Run CLI for testing
+# 3. Build CLI (thin wrapper using plugin)
+dotnet build TidalCLI/ -p:IncludeCLIFramework=true
+
+# 4. Test through CLI (CLI uses plugin methods)
 cd TidalCLI
-dotnet run -- auth login
 dotnet run -- search "Miles Davis Kind of Blue"
+dotnet run -- download-album <album-id>
 ```
+
+### **Architecture Principle**
+- **Plugin**: Contains all business logic, streaming protocols, format handling
+- **CLI**: Thin interface layer that calls plugin methods
+- **Shared Library**: Common patterns used by multiple streaming services
 
 ### **Production Deployment**
 

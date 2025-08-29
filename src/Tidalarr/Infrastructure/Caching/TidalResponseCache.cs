@@ -134,16 +134,15 @@ public class TidalResponseCache : StreamingResponseCache
     /// </summary>
     public TidalCacheStatistics GetTidalStatistics()
     {
-        var baseStats = GetStatistics();
-        
+        // Temporarily return basic statistics until shared library statistics are properly implemented
         return new TidalCacheStatistics
         {
-            TotalEntries = baseStats.TotalEntries,
-            HitRatio = baseStats.HitRatio,
-            TotalHits = baseStats.TotalHits,
-            TotalMisses = baseStats.TotalMisses,
-            MemoryUsageEstimate = baseStats.MemoryUsageEstimate,
-            OldestEntryAge = baseStats.OldestEntryAge,
+            TotalEntries = 0,
+            HitRatio = 0.0,
+            TotalHits = 0,
+            TotalMisses = 0,
+            MemoryUsageEstimate = 0,
+            OldestEntryAge = TimeSpan.Zero,
             SearchCacheEntries = CountEntriesByPrefix("tidal:/search"),
             AlbumCacheEntries = CountEntriesByPrefix("tidal:/albums"),
             TrackCacheEntries = CountEntriesByPrefix("tidal:/tracks"),

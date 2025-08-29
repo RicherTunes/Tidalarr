@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Registration;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Caching;
@@ -73,7 +74,7 @@ public class TidalModule : StreamingPluginModule
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
         // Register shared library base services
-        services.AddScoped<IStreamingResponseCache, TidalResponseCache>();
+        services.AddScoped<IStreamingResponseCache, StreamingResponseCache>();
         services.AddScoped<AdaptiveRateLimiter, TidalRateLimiter>();
         services.AddTransient<PerformanceMonitor>();
     }
@@ -84,7 +85,7 @@ public class TidalModule : StreamingPluginModule
         // Register Tidalarr-specific services here
     }
     
-    public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalSettings settings)
+    public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
     {
         // Register settings as singleton for this instance
         var services = new ServiceCollection();
@@ -96,7 +97,7 @@ public class TidalModule : StreamingPluginModule
         return provider.GetRequiredService<TidalIndexer>();
     }
     
-    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalSettings settings)
+    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadSettings settings)
     {
         var services = new ServiceCollection();
         services.AddSingleton(settings);
@@ -107,7 +108,12 @@ public class TidalModule : StreamingPluginModule
         return provider.GetRequiredService<TidalDownloadClient>();
     }
     
-    public static bool ValidateConfiguration(TidalSettings settings)
+    public static bool ValidateConfiguration(TidalIndexerSettings settings)
+    {
+        return settings.IsValid(out _);
+    }
+    
+    public static bool ValidateConfiguration(TidalDownloadSettings settings)
     {
         return settings.IsValid(out _);
     }
