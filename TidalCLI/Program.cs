@@ -1,11 +1,15 @@
-using Tidalarr.Core.Models;
+using System.Net.Http;
+using System.Text.Json;
+using Tidalarr.Domain.Streaming;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
+using Tidalarr.Domain.Quality;
 
 namespace TidalCLI;
 
 class Program
 {
+    private static readonly HttpClient httpClient = new HttpClient();
     static async Task Main(string[] args)
     {
         Console.WriteLine("🎵 Tidalarr CLI - Tidal Plugin Test Bed");
@@ -36,8 +40,8 @@ class Program
             Console.WriteLine("\nAvailable Commands:");
             Console.WriteLine("1. test-oauth    - Test OAuth URL generation");
             Console.WriteLine("2. test-callback - Test OAuth callback parsing");
-            Console.WriteLine("3. test-search   - Test search functionality (mock)");
-            Console.WriteLine("4. test-download - Test download workflow (mock)");
+            Console.WriteLine("3. test-search   - Test real music search functionality");
+            Console.WriteLine("4. test-download - Test real download workflow");
             Console.WriteLine("5. test-all      - Run all tests");
             Console.WriteLine("6. exit          - Exit application");
             
@@ -53,10 +57,10 @@ class Program
                     await TestCallbackParsing();
                     break;
                 case "3" or "test-search":
-                    await TestSearchFunctionality();
+                    await TestRealMusicSearch();
                     break;
                 case "4" or "test-download":
-                    await TestDownloadWorkflow();
+                    await TestRealDownloadWorkflow();
                     break;
                 case "5" or "test-all":
                     await RunAllTests();
@@ -84,10 +88,10 @@ class Program
                 await TestCallbackParsing();
                 break;
             case "test-search":
-                await TestSearchFunctionality();
+                await TestRealMusicSearch();
                 break;
             case "test-download":
-                await TestDownloadWorkflow();
+                await TestRealDownloadWorkflow();
                 break;
             case "test-all":
                 await RunAllTests();
@@ -148,12 +152,12 @@ class Program
     {
         Console.WriteLine("\n🔍 Testing Search Functionality...");
         
-        var settings = CreateTestSettings();
-        var indexer = TidalModule.CreateIndexer(settings);
+        var settings = CreateTestIndexerSettings();
+        var indexer = TidalModule.CreateIndexer(null, settings);
         
         Console.WriteLine($"✅ Search indexer created successfully");
         Console.WriteLine($"📊 Settings validation: {TidalModule.ValidateConfiguration(settings)}");
-        Console.WriteLine($"🎯 Preferred quality: {settings.PreferredQuality}");
+        Console.WriteLine($"🎯 Market: {settings.TidalMarket}");
         Console.WriteLine($"🌍 Market: {settings.TidalMarket}");
         
         // In real usage with authentication:
@@ -168,8 +172,8 @@ class Program
     {
         Console.WriteLine("\n⬇️  Testing Download Workflow...");
         
-        var settings = CreateTestSettings();
-        var downloadClient = TidalModule.CreateDownloadClient(settings);
+        var settings = CreateTestDownloadSettings();
+        var downloadClient = TidalModule.CreateDownloadClient(null, settings);
         
         Console.WriteLine($"✅ Download client created successfully");
         
@@ -211,16 +215,217 @@ class Program
         Console.WriteLine($"   🔗 Integration: Shared library + custom components");
     }
     
-    private static TidalSettings CreateTestSettings()
+    private static TidalIndexerSettings CreateTestIndexerSettings()
     {
-        return new TidalSettings
+        return new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_code&state=test_state",
-            PreferredQuality = "Lossless",
-            IncludeMqa = true,
+            ConfigPath = Path.Combine(Path.GetTempPath(), "tidalarr-test"),
             EnableCache = true,
             CacheDuration = 15
         };
+    }
+    
+    private static TidalDownloadSettings CreateTestDownloadSettings()
+    {
+        return new TidalDownloadSettings
+        {
+            PreferredQuality = "Lossless",
+            IncludeMqa = true,
+            DownloadPath = Path.Combine(Path.GetTempPath(), "tidalarr-downloads")
+        };
+    }
+    
+    static async Task TestRealMusicSearch()
+    {
+        Console.WriteLine("\n🔍 Testing Real Music Search...");
+        
+        var tokens = await TokenStorage.GetValidTokensAsync();
+        if (tokens == null)
+        {
+            Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
+            return;
+        }
+        
+        Console.Write("Enter search query (e.g., 'Bohemian Rhapsody Queen'): ");
+        var searchQuery = Console.ReadLine()?.Trim();
+        
+        if (string.IsNullOrEmpty(searchQuery))
+        {
+            searchQuery = "Bohemian Rhapsody Queen"; // Default test query
+            Console.WriteLine($"Using default query: {searchQuery}");
+        }
+        
+        try
+        {
+            // Test album search
+            Console.WriteLine($"\n🎵 Searching for albums: '{searchQuery}'");
+            var albumUrl = $"https://api.tidal.com/v1/search/albums?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
+            
+            httpClient.DefaultRequestHeaders.Clear();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"{tokens.TokenType} {tokens.AccessToken}");
+            
+            var response = await httpClient.GetAsync(albumUrl);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var searchResult = JsonSerializer.Deserialize<JsonElement>(content);
+                var albums = searchResult.GetProperty("items");
+                
+                Console.WriteLine($"✅ Found {albums.GetArrayLength()} albums:");
+                int i = 1;
+                foreach (var album in albums.EnumerateArray())
+                {
+                    var title = album.GetProperty("title").GetString();
+                    var artist = album.GetProperty("artist").GetProperty("name").GetString();
+                    var id = album.GetProperty("id").GetInt64();
+                    var quality = album.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
+                    
+                    Console.WriteLine($"   {i}. 📀 {title} by {artist} (ID: {id}, Quality: {quality})");
+                    i++;
+                    if (i > 3) break; // Show first 3 results
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Album search failed: {response.StatusCode}");
+                Console.WriteLine($"Response: {content}");
+            }
+            
+            // Test track search
+            Console.WriteLine($"\n🎵 Searching for tracks: '{searchQuery}'");
+            var trackUrl = $"https://api.tidal.com/v1/search/tracks?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
+            
+            var trackResponse = await httpClient.GetAsync(trackUrl);
+            var trackContent = await trackResponse.Content.ReadAsStringAsync();
+            
+            if (trackResponse.IsSuccessStatusCode)
+            {
+                var trackResult = JsonSerializer.Deserialize<JsonElement>(trackContent);
+                var tracks = trackResult.GetProperty("items");
+                
+                Console.WriteLine($"✅ Found {tracks.GetArrayLength()} tracks:");
+                int j = 1;
+                foreach (var track in tracks.EnumerateArray())
+                {
+                    var title = track.GetProperty("title").GetString();
+                    var artist = track.GetProperty("artist").GetProperty("name").GetString();
+                    var id = track.GetProperty("id").GetInt64();
+                    var duration = track.GetProperty("duration").GetInt32();
+                    var quality = track.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
+                    
+                    var durationStr = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
+                    Console.WriteLine($"   {j}. 🎵 {title} by {artist} ({durationStr}) (ID: {id}, Quality: {quality})");
+                    j++;
+                    if (j > 3) break; // Show first 3 results
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Track search failed: {trackResponse.StatusCode}");
+                Console.WriteLine($"Response: {trackContent}");
+            }
+            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error during search: {ex.Message}");
+        }
+    }
+    
+    static async Task TestRealDownloadWorkflow()
+    {
+        Console.WriteLine("\n⬇️ Testing Real Download Workflow...");
+        
+        var tokens = await TokenStorage.GetValidTokensAsync();
+        if (tokens == null)
+        {
+            Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
+            return;
+        }
+        
+        Console.Write("Enter track ID to test download (or press ENTER for default): ");
+        var trackIdInput = Console.ReadLine()?.Trim();
+        
+        // Use a track ID from our search results
+        var trackId = string.IsNullOrEmpty(trackIdInput) ? "36737274" : trackIdInput; // Bohemian Rhapsody
+        Console.WriteLine($"Testing download for track ID: {trackId} (Plugin-Based Architecture)");
+        
+        // Use plugin helper for proper architecture
+        var result = await TidalCLIHelper.TestRealDownloadWorkflowAsync(trackId, tokens);
+        Console.WriteLine(result);
+        
+        /* Old implementation - keeping for reference
+        try
+        {
+            // Step 1: Get track info
+            Console.WriteLine("\n📋 Step 1: Getting track information...");
+            var trackInfoUrl = $"https://api.tidal.com/v1/tracks/{trackId}?sessionId={tokens.UserId}&countryCode={tokens.CountryCode}";
+            
+            httpClient.DefaultRequestHeaders.Clear();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"{tokens.TokenType} {tokens.AccessToken}");
+            
+            var trackInfoResponse = await httpClient.GetAsync(trackInfoUrl);
+            var trackInfoContent = await trackInfoResponse.Content.ReadAsStringAsync();
+            
+            if (!trackInfoResponse.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"❌ Failed to get track info: {trackInfoResponse.StatusCode}");
+                Console.WriteLine($"Response: {trackInfoContent}");
+                return;
+            }
+            
+            var trackInfo = JsonSerializer.Deserialize<JsonElement>(trackInfoContent);
+            var title = trackInfo.GetProperty("title").GetString();
+            var artist = trackInfo.GetProperty("artist").GetProperty("name").GetString();
+            var duration = trackInfo.GetProperty("duration").GetInt32();
+            var quality = trackInfo.TryGetProperty("audioQuality", out var q) ? q.GetString() : "LOSSLESS";
+            
+            Console.WriteLine($"✅ Track: {title} by {artist}");
+            Console.WriteLine($"   Duration: {TimeSpan.FromSeconds(duration):mm\\:ss}");
+            Console.WriteLine($"   Quality: {quality}");
+            
+            // Step 2: Get stream URL
+            Console.WriteLine("\n📡 Step 2: Getting stream URL...");
+            var streamUrl = $"https://api.tidal.com/v1/tracks/{trackId}/playbackinfopostpaywall?audioquality={quality}&playbackmode=STREAM&assetpresentation=FULL&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}";
+            
+            var streamResponse = await httpClient.GetAsync(streamUrl);
+            var streamContent = await streamResponse.Content.ReadAsStringAsync();
+            
+            if (streamResponse.IsSuccessStatusCode)
+            {
+                var streamInfo = JsonSerializer.Deserialize<JsonElement>(streamContent);
+                
+                if (streamInfo.TryGetProperty("manifest", out var manifest))
+                {
+                    var manifestStr = manifest.GetString();
+                    Console.WriteLine("✅ Stream URL acquired successfully!");
+                    Console.WriteLine($"   Manifest type: {streamInfo.GetProperty("manifestMimeType").GetString()}");
+                    Console.WriteLine($"   Audio quality: {streamInfo.GetProperty("audioQuality").GetString()}");
+                    Console.WriteLine($"   Manifest preview: {manifestStr?[..Math.Min(100, manifestStr?.Length ?? 0)]}...");
+                }
+                else
+                {
+                    Console.WriteLine("✅ Stream info received but no manifest found");
+                    Console.WriteLine($"Response: {streamContent}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to get stream URL: {streamResponse.StatusCode}");
+                Console.WriteLine($"Response: {streamContent}");
+            }
+            
+            Console.WriteLine("\n🎉 Download workflow test completed!");
+            Console.WriteLine("Note: Actual audio download would parse the manifest and download chunks.");
+            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error during download test: {ex.Message}");
+        }
+        */
     }
 }

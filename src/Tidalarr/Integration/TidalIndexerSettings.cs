@@ -2,14 +2,17 @@ using Lidarr.Plugin.Common.Base;
 
 namespace Tidalarr.Integration;
 
-public class TidalSettings : BaseStreamingSettings
+public class TidalIndexerSettings : BaseStreamingSettings
 {
     public string TidalMarket { get; set; } = "US";
-    public bool IncludeMqa { get; set; } = true;
     public string RedirectUrl { get; set; } = string.Empty;
-    public string PreferredQuality { get; set; } = "Lossless";
+    public string ConfigPath { get; set; } = string.Empty;
+    public int EarlyReleaseLimit { get; set; } = 14;
     public bool EnableCache { get; set; } = true;
-    public int CacheDuration { get; set; } = 15;
+    public new int CacheDuration { get; set; } = 15;
+    
+    // Required by Lidarr indexer interface (unused but mandatory)
+    public override string BaseUrl { get; set; } = "https://api.tidal.com";
     
     public override bool IsValid(out string errorMessage)
     {
@@ -20,7 +23,7 @@ public class TidalSettings : BaseStreamingSettings
         // Validate Tidal-specific settings
         if (string.IsNullOrWhiteSpace(RedirectUrl))
         {
-            errorMessage = "Redirect URL is required";
+            errorMessage = "Redirect URL is required for OAuth authentication";
             return false;
         }
         
@@ -36,9 +39,21 @@ public class TidalSettings : BaseStreamingSettings
             return false;
         }
         
+        if (string.IsNullOrWhiteSpace(ConfigPath))
+        {
+            errorMessage = "Config path is required for storing authentication data";
+            return false;
+        }
+        
         if (!IsValidMarket(TidalMarket))
         {
             errorMessage = $"Invalid market '{TidalMarket}'. Supported: US, UK, DE, FR, CA, AU, JP";
+            return false;
+        }
+        
+        if (EarlyReleaseLimit < 0 || EarlyReleaseLimit > 365)
+        {
+            errorMessage = "Early release limit must be between 0 and 365 days";
             return false;
         }
         

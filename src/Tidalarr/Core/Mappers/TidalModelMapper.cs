@@ -27,22 +27,31 @@ public class TidalModelMapper
                 Id = track.Artists?.FirstOrDefault(),
                 Name = string.Join(", ", track.Artists ?? new List<string>()) 
             },
-            Album = track.Album != null ? ToStreamingAlbum(track.Album) : null,
+            Album = new StreamingAlbum
+            {
+                Id = track.AlbumId,
+                Title = track.AlbumTitle,
+                Artist = new StreamingArtist 
+                { 
+                    Id = track.Artists?.FirstOrDefault(),
+                    Name = string.Join(", ", track.Artists ?? new List<string>()) 
+                }
+            },
             TrackNumber = track.TrackNumber,
-            DiscNumber = track.DiscNumber,
-            Duration = track.Duration,
-            IsExplicit = track.IsExplicit,
-            Isrc = track.Isrc,
+            DiscNumber = 1, // Default value since not in TidalTrackInfo record
+            Duration = TimeSpan.FromSeconds(track.Duration),
+            IsExplicit = false, // Default value since not in TidalTrackInfo record
+            Isrc = string.Empty, // Default value since not in TidalTrackInfo record
             FeaturedArtists = new List<StreamingArtist>(),
             AvailableQualities = new List<StreamingQuality> { ToStreamingQuality(track.Quality) },
-            PreviewUrl = track.PreviewUrl,
-            Popularity = track.Popularity,
+            PreviewUrl = string.Empty, // Default value since not in TidalTrackInfo record
+            Popularity = 0, // Default value since not in TidalTrackInfo record
             Metadata = new Dictionary<string, object>
             {
                 ["tidal_id"] = track.Id,
-                ["tidal_url"] = track.Url,
-                ["copyright"] = track.Copyright,
-                ["version"] = track.Version
+                ["album_id"] = track.AlbumId,
+                ["release_date"] = track.ReleaseDate,
+                ["is_available"] = track.IsAvailable
             }
         };
     }
@@ -60,13 +69,13 @@ public class TidalModelMapper
             Title = album.Title,
             Artist = new StreamingArtist 
             { 
-                Id = album.ArtistId,
+                Id = album.Artists?.FirstOrDefault(),
                 Name = string.Join(", ", album.Artists ?? new List<string>()) 
             },
             AdditionalArtists = new List<StreamingArtist>(),
             ReleaseDate = album.ReleaseDate,
-            Type = MapAlbumType(album.Type),
-            TrackCount = album.TrackCount,
+            Type = StreamingAlbumType.Album, // Default value since Type property doesn't exist
+            TrackCount = album.Tracks?.Count ?? 0,
             Duration = TimeSpan.Zero, // Not available in TidalAlbumInfo
             Genres = new List<string>(), // Not available in TidalAlbumInfo
             Label = string.Empty, // Not available in TidalAlbumInfo
@@ -237,11 +246,11 @@ public class TidalModelMapper
                 Album = album.Title,
                 Type = StreamingSearchType.Album,
                 ReleaseDate = album.ReleaseDate,
-                Genre = album.Genres?.FirstOrDefault(),
-                Label = album.Label,
-                CoverArtUrl = album.CoverArt?.Replace("{w}x{h}", "320x320"),
-                TrackCount = album.TrackCount,
-                Duration = album.Duration,
+                Genre = null, // Genre info not available in TidalAlbumInfo
+                Label = null, // Label info not available in TidalAlbumInfo
+                CoverArtUrl = !string.IsNullOrEmpty(album.CoverArtId) ? $"https://resources.tidal.com/images/{album.CoverArtId.Replace("-", "/")}/320x320.jpg" : null,
+                TrackCount = album.Tracks?.Count ?? 0,
+                Duration = TimeSpan.FromSeconds(album.Tracks?.Sum(t => t.Duration) ?? 0),
                 Metadata = new Dictionary<string, object>
                 {
                     ["tidal_id"] = album.Id,
@@ -258,12 +267,12 @@ public class TidalModelMapper
                 Id = track.Id,
                 Title = track.Title,
                 Artist = string.Join(", ", track.Artists ?? new List<string>()),
-                Album = track.Album?.Title,
+                Album = track.AlbumTitle,
                 Type = StreamingSearchType.Track,
-                ReleaseDate = track.Album?.ReleaseDate,
-                CoverArtUrl = track.Album?.CoverArt?.Replace("{w}x{h}", "320x320"),
+                ReleaseDate = track.ReleaseDate,
+                CoverArtUrl = null, // Cover art URL not available in TidalTrackInfo
                 TrackCount = 1,
-                Duration = track.Duration,
+                Duration = TimeSpan.FromSeconds(track.Duration),
                 Metadata = new Dictionary<string, object>
                 {
                     ["tidal_id"] = track.Id,

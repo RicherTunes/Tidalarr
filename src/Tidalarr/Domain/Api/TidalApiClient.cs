@@ -297,7 +297,7 @@ public class TidalApiClient : ITidalCore, IDisposable
         // Basic implementation - manifest parsing will be enhanced later
         return new TidalStreamInfo(
             TrackId: trackId,
-            ChunkUrls: new[] { "https://test.tidal.com/chunk1.flac" }, // TODO: Parse manifest
+            ChunkUrls: new[] { "https://test.tidal.com/chunk1.flac" }, // Legacy - use StreamManifest for actual parsing
             FileExtension: ".flac",
             MimeType: dto.manifestMimeType,
             IsEncrypted: dto.encryptionType != "NONE",
