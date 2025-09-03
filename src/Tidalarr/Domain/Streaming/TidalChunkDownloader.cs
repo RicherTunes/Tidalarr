@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Domain.Streaming;
@@ -37,7 +38,8 @@ public class TidalChunkDownloader
             
             try
             {
-                var response = await _httpClient.GetAsync(chunkUrl, cancellationToken);
+                using var req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
+                var response = await _httpClient.ExecuteWithResilienceAsync(req, cancellationToken: cancellationToken);
                 response.EnsureSuccessStatusCode();
                 
                 var chunkData = await response.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -80,7 +82,8 @@ public class TidalChunkDownloader
                 var chunkUrl = streamInfo.ChunkUrls[i];
                 
                 // Stream chunk directly to file (no memory loading)
-                using var response = await _httpClient.GetAsync(chunkUrl, HttpCompletionOption.ResponseHeadersRead);
+                using var req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
+                using var response = await _httpClient.ExecuteWithResilienceAsync(req);
                 response.EnsureSuccessStatusCode();
                 
                 using var contentStream = await response.Content.ReadAsStreamAsync();

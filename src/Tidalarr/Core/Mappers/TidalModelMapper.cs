@@ -12,7 +12,7 @@ public class TidalModelMapper
     {
         // Create a non-null StreamingTrack even if inputs are sparse
         var artistName = string.Join(", ", track.Artists ?? new List<string>());
-        return new StreamingTrack
+        var streaming = new StreamingTrack
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
@@ -48,12 +48,17 @@ public class TidalModelMapper
                 ["is_available"] = track.IsAvailable
             }
         };
+
+        // Fill external IDs
+        streaming.ExternalIds["tidal"] = streaming.Id;
+        // MusicBrainz id not available from DTOs; leave default unless provided elsewhere
+        return streaming;
     }
 
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
         var artistName = string.Join(", ", album.Artists ?? new List<string>());
-        return new StreamingAlbum
+        var streaming = new StreamingAlbum
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,
@@ -91,6 +96,11 @@ public class TidalModelMapper
                 ["release_date"] = album.ReleaseDate
             }
         };
+
+        // Fill external IDs
+        streaming.ExternalIds["tidal"] = streaming.Id;
+        // MusicBrainz id unknown here
+        return streaming;
     }
 
     public StreamingArtist ToStreamingArtist(string artistId, string artistName, Dictionary<string, object>? metadata = null)
@@ -108,53 +118,14 @@ public class TidalModelMapper
 
     public StreamingQuality ToStreamingQuality(TidalQuality quality)
     {
+        // Preserve Tidal ids for compatibility, populate specs to align with universal tiers
         return quality switch
         {
-            TidalQuality.Low => new StreamingQuality
-            {
-                Id = "LOW",
-                Name = "Low",
-                Format = "AAC",
-                Bitrate = 96,
-                SampleRate = 44100,
-                BitDepth = null
-            },
-            TidalQuality.High => new StreamingQuality
-            {
-                Id = "HIGH",
-                Name = "High",
-                Format = "AAC",
-                Bitrate = 320,
-                SampleRate = 44100,
-                BitDepth = null
-            },
-            TidalQuality.Lossless => new StreamingQuality
-            {
-                Id = "LOSSLESS",
-                Name = "Lossless",
-                Format = "FLAC",
-                Bitrate = null,
-                SampleRate = 44100,
-                BitDepth = 16
-            },
-            TidalQuality.HiRes => new StreamingQuality
-            {
-                Id = "HI_RES",
-                Name = "Master",
-                Format = "FLAC",
-                Bitrate = null,
-                SampleRate = 96000,
-                BitDepth = 24
-            },
-            _ => new StreamingQuality
-            {
-                Id = "HIGH",
-                Name = "High",
-                Format = "AAC",
-                Bitrate = 320,
-                SampleRate = 44100,
-                BitDepth = null
-            }
+            TidalQuality.Low => new StreamingQuality { Id = "LOW", Name = "Low", Format = "AAC", Bitrate = 96, SampleRate = 44100 },
+            TidalQuality.High => new StreamingQuality { Id = "HIGH", Name = "High", Format = "AAC", Bitrate = 320, SampleRate = 44100 },
+            TidalQuality.Lossless => new StreamingQuality { Id = "LOSSLESS", Name = "Lossless", Format = "FLAC", BitDepth = 16, SampleRate = 44100 },
+            TidalQuality.HiRes => new StreamingQuality { Id = "HI_RES", Name = "Master", Format = "FLAC", BitDepth = 24, SampleRate = 96000 },
+            _ => new StreamingQuality { Id = "HIGH", Name = "High", Format = "AAC", Bitrate = 320, SampleRate = 44100 }
         };
     }
 

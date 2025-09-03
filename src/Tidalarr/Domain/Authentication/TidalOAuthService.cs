@@ -9,10 +9,11 @@ using Tidalarr.Core.Models;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Utilities;
+using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth
+public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth, IStreamingTokenProvider
 {
     private readonly HttpClient _httpClient;
     private readonly ITokenStorage _tokenStorage;
@@ -255,6 +256,58 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
 
         throw new InvalidOperationException("Not authenticated");
     }
+
+    // IStreamingTokenProvider implementation for shared OAuth handler
+    public async Task<string> GetAccessTokenAsync()
+    {
+        try
+        {
+            var tokens = await GetValidTokensAsync();
+            return tokens.AccessToken;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public async Task<string> RefreshTokenAsync()
+    {
+        try
+        {
+            var stored = _currentTokens ?? await _tokenStorage.LoadTokensAsync();
+            if (stored == null || string.IsNullOrEmpty(stored.RefreshToken)) return string.Empty;
+            var refreshed = await RefreshTokensAsync(stored.RefreshToken);
+            return refreshed.AccessToken;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public Task<bool> ValidateTokenAsync(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return Task.FromResult(false);
+        var valid = _currentTokens != null && !_currentTokens.IsExpired && _currentTokens.AccessToken == token;
+        return Task.FromResult(valid);
+    }
+
+    public DateTime? GetTokenExpiration(string token)
+    {
+        if (_currentTokens != null && _currentTokens.AccessToken == token)
+            return _currentTokens.ExpiresAt;
+        return null;
+    }
+
+    public void ClearAuthenticationCache()
+    {
+        _currentTokens = null;
+        try { _ = _tokenStorage.DeleteTokensAsync(); } catch { /* ignore */ }
+    }
+
+    public bool SupportsRefresh => true;
+    public string ServiceName => "Tidal";
 }
 
 public record TidalTokenResponse(
