@@ -29,9 +29,9 @@ public class TidalSearchService
     
     public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless)
     {
-        // Sanitize input using shared security utilities
+        // Validate and normalize input (URL encoding handled by request builder later)
         Guard.NotNullOrWhiteSpace(query, nameof(query));
-        var sanitizedQuery = InputSanitizer.SanitizeSearchQuery(query);
+        var sanitizedQuery = Sanitize.DisplayText(query);
         
         // Optimize query if optimizer is available
         var optimizedQuery = sanitizedQuery;
@@ -110,9 +110,9 @@ public class TidalSearchService
     
     public async Task<TidalSearchResults> SearchByTypeAsync(string query, TidalSearchType searchType, int limit = 100)
     {
-        // Sanitize and validate input
+        // Validate and normalize input (URL encoding handled by request builder later)
         Guard.NotNullOrWhiteSpace(query, nameof(query));
-        var sanitizedQuery = InputSanitizer.SanitizeSearchQuery(query);
+        var sanitizedQuery = Sanitize.DisplayText(query);
         
         // Optimize query based on search type
         var optimizedQuery = sanitizedQuery;
