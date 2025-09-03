@@ -62,12 +62,17 @@ public class Program
         while (true)
         {
             Console.WriteLine("\nAvailable Commands:");
-            Console.WriteLine("1. test-oauth    - Test OAuth URL generation");
-            Console.WriteLine("2. test-callback - Test OAuth callback parsing");
-            Console.WriteLine("3. test-search   - Test real music search functionality");
-            Console.WriteLine("4. test-download - Test real download workflow");
-            Console.WriteLine("5. test-all      - Run all tests");
-            Console.WriteLine("6. exit          - Exit application");
+            Console.WriteLine("1. test-oauth       - Test OAuth URL generation");
+            Console.WriteLine("2. test-callback    - Test OAuth callback parsing");
+            Console.WriteLine("3. test-search      - Test real music search (raw)");
+            Console.WriteLine("4. test-download    - Test real download workflow (raw)");
+            Console.WriteLine("5. auth-start       - Start OAuth login (live)");
+            Console.WriteLine("6. auth-complete    - Complete OAuth with callback URL");
+            Console.WriteLine("7. search           - Live search via plugin (requires auth)");
+            Console.WriteLine("8. download-track   - Live track download via orchestrator");
+            Console.WriteLine("9. download-album   - Live album download via orchestrator");
+            Console.WriteLine("A. test-all         - Run all tests");
+            Console.WriteLine("X. exit             - Exit application");
             
             Console.Write("\nEnter command number or name: ");
             var input = Console.ReadLine()?.Trim().ToLower();
@@ -86,10 +91,38 @@ public class Program
                 case "4" or "test-download":
                     await TestRealDownloadWorkflow();
                     break;
-                case "5" or "test-all":
+                case "5" or "auth-start":
+                    await AuthStart();
+                    break;
+                case "6" or "auth-complete":
+                    Console.Write("Enter full callback URL: ");
+                    var cb = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(cb)) await AuthComplete(cb!);
+                    break;
+                case "7" or "search":
+                    Console.Write("Enter search query: ");
+                    var q = Console.ReadLine();
+                    if (string.IsNullOrWhiteSpace(q)) q = "Bohemian Rhapsody Queen";
+                    await SearchViaPlugin(q!);
+                    break;
+                case "8" or "download-track":
+                    Console.Write("Enter track ID: ");
+                    var tid = Console.ReadLine();
+                    Console.Write("Enter output directory: ");
+                    var od = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(tid) && !string.IsNullOrWhiteSpace(od)) await DownloadTrack(tid!, od!);
+                    break;
+                case "9" or "download-album":
+                    Console.Write("Enter album ID: ");
+                    var aid = Console.ReadLine();
+                    Console.Write("Enter output directory: ");
+                    var od2 = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(aid) && !string.IsNullOrWhiteSpace(od2)) await DownloadAlbum(aid!, od2!);
+                    break;
+                case "a" or "test-all":
                     await RunAllTests();
                     break;
-                case "6" or "exit":
+                case "x" or "exit":
                     Console.WriteLine("👋 Goodbye!");
                     return;
                 default:
@@ -105,21 +138,6 @@ public class Program
         
         switch (command)
         {
-            case "auth-start":
-                await AuthStart();
-                break;
-            case "auth-complete":
-                if (args.Length < 2) { Console.WriteLine("Usage: auth-complete <callbackUrl>"); break; }
-                await AuthComplete(args[1]);
-                break;
-            case "download-track":
-                if (args.Length < 3) { Console.WriteLine("Usage: download-track <trackId> <outputDir>"); break; }
-                await DownloadTrack(args[1], args[2]);
-                break;
-            case "download-album":
-                if (args.Length < 3) { Console.WriteLine("Usage: download-album <albumId> <outputDir>"); break; }
-                await DownloadAlbum(args[1], args[2]);
-                break;
             case "test-oauth":
                 await TestOAuthGeneration();
                 break;
@@ -131,6 +149,25 @@ public class Program
                 break;
             case "test-download":
                 await TestRealDownloadWorkflow();
+                break;
+            case "auth-start":
+                await AuthStart();
+                break;
+            case "auth-complete":
+                if (args.Length < 2) { Console.WriteLine("Usage: auth-complete <callbackUrl>"); break; }
+                await AuthComplete(args[1]);
+                break;
+            case "search":
+                if (args.Length < 2) { Console.WriteLine("Usage: search <query>"); break; }
+                await SearchViaPlugin(args[1]);
+                break;
+            case "download-track":
+                if (args.Length < 3) { Console.WriteLine("Usage: download-track <trackId> <outputDir>"); break; }
+                await DownloadTrack(args[1], args[2]);
+                break;
+            case "download-album":
+                if (args.Length < 3) { Console.WriteLine("Usage: download-album <albumId> <outputDir>"); break; }
+                await DownloadAlbum(args[1], args[2]);
                 break;
             case "test-all":
                 await RunAllTests();
@@ -211,7 +248,7 @@ public class Program
         var tidalAuth = new Tidalarr.Domain.Authentication.TidalOAuthService(authHttp);
         try { _ = await tidalAuth.GetValidTokensAsync(); } catch { /* auth may still occur on first API call via handler, but we try upfront */ }
 
-        // Core API + services
+        // Core API + services (use DI-style construction for consistency)
         var apiHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         var api = new Tidalarr.Domain.Api.TidalApiClient(apiHttp, tidalAuth);
         var mapper = new Tidalarr.Core.Mappers.TidalModelMapper();
@@ -248,6 +285,36 @@ public class Program
             getStreamAsync: getStream,
             streamProvider: streamProvider);
         return orch;
+    }
+
+    private static async Task SearchViaPlugin(string query)
+    {
+        Console.WriteLine($"\n🔍 Live search via plugin: '{query}'");
+        var tokens = await TokenStorage.GetValidTokensAsync();
+        if (tokens == null) { Console.WriteLine("❌ Not authenticated. Use auth-start/auth-complete first."); return; }
+
+        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        var auth = new Tidalarr.Domain.Authentication.TidalOAuthService(http);
+        var api = new Tidalarr.Domain.Api.TidalApiClient(http, auth);
+        var mapper = new Tidalarr.Core.Mappers.TidalModelMapper();
+
+        try
+        {
+            var results = await api.SearchAsync(query, 10);
+            Console.WriteLine($"✅ Albums: {results.Albums.Count}, Tracks: {results.Tracks.Count}");
+            foreach (var a in results.Albums.Take(3))
+            {
+                Console.WriteLine($"  📀 {a.Title} — {string.Join(", ", a.Artists)} (id: {a.Id})");
+            }
+            foreach (var t in results.Tracks.Take(3))
+            {
+                Console.WriteLine($"  🎵 {t.Title} — {string.Join(", ", t.Artists)} (id: {t.Id})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Search failed: {ex.Message}");
+        }
     }
     
     static async Task TestOAuthGeneration()
