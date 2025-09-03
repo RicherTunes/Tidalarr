@@ -4,6 +4,7 @@ using Tidalarr.Domain.Streaming;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
 using Tidalarr.Domain.Quality;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TidalCLI;
 
@@ -104,6 +105,21 @@ public class Program
         
         switch (command)
         {
+            case "auth-start":
+                await AuthStart();
+                break;
+            case "auth-complete":
+                if (args.Length < 2) { Console.WriteLine("Usage: auth-complete <callbackUrl>"); break; }
+                await AuthComplete(args[1]);
+                break;
+            case "download-track":
+                if (args.Length < 3) { Console.WriteLine("Usage: download-track <trackId> <outputDir>"); break; }
+                await DownloadTrack(args[1], args[2]);
+                break;
+            case "download-album":
+                if (args.Length < 3) { Console.WriteLine("Usage: download-album <albumId> <outputDir>"); break; }
+                await DownloadAlbum(args[1], args[2]);
+                break;
             case "test-oauth":
                 await TestOAuthGeneration();
                 break;
@@ -123,6 +139,115 @@ public class Program
                 Console.WriteLine($"❌ Unknown command: {command}");
                 break;
         }
+    }
+
+    // --- Live OAuth using plugin service ---
+    static string AuthStatePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_auth_state.json");
+    class AuthState { public string CodeVerifier { get; set; } = string.Empty; public string State { get; set; } = string.Empty; }
+
+    static async Task AuthStart()
+    {
+        Console.WriteLine("\n🔐 Starting OAuth with Tidal via plugin service...");
+        var http = new HttpClient();
+        var auth = new Tidalarr.Domain.Authentication.TidalOAuthService(http);
+        var url = await auth.GenerateAuthUrlAsync();
+        Directory.CreateDirectory(Path.GetDirectoryName(AuthStatePath)!);
+        await File.WriteAllTextAsync(AuthStatePath, JsonSerializer.Serialize(new AuthState { CodeVerifier = url.CodeVerifier, State = url.State }));
+        Console.WriteLine("✅ Open this URL in your browser to authenticate:");
+        Console.WriteLine(url.AuthorizationUrl);
+        Console.WriteLine("\nThen run: tidalcli auth-complete <callbackUrl>");
+    }
+
+    static async Task AuthComplete(string callbackUrl)
+    {
+        if (!File.Exists(AuthStatePath)) { Console.WriteLine("❌ Missing auth state. Run 'auth-start' first."); return; }
+        var state = JsonSerializer.Deserialize<AuthState>(await File.ReadAllTextAsync(AuthStatePath)) ?? new AuthState();
+        var http = new HttpClient();
+        var auth = new Tidalarr.Domain.Authentication.TidalOAuthService(http);
+        var parsed = auth.ParseCallbackUrl(callbackUrl);
+        if (!parsed.IsSuccess) { Console.WriteLine($"❌ {parsed.ErrorMessage}"); return; }
+        if (!string.Equals(parsed.State, state.State, StringComparison.Ordinal)) { Console.WriteLine("❌ State mismatch"); return; }
+        var tokens = await auth.ExchangeCodeAsync(parsed.AuthCode, state.CodeVerifier);
+        Console.WriteLine("🎉 Authenticated and tokens saved.");
+        try { File.Delete(AuthStatePath); } catch { }
+    }
+
+    // --- Orchestrator downloads ---
+    static async Task DownloadTrack(string trackId, string outputDir)
+    {
+        var settings = CreateTestDownloadSettings();
+        Directory.CreateDirectory(outputDir);
+        var orchestrator = await CreateOrchestratorForCliAsync();
+        // The above creates a new provider; better approach is DI bootstrap if needed.
+        var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
+        {
+            Console.Write($"\r⬇️  {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
+        });
+        var tempPath = Path.Combine(outputDir, trackId + ".flac");
+        var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, null);
+        Console.WriteLine();
+        if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
+        else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+    }
+
+    static async Task DownloadAlbum(string albumId, string outputDir)
+    {
+        Directory.CreateDirectory(outputDir);
+        var orchestrator = await CreateOrchestratorForCliAsync();
+        var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
+        {
+            Console.Write($"\r⬇️  {p.CompletedTracks}/{p.TotalTracks} | {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
+        });
+        var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, null, progress);
+        Console.WriteLine();
+        if (result.Success) Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
+        else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+    }
+    
+    private static async Task<Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator> CreateOrchestratorForCliAsync()
+    {
+        // Ensure tokens exist (OAuth flow should be completed via auth-start/auth-complete)
+        var authHttp = new HttpClient();
+        var tidalAuth = new Tidalarr.Domain.Authentication.TidalOAuthService(authHttp);
+        try { _ = await tidalAuth.GetValidTokensAsync(); } catch { /* auth may still occur on first API call via handler, but we try upfront */ }
+
+        // Core API + services
+        var apiHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        var api = new Tidalarr.Domain.Api.TidalApiClient(apiHttp, tidalAuth);
+        var mapper = new Tidalarr.Core.Mappers.TidalModelMapper();
+        var streamParser = new Tidalarr.Domain.Streaming.TidalManifestParser();
+        var streamService = new Tidalarr.Domain.Streaming.TidalStreamService(api, streamParser);
+        var dlHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        var chunkDownloader = new Tidalarr.Domain.Streaming.TidalChunkDownloader(dlHttp);
+        var streamProvider = new Tidalarr.Integration.TidalChunkStreamProvider(streamService, chunkDownloader, mapper);
+
+        // Delegates
+        Func<string, Task<Lidarr.Plugin.Common.Models.StreamingAlbum>> getAlbum = async id => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
+        Func<string, Task<Lidarr.Plugin.Common.Models.StreamingTrack>> getTrack = async id => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
+        Func<string, Task<IReadOnlyList<string>>> getTrackIds = async id =>
+        {
+            var a = await api.GetAlbumWithTracksAsync(id);
+            return (IReadOnlyList<string>)(a.Tracks?.Select(t => t.Id).ToList() ?? new List<string>());
+        };
+        Func<string, Lidarr.Plugin.Common.Models.StreamingQuality?, Task<(string Url, string Extension)>> getStream = async (id, q) =>
+        {
+            var tidalQ = mapper.FromStreamingQuality(q ?? new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 });
+            var info = await api.GetStreamInfoAsync(id, tidalQ);
+            var url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
+            var ext = info.FileExtension?.TrimStart('.') ?? "flac";
+            return (url, ext);
+        };
+
+        // Orchestrator
+        var orch = new Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator(
+            serviceName: "Tidal",
+            httpClient: dlHttp,
+            getAlbumAsync: getAlbum,
+            getTrackAsync: getTrack,
+            getAlbumTrackIdsAsync: getTrackIds,
+            getStreamAsync: getStream,
+            streamProvider: streamProvider);
+        return orch;
     }
     
     static async Task TestOAuthGeneration()
