@@ -14,6 +14,9 @@ using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
+using Lidarr.Plugin.Common.Services.Download;
+using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Integration;
 
@@ -73,6 +76,8 @@ public class TidalModule : StreamingPluginModule
         services.AddScoped<TidalManifestParser>();
         services.AddScoped<TidalStreamService>();
         services.AddScoped<TidalChunkDownloader>();
+        services.AddScoped<TidalChunkStreamProvider>();
+        services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
 
         // Application services
         services.AddScoped<TidalSearchService>();
@@ -80,6 +85,13 @@ public class TidalModule : StreamingPluginModule
         // Integration endpoints
         services.AddScoped<TidalIndexer>();
         services.AddScoped<TidalDownloadClient>();
+
+        // Orchestrator HttpClient (used only for direct-URL fallback; chunk path uses TidalChunkDownloader)
+        services.AddHttpClient("TidalOrchestrator", client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
+        });
     }
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
@@ -117,4 +129,42 @@ public class TidalModule : StreamingPluginModule
 
     public static bool ValidateConfiguration(TidalIndexerSettings settings) => settings.IsValid(out _);
     public static bool ValidateConfiguration(TidalDownloadSettings settings) => settings.IsValid(out _);
+
+    // Convenience factory to produce a shared orchestrator wired to Tidal services
+    public static SimpleDownloadOrchestrator CreateOrchestrator(IServiceProvider serviceProvider)
+    {
+        var httpFactory = serviceProvider.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+        var httpClient = httpFactory.CreateClient("TidalOrchestrator");
+
+        var api = serviceProvider.GetRequiredService<ITidalCore>();
+        var mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
+        var streamService = serviceProvider.GetRequiredService<TidalStreamService>();
+        var chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
+
+        // Delegates for orchestrator
+        Func<string, Task<StreamingAlbum>> getAlbum = async id => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
+        Func<string, Task<StreamingTrack>> getTrack = async id => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
+        Func<string, Task<IReadOnlyList<string>>> getTrackIds = async id =>
+        {
+            var a = await api.GetAlbumWithTracksAsync(id);
+            return (IReadOnlyList<string>)(a.Tracks?.Select(t => t.Id).ToList() ?? new List<string>());
+        };
+        Func<string, StreamingQuality?, Task<(string Url, string Extension)>> getStream = async (id, q) =>
+        {
+            var tidalQ = mapper.FromStreamingQuality(q ?? new StreamingQuality { Bitrate = 320 });
+            var info = await api.GetStreamInfoAsync(id, tidalQ);
+            var url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
+            var ext = info.FileExtension?.TrimStart('.') ?? "flac";
+            return (url, ext);
+        };
+
+        return new SimpleDownloadOrchestrator(
+            serviceName: ModuleName,
+            httpClient: httpClient,
+            getAlbumAsync: getAlbum,
+            getTrackAsync: getTrack,
+            getAlbumTrackIdsAsync: getTrackIds,
+            getStreamAsync: getStream,
+            streamProvider: chunkProvider);
+    }
 }
