@@ -117,7 +117,7 @@ public class TidalStreamServiceTests
         var invalidManifest = "corrupted_manifest_data";
         
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<FormatException>(() =>
             _streamService.GetStreamInfoWithManifestParsingAsync(
                 "track123", TidalQuality.Lossless, invalidManifest, "application/dash+xml"));
     }
@@ -209,4 +209,25 @@ public class MockTidalApiClient : ITidalCore
         var defaultStream = new TidalStreamInfo(trackId, new[] { "default" }, ".flac", "audio/flac", false, null);
         return Task.FromResult(defaultStream);
     }
+
+    public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
+    {
+        var tracks = new List<TidalTrackInfo>
+        {
+            new(albumId + "_t1", "Track 1", new List<string>{"Artist"}, albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
+        };
+        return Task.FromResult(tracks);
+    }
+
+    public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
+    {
+        var tracks = new List<TidalTrackInfo>
+        {
+            new(albumId + "_t1", "Track 1", new List<string>{"Artist"}, albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
+        };
+        var album = new TidalAlbumInfo(albumId, "Album", new List<string>{"Artist"}, tracks, new List<TidalQuality>{TidalQuality.Lossless}, DateTime.Now, "cover", true);
+        return Task.FromResult(album);
+    }
+
+    public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
 }

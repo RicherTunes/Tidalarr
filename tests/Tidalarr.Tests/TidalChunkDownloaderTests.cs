@@ -32,9 +32,9 @@ public class TidalChunkDownloaderTests
         Assert.NotNull(result);
         
         // Verify chunks are assembled in order
-        var buffer = new byte[result.Length];
-        await result.ReadAsync(buffer);
-        var assembledContent = Encoding.UTF8.GetString(buffer);
+        using var ms = new MemoryStream();
+        await result.CopyToAsync(ms);
+        var assembledContent = Encoding.UTF8.GetString(ms.ToArray());
         Assert.Equal("chunk1datachunk2datachunk3data", assembledContent);
     }
     
@@ -103,10 +103,9 @@ public class MockChunkHttpMessageHandler : HttpMessageHandler
         _chunks = chunks;
     }
     
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var response = new HttpResponseMessage(HttpStatusCode.OK);
-        
         // Return chunks in order
         if (_chunkIndex < _chunks.Length)
         {
@@ -114,7 +113,6 @@ public class MockChunkHttpMessageHandler : HttpMessageHandler
             response.Content = new ByteArrayContent(chunkData);
             _chunkIndex++;
         }
-        
-        return response;
+        return Task.FromResult(response);
     }
 }

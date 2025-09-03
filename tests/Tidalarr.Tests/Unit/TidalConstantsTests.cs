@@ -39,11 +39,11 @@ public class TidalConstantsTests
     }
     
     [Fact]
-    public void TidalConstants_MasterKey_IsValidBase64()
+    public void TidalConstants_ApiEndpoints_AreConfigured()
     {
-        Assert.NotEmpty(TidalConstants.MASTER_KEY);
-        var decoded = Convert.FromBase64String(TidalConstants.MASTER_KEY);
-        Assert.NotEmpty(decoded);
-        Assert.True(decoded.Length >= 32);
+        Assert.StartsWith("https://", TidalConstants.API_V1_BASE);
+        Assert.Contains("tidal.com", TidalConstants.API_V1_BASE);
+        Assert.StartsWith("https://", TidalConstants.AUTH_BASE);
+        Assert.StartsWith("https://", TidalConstants.LOGIN_BASE);
     }
 }

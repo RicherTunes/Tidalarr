@@ -10,3 +10,4 @@ public interface ITidalAuth
     Task<TidalTokens> GetValidTokensAsync();
     bool IsAuthenticated { get; }
 }
+

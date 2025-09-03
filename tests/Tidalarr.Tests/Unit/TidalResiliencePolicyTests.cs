@@ -86,28 +86,27 @@ public class TidalResiliencePolicyTests
     }
     
     [Fact]
-    public async Task TidalResiliencePolicy_HttpRetryPolicy_WithTransientError_RetriesCorrectly()
+    public async Task TidalResiliencePolicy_HttpRetryPolicy_WithTransientError_RetriesAndSucceeds()
     {
         // Arrange
         var policy = TidalResiliencePolicy.CreateHttpRetryPolicy();
         var attemptCount = 0;
         
-        // Act & Assert
-        await Assert.ThrowsAsync<HttpRequestException>(async () =>
+        // Act
+        var result = await policy.ExecuteAsync(async () =>
         {
-            await policy.ExecuteAsync(async () =>
+            await Task.Yield();
+            attemptCount++;
+            if (attemptCount <= 3) // Will fail on first 3 attempts
             {
-                attemptCount++;
-                if (attemptCount <= 3) // Will fail on first 3 attempts
-                {
-                    throw new HttpRequestException("Transient error");
-                }
-                return new HttpResponseMessage(HttpStatusCode.OK);
-            });
+                throw new HttpRequestException("Transient error");
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK);
         });
-        
-        // Should have attempted 4 times (1 initial + 3 retries)
+
+        // Assert - Should have attempted 4 times (1 initial + 3 retries) and succeed
         Assert.Equal(4, attemptCount);
+        Assert.True(result.IsSuccessStatusCode);
     }
     
     [Fact]
@@ -122,6 +121,7 @@ public class TidalResiliencePolicyTests
         {
             await policy.ExecuteAsync(async () =>
             {
+                await Task.Yield();
                 attemptCount++;
                 throw new InvalidOperationException("Token refresh failed");
             });
@@ -143,6 +143,7 @@ public class TidalResiliencePolicyTests
         {
             await policy.ExecuteAsync(async () =>
             {
+                await Task.Yield();
                 attemptCount++;
                 throw new TaskCanceledException("Network timeout");
             });

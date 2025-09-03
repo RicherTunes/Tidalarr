@@ -38,8 +38,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         ITidalCore apiClient,
         TidalQualityDetector qualityDetector,
         TidalDownloadSettings settings,
-        ILogger logger = null)
-        : base(settings, logger)
+        Microsoft.Extensions.Logging.ILogger? logger = null)
+        : base(settings, logger!)
     {
         _streamService = streamService;
         _chunkDownloader = chunkDownloader;
@@ -65,7 +65,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     protected override async Task<StreamingAlbum> GetAlbumAsync(string albumId)
     {
         var tidalAlbum = await _apiClient.GetAlbumWithTracksAsync(albumId);
-        var streamingAlbum = _mapper.ToStreamingAlbum(tidalAlbum);
+        var streamingAlbum = _mapper.ToStreamingAlbum(tidalAlbum)!;
         
         // Ensure tracks are populated in the streaming album
         if (tidalAlbum.Tracks?.Any() == true)
@@ -80,7 +80,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     protected override async Task<StreamingTrack> GetTrackAsync(string trackId)
     {
         var tidalTrack = await _apiClient.GetTrackAsync(trackId);
-        return _mapper.ToStreamingTrack(tidalTrack);
+        return _mapper.ToStreamingTrack(tidalTrack)!;
     }
     
     protected override async Task<string> GetStreamUrlAsync(string trackId, string quality)
@@ -131,16 +131,14 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
             var track = await GetTrackAsync(trackId);
             var quality = preferredQuality ?? ParsePreferredQuality(Settings.PreferredQuality);
             
-            // Step 2: Get stream manifest data from Tidal API
-            var streamData = await GetStreamManifestDataAsync(trackId, quality);
+            // Step 2: Prefer parsed manifest for accurate chunks and codec within M4A
+            var manifest = await _streamService.GetParsedManifestAsync(trackId, quality);
             
-            // Step 3: Parse DASH manifest
-            var manifest = new StreamManifest(streamData);
-            
-            Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codecs} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
+            Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
             
             // Step 4: Download and assemble chunks
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+            var dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
+            Directory.CreateDirectory(dir);
             
             var progress = new Progress<ChunkDownloadProgress>(p => 
             {
@@ -157,10 +155,10 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
             
             // Step 6: Process audio format (extract FLAC from M4A if needed)
             var finalPath = tempPath;
-            if (Settings.ExtractFlac && manifest.Codecs == "FLAC")
+            if (Settings.ExtractFlac && manifest.Codec == "FLAC")
             {
                 var extractedPath = await AudioFormatHandler.ProcessAudioFileAsync(
-                    tempPath, manifest.Codecs, extractFlac: true, keepOriginal: false);
+                    tempPath, manifest.Codec, extractFlac: true, keepOriginal: false);
                 finalPath = extractedPath;
             }
             
@@ -183,7 +181,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
                 FileSize = new FileInfo(finalPath).Length,
                 OriginalFormat = manifest.FileExtension,
                 ExtractedFormat = Path.GetExtension(finalPath),
-                Codecs = manifest.Codecs,
+                Codecs = manifest.Codec,
                 ChunkCount = manifest.ChunkUrls.Length
             };
         }
@@ -229,7 +227,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
             var quality = preferredQuality ?? ParsePreferredQuality(Settings.PreferredQuality);
             var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
             
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+            var dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
+            Directory.CreateDirectory(dir2);
             
             var progress = new Progress<int>();
             using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
@@ -351,8 +350,8 @@ public class EnhancedDownloadResult
     public bool Success { get; set; }
     public string TrackId { get; set; } = string.Empty;
     public string OutputPath { get; set; } = string.Empty;
-    public StreamingTrack Track { get; set; }
-    public StreamingQuality Quality { get; set; }
+    public StreamingTrack? Track { get; set; }
+    public StreamingQuality? Quality { get; set; }
     public long FileSize { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
@@ -373,8 +372,8 @@ public class StreamingDownloadResult
     public bool Success { get; set; }
     public string TrackId { get; set; } = string.Empty;
     public string OutputPath { get; set; } = string.Empty;
-    public StreamingTrack Track { get; set; }
-    public StreamingQuality Quality { get; set; }
+    public StreamingTrack? Track { get; set; }
+    public StreamingQuality? Quality { get; set; }
     public long FileSize { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;

@@ -23,7 +23,7 @@ public class TidalChunkDownloader
     /// Download and assemble chunks from Tidal DASH manifest
     /// </summary>
     public async Task<MemoryStream> DownloadAndAssembleAsync(
-        StreamManifest manifest, 
+        TidalManifest manifest, 
         IProgress<ChunkDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -102,8 +102,10 @@ public class TidalChunkDownloader
     
     public async Task<byte[]> DownloadAndAssembleBytesAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
     {
-        using var stream = await DownloadAndAssembleAsync(streamInfo, progress);
-        return ((MemoryStream)stream).ToArray();
+        await using var stream = await DownloadAndAssembleAsync(streamInfo, progress);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        return ms.ToArray();
     }
     
     private async Task<byte[]> DownloadChunkWithRetryAsync(string chunkUrl, int maxRetries = 3)

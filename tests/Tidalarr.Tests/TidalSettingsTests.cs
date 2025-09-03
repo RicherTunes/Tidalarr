@@ -9,14 +9,15 @@ public class TidalSettingsTests
     public void TidalSettings_DefaultValues_AreCorrect()
     {
         // Arrange & Act
-        var settings = new TidalSettings();
-        
+        var indexer = new TidalIndexerSettings();
+        var download = new TidalDownloadSettings();
+
         // Assert
-        Assert.Equal("US", settings.TidalMarket);
-        Assert.True(settings.IncludeMqa);
-        Assert.Equal("Lossless", settings.PreferredQuality);
-        Assert.True(settings.EnableCache);
-        Assert.Equal(15, settings.CacheDuration);
+        Assert.Equal("US", indexer.TidalMarket);
+        Assert.True(indexer.EnableCache);
+        Assert.Equal(15, indexer.CacheDuration);
+        Assert.True(download.IncludeMqa);
+        Assert.Equal("Lossless", download.PreferredQuality);
     }
     
     [Theory]
@@ -27,9 +28,10 @@ public class TidalSettingsTests
     public void IsValid_VariousRedirectUrls_ValidatesCorrectly(string redirectUrl, bool expectedValid, string expectedError)
     {
         // Arrange
-        var settings = new TidalSettings
+        var settings = new TidalIndexerSettings
         {
-            RedirectUrl = redirectUrl
+            RedirectUrl = redirectUrl,
+            ConfigPath = "C:/temp"
         };
         
         // Act
@@ -45,15 +47,17 @@ public class TidalSettingsTests
     public void TidalSettings_InheritsFromBaseStreamingSettings()
     {
         // Arrange & Act
-        var settings = new TidalSettings();
-        
+        var indexer = new TidalIndexerSettings();
+        var download = new TidalDownloadSettings();
+
         // Assert - Verify inheritance from shared library
-        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(settings);
-        
-        // Verify shared library fields are available
-        Assert.NotNull(settings.PreferredQuality);
-        Assert.True(settings.EnableCache);
-        Assert.True(settings.CacheDuration > 0);
+        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(indexer);
+        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(download);
+
+        // Verify key fields
+        Assert.True(indexer.EnableCache);
+        Assert.True(indexer.CacheDuration > 0);
+        Assert.NotNull(download.PreferredQuality);
     }
     
     [Theory]
@@ -65,10 +69,11 @@ public class TidalSettingsTests
     public void ValidateMarket_VariousMarkets_ValidatesCorrectly(string market, bool expectedValid)
     {
         // Arrange
-        var settings = new TidalSettings
+        var settings = new TidalIndexerSettings
         {
             TidalMarket = market,
-            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test"
+            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
+            ConfigPath = "C:/temp"
         };
         
         // Act

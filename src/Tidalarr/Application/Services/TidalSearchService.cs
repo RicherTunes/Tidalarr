@@ -18,9 +18,9 @@ public class TidalSearchService
 {
     private readonly ITidalCore _apiClient;
     private readonly TidalQualityDetector _qualityDetector;
-    private readonly IQueryOptimizer _queryOptimizer;
+    private readonly IQueryOptimizer? _queryOptimizer;
     
-    public TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer queryOptimizer = null)
+    public TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null)
     {
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
         _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
@@ -50,7 +50,7 @@ public class TidalSearchService
         
         // Execute search with safe error handling
         var stopwatch = Stopwatch.StartNew();
-        var (success, searchResults) = await SafeOperationExecutor.TryExecuteAsync(() => 
+        var (success, searchResults) = await SafeOperationExecutor.TryExecuteAsync<TidalSearchResults>(() => 
             _apiClient.SearchAsync(optimizedQuery));
             
         if (!success || searchResults == null)
@@ -121,7 +121,7 @@ public class TidalSearchService
         }
         
         // Execute search with error handling
-        var (success, allResults) = await SafeOperationExecutor.TryExecuteAsync(() => 
+        var (success, allResults) = await SafeOperationExecutor.TryExecuteAsync<TidalSearchResults>(() => 
             _apiClient.SearchAsync(optimizedQuery, limit));
             
         if (!success || allResults == null)
@@ -157,7 +157,7 @@ public class TidalSearchService
     {
         Guard.NotNullOrWhiteSpace(albumId, nameof(albumId));
         
-        var (success, album) = await SafeOperationExecutor.TryExecuteAsync(() => 
+        var (success, album) = await SafeOperationExecutor.TryExecuteAsync<TidalAlbumInfo>(() => 
             _apiClient.GetAlbumAsync(albumId));
             
         if (!success || album == null)

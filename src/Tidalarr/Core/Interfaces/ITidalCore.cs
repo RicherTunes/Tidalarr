@@ -11,4 +11,9 @@ public interface ITidalCore
     Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default);
     Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default);
     Task<bool> IsAuthenticatedAsync();
+
+    // New scalable surface: raw playback info fetch with manifest and mime
+    // Default implementation throws to avoid breaking existing stubs; concrete clients should override.
+    Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Playback-info is not supported by this ITidalCore implementation");
 }
