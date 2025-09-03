@@ -72,6 +72,7 @@ public class Program
             Console.WriteLine("8. download-track   - Live track download via orchestrator");
             Console.WriteLine("9. download-album   - Live album download via orchestrator");
             Console.WriteLine("A. test-all         - Run all tests");
+            Console.WriteLine("C. config           - Configure defaults (output dir, quality)");
             Console.WriteLine("X. exit             - Exit application");
             
             Console.Write("\nEnter command number or name: ");
@@ -121,6 +122,9 @@ public class Program
                     break;
                 case "a" or "test-all":
                     await RunAllTests();
+                    break;
+                case "c" or "config":
+                    await ConfigureDefaults();
                     break;
                 case "x" or "exit":
                     Console.WriteLine("👋 Goodbye!");
@@ -192,6 +196,7 @@ public class Program
         await File.WriteAllTextAsync(AuthStatePath, JsonSerializer.Serialize(new AuthState { CodeVerifier = url.CodeVerifier, State = url.State }));
         Console.WriteLine("✅ Open this URL in your browser to authenticate:");
         Console.WriteLine(url.AuthorizationUrl);
+        TryOpenBrowser(url.AuthorizationUrl);
         Console.WriteLine("\nThen run: tidalcli auth-complete <callbackUrl>");
     }
 
@@ -212,7 +217,8 @@ public class Program
     // --- Orchestrator downloads ---
     static async Task DownloadTrack(string trackId, string outputDir)
     {
-        var settings = CreateTestDownloadSettings();
+        var cfg = CliConfig.Load();
+        outputDir = string.IsNullOrWhiteSpace(outputDir) ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads")) : outputDir;
         Directory.CreateDirectory(outputDir);
         var orchestrator = await CreateOrchestratorForCliAsync();
         // The above creates a new provider; better approach is DI bootstrap if needed.
@@ -220,25 +226,45 @@ public class Program
         {
             Console.Write($"\r⬇️  {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
         });
-        var tempPath = Path.Combine(outputDir, trackId + ".flac");
-        var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, null);
-        Console.WriteLine();
-        if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
-        else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+        try
+        {
+            var tempPath = Path.Combine(outputDir, trackId + ".flac");
+            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, null);
+            Console.WriteLine();
+            if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
+            else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"❌ Download error: {ex.Message}");
+            Console.WriteLine("Tip: Ensure you are authenticated (auth-start/auth-complete) and the track ID is valid in your region.");
+        }
     }
 
     static async Task DownloadAlbum(string albumId, string outputDir)
     {
+        var cfg = CliConfig.Load();
+        outputDir = string.IsNullOrWhiteSpace(outputDir) ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads")) : outputDir;
         Directory.CreateDirectory(outputDir);
         var orchestrator = await CreateOrchestratorForCliAsync();
         var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
         {
             Console.Write($"\r⬇️  {p.CompletedTracks}/{p.TotalTracks} | {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
         });
-        var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, null, progress);
-        Console.WriteLine();
-        if (result.Success) Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
-        else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+        try
+        {
+            var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, null, progress);
+            Console.WriteLine();
+            if (result.Success) Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
+            else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"❌ Download error: {ex.Message}");
+            Console.WriteLine("Tip: Ensure you are authenticated (auth-start/auth-complete) and the album ID is valid in your region.");
+        }
     }
     
     private static async Task<Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator> CreateOrchestratorForCliAsync()
@@ -285,6 +311,59 @@ public class Program
         {
             Console.WriteLine($"❌ Search failed: {ex.Message}");
         }
+    }
+
+    // --- Config management ---
+    class CliConfig
+    {
+        public string? OutputDirectory { get; set; }
+        public string PreferredQuality { get; set; } = "Lossless";
+
+        private static string PathCfg => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_config.json");
+        public static CliConfig Load()
+        {
+            try { if (File.Exists(PathCfg)) return JsonSerializer.Deserialize<CliConfig>(File.ReadAllText(PathCfg)) ?? new CliConfig(); }
+            catch { }
+            return new CliConfig();
+        }
+        public void Save()
+        {
+            try
+            {
+                var dir = System.IO.Path.GetDirectoryName(PathCfg);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                File.WriteAllText(PathCfg, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine($"✅ Saved config to {PathCfg}");
+            }
+            catch (Exception ex) { Console.WriteLine($"⚠️ Failed to save config: {ex.Message}"); }
+        }
+    }
+
+    static async Task ConfigureDefaults()
+    {
+        var cfg = CliConfig.Load();
+        Console.Write($"Output directory [{cfg.OutputDirectory ?? "(none)"}]: ");
+        var od = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(od)) cfg.OutputDirectory = od;
+        Console.Write($"Preferred quality (Low|High|Lossless|HiRes) [{cfg.PreferredQuality}]: ");
+        var pq = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(pq)) cfg.PreferredQuality = pq!;
+        cfg.Save();
+        await Task.CompletedTask;
+    }
+
+    static void TryOpenBrowser(string url)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch { /* ignore */ }
     }
     
     static async Task TestOAuthGeneration()
