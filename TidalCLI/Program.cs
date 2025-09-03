@@ -243,48 +243,18 @@ public class Program
     
     private static async Task<Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator> CreateOrchestratorForCliAsync()
     {
-        // Ensure tokens exist (OAuth flow should be completed via auth-start/auth-complete)
-        var authHttp = new HttpClient();
-        var tidalAuth = new Tidalarr.Domain.Authentication.TidalOAuthService(authHttp);
-        try { _ = await tidalAuth.GetValidTokensAsync(); } catch { /* auth may still occur on first API call via handler, but we try upfront */ }
-
-        // Core API + services (use DI-style construction for consistency)
-        var apiHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        var api = new Tidalarr.Domain.Api.TidalApiClient(apiHttp, tidalAuth);
-        var mapper = new Tidalarr.Core.Mappers.TidalModelMapper();
-        var streamParser = new Tidalarr.Domain.Streaming.TidalManifestParser();
-        var streamService = new Tidalarr.Domain.Streaming.TidalStreamService(api, streamParser);
-        var dlHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        var chunkDownloader = new Tidalarr.Domain.Streaming.TidalChunkDownloader(dlHttp);
-        var streamProvider = new Tidalarr.Integration.TidalChunkStreamProvider(streamService, chunkDownloader, mapper);
-
-        // Delegates
-        Func<string, Task<Lidarr.Plugin.Common.Models.StreamingAlbum>> getAlbum = async id => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
-        Func<string, Task<Lidarr.Plugin.Common.Models.StreamingTrack>> getTrack = async id => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
-        Func<string, Task<IReadOnlyList<string>>> getTrackIds = async id =>
+        // Use plugin module DI to construct all components consistently
+        var services = new ServiceCollection();
+        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        // Ensure auth (optional best effort)
+        try
         {
-            var a = await api.GetAlbumWithTracksAsync(id);
-            return (IReadOnlyList<string>)(a.Tracks?.Select(t => t.Id).ToList() ?? new List<string>());
-        };
-        Func<string, Lidarr.Plugin.Common.Models.StreamingQuality?, Task<(string Url, string Extension)>> getStream = async (id, q) =>
-        {
-            var tidalQ = mapper.FromStreamingQuality(q ?? new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 });
-            var info = await api.GetStreamInfoAsync(id, tidalQ);
-            var url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
-            var ext = info.FileExtension?.TrimStart('.') ?? "flac";
-            return (url, ext);
-        };
-
-        // Orchestrator
-        var orch = new Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator(
-            serviceName: "Tidal",
-            httpClient: dlHttp,
-            getAlbumAsync: getAlbum,
-            getTrackAsync: getTrack,
-            getAlbumTrackIdsAsync: getTrackIds,
-            getStreamAsync: getStream,
-            streamProvider: streamProvider);
-        return orch;
+            var auth = provider.GetRequiredService<Tidalarr.Domain.Authentication.TidalOAuthService>();
+            _ = await auth.GetValidTokensAsync();
+        }
+        catch { /* ignore */ }
+        return Tidalarr.Integration.TidalModule.CreateOrchestrator(provider);
     }
 
     private static async Task SearchViaPlugin(string query)
