@@ -7,48 +7,79 @@ public class TidalStreamService
 {
     private readonly ITidalCore _apiClient;
     private readonly TidalManifestParser _manifestParser;
-    
+
     public TidalStreamService(ITidalCore apiClient, TidalManifestParser manifestParser)
     {
         _apiClient = apiClient;
         _manifestParser = manifestParser;
     }
-    
-    public async Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality)
+
+    public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality)
+        => _apiClient.GetStreamInfoAsync(trackId, quality);
+
+    public Task<TidalStreamInfo> GetStreamInfoWithManifestParsingAsync(string trackId, TidalQuality quality, string manifest, string manifestMimeType)
     {
-        // Get playback info from Tidal API
-        var playbackInfo = await _apiClient.GetStreamInfoAsync(trackId, quality);
-        
-        // If API client already parsed the manifest, return as-is
-        if (playbackInfo.ChunkUrls.Length > 1)
-            return playbackInfo;
-        
-        // Otherwise, we need to parse the manifest ourselves
-        // This is a fallback for when API client doesn't parse manifests
-        return playbackInfo;
+        var parsed = _manifestParser.ParseManifest(manifest, manifestMimeType);
+        var info = new TidalStreamInfo(
+            TrackId: trackId,
+            ChunkUrls: parsed.ChunkUrls,
+            FileExtension: parsed.FileExtension,
+            MimeType: parsed.MimeType,
+            IsEncrypted: parsed.IsEncrypted,
+            SecurityToken: parsed.EncryptionKey);
+        return Task.FromResult(info);
     }
-    
-    public async Task<TidalStreamInfo> GetStreamInfoWithManifestParsingAsync(string trackId, TidalQuality quality, string manifest, string manifestMimeType)
+
+    // New: unified method that prefers raw playback-info + manifest parsing, falling back to legacy API stream info
+    public async Task<TidalStreamInfo> GetStreamInfoParsedAsync(string trackId, TidalQuality quality)
     {
         try
         {
-            var parsedManifest = _manifestParser.ParseManifest(manifest, manifestMimeType);
-            
+            var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
+            var parsed = _manifestParser.ParseManifest(playback.manifest, playback.manifestMimeType);
             return new TidalStreamInfo(
                 TrackId: trackId,
-                ChunkUrls: parsedManifest.ChunkUrls,
-                FileExtension: parsedManifest.FileExtension,
-                MimeType: parsedManifest.MimeType,
-                IsEncrypted: parsedManifest.IsEncrypted,
-                SecurityToken: parsedManifest.EncryptionKey
-            );
+                ChunkUrls: parsed.ChunkUrls,
+                FileExtension: parsed.FileExtension,
+                MimeType: parsed.MimeType,
+                IsEncrypted: parsed.IsEncrypted,
+                SecurityToken: playback.securityToken);
         }
-        catch (Exception ex)
+        catch (NotSupportedException)
         {
-            throw new InvalidOperationException($"Failed to process stream manifest for track {trackId}: {ex.Message}", ex);
+            // Fallback for older stubs/implementations
+            return await GetStreamInfoAsync(trackId, quality);
+        }
+        catch (Exception)
+        {
+            // On parse or fetch error, fall back to legacy method as well
+            return await GetStreamInfoAsync(trackId, quality);
         }
     }
-    
+
+    // Provide parsed manifest with codec/container details for enhanced downloads
+    public async Task<TidalManifest> GetParsedManifestAsync(string trackId, TidalQuality quality)
+    {
+        try
+        {
+            var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
+            return _manifestParser.ParseManifest(playback.manifest, playback.manifestMimeType);
+        }
+        catch (NotSupportedException)
+        {
+            // Fallback: build a minimal manifest from legacy stream info
+            var info = await GetStreamInfoAsync(trackId, quality);
+            return new TidalManifest(
+                ChunkUrls: info.ChunkUrls,
+                Codec: "MP4A",
+                MimeType: info.MimeType,
+                FileExtension: info.FileExtension,
+                SampleRate: 44100,
+                IsEncrypted: info.IsEncrypted,
+                EncryptionKey: info.SecurityToken);
+        }
+    }
+
     public async Task<bool> ValidateStreamAvailabilityAsync(string trackId, TidalQuality quality)
     {
         try
@@ -61,22 +92,18 @@ public class TidalStreamService
             return false;
         }
     }
-    
+
     public async Task<List<TidalQuality>> GetAvailableQualitiesForTrackAsync(string trackId)
     {
-        var availableQualities = new List<TidalQuality>();
-        
-        // Test each quality to see what's actually available
-        var qualitiesToTest = new[] { TidalQuality.HiRes, TidalQuality.Lossless, TidalQuality.High, TidalQuality.Low };
-        
-        foreach (var quality in qualitiesToTest)
+        var available = new List<TidalQuality>();
+        var order = new[] { TidalQuality.HiRes, TidalQuality.Lossless, TidalQuality.High, TidalQuality.Low };
+        foreach (var q in order)
         {
-            if (await ValidateStreamAvailabilityAsync(trackId, quality))
+            if (await ValidateStreamAvailabilityAsync(trackId, q))
             {
-                availableQualities.Add(quality);
+                available.Add(q);
             }
         }
-        
-        return availableQualities;
+        return available;
     }
 }

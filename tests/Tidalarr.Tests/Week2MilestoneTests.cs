@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
 using Xunit;
@@ -14,14 +15,24 @@ public class Week2MilestoneTests
     public async Task SilverMilestone_DownloadSingleTrack_WorksEndToEnd()
     {
         // Arrange
-        var settings = new TidalSettings
+        var indexerSettings = new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            PreferredQuality = "Lossless"
+            ConfigPath = "C:/temp"
         };
-        
-        var downloadClient = new TidalDownloadClient(settings);
+        var downloadSettings = new TidalDownloadSettings
+        {
+            PreferredQuality = "Lossless",
+            DownloadPath = System.IO.Path.GetTempPath(),
+            IncludeMqa = true
+        };
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(indexerSettings);
+        services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        var sp = services.BuildServiceProvider();
+        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
         
         // Act - This will use mocked services for testing
         // In real usage, this would download from Tidal API
@@ -33,18 +44,27 @@ public class Week2MilestoneTests
     }
     
     [Fact]
-    public async Task SilverMilestone_SearchAndDownload_IntegrationWorks()
+    public void SilverMilestone_SearchAndDownload_IntegrationWorks()
     {
         // Arrange
-        var settings = new TidalSettings
+        var indexerSettings = new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            PreferredQuality = "Lossless"
+            ConfigPath = "C:/temp"
         };
-        
-        var indexer = new TidalIndexer(settings);
-        var downloadClient = new TidalDownloadClient(settings);
+        var downloadSettings = new TidalDownloadSettings
+        {
+            PreferredQuality = "Lossless",
+            DownloadPath = System.IO.Path.GetTempPath()
+        };
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(indexerSettings);
+        services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        var sp = services.BuildServiceProvider();
+        var indexer = sp.GetRequiredService<TidalIndexer>();
+        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
         
         // This test validates the integration pattern works
         // With real authentication, this would:
@@ -54,7 +74,7 @@ public class Week2MilestoneTests
         
         Assert.NotNull(indexer);
         Assert.NotNull(downloadClient);
-        Assert.True(settings.IsValid(out _));
+        Assert.True(indexerSettings.IsValid(out _));
         
         Assert.True(true, "Silver Milestone foundation: Search and download integration pattern works!");
     }
@@ -65,18 +85,29 @@ public class Week2MilestoneTests
         // Verify complete component integration chain
         
         // 1. Settings validation
-        var settings = new TidalSettings
+        var indexerSettings = new TidalIndexerSettings
         {
-            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test"
+            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
+            ConfigPath = "C:/temp"
         };
-        Assert.True(settings.IsValid(out _));
+        Assert.True(indexerSettings.IsValid(out _));
+
+        var downloadSettings = new TidalDownloadSettings
+        {
+            PreferredQuality = "Lossless",
+            DownloadPath = System.IO.Path.GetTempPath()
+        };
+        Assert.True(downloadSettings.IsValid(out _));
         
-        // 2. Indexer instantiation
-        var indexer = new TidalIndexer(settings);
+        // 2/3. Instantiate via DI
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(indexerSettings);
+        services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        var sp = services.BuildServiceProvider();
+        var indexer = sp.GetRequiredService<TidalIndexer>();
+        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
         Assert.NotNull(indexer);
-        
-        // 3. Download client instantiation  
-        var downloadClient = new TidalDownloadClient(settings);
         Assert.NotNull(downloadClient);
         
         // 4. All core services can be built

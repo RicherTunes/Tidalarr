@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
@@ -21,8 +22,9 @@ public class SilverMedalIntegrationTests
         // 4. Tidalarr downloads track successfully
         
         // STEP 1: Plugin Configuration
-        var settings = CreateValidTidalSettings();
-        Assert.True(settings.IsValid(out var configError), $"Configuration should be valid: {configError}");
+        var indexerSettings = CreateValidIndexerSettings();
+        var downloadSettings = CreateValidDownloadSettings();
+        Assert.True(indexerSettings.IsValid(out var configError), $"Configuration should be valid: {configError}");
         
         // STEP 2: OAuth Authentication Simulation
         var authUrl = await SimulateOAuthFlow();
@@ -30,14 +32,19 @@ public class SilverMedalIntegrationTests
         Assert.Contains("tidal.com", authUrl.AuthorizationUrl);
         
         // STEP 3: Search Functionality
-        var indexer = TidalModule.CreateIndexer(settings);
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(indexerSettings);
+        services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var indexer = provider.GetRequiredService<TidalIndexer>();
         Assert.NotNull(indexer);
         
         // Simulate search (would normally hit Tidal API)
         // In real usage: var searchResults = await indexer.SearchAsync("Daft Punk");
         
         // STEP 4: Download Functionality
-        var downloadClient = TidalModule.CreateDownloadClient(settings);
+        var downloadClient = provider.GetRequiredService<TidalDownloadClient>();
         Assert.NotNull(downloadClient);
         
         // Simulate download validation (would normally download from Tidal)
@@ -53,7 +60,8 @@ public class SilverMedalIntegrationTests
     {
         // This test validates that all components needed for download work together
         
-        var settings = CreateValidTidalSettings();
+        var indexerSettings = CreateValidIndexerSettings();
+        var downloadSettings = CreateValidDownloadSettings();
         
         // Create all components that would be used in a real download
         var httpClient = new HttpClient();
@@ -71,8 +79,13 @@ public class SilverMedalIntegrationTests
         Assert.True(callbackResult.IsSuccess);
         
         // Test plugin components
-        var indexer = new TidalIndexer(settings);
-        var downloadClient = new TidalDownloadClient(settings);
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(indexerSettings);
+        services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var indexer = provider.GetRequiredService<TidalIndexer>();
+        var downloadClient = provider.GetRequiredService<TidalDownloadClient>();
         
         Assert.NotNull(indexer);
         Assert.NotNull(downloadClient);
@@ -86,7 +99,7 @@ public class SilverMedalIntegrationTests
         // Test that our implementation handles errors gracefully
         
         // Invalid settings
-        var invalidSettings = new TidalSettings(); // No redirect URL
+        var invalidSettings = new TidalIndexerSettings(); // No redirect URL/ConfigPath
         Assert.False(invalidSettings.IsValid(out var error));
         Assert.Contains("Redirect URL is required", error);
         
@@ -111,8 +124,7 @@ public class SilverMedalIntegrationTests
     {
         // Test the complete quality detection and selection system
         
-        var settings = CreateValidTidalSettings();
-        settings.PreferredQuality = "HiRes";
+        var settings = new TidalDownloadSettings { PreferredQuality = "HiRes", DownloadPath = System.IO.Path.GetTempPath() };
         
         // Quality detection works
         var qualityDetector = new Tidalarr.Domain.Quality.TidalQualityDetector();
@@ -127,16 +139,25 @@ public class SilverMedalIntegrationTests
         Assert.True(true, "🥈 SILVER MEDAL: Quality system works end-to-end!");
     }
     
-    private static TidalSettings CreateValidTidalSettings()
+    private static TidalIndexerSettings CreateValidIndexerSettings()
     {
-        return new TidalSettings
+        return new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=valid_test_code&state=secure_state",
+            EnableCache = true,
+            CacheDuration = 15,
+            ConfigPath = "C:/temp"
+        };
+    }
+
+    private static TidalDownloadSettings CreateValidDownloadSettings()
+    {
+        return new TidalDownloadSettings
+        {
             PreferredQuality = "Lossless",
             IncludeMqa = true,
-            EnableCache = true,
-            CacheDuration = 15
+            DownloadPath = System.IO.Path.GetTempPath()
         };
     }
     

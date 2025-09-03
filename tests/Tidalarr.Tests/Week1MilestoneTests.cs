@@ -179,4 +179,54 @@ public class MockTidalApiClient : ITidalCore
         );
         return Task.FromResult(streamInfo);
     }
+
+    public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
+    {
+        var tracks = new List<TidalTrackInfo>
+        {
+            new(
+                Id: "t1",
+                Title: "Track 1",
+                Artists: new List<string> { "Test Artist" },
+                AlbumId: albumId,
+                AlbumTitle: "Test Album",
+                TrackNumber: 1,
+                Duration: 200,
+                Quality: TidalQuality.Lossless,
+                IsAvailable: true,
+                ReleaseDate: DateTime.Now)
+        };
+        return Task.FromResult(tracks);
+    }
+
+    public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
+    {
+        var tracks = new List<TidalTrackInfo>
+        {
+            new(
+                Id: "t1",
+                Title: "Track 1",
+                Artists: new List<string> { "Test Artist" },
+                AlbumId: albumId,
+                AlbumTitle: "Test Album",
+                TrackNumber: 1,
+                Duration: 200,
+                Quality: TidalQuality.Lossless,
+                IsAvailable: true,
+                ReleaseDate: DateTime.Now)
+        };
+        var album = new TidalAlbumInfo(
+            Id: albumId,
+            Title: "Test Album",
+            Artists: new List<string> { "Test Artist" },
+            Tracks: tracks,
+            AvailableQualities: new List<TidalQuality> { TidalQuality.Lossless },
+            ReleaseDate: DateTime.Now,
+            CoverArtId: "cover123",
+            IsAvailable: true);
+        return Task.FromResult(album);
+    }
+
+    public Task<bool> IsAuthenticatedAsync()
+        => Task.FromResult(true);
 }

@@ -11,17 +11,19 @@ public static class AudioFormatHandler
         string inputPath, 
         string codecs, 
         bool extractFlac = true,
-        bool keepOriginal = false)
+        bool keepOriginal = false,
+        IAudioProcessor? audio = null)
     {
         try
         {
+            audio ??= new SystemAudioProcessor();
             if (codecs == "FLAC" && extractFlac)
             {
                 // Extract FLAC from M4A container
                 Console.WriteLine("🎵 Extracting FLAC from M4A container...");
                 var flacPath = Path.ChangeExtension(inputPath, "flac");
                 
-                var success = await ExtractFlacFromM4AAsync(inputPath, flacPath);
+                var success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio);
                 if (success)
                 {
                     if (!keepOriginal && File.Exists(inputPath))
@@ -46,38 +48,19 @@ public static class AudioFormatHandler
         }
     }
     
-    private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath)
+    private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath, IAudioProcessor audio)
     {
         try
         {
             // Use ffmpeg to extract FLAC without re-encoding
             // -c copy means copy codec without re-encoding
             var ffmpegArgs = $"-i \"{inputPath}\" -c copy \"{outputPath}\"";
-            
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "ffmpeg",
-                Arguments = ffmpegArgs,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            
-            using var process = Process.Start(processInfo);
-            if (process == null) return false;
-            
-            await process.WaitForExitAsync();
-            
-            // Check if extraction was successful
-            var success = process.ExitCode == 0 && File.Exists(outputPath);
-            
+            var (exitCode, _, stderr) = await audio.RunFfmpegAsync(ffmpegArgs);
+            var success = exitCode == 0 && File.Exists(outputPath);
             if (!success)
             {
-                var error = await process.StandardError.ReadToEndAsync();
-                Console.WriteLine($"⚠️ FFmpeg error: {error}");
+                Console.WriteLine($"⚠️ FFmpeg error: {stderr}");
             }
-            
             return success;
         }
         catch (Exception ex)
@@ -104,24 +87,11 @@ public static class AudioFormatHandler
         try
         {
             // Use ffprobe to detect codecs
-            var processInfo = new ProcessStartInfo
+            var ap = new SystemAudioProcessor();
+            var (exitCode, stdout, _) = ap.RunFfprobe($"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"");
+            if (exitCode == 0)
             {
-                FileName = "ffprobe",
-                Arguments = $"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            
-            using var process = Process.Start(processInfo);
-            if (process == null) return "unknown";
-            
-            process.WaitForExit();
-            
-            if (process.ExitCode == 0)
-            {
-                var codec = process.StandardOutput.ReadToEnd().Trim();
+                var codec = stdout.Trim();
                 return codec.ToLowerInvariant() switch
                 {
                     "flac" => "FLAC",
@@ -142,21 +112,9 @@ public static class AudioFormatHandler
     {
         try
         {
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = "ffmpeg",
-                Arguments = "-version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            
-            using var process = Process.Start(processInfo);
-            if (process == null) return false;
-            
-            process.WaitForExit();
-            return process.ExitCode == 0;
+            var ap = new SystemAudioProcessor();
+            var (exitCode, _, _) = ap.RunFfprobe("-version");
+            return exitCode == 0;
         }
         catch
         {
