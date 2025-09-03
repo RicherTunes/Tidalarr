@@ -19,6 +19,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     private readonly TidalSearchService _searchService;
     private readonly ITidalCore _apiClient;
     private readonly TidalModelMapper _mapper;
+    private readonly HttpClient _httpClient;
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
@@ -27,12 +28,31 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         TidalSearchService searchService,
         ITidalCore apiClient,
         TidalIndexerSettings settings,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider? tokenProvider = null)
         : base(settings, logger!)
     {
         _searchService = searchService;
         _apiClient = apiClient;
         _mapper = new TidalModelMapper();
+        // Provide an OAuth-enabled HttpClient for base operations (if used)
+        if (tokenProvider != null)
+        {
+            var loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
+            var ologger = loggerFactory.CreateLogger("OAuthDelegatingHandler");
+            var handler = new Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler(tokenProvider, ologger)
+            {
+                InnerHandler = new HttpClientHandler()
+            };
+            _httpClient = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(100)
+            };
+        }
+        else
+        {
+            _httpClient = new HttpClient();
+        }
     }
 
     protected override async Task<bool> AuthenticateAsync()
@@ -121,4 +141,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             return new();
         }
     }
+
+    // Inject OAuth-enabled client into base when it performs HTTP
+    protected override HttpClient GetHttpClient() => _httpClient;
 }

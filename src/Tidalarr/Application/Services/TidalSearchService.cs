@@ -89,8 +89,16 @@ public class TidalSearchService
         var enhancedAlbums = searchResults.Albums.Select(album => 
             EnhanceAlbumWithQuality(album, preferredQuality)).ToList();
             
-        var enhancedTracks = searchResults.Tracks.Select(track => 
+        var enhancedTracksAll = searchResults.Tracks.Select(track => 
             EnhanceTrackWithQuality(track, preferredQuality)).ToList();
+
+        // Filter likely preview/sample content early
+        var enhancedTracks = enhancedTracksAll
+            .Where(t => !Lidarr.Plugin.Common.Utilities.PreviewDetectionUtility.IsLikelyPreview(
+                url: null,
+                durationSeconds: t.Duration,
+                restrictionMessage: null))
+            .ToList();
         
         return new TidalSearchResults(
             Albums: enhancedAlbums,

@@ -109,11 +109,13 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     
     protected override string GenerateFileName(StreamingTrack track, StreamingAlbum album)
     {
-        var trackNumber = track.TrackNumber?.ToString("D2") ?? "00";
-        var title = FileNameSanitizer.SanitizeFileName(track.Title ?? "Unknown Track");
-        var artist = FileNameSanitizer.SanitizeFileName(track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist");
-        
-        return $"{trackNumber} - {artist} - {title}.flac";
+        var trackNumber = track.TrackNumber ?? 0;
+        var baseTitle = (track.Title ?? "Unknown Track").Normalize(System.Text.NormalizationForm.FormC);
+        var baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(System.Text.NormalizationForm.FormC);
+        var title = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseTitle);
+        var artist = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseArtist);
+        var tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
+        return $"{tn} - {artist} - {title}.flac";
     }
     
     /// <summary>
@@ -229,13 +231,38 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
             
             var dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             Directory.CreateDirectory(dir2);
-            
+
+            // Write to temp .partial for atomicity
+            var tempPath = outputPath + ".partial";
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* ignore */ }
+            }
+
             var progress = new Progress<int>();
             using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
-            
-            await using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
-            await audioStream.CopyToAsync(fileStream, cancellationToken);
-            
+
+            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            {
+                await audioStream.CopyToAsync(fileStream, cancellationToken);
+                await fileStream.FlushAsync(cancellationToken);
+                try { fileStream.Flush(true); } catch { /* best effort */ }
+            }
+
+            // Optional: quick container signature validation when we can infer type
+            TryValidateSignature(tempPath, streamInfo.FileExtension);
+
+            // Atomic move
+            try
+            {
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            catch
+            {
+                if (File.Exists(outputPath)) File.Delete(outputPath);
+                File.Move(tempPath, outputPath);
+            }
+
             return new StreamingDownloadResult
             {
                 Success = true,
@@ -255,6 +282,41 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
                 TrackId = trackId,
                 ErrorMessage = ex.Message
             };
+        }
+    }
+
+    private void TryValidateSignature(string filePath, string fileExtension)
+    {
+        try
+        {
+            var ext = (fileExtension ?? string.Empty).ToLowerInvariant();
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            Span<byte> header = stackalloc byte[12];
+            var read = fs.Read(header);
+            if (read < 4) return; // not enough to validate
+
+            if (ext.Contains("flac"))
+            {
+                // FLAC starts with fLaC
+                if (!(header[0] == (byte)'f' && header[1] == (byte)'L' && header[2] == (byte)'a' && header[3] == (byte)'C'))
+                {
+                    throw new InvalidDataException("Invalid FLAC header signature");
+                }
+            }
+            else if (ext.Contains("m4a") || ext.Contains("mp4"))
+            {
+                // MP4 variants typically include 'ftyp' box early
+                var s = System.Text.Encoding.ASCII.GetString(header.ToArray());
+                if (!s.Contains("ftyp"))
+                {
+                    throw new InvalidDataException("Invalid MP4/M4A header signature");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Opt-in validation only: log but do not fail hard unless we want strict mode later
+            Logger?.LogWarning(ex, "Signature validation warning for {File}", filePath);
         }
     }
 
@@ -321,7 +383,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
         var safeName = $"{string.Join(", ", track.Artists ?? new List<string>())} - {track.Title}";
-        safeName = FileNameSanitizer.SanitizeFileName(safeName);
+        safeName = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(safeName.Normalize(System.Text.NormalizationForm.FormC));
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }

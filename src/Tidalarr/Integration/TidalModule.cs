@@ -30,10 +30,18 @@ public class TidalModule : StreamingPluginModule
     {
         RegisterSharedLibraryServices(services);
 
+        // Typed API client with OAuth delegating handler for transparent 401 refresh
         services.AddHttpClient<TidalApiClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
+        })
+        .AddHttpMessageHandler(sp =>
+        {
+            var tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
+            var loggerFactory = sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
+            var logger = loggerFactory?.CreateLogger("OAuthDelegatingHandler") ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            return new Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler(tokenProvider, logger);
         });
 
         services.AddHttpClient<TidalOAuthService>(client =>
@@ -45,6 +53,13 @@ public class TidalModule : StreamingPluginModule
         services.AddSingleton<PKCEGenerator>();
         services.AddSingleton<ITokenStorage, JsonTokenStorage>();
         services.AddScoped<ITidalAuth, TidalOAuthService>();
+        // Expose as shared token provider for OAuth handler; adapt stubs if needed
+        services.AddScoped<IStreamingTokenProvider>(sp =>
+        {
+            var auth = sp.GetRequiredService<ITidalAuth>();
+            if (auth is IStreamingTokenProvider tp) return tp;
+            return new OAuthTokenProviderAdapter(auth);
+        });
         services.AddScoped<ITidalCore, TidalApiClient>();
 
         // Shared-integrations
