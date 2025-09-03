@@ -7,7 +7,7 @@ using Tidalarr.Domain.Quality;
 
 namespace TidalCLI;
 
-class Program
+public class Program
 {
     private static readonly HttpClient httpClient = new HttpClient();
     static async Task Main(string[] args)
@@ -30,6 +30,29 @@ class Program
         {
             Console.WriteLine($"❌ Error: {ex.Message}");
             Environment.Exit(1);
+        }
+    }
+
+    // Public, non-exiting wrapper for tests
+    public static async Task<int> RunAsync(string[] args)
+    {
+        try
+        {
+            if (args == null) args = Array.Empty<string>();
+            if (args.Length == 0)
+            {
+                await ProcessCommand(new[] { "test-oauth" });
+            }
+            else
+            {
+                await ProcessCommand(args);
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error: {ex.Message}");
+            return 1;
         }
     }
     

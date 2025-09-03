@@ -74,15 +74,17 @@ public static class TidalCLIHelper
                 Console.WriteLine("\n⬇️ Step 4: Downloading using plugin's chunk downloader...");
                 
                 var chunkDownloader = new TidalChunkDownloader(httpClient);
-                var progress = new Progress<ChunkDownloadProgress>(p => 
-                {
-                    if (p.CompletedChunks % 5 == 0 || p.CompletedChunks == p.TotalChunks)
-                    {
-                        Console.WriteLine($"   📦 Progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
-                    }
-                });
+                // Build legacy stream info model compatible with downloader overload
+                var mime = manifest.MimeType == ManifestMimeType.BTS ? "application/vnd.tidal.bts" : "application/dash+xml";
+                var streamInfoModel = new Tidalarr.Core.Models.TidalStreamInfo(
+                    trackId,
+                    manifest.ChunkUrls,
+                    manifest.FileExtension,
+                    mime,
+                    !string.IsNullOrEmpty(manifest.EncryptionKey),
+                    manifest.EncryptionKey);
                 
-                using var audioStream = await chunkDownloader.DownloadAndAssembleAsync(manifest, progress, CancellationToken.None);
+                using var audioStream = await chunkDownloader.DownloadAndAssembleAsync(streamInfoModel, progress: null);
                 
                 // Step 5: Save to file
                 Console.WriteLine("\n💾 Step 5: Saving assembled audio file...");

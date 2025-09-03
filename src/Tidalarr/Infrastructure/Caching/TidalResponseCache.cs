@@ -9,7 +9,7 @@ namespace Tidalarr.Infrastructure.Caching;
 /// </summary>
 public class TidalResponseCache : StreamingResponseCache
 {
-    public TidalResponseCache(ILogger logger = null) : base(logger)
+    public TidalResponseCache(ILogger? logger = null) : base(logger!)
     {
         // Configure Tidal-specific cache settings
         DefaultCacheDuration = TimeSpan.FromMinutes(15);

@@ -6,87 +6,77 @@ using Tidalarr.Core.Models;
 
 namespace Tidalarr.Core.Mappers;
 
-/// <summary>
-/// Maps between Tidal-specific models and shared library streaming models
-/// </summary>
 public class TidalModelMapper
 {
-    /// <summary>
-    /// Maps TidalTrackInfo to StreamingTrack
-    /// </summary>
     public StreamingTrack ToStreamingTrack(TidalTrackInfo track)
     {
-        if (track == null) return null;
-
+        // Create a non-null StreamingTrack even if inputs are sparse
+        var artistName = string.Join(", ", track.Artists ?? new List<string>());
         return new StreamingTrack
         {
-            Id = track.Id,
-            Title = track.Title,
-            Artist = new StreamingArtist 
-            { 
-                Id = track.Artists?.FirstOrDefault(),
-                Name = string.Join(", ", track.Artists ?? new List<string>()) 
+            Id = track.Id ?? string.Empty,
+            Title = track.Title ?? string.Empty,
+            Artist = new StreamingArtist
+            {
+                Id = (track.Artists?.FirstOrDefault() ?? string.Empty),
+                Name = artistName
             },
             Album = new StreamingAlbum
             {
-                Id = track.AlbumId,
-                Title = track.AlbumTitle,
-                Artist = new StreamingArtist 
-                { 
-                    Id = track.Artists?.FirstOrDefault(),
-                    Name = string.Join(", ", track.Artists ?? new List<string>()) 
+                Id = track.AlbumId ?? string.Empty,
+                Title = track.AlbumTitle ?? string.Empty,
+                Artist = new StreamingArtist
+                {
+                    Id = track.Artists?.FirstOrDefault() ?? string.Empty,
+                    Name = artistName
                 }
             },
             TrackNumber = track.TrackNumber,
-            DiscNumber = 1, // Default value since not in TidalTrackInfo record
+            DiscNumber = 1,
             Duration = TimeSpan.FromSeconds(track.Duration),
-            IsExplicit = false, // Default value since not in TidalTrackInfo record
-            Isrc = string.Empty, // Default value since not in TidalTrackInfo record
+            IsExplicit = false,
+            Isrc = string.Empty,
             FeaturedArtists = new List<StreamingArtist>(),
             AvailableQualities = new List<StreamingQuality> { ToStreamingQuality(track.Quality) },
-            PreviewUrl = string.Empty, // Default value since not in TidalTrackInfo record
-            Popularity = 0, // Default value since not in TidalTrackInfo record
+            PreviewUrl = string.Empty,
+            Popularity = 0,
             Metadata = new Dictionary<string, object>
             {
-                ["tidal_id"] = track.Id,
-                ["album_id"] = track.AlbumId,
+                ["tidal_id"] = track.Id ?? string.Empty,
+                ["album_id"] = track.AlbumId ?? string.Empty,
                 ["release_date"] = track.ReleaseDate,
                 ["is_available"] = track.IsAvailable
             }
         };
     }
 
-    /// <summary>
-    /// Maps TidalAlbumInfo to StreamingAlbum
-    /// </summary>
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
-        if (album == null) return null;
-
+        var artistName = string.Join(", ", album.Artists ?? new List<string>());
         return new StreamingAlbum
         {
-            Id = album.Id,
-            Title = album.Title,
-            Artist = new StreamingArtist 
-            { 
-                Id = album.Artists?.FirstOrDefault(),
-                Name = string.Join(", ", album.Artists ?? new List<string>()) 
+            Id = album.Id ?? string.Empty,
+            Title = album.Title ?? string.Empty,
+            Artist = new StreamingArtist
+            {
+                Id = album.Artists?.FirstOrDefault() ?? string.Empty,
+                Name = artistName
             },
             AdditionalArtists = new List<StreamingArtist>(),
             ReleaseDate = album.ReleaseDate,
-            Type = StreamingAlbumType.Album, // Default value since Type property doesn't exist
+            Type = StreamingAlbumType.Album,
             TrackCount = album.Tracks?.Count ?? 0,
-            Duration = TimeSpan.Zero, // Not available in TidalAlbumInfo
-            Genres = new List<string>(), // Not available in TidalAlbumInfo
-            Label = string.Empty, // Not available in TidalAlbumInfo
-            Upc = string.Empty, // Not available in TidalAlbumInfo
-            AvailableQualities = album.AvailableQualities?.Select(ToStreamingQuality).ToList() ?? new List<StreamingQuality>(),
+            Duration = TimeSpan.Zero,
+            Genres = new List<string>(),
+            Label = string.Empty,
+            Upc = string.Empty,
+            AvailableQualities = (album.AvailableQualities ?? new List<TidalQuality>()).Select(ToStreamingQuality).ToList(),
             CoverArtUrls = new Dictionary<string, string>
             {
-                ["small"] = album.CoverArtId,
-                ["medium"] = album.CoverArtId,
-                ["large"] = album.CoverArtId,
-                ["original"] = album.CoverArtId
+                ["small"] = album.CoverArtId ?? string.Empty,
+                ["medium"] = album.CoverArtId ?? string.Empty,
+                ["large"] = album.CoverArtId ?? string.Empty,
+                ["original"] = album.CoverArtId ?? string.Empty
             },
             ExternalUrls = new Dictionary<string, string>
             {
@@ -94,24 +84,20 @@ public class TidalModelMapper
             },
             Metadata = new Dictionary<string, object>
             {
-                ["tidal_id"] = album.Id,
-                ["cover_art_id"] = album.CoverArtId,
-                ["available_qualities"] = string.Join(",", album.AvailableQualities),
+                ["tidal_id"] = album.Id ?? string.Empty,
+                ["cover_art_id"] = album.CoverArtId ?? string.Empty,
+                ["available_qualities"] = album.AvailableQualities != null ? string.Join(",", album.AvailableQualities) : string.Empty,
                 ["is_available"] = album.IsAvailable,
                 ["release_date"] = album.ReleaseDate
             }
         };
     }
 
-    /// <summary>
-    /// Maps TidalArtistInfo to StreamingArtist (if we have this model)
-    /// </summary>
-    public StreamingArtist ToStreamingArtist(string artistId, string artistName, Dictionary<string, object> metadata = null)
-    {
-        return new StreamingArtist
+    public StreamingArtist ToStreamingArtist(string artistId, string artistName, Dictionary<string, object>? metadata = null)
+        => new()
         {
-            Id = artistId,
-            Name = artistName,
+            Id = artistId ?? string.Empty,
+            Name = artistName ?? string.Empty,
             Biography = string.Empty,
             Genres = new List<string>(),
             Country = string.Empty,
@@ -119,11 +105,7 @@ public class TidalModelMapper
             ExternalUrls = new Dictionary<string, string>(),
             Metadata = metadata ?? new Dictionary<string, object>()
         };
-    }
 
-    /// <summary>
-    /// Maps TidalQuality to StreamingQuality
-    /// </summary>
     public StreamingQuality ToStreamingQuality(TidalQuality quality)
     {
         return quality switch
@@ -131,7 +113,7 @@ public class TidalModelMapper
             TidalQuality.Low => new StreamingQuality
             {
                 Id = "LOW",
-                Name = "Normal",
+                Name = "Low",
                 Format = "AAC",
                 Bitrate = 96,
                 SampleRate = 44100,
@@ -141,7 +123,7 @@ public class TidalModelMapper
             {
                 Id = "HIGH",
                 Name = "High",
-                Format = "AAC", 
+                Format = "AAC",
                 Bitrate = 320,
                 SampleRate = 44100,
                 BitDepth = null
@@ -149,9 +131,9 @@ public class TidalModelMapper
             TidalQuality.Lossless => new StreamingQuality
             {
                 Id = "LOSSLESS",
-                Name = "HiFi",
+                Name = "Lossless",
                 Format = "FLAC",
-                Bitrate = 1411,
+                Bitrate = null,
                 SampleRate = 44100,
                 BitDepth = 16
             },
@@ -160,8 +142,8 @@ public class TidalModelMapper
                 Id = "HI_RES",
                 Name = "Master",
                 Format = "FLAC",
-                Bitrate = null, // Variable for MQA
-                SampleRate = 96000, // Common hi-res sample rate
+                Bitrate = null,
+                SampleRate = 96000,
                 BitDepth = 24
             },
             _ => new StreamingQuality
@@ -176,13 +158,8 @@ public class TidalModelMapper
         };
     }
 
-    /// <summary>
-    /// Maps StreamingQuality back to TidalQuality
-    /// </summary>
     public TidalQuality FromStreamingQuality(StreamingQuality quality)
     {
-        if (quality == null) return TidalQuality.High;
-
         var tier = quality.GetTier();
         return tier switch
         {
@@ -195,87 +172,60 @@ public class TidalModelMapper
         };
     }
 
-    /// <summary>
-    /// Maps Tidal album type to streaming album type
-    /// </summary>
-    private static StreamingAlbumType MapAlbumType(string tidalType)
-    {
-        return tidalType?.ToUpperInvariant() switch
-        {
-            "ALBUM" => StreamingAlbumType.Album,
-            "SINGLE" => StreamingAlbumType.Single,
-            "EP" => StreamingAlbumType.EP,
-            "COMPILATION" => StreamingAlbumType.Compilation,
-            "SOUNDTRACK" => StreamingAlbumType.Soundtrack,
-            "LIVE" => StreamingAlbumType.Live,
-            _ => StreamingAlbumType.Album
-        };
-    }
-
-    /// <summary>
-    /// Creates a list of StreamingTrack from TidalAlbumInfo tracks
-    /// </summary>
     public List<StreamingTrack> ToStreamingTracks(TidalAlbumInfo album)
     {
-        if (album?.Tracks == null) return new List<StreamingTrack>();
-
         var streamingAlbum = ToStreamingAlbum(album);
-        return album.Tracks.Select(track => 
+        return (album.Tracks ?? new List<TidalTrackInfo>()).Select(track =>
         {
             var streamingTrack = ToStreamingTrack(track);
-            streamingTrack.Album = streamingAlbum; // Set album reference
+            streamingTrack.Album = streamingAlbum;
             return streamingTrack;
         }).ToList();
     }
 
-    /// <summary>
-    /// Maps TidalSearchResults to StreamingSearchResult list
-    /// </summary>
     public List<StreamingSearchResult> ToStreamingSearchResults(TidalSearchResults searchResults)
     {
         var results = new List<StreamingSearchResult>();
 
-        // Add albums
         if (searchResults?.Albums != null)
         {
             results.AddRange(searchResults.Albums.Select(album => new StreamingSearchResult
             {
-                Id = album.Id,
-                Title = album.Title,
+                Id = album.Id ?? string.Empty,
+                Title = album.Title ?? string.Empty,
                 Artist = string.Join(", ", album.Artists ?? new List<string>()),
-                Album = album.Title,
+                Album = album.Title ?? string.Empty,
                 Type = StreamingSearchType.Album,
                 ReleaseDate = album.ReleaseDate,
-                Genre = null, // Genre info not available in TidalAlbumInfo
-                Label = null, // Label info not available in TidalAlbumInfo
-                CoverArtUrl = !string.IsNullOrEmpty(album.CoverArtId) ? $"https://resources.tidal.com/images/{album.CoverArtId.Replace("-", "/")}/320x320.jpg" : null,
-                TrackCount = album.Tracks?.Count ?? 0,
+                Genre = string.Empty,
+                Label = string.Empty,
+                CoverArtUrl = !string.IsNullOrEmpty(album.CoverArtId) ? $"https://resources.tidal.com/images/{album.CoverArtId.Replace("-", "/")}/320x320.jpg" : string.Empty,
+                TrackCount = album.Tracks?.Count,
                 Duration = TimeSpan.FromSeconds(album.Tracks?.Sum(t => t.Duration) ?? 0),
                 Metadata = new Dictionary<string, object>
                 {
-                    ["tidal_id"] = album.Id,
+                    ["tidal_id"] = album.Id ?? string.Empty,
                     ["tidal_type"] = "album"
                 }
             }));
         }
 
-        // Add tracks
         if (searchResults?.Tracks != null)
         {
             results.AddRange(searchResults.Tracks.Select(track => new StreamingSearchResult
             {
-                Id = track.Id,
-                Title = track.Title,
+                Id = track.Id ?? string.Empty,
+                Title = track.Title ?? string.Empty,
                 Artist = string.Join(", ", track.Artists ?? new List<string>()),
-                Album = track.AlbumTitle,
+                Album = track.AlbumTitle ?? string.Empty,
                 Type = StreamingSearchType.Track,
                 ReleaseDate = track.ReleaseDate,
-                CoverArtUrl = null, // Cover art URL not available in TidalTrackInfo
+                CoverArtUrl = string.Empty,
                 TrackCount = 1,
                 Duration = TimeSpan.FromSeconds(track.Duration),
                 Metadata = new Dictionary<string, object>
                 {
-                    ["tidal_id"] = track.Id,
+                    ["tidal_id"] = track.Id ?? string.Empty,
                     ["tidal_type"] = "track"
                 }
             }));

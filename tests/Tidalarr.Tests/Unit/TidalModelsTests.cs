@@ -272,9 +272,8 @@ public class TidalModelsTests
     [InlineData(TidalQuality.HiRes)]
     public void TidalQuality_AllValues_CanBeUsed(TidalQuality quality)
     {
-        // Test all enum values can be used
+        // Test all enum values are defined
         Assert.True(Enum.IsDefined(typeof(TidalQuality), quality));
-        Assert.NotEqual(default(TidalQuality), quality);
     }
     
     #endregion

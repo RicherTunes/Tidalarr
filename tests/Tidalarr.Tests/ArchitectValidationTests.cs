@@ -77,9 +77,10 @@ public class ArchitectValidationTests
         // - 50MB threshold for memory vs disk strategy
         // - FilePath property in TidalDownloadResult
         
-        var settings = new TidalSettings 
+        var settings = new TidalDownloadSettings 
         { 
-            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test" 
+            PreferredQuality = "Lossless",
+            DownloadPath = System.IO.Path.GetTempPath()
         };
         
         // Verify download client can be created with proper DI
@@ -117,10 +118,10 @@ public class ArchitectValidationTests
     {
         // Validate optimal shared library usage
         
-        var settings = new TidalSettings { RedirectUrl = "https://tidal.com/test" };
+        var idxSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/test", ConfigPath = "C:/temp" };
         
         // ✅ FIXED: Inherits from BaseStreamingSettings
-        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(settings);
+        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
         
         // ✅ FIXED: API client uses StreamingApiRequestBuilder
         // ✅ FIXED: Uses ExecuteWithRetryAsync
@@ -162,3 +163,4 @@ public class ArchitectValidationTests
         Console.WriteLine("   📈 Quality: Architect-validated production standards");
     }
 }
+
