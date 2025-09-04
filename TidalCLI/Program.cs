@@ -229,7 +229,8 @@ public class Program
         try
         {
             var tempPath = Path.Combine(outputDir, trackId + ".flac");
-            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 });
+            var q = MakeQualityFromConfig(cfg.PreferredQuality);
+            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
@@ -254,7 +255,8 @@ public class Program
         });
         try
         {
-            var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 }, progress);
+            var q = MakeQualityFromConfig(cfg.PreferredQuality);
+            var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, q, progress);
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
@@ -281,6 +283,19 @@ public class Program
         }
         catch { /* ignore */ }
         return Tidalarr.Integration.TidalModule.CreateOrchestrator(provider);
+    }
+
+    private static Lidarr.Plugin.Common.Models.StreamingQuality MakeQualityFromConfig(string? preferred)
+    {
+        var q = preferred?.Trim().ToLowerInvariant();
+        return q switch
+        {
+            "low" => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 96, Format = "AAC" },
+            "high" => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" },
+            "lossless" => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" },
+            "hires" => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 96000, BitDepth = 24, Format = "FLAC" },
+            _ => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" }
+        };
     }
 
     private static async Task SearchViaPlugin(string query)
