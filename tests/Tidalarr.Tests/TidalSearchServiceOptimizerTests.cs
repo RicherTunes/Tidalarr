@@ -27,7 +27,7 @@ public class TidalSearchServiceOptimizerTests
     private class OptimizerStub : IQueryOptimizer
     {
         public List<string> Learned = new();
-        public Task<OptimizedQuery> OptimizeQueryAsync(string originalQuery, QueryContext context = null)
+        public Task<OptimizedQuery> OptimizeQueryAsync(string originalQuery, QueryContext? context = null)
             => Task.FromResult(new OptimizedQuery { Query = originalQuery + " optimized", Confidence = 0.9 });
         public Task LearnFromResultsAsync(string query, QueryResults results, QueryFeedback userFeedback)
         { Learned.Add(query); return Task.CompletedTask; }

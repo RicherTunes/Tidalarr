@@ -306,7 +306,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         try { _ = _tokenStorage.DeleteTokensAsync(); } catch { /* ignore */ }
     }
 
-    public bool SupportsRefresh => true;
+    public new bool SupportsRefresh => true;
     public string ServiceName => "Tidal";
 }
 

@@ -95,9 +95,9 @@ public class TidalSearchService
         // Filter likely preview/sample content early
         var enhancedTracks = enhancedTracksAll
             .Where(t => !Lidarr.Plugin.Common.Utilities.PreviewDetectionUtility.IsLikelyPreview(
-                url: null,
+                url: string.Empty,
                 durationSeconds: t.Duration,
-                restrictionMessage: null))
+                restrictionMessage: string.Empty))
             .ToList();
         
         return new TidalSearchResults(
