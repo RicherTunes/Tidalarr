@@ -69,7 +69,7 @@ public static class TokenStorage
         }
     }
     
-    public static async Task ClearTokensAsync()
+    public static Task ClearTokensAsync()
     {
         try
         {
@@ -83,6 +83,7 @@ public static class TokenStorage
         {
             Console.WriteLine($"⚠️ Error clearing tokens: {ex.Message}");
         }
+        return Task.CompletedTask;
     }
     
     public static async Task<TidalTokenInfo?> RefreshTokensAsync(TidalTokenInfo currentTokens)

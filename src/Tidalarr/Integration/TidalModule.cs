@@ -16,7 +16,6 @@ using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Models;
-using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Integration;
 

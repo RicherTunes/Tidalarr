@@ -229,7 +229,7 @@ public class Program
         try
         {
             var tempPath = Path.Combine(outputDir, trackId + ".flac");
-            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, null);
+            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 });
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
@@ -254,7 +254,7 @@ public class Program
         });
         try
         {
-            var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, null, progress);
+            var result = await orchestrator.DownloadAlbumAsync(albumId, outputDir, new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320 }, progress);
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
@@ -388,7 +388,7 @@ public class Program
         Console.WriteLine($"   Contains S256 method: {authUrl.AuthorizationUrl.Contains("code_challenge_method=S256")}");
     }
     
-    static async Task TestCallbackParsing()
+    static Task TestCallbackParsing()
     {
         Console.WriteLine("\n📞 Testing OAuth Callback Parsing...");
         
@@ -410,14 +410,18 @@ public class Program
         Console.WriteLine($"\n❌ Invalid Callback Test:");
         Console.WriteLine($"   Success: {errorResult.IsSuccess}");
         Console.WriteLine($"   Error: {errorResult.ErrorMessage}");
+        return Task.CompletedTask;
     }
     
-    static async Task TestSearchFunctionality()
+    static Task TestSearchFunctionality()
     {
         Console.WriteLine("\n🔍 Testing Search Functionality...");
         
         var settings = CreateTestIndexerSettings();
-        var indexer = TidalModule.CreateIndexer(null, settings);
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var indexer = TidalModule.CreateIndexer(provider, settings);
         
         Console.WriteLine($"✅ Search indexer created successfully");
         Console.WriteLine($"📊 Settings validation: {TidalModule.ValidateConfiguration(settings)}");
@@ -430,28 +434,30 @@ public class Program
         
         Console.WriteLine($"\n📝 Note: Real search requires Tidal authentication");
         Console.WriteLine($"📝 This test validates search component integration");
+        return Task.CompletedTask;
     }
     
-    static async Task TestDownloadWorkflow()
+    static Task TestDownloadWorkflow()
     {
         Console.WriteLine("\n⬇️  Testing Download Workflow...");
         
         var settings = CreateTestDownloadSettings();
-        var downloadClient = TidalModule.CreateDownloadClient(null, settings);
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var downloadClient = TidalModule.CreateDownloadClient(provider, settings);
         
         Console.WriteLine($"✅ Download client created successfully");
         
         // Test download validation (mock)
-        var canValidate = await downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless);
+        var canValidate = downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless).GetAwaiter().GetResult();
         Console.WriteLine($"📊 Download validation capability: Working");
-        
+        return Task.CompletedTask;
+
         // In real usage with authentication:
         // var result = await downloadClient.DownloadTrackAsync("real-track-id");
         // Console.WriteLine($"🎵 Downloaded: {result.Title} by {result.Artist}");
         // Console.WriteLine($"💿 Quality: {result.Quality}, Format: {result.FileExtension}");
-        
-        Console.WriteLine($"\n📝 Note: Real download requires Tidal authentication and valid track IDs");
-        Console.WriteLine($"📝 This test validates download component integration");
     }
     
     static async Task RunAllTests()

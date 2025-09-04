@@ -63,7 +63,7 @@ public class TidalOAuthService
         _pkceGenerator = pkceGenerator;
     }
     
-    public async Task<TidalOAuthUrl> GenerateAuthUrlAsync()
+    public Task<TidalOAuthUrl> GenerateAuthUrlAsync()
     {
         var (codeVerifier, codeChallenge) = _pkceGenerator.GenerateChallenge();
         var state = Guid.NewGuid().ToString("N");
@@ -82,12 +82,12 @@ public class TidalOAuthService
             $"code_challenge_method=S256&" +
             $"client_unique_key={clientUniqueKey}";
         
-        return new TidalOAuthUrl
+        return Task.FromResult(new TidalOAuthUrl
         {
             AuthorizationUrl = authUrl,
             CodeVerifier = codeVerifier,
             State = state
-        };
+        });
     }
     
     public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
@@ -102,12 +102,12 @@ public class TidalOAuthService
                 return new TidalCallbackResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = query["error"]
+                    ErrorMessage = query["error"] ?? string.Empty
                 };
             }
             
             var code = query["code"];
-            var state = query["state"];
+            string? state = query["state"];
             
             if (string.IsNullOrEmpty(code))
             {

@@ -28,7 +28,7 @@ namespace Tidalarr.Integration
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality quality = null, CancellationToken cancellationToken = default)
+        public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
             // Map shared StreamingQuality to TidalQuality
             var tidalQuality = quality != null ? _mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
