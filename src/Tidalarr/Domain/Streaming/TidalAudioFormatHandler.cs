@@ -23,7 +23,7 @@ public static class AudioFormatHandler
                 Console.WriteLine("🎵 Extracting FLAC from M4A container...");
                 var flacPath = Path.ChangeExtension(inputPath, "flac");
                 
-                var success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio);
+                var success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio, keepOriginal);
                 if (success)
                 {
                     if (!keepOriginal && File.Exists(inputPath))
@@ -48,39 +48,41 @@ public static class AudioFormatHandler
         }
     }
     
-    private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath, IAudioProcessor audio)
+    private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath, IAudioProcessor audio, bool keepOriginal)
     {
         try
         {
-            // Use ffmpeg to extract FLAC without re-encoding
-            // -c copy means copy codec without re-encoding
             var ffmpegArgs = $"-i \"{inputPath}\" -c copy \"{outputPath}\"";
             var (exitCode, _, stderr) = await audio.RunFfmpegAsync(ffmpegArgs);
             var success = exitCode == 0 && File.Exists(outputPath);
             if (!success)
             {
                 Console.WriteLine($"⚠️ FFmpeg error: {stderr}");
+                return keepOriginal ? false : TryCopyFallback(inputPath, outputPath);
             }
-            return success;
+            return true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️ FFmpeg extraction failed: {ex.Message}");
-            
-            // Fallback: Try simple file copy with extension change
-            // This won't extract FLAC but at least preserves the file
-            try
-            {
-                File.Copy(inputPath, outputPath, true);
-                Console.WriteLine("📝 Note: File copied as-is (FLAC still in M4A container)");
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return keepOriginal ? false : TryCopyFallback(inputPath, outputPath);
         }
     }
+
+    private static bool TryCopyFallback(string inputPath, string outputPath)
+    {
+        try
+        {
+            File.Copy(inputPath, outputPath, true);
+            Console.WriteLine("📝 Note: File copied as-is (FLAC still in M4A container)");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     
     public static string DetectCodecs(string filePath)
     {

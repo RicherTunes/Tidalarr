@@ -7,7 +7,7 @@ public class TidalDownloadSettings : BaseStreamingSettings
     public string PreferredQuality { get; set; } = "Lossless";
     public bool IncludeMqa { get; set; } = true;
     public string DownloadPath { get; set; } = string.Empty;
-    public bool ExtractFlac { get; set; } = false;
+    public bool ExtractFlac { get; set; } = true;
     public bool ReEncodeAAC { get; set; } = false;
     public bool SaveSyncedLyrics { get; set; } = true;
     public bool UseLRCLIB { get; set; } = false;

@@ -20,9 +20,10 @@ public class TidalManifestParserTests
           </SegmentTemplate>
         </AdaptationSet></Period></MPD>";
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml));
-        var m = _parser.ParseManifest(encoded, "application/dash+xml");
-        Assert.Equal(".m4a", m.FileExtension); // mp4a codec
-        Assert.True(m.ChunkUrls.Length >= 3); // 1 + repeats
+        var manifest = _parser.ParseManifest(encoded, "application/dash+xml");
+
+        Assert.Equal(".m4a", manifest.FileExtension); // mp4a codec
+        Assert.True(manifest.ChunkUrls.Length >= 3); // 1 + repeats
     }
 
     [Fact]
@@ -32,10 +33,32 @@ public class TidalManifestParserTests
                    "\"urls\":[\"https://a\",\"https://b\"]," +
                    "\"codecs\":\"flac\",\"mimeType\":\"audio/flac\",\"encryptionType\":\"NONE\"}";
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
-        var m = _parser.ParseManifest(encoded, "application/vnd.tidal.bts");
-        Assert.Equal(".flac", m.FileExtension);
-        Assert.False(m.IsEncrypted);
-        Assert.Equal(2, m.ChunkUrls.Length);
+        var manifest = _parser.ParseManifest(encoded, "application/vnd.tidal.bts");
+
+        Assert.Equal(".flac", manifest.FileExtension);
+        Assert.False(manifest.IsEncrypted);
+        Assert.Equal(2, manifest.ChunkUrls.Length);
+    }
+
+    [Fact]
+    public void ParseBts_WithEncryptionKey_PrefersManifestToken()
+    {
+        var token = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5 });
+        var json = "{" +
+                   "\"urls\":[\"https://secure\",\"https://secure2\"]," +
+                   "\"codecs\":\"mp4a.40.2\"," +
+                   "\"mimeType\":\"audio/mp4\"," +
+                   "\"encryptionType\":\"AES_CTR\"," +
+                   "\"encryptionKey\":\"" + token + "\"," +
+                   "\"keyId\":\"kid-123\"," +
+                   "\"sampleRate\":48000" +
+                   "}";
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        var manifest = _parser.ParseManifest(encoded, "application/vnd.tidal.bts");
+
+        Assert.True(manifest.IsEncrypted);
+        Assert.Equal(token, manifest.SecurityToken);
+        Assert.Equal("kid-123", manifest.KeyId);
+        Assert.Equal(48000, manifest.SampleRate);
     }
 }
-

@@ -83,12 +83,13 @@ public class TidalModelsTests
     public void TidalAuthUrl_Constructor_SetsAllProperties()
     {
         // Arrange & Act
-        var authUrl = new TidalAuthUrl("https://test.url", "verifier123", "state456");
+        var authUrl = new TidalAuthUrl("https://test.url", "verifier123", "state456", string.Empty);
         
         // Assert
         Assert.Equal("https://test.url", authUrl.AuthorizationUrl);
         Assert.Equal("verifier123", authUrl.CodeVerifier);
         Assert.Equal("state456", authUrl.State);
+        Assert.Equal(string.Empty, authUrl.ClientUniqueKey);
     }
     
     #endregion
@@ -249,7 +250,7 @@ public class TidalModelsTests
         
         // Act
         var manifest = new TidalManifest(
-            chunkUrls, "flac", "audio/flac", ".flac", 44100, false, null);
+            chunkUrls, "flac", "audio/flac", ".flac", 44100, false, null, null);
         
         // Assert
         Assert.Equal(chunkUrls, manifest.ChunkUrls);
@@ -258,7 +259,8 @@ public class TidalModelsTests
         Assert.Equal(".flac", manifest.FileExtension);
         Assert.Equal(44100, manifest.SampleRate);
         Assert.False(manifest.IsEncrypted);
-        Assert.Null(manifest.EncryptionKey);
+        Assert.Null(manifest.KeyId);
+        Assert.Null(manifest.SecurityToken);
     }
     
     #endregion
@@ -308,3 +310,5 @@ public class TidalModelsTests
     
     #endregion
 }
+
+

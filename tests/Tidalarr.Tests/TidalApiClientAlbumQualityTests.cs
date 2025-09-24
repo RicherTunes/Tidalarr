@@ -36,7 +36,7 @@ public class TidalApiClientAlbumQualityTests
     private class AuthStub : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","",""));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","","", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());

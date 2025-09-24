@@ -19,7 +19,7 @@ public class TidalModuleEndToEndDiFlowsTests
     private class AuthStub : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("https://auth", "ver", "state"));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("https://auth", "ver", "state", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Create());
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Create());
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Create());

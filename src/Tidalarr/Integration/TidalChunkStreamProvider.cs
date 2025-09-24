@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,10 +29,8 @@ namespace Tidalarr.Integration
 
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
-            // Map shared StreamingQuality to TidalQuality
             var tidalQuality = quality != null ? _mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
-
-            // Prefer manifest parsing path when available
+    
             TidalManifest? manifest = null;
             try
             {
@@ -41,9 +38,9 @@ namespace Tidalarr.Integration
             }
             catch
             {
-                // Fallback to legacy stream info path
+                // Ignore and fall back to legacy stream info path
             }
-
+    
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
                 var assembled = await _chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
@@ -51,20 +48,20 @@ namespace Tidalarr.Integration
                 return new AudioStreamResult
                 {
                     Stream = assembled,
-                    TotalBytes = null, // unknown until downloaded
-                    SuggestedExtension = manifest.FileExtension?.TrimStart('.') ?? "flac"
+                    TotalBytes = null,
+                    SuggestedExtension = manifest.FileExtension?.TrimStart('.') ?? "m4a"
                 };
             }
-
-            // Fallback to stream info
+    
             var info = await _streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
             var ms = await _chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
             return new AudioStreamResult
             {
                 Stream = ms,
                 TotalBytes = null,
-                SuggestedExtension = info.FileExtension?.TrimStart('.') ?? "flac"
+                SuggestedExtension = info.FileExtension?.TrimStart('.') ?? "m4a"
             };
         }
+
     }
 }
