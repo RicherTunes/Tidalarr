@@ -159,7 +159,7 @@ public class MockTidalAuth : ITidalAuth
     }
     
     public Task<TidalAuthUrl> GenerateAuthUrlAsync() => 
-        Task.FromResult(new TidalAuthUrl("https://test.url", "verifier", "state"));
+        Task.FromResult(new TidalAuthUrl("https://test.url", "verifier", "state", string.Empty));
         
     public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => 
         Task.FromResult(_tokens!);

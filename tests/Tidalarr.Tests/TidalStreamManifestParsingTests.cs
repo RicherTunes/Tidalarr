@@ -39,7 +39,7 @@ public class TidalStreamManifestParsingTests
         Assert.Equal(ManifestMimeType.MPD, sm.MimeType);
         Assert.Equal("FLAC", sm.Codecs);
         Assert.Equal(".m4a", sm.FileExtension);
-        Assert.Equal("kid-123", sm.EncryptionKey);
+        Assert.Equal("kid-123", sm.KeyId);
         Assert.True(sm.ChunkUrls.Length >= 3); // init + segments
         Assert.Contains("init.m4a", sm.ChunkUrls[0]);
         Assert.Contains("seg_", sm.ChunkUrls[^1]);
@@ -75,3 +75,4 @@ public class TidalStreamManifestParsingTests
         Assert.Empty(sm.ChunkUrls);
     }
 }
+
