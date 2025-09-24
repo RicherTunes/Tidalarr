@@ -10,7 +10,7 @@ public class TidalApiClientAuthCheckTests
     private class ThrowAuth : ITidalAuth
     {
         public bool IsAuthenticated => false;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","",""));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","","", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(new TidalTokens("","","",DateTime.UtcNow,"","",""));
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(new TidalTokens("","","",DateTime.UtcNow,"","",""));
         public Task<TidalTokens> GetValidTokensAsync() => throw new InvalidOperationException("not authenticated");

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Web;
@@ -36,8 +37,9 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     {
         var (codeVerifier, codeChallenge) = _pkceGenerator.GeneratePair();
         var state = GenerateSecureState();
-        var authUrl = BuildAuthorizationUrl(codeChallenge, state);
-        return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state));
+        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        var authUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey);
+        return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state, clientUniqueKey));
     }
 
     protected override async Task<TidalTokens> PerformAuthenticationAsync(TidalCredentials credentials)
@@ -49,7 +51,10 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     }
 
     protected override Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
-        => Task.FromResult(BuildAuthorizationUrl(codeChallenge, state));
+    {
+        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        return Task.FromResult(BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey));
+    }
 
     protected override Task<TidalTokens> ExchangeCodeForTokensInternalAsync(string authorizationCode, string codeVerifier, string redirectUri)
         => ExchangeCodeAsync(authorizationCode, codeVerifier);
@@ -80,7 +85,10 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
         Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
 
-        var request = BuildTokenExchangeRequest(authCode, codeVerifier);
+        var codeChallenge = _pkceGenerator.CreateS256Challenge(codeVerifier);
+        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+
+        var request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
         var (success, response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => _httpClient.SendAsync(request));
 
         if (!success || response == null)
@@ -164,7 +172,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         }
     }
 
-    private string BuildAuthorizationUrl(string codeChallenge, string state)
+    private string BuildAuthorizationUrl(string codeChallenge, string state, string clientUniqueKey)
     {
         var parameters = new Dictionary<string, string>
         {
@@ -173,7 +181,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
             ["client_id"] = TidalConstants.CLIENT_ID_PKCE,
             ["lang"] = TidalConstants.LANGUAGE,
             ["appMode"] = TidalConstants.APP_MODE,
-            ["client_unique_key"] = GenerateClientUniqueKey(),
+            ["client_unique_key"] = clientUniqueKey,
             ["code_challenge"] = codeChallenge,
             ["code_challenge_method"] = "S256",
             ["restrict_signup"] = "true",
@@ -184,7 +192,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         return $"{TidalConstants.LOGIN_BASE}?{queryString}";
     }
 
-    private HttpRequestMessage BuildTokenExchangeRequest(string authCode, string codeVerifier)
+    private HttpRequestMessage BuildTokenExchangeRequest(string authCode, string codeVerifier, string clientUniqueKey)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, TidalConstants.AUTH_BASE);
         var formData = new FormUrlEncodedContent(new[]
@@ -195,6 +203,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
             new KeyValuePair<string, string>("redirect_uri", TidalConstants.REDIRECT_URI),
             new KeyValuePair<string, string>("scope", TidalConstants.OAUTH_SCOPE),
             new KeyValuePair<string, string>("code_verifier", codeVerifier),
+            new KeyValuePair<string, string>("client_unique_key", clientUniqueKey),
             new KeyValuePair<string, string>("client_secret", TidalConstants.CLIENT_SECRET_PKCE)
         });
         request.Content = formData;
@@ -223,7 +232,15 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         return Convert.ToBase64String(bytes).Replace("/", "_").Replace("+", "-").Replace("=", "");
     }
 
-    private static string GenerateClientUniqueKey() => Guid.NewGuid().ToString("N");
+
+    private static string GenerateClientUniqueKey(string codeChallenge)
+    {
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeChallenge));
+        var truncated = new byte[16];
+        Array.Copy(hash, truncated, truncated.Length);
+        return Convert.ToHexString(truncated).ToLowerInvariant();
+    }
 
     private static TidalTokens MapToTidalTokens(TidalTokenResponse response)
         => new(

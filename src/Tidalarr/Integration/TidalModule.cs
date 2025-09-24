@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Caching;
@@ -12,6 +14,7 @@ using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
+using Tidalarr.Infrastructure.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
 using Lidarr.Plugin.Common.Services.Download;
@@ -31,6 +34,8 @@ public class TidalModule : StreamingPluginModule
     public static void RegisterServices(IServiceCollection services)
     {
         RegisterSharedLibraryServices(services);
+        services.AddTransient<GzipSniffingHandler>();
+        services.AddTransient<WiretapDiagnosticHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
         services.AddHttpClient<TidalApiClient>(client =>
@@ -38,6 +43,12 @@ public class TidalModule : StreamingPluginModule
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
         })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        })
+        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<WiretapDiagnosticHandler>()
         .AddHttpMessageHandler(sp =>
         {
             var tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
@@ -49,7 +60,13 @@ public class TidalModule : StreamingPluginModule
         services.AddHttpClient<TidalOAuthService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        })
+        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
 
         // Core services
         services.AddSingleton<PKCEGenerator>();
@@ -74,7 +91,6 @@ public class TidalModule : StreamingPluginModule
         services.AddScoped<TidalQualityDetector>();
         services.AddScoped<TidalManifestParser>();
         services.AddScoped<TidalStreamService>();
-        services.AddScoped<TidalChunkDownloader>();
         services.AddScoped<TidalChunkStreamProvider>();
         services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
 
@@ -90,7 +106,24 @@ public class TidalModule : StreamingPluginModule
         {
             client.Timeout = TimeSpan.FromMinutes(10);
             client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
-        });
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        })
+        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
+
+        services.AddHttpClient<TidalChunkDownloader>(client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(5);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        })
+        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
     }
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
@@ -153,7 +186,7 @@ public class TidalModule : StreamingPluginModule
             var tidalQ = mapper.FromStreamingQuality(q ?? new StreamingQuality { Bitrate = 320 });
             var info = await api.GetStreamInfoAsync(id, tidalQ);
             var url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
-            var ext = info.FileExtension?.TrimStart('.') ?? "flac";
+            var ext = info.FileExtension?.TrimStart('.') ?? "m4a";
             return (url, ext);
         };
 
@@ -167,3 +200,12 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
+
+
+
+
+
+
+
+
+

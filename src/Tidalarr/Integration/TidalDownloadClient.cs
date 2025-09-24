@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -115,7 +116,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         var title = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseTitle);
         var artist = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseArtist);
         var tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
-        return $"{tn} - {artist} - {title}.flac";
+        var extension = Settings.ExtractFlac ? "flac" : "m4a";
+        return $"{tn} - {artist} - {title}.{extension}";
     }
     
     /// <summary>
@@ -137,6 +139,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
             var manifest = await _streamService.GetParsedManifestAsync(trackId, quality);
             
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
+
+            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={(manifest.SecurityToken?.Length ?? 0)} codec={manifest.Codec}");
             
             // Step 4: Download and assemble chunks
             var dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
@@ -440,3 +444,5 @@ public class StreamingDownloadResult
     public string ErrorMessage { get; set; } = string.Empty;
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 }
+
+

@@ -7,6 +7,8 @@ public static class TidalConstants
     // OAuth Client Credentials - MUST match TidalSharp
     public const string CLIENT_ID_PKCE = "6BDSRdpK9hqEBTgU";
     public const string CLIENT_SECRET_PKCE = "xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=";
+
+    public const string CLIENT_ID = "zU4XHVVkc2tDPo4t";
     public const string REDIRECT_URI = "https://tidal.com/android/login/auth";
 
     // API Endpoints

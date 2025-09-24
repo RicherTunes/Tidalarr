@@ -19,7 +19,10 @@ public class StreamManifest
     public string[] ChunkUrls { get; private set; } = Array.Empty<string>();
     public string FileExtension { get; private set; } = ".m4a";
     public string Codecs { get; private set; } = "MP4A";
-    public string EncryptionKey { get; private set; } = string.Empty;
+    public string? KeyId { get; private set; } = string.Empty;
+    public string? SecurityToken { get; private set; } = null;
+    public bool IsEncrypted => !string.IsNullOrWhiteSpace(SecurityToken);
+
     public ManifestMimeType MimeType { get; private set; }
 
     public StreamManifest(JsonElement streamData)
@@ -45,7 +48,11 @@ public class StreamManifest
             // Get encryption info if available
             if (streamData.TryGetProperty("keyId", out var keyIdElement))
             {
-                EncryptionKey = keyIdElement.GetString() ?? "";
+                KeyId = keyIdElement.GetString() ?? string.Empty;
+            }
+            if (streamData.TryGetProperty("securityToken", out var tokenElement))
+            {
+                SecurityToken = tokenElement.GetString();
             }
 
             if (!string.IsNullOrEmpty(encodedManifest))
@@ -186,4 +193,6 @@ public class StreamManifest
             return ".m4a"; // AAC inside M4A
     }
 }
+
+
 
