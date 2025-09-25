@@ -29,4 +29,8 @@
     <ProjectReference Include="..\..\TidalCLI\TidalCLI.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="fixtures\sample_tone.m4a" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
 </Project>
