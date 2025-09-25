@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using TidalCLI;
 using Tidalarr.Core.Models;
 using Xunit;
 
@@ -24,7 +23,7 @@ public class TidalCliPathBuilderTests
             CoverArtId: "cover-art",
             IsAvailable: true);
 
-        var method = typeof(Program).GetMethod("BuildAlbumOutputDirectory", BindingFlags.NonPublic | BindingFlags.Static);
+        var method = typeof(TidalCLI.Program).GetMethod("BuildAlbumOutputDirectory", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
         var output = (string)method!.Invoke(null, new object[] { root, album })!;
