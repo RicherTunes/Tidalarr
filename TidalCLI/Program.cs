@@ -13,6 +13,8 @@ using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
+using IntegrationModule = Tidalarr.Integration.TidalModule;
+
 namespace TidalCLI;
 
 public class Program
@@ -23,7 +25,7 @@ public class Program
         args = NormalizeArgs(args);
         Console.WriteLine("🎵 Tidalarr CLI - Tidal Plugin Test Bed");
         Console.WriteLine("=====================================");
-        
+
         try
         {
             if (args.Length == 0)
@@ -64,7 +66,7 @@ public class Program
             return 1;
         }
     }
-    
+
     static async Task ShowMainMenu()
     {
         while (true)
@@ -82,10 +84,10 @@ public class Program
             Console.WriteLine("A. test-all         - Run all tests");
             Console.WriteLine("C. config           - Configure defaults (output dir, quality)");
             Console.WriteLine("X. exit             - Exit application");
-            
+
             Console.Write("\nEnter command number or name: ");
             var input = Console.ReadLine()?.Trim().ToLower();
-            
+
             switch (input)
             {
                 case "1" or "test-oauth":
@@ -157,11 +159,11 @@ public class Program
             }
         }
     }
-    
+
     static async Task ProcessCommand(string[] args)
     {
         var command = args[0].ToLower();
-        
+
         switch (command)
         {
             case "test-oauth":
@@ -287,7 +289,7 @@ public class Program
         // The above creates a new provider; better approach is DI bootstrap if needed.
         var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
         {
-            Console.Write($"\r⬇️  {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
+            Console.Write($"\r⬇️  {p.PercentComplete,6:0.0}% | {p.BytesPerSecond / 1024 / 1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
         });
         try
         {
@@ -295,7 +297,7 @@ public class Program
             var q = MakeQualityFromConfig(cfg.PreferredQuality);
             var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
             Console.WriteLine();
-            if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize/1024/1024:F2} MB)");
+            if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize / 1024 / 1024:F2} MB)");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
         }
         catch (Exception ex)
@@ -318,7 +320,7 @@ public class Program
         var provider = await BuildPluginServiceProviderAsync();
         try
         {
-            var orchestrator = TidalModule.CreateOrchestrator(provider);
+            var orchestrator = IntegrationModule.CreateOrchestrator(provider);
             var api = provider.GetRequiredService<ITidalCore>();
 
             TidalAlbumInfo? albumInfo = null;
@@ -345,7 +347,7 @@ public class Program
 
             var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
             {
-                Console.Write($"\r⬇️  {p.CompletedTracks}/{p.TotalTracks} | {p.PercentComplete,6:0.0}% | {p.BytesPerSecond/1024/1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
+                Console.Write($"\r⬇️  {p.CompletedTracks}/{p.TotalTracks} | {p.PercentComplete,6:0.0}% | {p.BytesPerSecond / 1024 / 1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
             });
 
             try
@@ -355,13 +357,13 @@ public class Program
                 Console.WriteLine();
                 if (result.Success)
                 {
-                    Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize/1024/1024:F2} MB");
+                    Console.WriteLine($"✅ Album downloaded: {result.FilePaths.Count} files, {result.TotalSize / 1024 / 1024:F2} MB");
+                    await CliMetadataWriter.ApplyAlbumMetadataAsync(albumInfo, result);
                 }
                 else
                 {
                     Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
                 }
-
                 if (result.FilePaths.Count == 0 && (result.TrackResults?.Count > 0))
                 {
                     var failures = result.TrackResults.Where(t => !t.Success).Take(5).ToList();
@@ -394,7 +396,7 @@ public class Program
         cliTokens ??= await TokenStorage.GetValidTokensAsync();
 
         var services = new ServiceCollection();
-        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        IntegrationModule.RegisterServices(services);
         var provider = services.BuildServiceProvider();
 
         if (cliTokens != null)
@@ -419,7 +421,7 @@ public class Program
     private static async Task<Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator> CreateOrchestratorForCliAsync()
     {
         var provider = await BuildPluginServiceProviderAsync();
-        return Tidalarr.Integration.TidalModule.CreateOrchestrator(provider);
+        return IntegrationModule.CreateOrchestrator(provider);
     }
 
     private static Lidarr.Plugin.Common.Models.StreamingQuality MakeQualityFromConfig(string? preferred)
@@ -496,14 +498,14 @@ public class Program
 
 
 
-private static HttpClient CreateHttpClient()
-{
-    var handler = new SocketsHttpHandler
+    private static HttpClient CreateHttpClient()
     {
-        AutomaticDecompression = DecompressionMethods.All
-    };
-    return new HttpClient(handler, disposeHandler: true);
-}
+        var handler = new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        };
+        return new HttpClient(handler, disposeHandler: true);
+    }
     // --- Config management ---
     class CliConfig
     {
@@ -556,90 +558,90 @@ private static HttpClient CreateHttpClient()
         }
         catch { /* ignore */ }
     }
-    
+
     static async Task TestOAuthGeneration()
     {
         Console.WriteLine("\n🔐 Testing OAuth URL Generation...");
-        
+
         var httpClient = CreateHttpClient();
         var pkceGenerator = new PKCEGenerator();
         var authService = new TidalOAuthService(httpClient, pkceGenerator);
-        
+
         var authUrl = await authService.GenerateAuthUrlAsync();
-        
+
         Console.WriteLine($"✅ OAuth URL Generated Successfully!");
         Console.WriteLine($"📏 Code Verifier Length: {authUrl.CodeVerifier.Length}");
         Console.WriteLine($"🔗 Auth URL: {authUrl.AuthorizationUrl}");
         Console.WriteLine($"🎯 State: {authUrl.State}");
-        
+
         Console.WriteLine("\n📋 URL Analysis:");
         Console.WriteLine($"   Contains client_id: {authUrl.AuthorizationUrl.Contains("6BDSRdpK9hqEBTgU")}");
         Console.WriteLine($"   Contains redirect_uri: {authUrl.AuthorizationUrl.Contains("tidal.com")}");
         Console.WriteLine($"   Contains PKCE challenge: {authUrl.AuthorizationUrl.Contains("code_challenge=")}");
         Console.WriteLine($"   Contains S256 method: {authUrl.AuthorizationUrl.Contains("code_challenge_method=S256")}");
     }
-    
+
     static Task TestCallbackParsing()
     {
         Console.WriteLine("\n📞 Testing OAuth Callback Parsing...");
-        
+
         var authService = new TidalOAuthService(CreateHttpClient(), new PKCEGenerator());
-        
+
         // Test valid callback
         var validCallback = "https://tidal.com/android/login/auth?code=test_auth_code_12345&state=secure_state_67890";
         var result = authService.ParseCallbackUrl(validCallback);
-        
+
         Console.WriteLine($"✅ Valid Callback Test:");
         Console.WriteLine($"   Success: {result.IsSuccess}");
         Console.WriteLine($"   Auth Code: {result.AuthCode}");
         Console.WriteLine($"   State: {result.State}");
-        
+
         // Test invalid callback
         var invalidCallback = "https://tidal.com/android/login/auth?error=access_denied";
         var errorResult = authService.ParseCallbackUrl(invalidCallback);
-        
+
         Console.WriteLine($"\n❌ Invalid Callback Test:");
         Console.WriteLine($"   Success: {errorResult.IsSuccess}");
         Console.WriteLine($"   Error: {errorResult.ErrorMessage}");
         return Task.CompletedTask;
     }
-    
+
     static Task TestSearchFunctionality()
     {
         Console.WriteLine("\n🔍 Testing Search Functionality...");
-        
+
         var settings = CreateTestIndexerSettings();
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        IntegrationModule.RegisterServices(services);
         var provider = services.BuildServiceProvider();
-        var indexer = TidalModule.CreateIndexer(provider, settings);
-        
+        var indexer = TidalMockModule.CreateIndexer(provider, settings);
+
         Console.WriteLine($"✅ Search indexer created successfully");
-        Console.WriteLine($"📊 Settings validation: {TidalModule.ValidateConfiguration(settings)}");
+        Console.WriteLine($"📊 Settings validation: {TidalMockModule.ValidateConfiguration(settings)}");
         Console.WriteLine($"🎯 Market: {settings.TidalMarket}");
         Console.WriteLine($"🌍 Market: {settings.TidalMarket}");
-        
+
         // In real usage with authentication:
         // var results = await indexer.SearchAsync("test artist");
         // Console.WriteLine($"🎵 Found {results.Count} results");
-        
+
         Console.WriteLine($"\n📝 Note: Real search requires Tidal authentication");
         Console.WriteLine($"📝 This test validates search component integration");
         return Task.CompletedTask;
     }
-    
+
     static Task TestDownloadWorkflow()
     {
         Console.WriteLine("\n⬇️  Testing Download Workflow...");
-        
+
         var settings = CreateTestDownloadSettings();
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        IntegrationModule.RegisterServices(services);
         var provider = services.BuildServiceProvider();
-        var downloadClient = TidalModule.CreateDownloadClient(provider, settings);
-        
+        var downloadClient = TidalMockModule.CreateDownloadClient(provider, settings);
+
         Console.WriteLine($"✅ Download client created successfully");
-        
+
         // Test download validation (mock)
         var canValidate = downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless).GetAwaiter().GetResult();
         Console.WriteLine($"📊 Download validation capability: Working");
@@ -650,17 +652,17 @@ private static HttpClient CreateHttpClient()
         // Console.WriteLine($"🎵 Downloaded: {result.Title} by {result.Artist}");
         // Console.WriteLine($"💿 Quality: {result.Quality}, Format: {result.FileExtension}");
     }
-    
+
     static async Task RunAllTests()
     {
         Console.WriteLine("\n🧪 Running All Integration Tests...");
         Console.WriteLine("===================================\n");
-        
+
         await TestOAuthGeneration();
         await TestCallbackParsing();
         await TestSearchFunctionality();
         await TestDownloadWorkflow();
-        
+
         Console.WriteLine("\n🏆 ALL TESTS COMPLETED SUCCESSFULLY!");
         Console.WriteLine("🥈 SILVER MEDAL CRITERIA ACHIEVED:");
         Console.WriteLine("   ✅ OAuth authentication system works");
@@ -668,14 +670,14 @@ private static HttpClient CreateHttpClient()
         Console.WriteLine("   ✅ Download workflow integrated");
         Console.WriteLine("   ✅ All components work together");
         Console.WriteLine("   ✅ Error handling works gracefully");
-        
+
         Console.WriteLine("\n📊 Implementation Statistics:");
         Console.WriteLine($"   📈 Progress: 92% complete (1,246+ lines)");
         Console.WriteLine($"   🧪 Tests: 77+ tests passing");
         Console.WriteLine($"   🏗️  Architecture: Clean, modular, testable");
         Console.WriteLine($"   🔗 Integration: Shared library + custom components");
     }
-    
+
     private static TidalIndexerSettings CreateTestIndexerSettings()
     {
         return new TidalIndexerSettings
@@ -687,7 +689,7 @@ private static HttpClient CreateHttpClient()
             CacheDuration = 15
         };
     }
-    
+
     private static TidalDownloadSettings CreateTestDownloadSettings()
     {
         return new TidalDownloadSettings
@@ -697,44 +699,44 @@ private static HttpClient CreateHttpClient()
             DownloadPath = Path.Combine(Path.GetTempPath(), "tidalarr-downloads")
         };
     }
-    
+
     static async Task TestRealMusicSearch()
     {
         Console.WriteLine("\n🔍 Testing Real Music Search...");
-        
+
         var tokens = await TokenStorage.GetValidTokensAsync();
         if (tokens == null)
         {
             Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
             return;
         }
-        
+
         Console.Write("Enter search query (e.g., 'Bohemian Rhapsody Queen'): ");
         var searchQuery = Console.ReadLine()?.Trim();
-        
+
         if (string.IsNullOrEmpty(searchQuery))
         {
             searchQuery = "Bohemian Rhapsody Queen"; // Default test query
             Console.WriteLine($"Using default query: {searchQuery}");
         }
-        
+
         try
         {
             // Test album search
             Console.WriteLine($"\n🎵 Searching for albums: '{searchQuery}'");
             var albumUrl = $"https://api.tidal.com/v1/search/albums?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
-            
+
             httpClient.DefaultRequestHeaders.Clear();
             httpClient.DefaultRequestHeaders.Add("Authorization", $"{tokens.TokenType} {tokens.AccessToken}");
-            
+
             var response = await httpClient.GetAsync(albumUrl);
             var content = await response.Content.ReadAsStringAsync();
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var searchResult = JsonSerializer.Deserialize<JsonElement>(content);
                 var albums = searchResult.GetProperty("items");
-                
+
                 Console.WriteLine($"✅ Found {albums.GetArrayLength()} albums:");
                 int i = 1;
                 foreach (var album in albums.EnumerateArray())
@@ -743,7 +745,7 @@ private static HttpClient CreateHttpClient()
                     var artist = album.GetProperty("artist").GetProperty("name").GetString();
                     var id = album.GetProperty("id").GetInt64();
                     var quality = album.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
-                    
+
                     Console.WriteLine($"   {i}. 📀 {title} by {artist} (ID: {id}, Quality: {quality})");
                     i++;
                     if (i > 3) break; // Show first 3 results
@@ -754,19 +756,19 @@ private static HttpClient CreateHttpClient()
                 Console.WriteLine($"❌ Album search failed: {response.StatusCode}");
                 Console.WriteLine($"Response: {content}");
             }
-            
+
             // Test track search
             Console.WriteLine($"\n🎵 Searching for tracks: '{searchQuery}'");
             var trackUrl = $"https://api.tidal.com/v1/search/tracks?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
-            
+
             var trackResponse = await httpClient.GetAsync(trackUrl);
             var trackContent = await trackResponse.Content.ReadAsStringAsync();
-            
+
             if (trackResponse.IsSuccessStatusCode)
             {
                 var trackResult = JsonSerializer.Deserialize<JsonElement>(trackContent);
                 var tracks = trackResult.GetProperty("items");
-                
+
                 Console.WriteLine($"✅ Found {tracks.GetArrayLength()} tracks:");
                 int j = 1;
                 foreach (var track in tracks.EnumerateArray())
@@ -776,7 +778,7 @@ private static HttpClient CreateHttpClient()
                     var id = track.GetProperty("id").GetInt64();
                     var duration = track.GetProperty("duration").GetInt32();
                     var quality = track.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
-                    
+
                     var durationStr = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
                     Console.WriteLine($"   {j}. 🎵 {title} by {artist} ({durationStr}) (ID: {id}, Quality: {quality})");
                     j++;
@@ -788,36 +790,36 @@ private static HttpClient CreateHttpClient()
                 Console.WriteLine($"❌ Track search failed: {trackResponse.StatusCode}");
                 Console.WriteLine($"Response: {trackContent}");
             }
-            
+
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error during search: {ex.Message}");
         }
     }
-    
+
     static async Task TestRealDownloadWorkflow()
     {
         Console.WriteLine("\n⬇️ Testing Real Download Workflow...");
-        
+
         var tokens = await TokenStorage.GetValidTokensAsync();
         if (tokens == null)
         {
             Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
             return;
         }
-        
+
         Console.Write("Enter track ID to test download (or press ENTER for default): ");
         var trackIdInput = Console.ReadLine()?.Trim();
-        
+
         // Use a track ID from our search results
         var trackId = string.IsNullOrEmpty(trackIdInput) ? "36737274" : trackIdInput; // Bohemian Rhapsody
         Console.WriteLine($"Testing download for track ID: {trackId} (Plugin-Based Architecture)");
-        
+
         // Use plugin helper for proper architecture
         var result = await TidalCLIHelper.TestRealDownloadWorkflowAsync(trackId, tokens);
         Console.WriteLine(result);
-        
+
         /* Old implementation - keeping for reference
         try
         {
