@@ -1,5 +1,6 @@
 using Tidalarr.Integration;
 using Xunit;
+using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests;
 
@@ -17,13 +18,13 @@ public class TidalSettingsTests
         Assert.True(indexer.EnableCache);
         Assert.Equal(15, indexer.CacheDuration);
         Assert.True(download.IncludeMqa);
-        Assert.Equal("Lossless", download.PreferredQuality);
+        Assert.Equal(TidalQuality.Lossless, download.PreferredQuality);
     }
     
     [Theory]
-    [InlineData("", false, "Redirect URL is required")]
-    [InlineData("not-a-url", false, "Invalid redirect URL format")]
-    [InlineData("https://wrong-domain.com/auth", false, "Invalid callback domain")]
+    [InlineData("", false, "Redirect URL is required for OAuth authentication")]
+    [InlineData("not-a-url", false, "Redirect URL must be an absolute HTTP/HTTPS URL")]
+    [InlineData("https://wrong-domain.com/auth", false, "Redirect URL must be under the tidal.com domain")]
     [InlineData("https://tidal.com/android/login/auth?code=test&state=test", true, "")]
     public void IsValid_VariousRedirectUrls_ValidatesCorrectly(string redirectUrl, bool expectedValid, string expectedError)
     {
@@ -57,7 +58,7 @@ public class TidalSettingsTests
         // Verify key fields
         Assert.True(indexer.EnableCache);
         Assert.True(indexer.CacheDuration > 0);
-        Assert.NotNull(download.PreferredQuality);
+        Assert.Equal(TidalQuality.Lossless, download.PreferredQuality);
     }
     
     [Theory]
@@ -83,3 +84,6 @@ public class TidalSettingsTests
         Assert.Equal(expectedValid, isValid);
     }
 }
+
+
+

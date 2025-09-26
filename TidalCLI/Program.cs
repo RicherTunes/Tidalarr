@@ -424,16 +424,15 @@ public class Program
         return IntegrationModule.CreateOrchestrator(provider);
     }
 
-    private static Lidarr.Plugin.Common.Models.StreamingQuality MakeQualityFromConfig(string? preferred)
+    private static Lidarr.Plugin.Common.Models.StreamingQuality MakeQualityFromConfig(TidalQuality preferred)
     {
-        var q = preferred?.Trim().ToLowerInvariant();
-        return q switch
+        return preferred switch
         {
-            "low" => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 96, Format = "AAC" },
-            "high" => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" },
-            "lossless" => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" },
-            "hires" => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 96000, BitDepth = 24, Format = "FLAC" },
-            _ => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" }
+            TidalQuality.Low => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 96, Format = "AAC" },
+            TidalQuality.High => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" },
+            TidalQuality.Lossless => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" },
+            TidalQuality.HiRes => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 96000, BitDepth = 24, Format = "FLAC" },
+            _ => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" }
         };
     }
 
@@ -510,7 +509,7 @@ public class Program
     class CliConfig
     {
         public string? OutputDirectory { get; set; }
-        public string PreferredQuality { get; set; } = "Lossless";
+        public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
         private static string PathCfg => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_config.json");
         public static CliConfig Load()
@@ -540,7 +539,10 @@ public class Program
         if (!string.IsNullOrWhiteSpace(od)) cfg.OutputDirectory = od;
         Console.Write($"Preferred quality (Low|High|Lossless|HiRes) [{cfg.PreferredQuality}]: ");
         var pq = Console.ReadLine();
-        if (!string.IsNullOrWhiteSpace(pq)) cfg.PreferredQuality = pq!;
+        if (!string.IsNullOrWhiteSpace(pq) && Enum.TryParse<TidalQuality>(pq, true, out var parsedQuality))
+        {
+            cfg.PreferredQuality = parsedQuality;
+        }
         cfg.Save();
         await Task.CompletedTask;
     }
@@ -694,7 +696,7 @@ public class Program
     {
         return new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             IncludeMqa = true,
             DownloadPath = Path.Combine(Path.GetTempPath(), "tidalarr-downloads")
         };
@@ -892,6 +894,9 @@ public class Program
         */
     }
 }
+
+
+
 
 
 

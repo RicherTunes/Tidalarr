@@ -20,3 +20,5 @@ public class TidalCacheBindingTests
         Assert.IsType<TidalResponseCache>(cache);
     }
 }
+
+

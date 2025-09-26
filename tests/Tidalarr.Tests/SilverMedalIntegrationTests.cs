@@ -124,7 +124,7 @@ public class SilverMedalIntegrationTests
     {
         // Test the complete quality detection and selection system
         
-        var settings = new TidalDownloadSettings { PreferredQuality = "HiRes", DownloadPath = System.IO.Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.HiRes, DownloadPath = System.IO.Path.GetTempPath() };
         
         // Quality detection works
         var qualityDetector = new Tidalarr.Domain.Quality.TidalQualityDetector();
@@ -155,7 +155,7 @@ public class SilverMedalIntegrationTests
     {
         return new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             IncludeMqa = true,
             DownloadPath = System.IO.Path.GetTempPath()
         };
@@ -170,3 +170,5 @@ public class SilverMedalIntegrationTests
         return await authService.GenerateAuthUrlAsync();
     }
 }
+
+

@@ -84,7 +84,7 @@ public class TidalDownloadClientEnhancedParsedTests
         var dto = new TidalPlaybackInfoDto(Base64(MpdFlac()), "application/dash+xml", "NONE", null);
         var streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath(), ExtractFlac = false };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = false };
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(dto), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         var outPath = Path.Combine(Path.GetTempPath(), $"tidal_enh_parsed_{Guid.NewGuid():N}");
         var res = await client.DownloadTrackEnhancedAsync("t1", outPath, TidalQuality.Lossless);
@@ -100,7 +100,7 @@ public class TidalDownloadClientEnhancedParsedTests
         var dto = new TidalPlaybackInfoDto(Base64(MpdAac()), "application/dash+xml", "NONE", null);
         var streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath(), ExtractFlac = true };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = true };
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(dto), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         var outPath = Path.Combine(Path.GetTempPath(), $"tidal_enh_parsed_{Guid.NewGuid():N}");
         var res = await client.DownloadTrackEnhancedAsync("t1", outPath, TidalQuality.Lossless);
@@ -110,3 +110,5 @@ public class TidalDownloadClientEnhancedParsedTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 }
+
+

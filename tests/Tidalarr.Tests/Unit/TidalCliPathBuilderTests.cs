@@ -32,3 +32,5 @@ public class TidalCliPathBuilderTests
         Assert.Equal(expected, output);
     }
 }
+
+

@@ -28,3 +28,5 @@ public class TidalIndexerSettingsValidationTests
         Assert.False(result.IsValid);
     }
 }
+
+

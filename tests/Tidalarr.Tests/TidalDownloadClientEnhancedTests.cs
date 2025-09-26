@@ -46,7 +46,7 @@ public class TidalDownloadClientEnhancedTests
     public async Task DownloadTrackWithMetadataAsync_Succeeds_AndWritesFile()
     {
         var tmp = Path.Combine(Path.GetTempPath(), $"tidal_test_{Guid.NewGuid():N}.flac");
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var streamSvc = new TidalStreamService(new CoreStub("https://chunk1"), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
@@ -62,7 +62,7 @@ public class TidalDownloadClientEnhancedTests
     public async Task DownloadTrackWithMetadataAsync_Failure_ReturnsError()
     {
         var tmp = Path.Combine(Path.GetTempPath(), $"tidal_test_{Guid.NewGuid():N}.flac");
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var streamSvc = new TidalStreamService(new CoreStub("https://chunk1"), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new FailingHandler()));
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
@@ -73,4 +73,6 @@ public class TidalDownloadClientEnhancedTests
         if (File.Exists(tmp)) { try { File.Delete(tmp); } catch { } }
     }
 }
+
+
 

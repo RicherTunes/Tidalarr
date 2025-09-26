@@ -95,9 +95,9 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     {
         var result = new ValidationResult();
         
-        if (string.IsNullOrEmpty(settings.PreferredQuality))
+        if (!Enum.IsDefined(typeof(TidalQuality), settings.PreferredQuality))
         {
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("PreferredQuality", "Preferred quality is required"));
+            result.Errors.Add(new FluentValidation.Results.ValidationFailure("PreferredQuality", "Preferred quality selection is invalid"));
         }
         
         if (string.IsNullOrEmpty(settings.DownloadPath))
@@ -133,7 +133,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         {
             // Step 1: Get track metadata
             var track = await GetTrackAsync(trackId);
-            var quality = preferredQuality ?? ParsePreferredQuality(Settings.PreferredQuality);
+            var quality = preferredQuality ?? Settings.PreferredQuality;
             
             // Step 2: Prefer parsed manifest for accurate chunks and codec within M4A
             var manifest = await _streamService.GetParsedManifestAsync(trackId, quality);
@@ -230,7 +230,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         try
         {
             var track = await GetTrackAsync(trackId);
-            var quality = preferredQuality ?? ParsePreferredQuality(Settings.PreferredQuality);
+            var quality = preferredQuality ?? Settings.PreferredQuality;
             var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
             
             var dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
@@ -337,17 +337,6 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         }
     }
     
-    private static TidalQuality ParsePreferredQuality(string? qualityString)
-    {
-        return qualityString?.ToLowerInvariant() switch
-        {
-            "low" => TidalQuality.Low,
-            "high" => TidalQuality.High,
-            "lossless" => TidalQuality.Lossless,
-            "hires" => TidalQuality.HiRes,
-            _ => TidalQuality.Lossless
-        };
-    }
     
     private static TidalQuality ParseQualityFromString(string quality)
     {
@@ -365,7 +354,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
     public async Task<TidalDownloadResult> DownloadTrackAsync(string trackId, TidalQuality? quality = null)
     {
         var track = await _apiClient.GetTrackAsync(trackId);
-        var preferredQuality = quality ?? ParsePreferredQuality(Settings.PreferredQuality);
+        var preferredQuality = quality ?? Settings.PreferredQuality;
         var outputPath = GetTempFilePath(track, ".flac");
         
         var result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);

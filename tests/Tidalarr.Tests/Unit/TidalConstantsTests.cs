@@ -47,3 +47,5 @@ public class TidalConstantsTests
         Assert.StartsWith("https://", TidalConstants.LOGIN_BASE);
     }
 }
+
+

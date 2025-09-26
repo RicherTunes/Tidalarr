@@ -8,6 +8,7 @@ using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
 using Tidalarr.Integration;
 using Xunit;
+using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests;
 
@@ -18,7 +19,7 @@ public class TidalModuleDiTests
     {
         var services = new ServiceCollection();
         var indexerSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
-        var downloadSettings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = System.IO.Path.GetTempPath() };
+        var downloadSettings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = System.IO.Path.GetTempPath() };
         services.AddSingleton(indexerSettings);
         services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -41,3 +42,6 @@ public class TidalModuleDiTests
         Assert.NotNull(provider.GetRequiredService<AdaptiveRateLimiter>());
     }
 }
+
+
+

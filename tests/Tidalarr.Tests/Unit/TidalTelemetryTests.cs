@@ -156,7 +156,15 @@ public class MockLogger<T> : ILogger<T>
 {
     public List<MockLogEntry> LogEntries { get; } = new();
     
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    private sealed class NoopDisposable : IDisposable
+    {
+        public static readonly NoopDisposable Instance = new();
+        private NoopDisposable() { }
+        public void Dispose() { }
+    }
+
+    
+    public IDisposable BeginScope<TState>(TState state) => NoopDisposable.Instance;
     
     public bool IsEnabled(LogLevel logLevel) => true;
     
@@ -179,3 +187,6 @@ public class MockLogEntry
     public string Message { get; set; } = string.Empty;
     public Exception? Exception { get; set; }
 }
+
+
+
