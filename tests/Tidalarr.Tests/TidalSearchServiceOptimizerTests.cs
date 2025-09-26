@@ -49,3 +49,5 @@ public class TidalSearchServiceOptimizerTests
         Assert.Contains("query optimized", optimizer.Learned[0]);
     }
 }
+
+

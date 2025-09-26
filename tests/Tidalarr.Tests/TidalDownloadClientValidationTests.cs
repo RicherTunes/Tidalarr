@@ -39,7 +39,7 @@ public class TidalDownloadClientValidationTests
     {
         var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         var ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
         Assert.True(ok);
@@ -50,10 +50,12 @@ public class TidalDownloadClientValidationTests
     {
         var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new FailHandler()));
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         var ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
         Assert.False(ok);
     }
 }
+
+
 

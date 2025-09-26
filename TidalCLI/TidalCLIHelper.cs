@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
 using Tidalarr.Domain.Quality;
+using Tidalarr.Core.Models;
 
 namespace TidalCLI;
 
@@ -161,10 +162,13 @@ public static class TidalCLIHelper
     {
         return new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             IncludeMqa = true,
             DownloadPath = Path.Combine(Path.GetTempPath(), "tidalarr-downloads")
         };
     }
 }
+
+
+
 

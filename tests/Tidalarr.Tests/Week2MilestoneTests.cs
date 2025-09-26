@@ -23,7 +23,7 @@ public class Week2MilestoneTests
         };
         var downloadSettings = new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath(),
             IncludeMqa = true
         };
@@ -55,7 +55,7 @@ public class Week2MilestoneTests
         };
         var downloadSettings = new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
         };
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
@@ -94,7 +94,7 @@ public class Week2MilestoneTests
 
         var downloadSettings = new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
         };
         Assert.True(downloadSettings.IsValid(out _));
@@ -114,3 +114,5 @@ public class Week2MilestoneTests
         Assert.True(true, "All components integrate successfully!");
     }
 }
+
+

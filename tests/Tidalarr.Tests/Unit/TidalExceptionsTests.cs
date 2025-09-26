@@ -162,3 +162,5 @@ public class TidalExceptionsTests
         Assert.True(typeof(TidalException).IsAssignableFrom(exceptionType));
     }
 }
+
+

@@ -156,7 +156,7 @@ public class TidalIndexerSettings
 
 public class TidalDownloadSettings
 {
-    public string PreferredQuality { get; set; } = "Lossless";
+    public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
     public bool IncludeMqa { get; set; } = true;
     public string DownloadPath { get; set; } = string.Empty;
 }
@@ -192,3 +192,4 @@ public static class TidalMockModule
         return !string.IsNullOrEmpty(settings.TidalMarket) && !string.IsNullOrEmpty(settings.ConfigPath);
     }
 }
+

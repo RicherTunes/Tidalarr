@@ -31,7 +31,7 @@ public class TidalDownloadClientEnhancedFailureTests
     public async Task DownloadTrackEnhancedAsync_WhenDownloaderThrows_ReturnsError()
     {
         var tmp = Path.Combine(Path.GetTempPath(), $"tidal_enh_fail_{Guid.NewGuid():N}");
-        var settings = new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new ThrowingHandler()));
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
@@ -41,4 +41,6 @@ public class TidalDownloadClientEnhancedFailureTests
         Assert.NotNull(res.ErrorMessage);
     }
 }
+
+
 

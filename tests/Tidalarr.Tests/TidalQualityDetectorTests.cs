@@ -118,3 +118,5 @@ public class TidalQualityDetectorTests
         Assert.Equal(expected, result);
     }
 }
+
+

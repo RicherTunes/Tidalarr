@@ -127,3 +127,5 @@ public class SpyCache : IStreamingResponseCache
     public void Clear() { }
     public void ClearEndpoint(string endpoint) { }
 }
+
+

@@ -25,7 +25,7 @@ public class EndToEndIntegrationTests
         };
         var downloadSettings = new TidalDownloadSettings
         {
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
         };
         
@@ -71,7 +71,7 @@ public class EndToEndIntegrationTests
         {
             var services = new ServiceCollection();
             services.AddSingleton(indexerSettings2);
-            services.AddSingleton(new TidalDownloadSettings { PreferredQuality = "Lossless", DownloadPath = System.IO.Path.GetTempPath() });
+            services.AddSingleton(new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = System.IO.Path.GetTempPath() });
             TidalModule.RegisterServices(services);
             var provider = services.BuildServiceProvider();
             var indexer = provider.GetRequiredService<TidalIndexer>();
@@ -87,11 +87,11 @@ public class EndToEndIntegrationTests
     }
     
     [Theory]
-    [InlineData("US", "Lossless", true)]
-    [InlineData("UK", "High", true)]
-    [InlineData("DE", "HiRes", true)]
-    [InlineData("INVALID", "Lossless", false)]
-    public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, string quality, bool shouldBeValid)
+    [InlineData("US", TidalQuality.Lossless, true)]
+    [InlineData("UK", TidalQuality.High, true)]
+    [InlineData("DE", TidalQuality.HiRes, true)]
+    [InlineData("INVALID", TidalQuality.Lossless, false)]
+    public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, TidalQuality quality, bool shouldBeValid)
     {
         // Arrange
         var settings = new TidalIndexerSettings
@@ -123,3 +123,6 @@ public class EndToEndIntegrationTests
         return services.BuildServiceProvider();
     }
 }
+
+
+

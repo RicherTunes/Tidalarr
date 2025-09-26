@@ -81,3 +81,5 @@ public class TidalApiClientCompressedResponseTests
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(_tokens);
     }
 }
+
+
