@@ -33,6 +33,11 @@ public class TidalModule : StreamingPluginModule
 
     public static void RegisterServices(IServiceCollection services)
     {
+        new TidalModule().ConfigureServices(services);
+    }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
         RegisterSharedLibraryServices(services);
         services.AddTransient<GzipSniffingHandler>();
         services.AddTransient<WiretapDiagnosticHandler>();
@@ -124,7 +129,10 @@ public class TidalModule : StreamingPluginModule
         })
         .AddHttpMessageHandler<GzipSniffingHandler>()
         .AddHttpMessageHandler<WiretapDiagnosticHandler>();
+    
     }
+
+
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
@@ -141,21 +149,15 @@ public class TidalModule : StreamingPluginModule
 
     public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(settings);
-        RegisterServices(services);
-
-        var provider = services.BuildServiceProvider();
+        var module = new TidalModule();
+        var provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalIndexer>();
     }
 
     public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadSettings settings)
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(settings);
-        RegisterServices(services);
-
-        var provider = services.BuildServiceProvider();
+        var module = new TidalModule();
+        var provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalDownloadClient>();
     }
 
