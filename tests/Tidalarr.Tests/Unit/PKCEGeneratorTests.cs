@@ -174,3 +174,5 @@ public class PKCEGeneratorTests
             .Replace("=", "");
     }
 }
+
+

@@ -230,3 +230,5 @@ public class MockTidalApiClient : ITidalCore
     public Task<bool> IsAuthenticatedAsync()
         => Task.FromResult(true);
 }
+
+

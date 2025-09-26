@@ -62,3 +62,5 @@ public class TidalManifestParserTests
         Assert.Equal(48000, manifest.SampleRate);
     }
 }
+
+

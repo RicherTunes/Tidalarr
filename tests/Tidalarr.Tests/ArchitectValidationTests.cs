@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Integration;
 using Xunit;
+using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests;
 
@@ -79,7 +80,7 @@ public class ArchitectValidationTests
         
         var settings = new TidalDownloadSettings 
         { 
-            PreferredQuality = "Lossless",
+            PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
         };
         
@@ -163,4 +164,7 @@ public class ArchitectValidationTests
         Console.WriteLine("   📈 Quality: Architect-validated production standards");
     }
 }
+
+
+
 

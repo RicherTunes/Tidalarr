@@ -45,3 +45,5 @@ public class TidalApiClientMissingFieldsTests
         await Assert.ThrowsAsync<System.ArgumentNullException>(() => api.SearchAsync("abc"));
     }
 }
+
+

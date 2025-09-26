@@ -6,13 +6,15 @@
   "homepage": "https://github.com/RicherTunes/Tidalarr",
   "license": "MIT",
   "minimumVersion": "2.2.4.4129",
-  "assembly": "Tidalarr.dll",
-  "protocols": ["TidalProtocol"],
-  "indexers": ["TidalIndexer"],
-  "downloadClients": ["TidalDownloadClient"],
-  "dependencies": [
-    "Lidarr.Plugin.Common",
-    "Polly"
+  "assembly": "Lidarr.Plugin.Tidalarr.dll",
+  "protocols": [
+    "Tidalarr.TidalProtocol"
+  ],
+  "indexers": [
+    "Tidalarr.TidalLidarrIndexer"
+  ],
+  "downloadClients": [
+    "Tidalarr.TidalLidarrDownloadClient"
   ],
   "features": [
     "OAuth 2.0 PKCE Authentication",
