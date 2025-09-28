@@ -13,18 +13,20 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Lidarr.Core">
-      <HintPath>..\\..\\ext\\Lidarr\\_output\\net6.0\\Lidarr.Core.dll</HintPath>
+      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Core.dll</HintPath>
     </Reference>
     <Reference Include="Lidarr.Common">
-      <HintPath>..\\..\\ext\\Lidarr\\_output\\net6.0\\Lidarr.Common.dll</HintPath>
+      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Common.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-    <PackageReference Include="Polly" Version="8.5.2" />
+    <PackageReference Include="FluentValidation" Version="9.5.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.4" />
+    <PackageReference Include="Polly" Version="7.2.4" />
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+    <PackageReference Include="System.Text.Json" Version="6.0.11" />
     <PackageReference Include="NLog" Version="5.0.0" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
     <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.34.2">
       <PrivateAssets>all</PrivateAssets>
@@ -32,10 +34,19 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\\..\\plugin.json">
+    <None Include="..\..\plugin.json">
       <Link>plugin.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <Target Name="EnsureMergeDependencies" BeforeTargets="RepackPlugin">
+    <ItemGroup>
+      <PluginMergeDependency Include="$(OutputPath)Lidarr.Plugin.Common.dll" Condition="Exists('$(OutputPath)Lidarr.Plugin.Common.dll')" />
+      <PluginMergeDependency Include="$(OutputPath)System.Text.Json.dll" Condition="Exists('$(OutputPath)System.Text.Json.dll')" />
+      <PluginMergeDependency Include="$(OutputPath)Polly.dll" Condition="Exists('$(OutputPath)Polly.dll')" />
+      <PluginMergeDependency Include="$(OutputPath)Polly.Extensions.Http.dll" Condition="Exists('$(OutputPath)Polly.Extensions.Http.dll')" />
+      <PluginMergeDependency Include="$(OutputPath)Microsoft.Extensions.*.dll" />
+    </ItemGroup>
+  </Target>
   <Import Project="../../ext/Lidarr.Plugin.Common/build/PluginPackaging.targets" />
 </Project>
