@@ -76,7 +76,7 @@ if ($Clean) {
     Write-Host ""
     Write-Host "🧹 Cleaning solution..." -ForegroundColor Blue
     try {
-        dotnet clean Tidalarr.sln --configuration $Configuration --verbosity minimal
+        dotnet clean src/Tidalarr/Tidalarr.csproj --configuration  $Configuration --verbosity minimal 
         Write-Host "✅ Clean complete" -ForegroundColor Green
     }
     catch {
