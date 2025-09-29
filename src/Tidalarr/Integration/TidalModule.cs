@@ -137,7 +137,7 @@ public class TidalModule : StreamingPluginModule
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
         services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
-        services.AddSingleton<AdaptiveRateLimiter, TidalRateLimiter>();
+        services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
         services.AddSingleton<PerformanceMonitor>();
         services.AddSingleton<NetworkResilienceService>();
     }
@@ -202,6 +202,7 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
+
 
 
 

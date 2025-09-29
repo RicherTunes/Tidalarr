@@ -253,3 +253,6 @@ test-plugin/
 !build.sh
 !setup.ps1
 !setup.sh
+!src/Tidalarr/Infrastructure/Performance/
+!src/Tidalarr/Infrastructure/Performance/*.cs
+
