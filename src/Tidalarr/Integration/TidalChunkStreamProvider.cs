@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Interfaces;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;

@@ -9,13 +9,13 @@ namespace Tidalarr.Tests;
 public class TidalRateLimiterBindingTests
 {
     [Fact]
-    public void AdaptiveRateLimiter_ResolvesTo_TidalRateLimiter()
+    public void IUniversalAdaptiveRateLimiter_ResolvesTo_TidalRateLimiter()
     {
         var services = new ServiceCollection();
         TidalModule.RegisterServices(services);
         var sp = services.BuildServiceProvider();
 
-        var limiter = sp.GetService<AdaptiveRateLimiter>();
+        var limiter = sp.GetService<IUniversalAdaptiveRateLimiter>();
         Assert.NotNull(limiter);
         Assert.IsType<TidalRateLimiter>(limiter);
     }
