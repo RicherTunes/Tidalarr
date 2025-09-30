@@ -1,4 +1,4 @@
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;

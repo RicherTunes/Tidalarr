@@ -27,8 +27,8 @@ public class TidalIndexerProtectedTests
     {
         public IndexerExposed(TidalSearchService s, ITidalCore c, TidalIndexerSettings st)
             : base(s, c, st, NullLogger.Instance) { }
-        public Task<System.Collections.Generic.List<Lidarr.Plugin.Common.Models.StreamingTrack>> ExposeSearchTracksAsync(string q) => base.SearchTracksAsync(q);
-        public Task<Lidarr.Plugin.Common.Models.StreamingAlbum> ExposeGetAlbumDetailsAsync(string id) => base.GetAlbumDetailsAsync(id);
+        public Task<System.Collections.Generic.List<Lidarr.Plugin.Abstractions.Models.StreamingTrack>> ExposeSearchTracksAsync(string q) => base.SearchTracksAsync(q);
+        public Task<Lidarr.Plugin.Abstractions.Models.StreamingAlbum> ExposeGetAlbumDetailsAsync(string id) => base.GetAlbumDetailsAsync(id);
     }
 
     [Fact]

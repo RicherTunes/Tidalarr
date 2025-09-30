@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Services.Download;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Mappers;

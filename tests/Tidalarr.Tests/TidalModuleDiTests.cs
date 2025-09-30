@@ -6,6 +6,7 @@ using Tidalarr.Domain.Api;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
+using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Integration;
 using Xunit;
 using Tidalarr.Core.Models;
@@ -39,9 +40,7 @@ public class TidalModuleDiTests
         Assert.NotNull(provider.GetRequiredService<TidalDownloadClient>());
 
         // Performance services
-        Assert.NotNull(provider.GetRequiredService<AdaptiveRateLimiter>());
+        var limiter = provider.GetRequiredService<IUniversalAdaptiveRateLimiter>();
+        Assert.IsType<TidalRateLimiter>(limiter);
     }
 }
-
-
-

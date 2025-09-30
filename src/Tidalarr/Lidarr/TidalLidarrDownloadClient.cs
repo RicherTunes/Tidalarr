@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using FluentValidation.Results;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using NzbDrone.Common.Disk;

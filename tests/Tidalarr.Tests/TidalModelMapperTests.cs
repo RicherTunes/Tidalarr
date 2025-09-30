@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
 using Xunit;

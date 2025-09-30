@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
