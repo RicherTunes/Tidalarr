@@ -424,15 +424,15 @@ public class Program
         return IntegrationModule.CreateOrchestrator(provider);
     }
 
-    private static Lidarr.Plugin.Common.Models.StreamingQuality MakeQualityFromConfig(TidalQuality preferred)
+    private static Lidarr.Plugin.Abstractions.Models.StreamingQuality MakeQualityFromConfig(TidalQuality preferred)
     {
         return preferred switch
         {
-            TidalQuality.Low => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 96, Format = "AAC" },
-            TidalQuality.High => new Lidarr.Plugin.Common.Models.StreamingQuality { Bitrate = 320, Format = "AAC" },
-            TidalQuality.Lossless => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" },
-            TidalQuality.HiRes => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 96000, BitDepth = 24, Format = "FLAC" },
-            _ => new Lidarr.Plugin.Common.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" }
+            TidalQuality.Low => new Lidarr.Plugin.Abstractions.Models.StreamingQuality { Bitrate = 96, Format = "AAC" },
+            TidalQuality.High => new Lidarr.Plugin.Abstractions.Models.StreamingQuality { Bitrate = 320, Format = "AAC" },
+            TidalQuality.Lossless => new Lidarr.Plugin.Abstractions.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" },
+            TidalQuality.HiRes => new Lidarr.Plugin.Abstractions.Models.StreamingQuality { SampleRate = 96000, BitDepth = 24, Format = "FLAC" },
+            _ => new Lidarr.Plugin.Abstractions.Models.StreamingQuality { SampleRate = 44100, BitDepth = 16, Format = "FLAC" }
         };
     }
 

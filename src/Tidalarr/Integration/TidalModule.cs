@@ -18,14 +18,15 @@ using Tidalarr.Infrastructure.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
 using Lidarr.Plugin.Common.Services.Download;
-using Lidarr.Plugin.Common.Models;
+using Lidarr.Plugin.Abstractions.Models;
 
 namespace Tidalarr.Integration;
 
 public class TidalModule : StreamingPluginModule
 {
     public const string ModuleName = "Tidalarr";
-    public new const string Version = "1.0.0";
+    public new const string Version = "1.0.1";
+    private static readonly string UserAgent = $"Tidalarr/{Version}";
 
     public override string ServiceName => "Tidal";
     public override string Description => "Tidal integration for Lidarr";
@@ -46,7 +47,7 @@ public class TidalModule : StreamingPluginModule
         services.AddHttpClient<TidalApiClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
-            client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
+            client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
@@ -110,7 +111,7 @@ public class TidalModule : StreamingPluginModule
         services.AddHttpClient("TidalOrchestrator", client =>
         {
             client.Timeout = TimeSpan.FromMinutes(10);
-            client.DefaultRequestHeaders.Add("User-Agent", "Tidalarr/1.0.0");
+            client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
