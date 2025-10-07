@@ -8,6 +8,7 @@ using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Manifest;
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Integration.Adapters;
+using Tidalarr.Integration.Diagnostics;
 
 namespace Tidalarr.Integration;
 
@@ -60,6 +61,41 @@ public sealed class TidalarrPlugin : IPlugin
         await ValueTask.CompletedTask;
     }
 
+    // Diagnostics-first settings validation (CFG*) for consumers/tests
+    internal OperationResult ValidateSettingsWithDiagnostics(IDictionary<string, object?> settings)
+    {
+        const string OK = "CFG000";
+        const string INVALID = "CFG100";
+
+        var typed = MapToSettings(settings);
+        var validation = typed.ValidateFluent();
+        if (validation.IsValid)
+        {
+            return OperationResult.Ok(OK, metadata: new() { ["service"] = "Tidal" });
+        }
+
+        var codes = validation.Errors
+            .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
+            .Select(e => e.ErrorCode)
+            .Distinct()
+            .ToArray();
+        return OperationResult.Fail(INVALID, "Settings failed validation", new()
+        {
+            ["errors"] = codes
+        });
+    }
+
+    internal OperationResult ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
+    {
+        const string OK = "CFG000";
+        var check = ValidateSettingsWithDiagnostics(settings);
+        if (!check.Success) return check;
+
+        _settings = MapToSettings(settings);
+        RebuildServiceProvider();
+        return OperationResult.Ok(OK, metadata: new() { ["service"] = "Tidal" });
+    }
+
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
     {
         var scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
@@ -98,6 +134,26 @@ public sealed class TidalarrPlugin : IPlugin
             _serviceProvider?.Dispose();
         }
         _serviceProvider = null;
+    }
+
+    private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
+    {
+        var s = new TidalarrSettings();
+        if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out var cp) && cp is string cpStr) s.ConfigPath = cpStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out var ru) && ru is string ruStr) s.RedirectUrl = ruStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out var dp) && dp is string dpStr) s.DownloadPath = dpStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out var pq))
+        {
+            if (pq is string pqStr && Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(pqStr, ignoreCase: true, out var parsedEnum))
+            {
+                s.PreferredQuality = parsedEnum;
+            }
+            else if (pq is int pqInt && Enum.IsDefined(typeof(Tidalarr.Core.Models.TidalQuality), pqInt))
+            {
+                s.PreferredQuality = (Tidalarr.Core.Models.TidalQuality)pqInt;
+            }
+        }
+        return s;
     }
 
     private sealed class TidalarrSettingsProvider : ISettingsProvider
@@ -159,14 +215,14 @@ public sealed class TidalarrPlugin : IPlugin
 
         public PluginValidationResult Validate(IDictionary<string, object?> settings)
         {
-            var typed = ToSettings(settings);
+            var typed = MapToSettings(settings);
             var validation = typed.ValidateFluent();
             return validation.ToPluginValidationResult();
         }
 
         public PluginValidationResult Apply(IDictionary<string, object?> settings)
         {
-            var typed = ToSettings(settings);
+            var typed = MapToSettings(settings);
             var validation = typed.ValidateFluent();
             if (!validation.IsValid)
             {
@@ -178,24 +234,6 @@ public sealed class TidalarrPlugin : IPlugin
             return PluginValidationResult.Success();
         }
 
-        private static TidalarrSettings ToSettings(IDictionary<string, object?> map)
-        {
-            var s = new TidalarrSettings();
-            if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out var cp) && cp is string cpStr) s.ConfigPath = cpStr;
-            if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out var ru) && ru is string ruStr) s.RedirectUrl = ruStr;
-            if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out var dp) && dp is string dpStr) s.DownloadPath = dpStr;
-            if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out var pq))
-            {
-                if (pq is string pqStr && Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(pqStr, ignoreCase: true, out var parsedEnum))
-                {
-                    s.PreferredQuality = parsedEnum;
-                }
-                else if (pq is int pqInt && Enum.IsDefined(typeof(Tidalarr.Core.Models.TidalQuality), pqInt))
-                {
-                    s.PreferredQuality = (Tidalarr.Core.Models.TidalQuality)pqInt;
-                }
-            }
-            return s;
-        }
+        
     }
 }
