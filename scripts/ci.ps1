@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipPackage
+    [switch]$SkipPackage,
+    [switch]$IncludeCliTests
 )
 
 Set-StrictMode -Version Latest
@@ -34,10 +35,30 @@ try {
     dotnet restore "$repoRoot/Tidalarr.sln"
 
     Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
-    & "$repoRoot/build.ps1" -Configuration Release
+    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false
+
+    # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
+    try {
+        Write-Host "Packaging plugin via PluginPack" -ForegroundColor Cyan
+        $modulePath = Join-Path $repoRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
+        Import-Module $modulePath -Force
+        $manifestPath = Join-Path $repoRoot 'plugin.json'
+        $csproj = Join-Path $repoRoot 'src/Tidalarr/Tidalarr.csproj'
+        $null = New-PluginPackage -Csproj $csproj -Manifest $manifestPath -Framework 'net6.0' -Configuration 'Release'
+    } catch {
+        Write-Warning "Packaging step failed: $_"
+        if ($IncludeCliTests) { throw }
+    }
 
     Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
-    dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+    if ($IncludeCliTests) {
+        Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
+        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+    }
+    else {
+        Write-Host "Excluding CLI-scope tests (scope=cli) for PR/CI runs" -ForegroundColor Yellow
+        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build --filter "scope!=cli"
+    }
 
     if (-not $SkipPackage) {
         $artifactsDir = Join-Path $repoRoot 'artifacts'
