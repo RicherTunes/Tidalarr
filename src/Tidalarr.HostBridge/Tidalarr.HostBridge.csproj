@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Tidalarr.HostBridge</AssemblyName>
+    <RootNamespace>Tidalarr</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Lidarr.Core">
+      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Lidarr.Common">
+      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tidalarr\Tidalarr.csproj" />
+  </ItemGroup>
+</Project>
+

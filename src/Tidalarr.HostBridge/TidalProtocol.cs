@@ -3,6 +3,7 @@ using NzbDrone.Core.Indexers;
 
 namespace Tidalarr;
 
+// Host-facing protocol type kept in a dedicated bridge assembly to avoid pulling host dependencies into the core plugin package.
 public class TidalProtocol : IDownloadProtocol
 {
     public const string Scheme = "tidal";
@@ -42,6 +43,4 @@ public class TidalProtocol : IDownloadProtocol
         return $"{Scheme}://track/{safe}";
     }
 }
-
-
 
