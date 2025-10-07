@@ -1,6 +1,6 @@
 # Deployment & Smoke Test Playbook
 
-Use this checklist whenever you cut a new Tidalarr build. It assumes Lidarr 2.14.2.4786 and the shared library at commit 3fae69b (Lidarr.Plugin.Common 1.1.3).
+Use this checklist whenever you cut a new Tidalarr build. It assumes Lidarr 2.14.2.4786 and the shared library at commit 36141b7 (Lidarr.Plugin.Common 1.1.4).
 
 ## 1. Run the unified CI pipeline locally (optional)
 
@@ -64,4 +64,8 @@ If anything fails:
 ## 7. Promote to production
 
 Once the smoke test passes, attach the new `Tidalarr-<version>.zip` to the release notes alongside a short changelog and validation log excerpts.
+
+
+
+
 

@@ -27,8 +27,8 @@ Tidalarr/
 │   ├── Integration/                 # Qobuzarr-style integration layer
 │   │   ├── TidalIndexer.cs          # Implements HttpIndexerBase
 │   │   ├── TidalDownloadClient.cs   # Implements DownloadClientBase
-│   │   ├── TidalIndexerSettings.cs  # Lidarr settings UI
-│   │   └── TidalDownloadSettings.cs # Lidarr settings UI
+│   │   ├── TidalarrSettings.cs  # Lidarr settings UI
+│   │   └── TidalarrSettings.cs # Lidarr settings UI
 │   │
 │   ├── Services/                    # Adapter layer
 │   │   ├── TidalSessionAdapter.cs   # Wraps TidalSharp's Session
@@ -177,7 +177,7 @@ public class TidalApiAdapter : ITidalApiClient
 
 ### 4.1 Indexer Implementation
 ```csharp
-public class TidalIndexer : HttpIndexerBase<TidalIndexerSettings>
+public class TidalIndexer : HttpIndexerBase<TidalarrSettings>
 {
     private readonly TidalApiAdapter _apiAdapter;
     
@@ -196,7 +196,7 @@ public class TidalIndexer : HttpIndexerBase<TidalIndexerSettings>
 
 ### 4.2 Download Client
 ```csharp
-public class TidalDownloadClient : DownloadClientBase<TidalDownloadSettings>
+public class TidalDownloadClient : DownloadClientBase<TidalarrSettings>
 {
     private readonly TidalDownloadAdapter _downloadAdapter;
     
@@ -217,7 +217,7 @@ public class TidalDownloadClient : DownloadClientBase<TidalDownloadSettings>
 ## 5. Settings (Qobuzarr Style)
 
 ```csharp
-public class TidalIndexerSettings : IIndexerSettings
+public class TidalarrSettings : IIndexerSettings
 {
     [FieldDefinition(1, Label = "Username/Email", Type = FieldType.Textbox)]
     public string Username { get; set; }
@@ -388,3 +388,4 @@ Write-Host "Restart Lidarr to load plugin"
 - Beautiful code
 
 This pragmatic approach prioritizes a working integration over architectural perfection, accepting technical debt as a strategic decision to deliver functionality quickly.
+

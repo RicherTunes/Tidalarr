@@ -1,3 +1,4 @@
+using Tidalarr.Integration;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -6,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Web;
+using TidalQuality = Tidalarr.Core.Models.TidalQuality;
 
 namespace TidalCLI;
 
@@ -136,30 +138,7 @@ public class TidalOAuthService
     }
 }
 
-public enum TidalQuality
-{
-    Low,
-    High,
-    Lossless,
-    HiRes
-}
 
-// Simple settings classes for CLI testing
-public class TidalIndexerSettings
-{
-    public string TidalMarket { get; set; } = "US";
-    public string RedirectUrl { get; set; } = string.Empty;
-    public string ConfigPath { get; set; } = string.Empty;
-    public bool EnableCache { get; set; } = true;
-    public int CacheDuration { get; set; } = 15;
-}
-
-public class TidalDownloadSettings
-{
-    public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
-    public bool IncludeMqa { get; set; } = true;
-    public string DownloadPath { get; set; } = string.Empty;
-}
 
 // Simple mock download client for testing
 public class MockDownloadClient
@@ -175,21 +154,29 @@ public class MockDownloadClient
 // Simple module implementation for testing
 public static class TidalMockModule
 {
-    public static object CreateIndexer(object logger, TidalIndexerSettings settings)
+    public static object CreateIndexer(object logger, TidalarrSettings settings)
     {
         Console.WriteLine("✅ Tidal indexer created successfully");
         return new object();
     }
 
-    public static MockDownloadClient CreateDownloadClient(object logger, TidalDownloadSettings settings)
+    public static MockDownloadClient CreateDownloadClient(object logger, TidalarrSettings settings)
     {
         Console.WriteLine("✅ Tidal download client created successfully");
         return new MockDownloadClient();
     }
 
-    public static bool ValidateConfiguration(TidalIndexerSettings settings)
+    public static bool ValidateConfiguration(TidalarrSettings settings)
     {
-        return !string.IsNullOrEmpty(settings.TidalMarket) && !string.IsNullOrEmpty(settings.ConfigPath);
+        return settings.IsValid(out _);
     }
 }
+
+
+
+
+
+
+
+
 

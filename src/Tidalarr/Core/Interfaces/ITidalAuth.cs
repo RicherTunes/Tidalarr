@@ -11,3 +11,4 @@ public interface ITidalAuth
     bool IsAuthenticated { get; }
 }
 
+

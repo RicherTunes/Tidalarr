@@ -34,7 +34,7 @@ public class TidalIndexerProtectedTests
     [Fact]
     public async Task SearchTracksAsync_MapsTracks()
     {
-        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
+        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
         var searchSvc = new Tidalarr.Application.Services.TidalSearchService(new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector());
         var indexer = new IndexerExposed(searchSvc, new CoreStub(), settings);
         var tracks = await indexer.ExposeSearchTracksAsync("query");
@@ -45,13 +45,14 @@ public class TidalIndexerProtectedTests
     [Fact]
     public async Task GetAlbumDetailsAsync_ReturnsMappedAlbum()
     {
-        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
+        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
         var searchSvc = new Tidalarr.Application.Services.TidalSearchService(new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector());
         var indexer = new IndexerExposed(searchSvc, new CoreStub(), settings);
         var album = await indexer.ExposeGetAlbumDetailsAsync("al1");
         Assert.Equal("Album", album.Title);
     }
 }
+
 
 
 

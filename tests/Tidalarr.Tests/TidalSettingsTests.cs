@@ -1,6 +1,8 @@
+using System.IO;
+using System.Linq;
+using Tidalarr.Core.Models;
 using Tidalarr.Integration;
 using Xunit;
-using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests;
 
@@ -11,7 +13,7 @@ public class TidalSettingsTests
     {
         // Arrange & Act
         var indexer = new TidalIndexerSettings();
-        var download = new TidalDownloadSettings();
+        var download = new TidalDownloadClientSettings();
 
         // Assert
         Assert.Equal("US", indexer.TidalMarket);
@@ -20,36 +22,38 @@ public class TidalSettingsTests
         Assert.True(download.IncludeMqa);
         Assert.Equal(TidalQuality.Lossless, download.PreferredQuality);
     }
-    
+
     [Theory]
-    [InlineData("", false, "Redirect URL is required for OAuth authentication")]
-    [InlineData("not-a-url", false, "Redirect URL must be an absolute HTTP/HTTPS URL")]
-    [InlineData("https://wrong-domain.com/auth", false, "Redirect URL must be under the tidal.com domain")]
-    [InlineData("https://tidal.com/android/login/auth?code=test&state=test", true, "")]
-    public void IsValid_VariousRedirectUrls_ValidatesCorrectly(string redirectUrl, bool expectedValid, string expectedError)
+    [InlineData("", false, TidalarrValidationCodes.RedirectRequired)]
+    [InlineData("not-a-url", false, TidalarrValidationCodes.RedirectInvalidUri)]
+    [InlineData("https://wrong-domain.com/auth", false, TidalarrValidationCodes.RedirectWrongDomain)]
+    [InlineData("https://tidal.com/android/login/auth?code=test&state=test", true, null)]
+    public void ValidateRedirectUrl_ProducesExpectedDiagnostics(string redirectUrl, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
         var settings = new TidalIndexerSettings
         {
             RedirectUrl = redirectUrl,
-            ConfigPath = "C:/temp"
+            ConfigPath = Path.GetTempPath()
         };
-        
+
         // Act
-        var isValid = settings.IsValid(out var errorMessage);
-        
+        var validation = settings.ValidateFluent();
+
         // Assert
-        Assert.Equal(expectedValid, isValid);
+        Assert.Equal(expectedValid, validation.IsValid);
         if (!expectedValid)
-            Assert.Contains(expectedError, errorMessage);
+        {
+            Assert.Contains(expectedErrorCode, validation.Errors.Select(e => e.ErrorCode));
+        }
     }
-    
+
     [Fact]
     public void TidalSettings_InheritsFromBaseStreamingSettings()
     {
         // Arrange & Act
         var indexer = new TidalIndexerSettings();
-        var download = new TidalDownloadSettings();
+        var download = new TidalDownloadClientSettings();
 
         // Assert - Verify inheritance from shared library
         Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(indexer);
@@ -60,30 +64,31 @@ public class TidalSettingsTests
         Assert.True(indexer.CacheDuration > 0);
         Assert.Equal(TidalQuality.Lossless, download.PreferredQuality);
     }
-    
+
     [Theory]
-    [InlineData("US", true)]
-    [InlineData("UK", true)]
-    [InlineData("DE", true)]
-    [InlineData("FR", true)]
-    [InlineData("INVALID", false)]
-    public void ValidateMarket_VariousMarkets_ValidatesCorrectly(string market, bool expectedValid)
+    [InlineData("US", true, null)]
+    [InlineData("UK", true, null)]
+    [InlineData("DE", true, null)]
+    [InlineData("FR", true, null)]
+    [InlineData("INVALID", false, TidalarrValidationCodes.MarketUnsupported)]
+    public void ValidateMarket_VariousMarkets_ValidatesCorrectly(string market, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
         var settings = new TidalIndexerSettings
         {
             TidalMarket = market,
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = "C:/temp"
+            ConfigPath = Path.GetTempPath()
         };
-        
+
         // Act
-        var isValid = settings.IsValid(out var errorMessage);
-        
+        var validation = settings.ValidateFluent();
+
         // Assert
-        Assert.Equal(expectedValid, isValid);
+        Assert.Equal(expectedValid, validation.IsValid);
+        if (!expectedValid)
+        {
+            Assert.Contains(expectedErrorCode, validation.Errors.Select(e => e.ErrorCode));
+        }
     }
 }
-
-
-

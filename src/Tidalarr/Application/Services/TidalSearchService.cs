@@ -238,3 +238,4 @@ public enum TidalSearchType
     Track,
     Artist
 }
+

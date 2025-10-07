@@ -92,3 +92,4 @@ public class NullActivity : IDisposable
 {
     public void Dispose() { }
 }
+

@@ -1,18 +1,15 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
 using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Indexers;
-using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.Validation;
 using NzbDrone.Core.Validation.Paths;
 
 namespace Tidalarr.Integration;
 
-public class TidalIndexerSettings : BaseStreamingSettings, IIndexerSettings
+public class TidalIndexerSettings : BaseStreamingSettings
 {
     private static readonly TidalIndexerSettingsValidator Validator = new();
 
@@ -38,7 +35,7 @@ public class TidalIndexerSettings : BaseStreamingSettings, IIndexerSettings
 
     public override bool IsValid(out string errorMessage)
     {
-        var validation = Validate();
+        var validation = Validator.Validate(this);
         errorMessage = validation.IsValid ? string.Empty : validation.Errors.First().ErrorMessage;
         return validation.IsValid;
     }
@@ -46,6 +43,11 @@ public class TidalIndexerSettings : BaseStreamingSettings, IIndexerSettings
     public NzbDroneValidationResult Validate()
     {
         return new NzbDroneValidationResult(Validator.Validate(this));
+    }
+
+    public ValidationResult ValidateFluent()
+    {
+        return Validator.Validate(this);
     }
 
     private static bool IsSupportedMarket(string? market)
@@ -65,26 +67,30 @@ public class TidalIndexerSettings : BaseStreamingSettings, IIndexerSettings
         public TidalIndexerSettingsValidator()
         {
             RuleFor(x => x.ConfigPath)
-                .NotEmpty().WithMessage("Config path is required")
-                .IsValidPath();
+                .NotEmpty().WithMessage("Config path is required").WithErrorCode(TidalarrValidationCodes.ConfigPathRequired)
+                .IsValidPath().WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
 
             RuleFor(x => x.RedirectUrl)
-                .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication")
-                .Must(BeValidHttpUri).WithMessage("Redirect URL must be an absolute HTTP/HTTPS URL")
+                .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication").WithErrorCode(TidalarrValidationCodes.RedirectRequired)
+                .Must(BeValidHttpUri).WithMessage("Redirect URL must be an absolute HTTP/HTTPS URL").WithErrorCode(TidalarrValidationCodes.RedirectInvalidUri)
                 .Must(url => Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Host.EndsWith("tidal.com", StringComparison.OrdinalIgnoreCase))
-                .WithMessage("Redirect URL must be under the tidal.com domain");
+                .WithMessage("Redirect URL must be under the tidal.com domain").WithErrorCode(TidalarrValidationCodes.RedirectWrongDomain);
 
             RuleFor(x => x.TidalMarket)
                 .Must(IsSupportedMarket)
-                .WithMessage("Unsupported market '{PropertyValue}'. Supported values: US, UK, DE, FR, CA, AU, JP");
+                .WithMessage("Unsupported market '{PropertyValue}'. Supported values: US, UK, DE, FR, CA, AU, JP")
+                .WithErrorCode(TidalarrValidationCodes.MarketUnsupported);
 
             RuleFor(x => x.EarlyReleaseLimit)
                 .InclusiveBetween(0, 365)
+                .WithMessage("Early release limit must be between 0 and 365 days")
+                .WithErrorCode(TidalarrValidationCodes.EarlyReleaseRange)
                 .When(x => x.EarlyReleaseLimit.HasValue);
 
             RuleFor(x => x.CacheDuration)
                 .InclusiveBetween(0, 1440)
-                .WithMessage("Cache duration must be between 0 && 1440 minutes");
+                .WithMessage("Cache duration must be between 0 and 1440 minutes")
+                .WithErrorCode(TidalarrValidationCodes.CacheDurationRange);
         }
 
         private static bool BeValidHttpUri(string redirect)

@@ -27,7 +27,7 @@
    - Qobuzarr: collapse to same pattern; migrate queue/metdata/resilience helpers either to common or to a dedicated plugin sub-namespace.
 3. **Unify quality/settings model**
    - Introduce shared enums and converters in Lidarr.Plugin.Common.Models.
-   - Update Tidalarr TidalDownloadSettings to rely on shared base properties (quality/resilience) and keep advanced options.
+   - Update Tidalarr's unified TidalarrSettings to rely on shared base properties (quality/resilience) and keep advanced options.
    - Rework Qobuzarr settings to remove duplicate validators and align UI labels/attributes.
 4. **Shared CLI/test utilities**
    - Move CLI composition (service provider setup, orchestrator creation) into common library.
@@ -44,3 +44,4 @@
 4. After both plugins compile/tests pass under the new structure, enable ILRepack in Qobuzarr and tighten warnings/analyzers.
 
 This blueprint satisfies Step 2 of the alignment effort: we have shared architecture goals with explicit changes mapped to each repository and the common library, ready for staged implementation.
+

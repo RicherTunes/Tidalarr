@@ -680,9 +680,9 @@ public class Program
         Console.WriteLine($"   🔗 Integration: Shared library + custom components");
     }
 
-    private static TidalIndexerSettings CreateTestIndexerSettings()
+    private static TidalarrSettings CreateTestIndexerSettings()
     {
-        return new TidalIndexerSettings
+        return new TidalarrSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_code&state=test_state",
@@ -692,9 +692,9 @@ public class Program
         };
     }
 
-    private static TidalDownloadSettings CreateTestDownloadSettings()
+    private static TidalarrSettings CreateTestDownloadSettings()
     {
-        return new TidalDownloadSettings
+        return new TidalarrSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             IncludeMqa = true,
@@ -894,6 +894,9 @@ public class Program
         */
     }
 }
+
+
+
 
 
 

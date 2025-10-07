@@ -55,7 +55,7 @@ public class TidalModuleEndToEndDiFlowsTests
     public async Task DI_Flow_IndexerSearch_And_DownloadValidation_Work()
     {
         var indexerSettings = new TidalIndexerSettings { TidalMarket = "US", RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp", EnableCache = true, CacheDuration = 5 };
-        var downloadSettings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        var downloadSettings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
 
         var services = new ServiceCollection();
         services.AddSingleton(indexerSettings);
@@ -79,6 +79,8 @@ public class TidalModuleEndToEndDiFlowsTests
         Assert.True(ok);
     }
 }
+
+
 
 
 

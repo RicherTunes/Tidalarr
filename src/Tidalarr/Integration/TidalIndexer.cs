@@ -79,7 +79,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
     }
 
-    protected override async Task<List<StreamingTrack>> SearchTracksAsync(string searchTerm)
+    protected override Task<List<StreamingTrack>> SearchTracksAsync(string searchTerm)
+    {
+        return SearchTracksInternalAsync(searchTerm);
+    }
+
+    internal async Task<List<StreamingTrack>> SearchTracksInternalAsync(string searchTerm)
     {
         try
         {
@@ -97,7 +102,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
     }
 
-    protected override async Task<StreamingAlbum> GetAlbumDetailsAsync(string albumId)
+    protected override Task<StreamingAlbum> GetAlbumDetailsAsync(string albumId)
+    {
+        return GetAlbumDetailsInternalAsync(albumId);
+    }
+
+    internal async Task<StreamingAlbum> GetAlbumDetailsInternalAsync(string albumId)
     {
         try
         {
@@ -145,3 +155,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     // Inject OAuth-enabled client into base when it performs HTTP
     protected override HttpClient GetHttpClient() => _httpClient;
 }
+
+
+
+

@@ -39,3 +39,4 @@ Tidalarr implements the Lidarr streaming plugin as a layered .NET solution.
 - Never commit real Tidal credentials or tokens; consume them through secure environment configuration.
 - Update `plugin.json` metadata, `CHANGELOG.md`, and release notes together whenever behavior changes ship.
 - Validate new network endpoints through the resilience policies under `Infrastructure/Resilience` before exposing them in the module.
+

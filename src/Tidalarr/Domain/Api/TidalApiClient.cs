@@ -417,3 +417,4 @@ public class TidalApiClient : ITidalCore, IDisposable
         _httpClient?.Dispose();
     }
 }
+

@@ -19,9 +19,9 @@ public class Week2MilestoneTests
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = "C:/temp"
+            ConfigPath = System.IO.Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadSettings
+        var downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath(),
@@ -51,9 +51,9 @@ public class Week2MilestoneTests
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = "C:/temp"
+            ConfigPath = System.IO.Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadSettings
+        var downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
@@ -87,12 +87,13 @@ public class Week2MilestoneTests
         // 1. Settings validation
         var indexerSettings = new TidalIndexerSettings
         {
+            TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = "C:/temp"
+            ConfigPath = System.IO.Path.GetTempPath()
         };
         Assert.True(indexerSettings.IsValid(out _));
 
-        var downloadSettings = new TidalDownloadSettings
+        var downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
@@ -114,5 +115,7 @@ public class Week2MilestoneTests
         Assert.True(true, "All components integrate successfully!");
     }
 }
+
+
 
 

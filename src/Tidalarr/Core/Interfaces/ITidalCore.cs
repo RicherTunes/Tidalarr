@@ -17,3 +17,4 @@ public interface ITidalCore
     Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Playback-info is not supported by this ITidalCore implementation");
 }
+

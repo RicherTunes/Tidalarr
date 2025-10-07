@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using TidalQuality = Tidalarr.Core.Models.TidalQuality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
 using Tidalarr.Domain.Quality;
@@ -146,9 +147,9 @@ public static class TidalCLIHelper
         }
     }
 
-    public static TidalIndexerSettings CreateTestIndexerSettings()
+    public static TidalarrSettings CreateTestIndexerSettings()
     {
-        return new TidalIndexerSettings
+        return new TidalarrSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_code&state=test_state",
@@ -158,9 +159,9 @@ public static class TidalCLIHelper
         };
     }
 
-    public static TidalDownloadSettings CreateTestDownloadSettings()
+    public static TidalarrSettings CreateTestDownloadSettings()
     {
-        return new TidalDownloadSettings
+        return new TidalarrSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             IncludeMqa = true,
@@ -168,6 +169,9 @@ public static class TidalCLIHelper
         };
     }
 }
+
+
+
 
 
 

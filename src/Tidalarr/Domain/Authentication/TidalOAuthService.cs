@@ -338,3 +338,4 @@ public record TidalUserResponse(
     string sessionId,
     string countryCode,
     long userId);
+

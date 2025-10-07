@@ -8,6 +8,7 @@ param(
     [switch]$Clean,
     [switch]$Restore,
     [switch]$NoBuild,
+    [switch]$Package,
     [switch]$VerboseOutput,
     [switch]$UsePrebuiltAssemblies,
     [string]$LidarrVersion = "2.13.2.4685",
@@ -35,6 +36,7 @@ function Show-Help {
     Write-Host "  -Restore              Force restore packages" -ForegroundColor White
     Write-Host "  -NoBuild              Skip build (use with -Clean/-Restore)" -ForegroundColor White
     Write-Host "  -VerboseOutput        Show detailed build output" -ForegroundColor White
+    Write-Host "  -Package             Create a distributable zip using shared tooling" -ForegroundColor White
     Write-Host "  -UsePrebuiltAssemblies Build against pre-built Lidarr binaries" -ForegroundColor White
     Write-Host "  -LidarrVersion        Target Lidarr version when overriding assemblies" -ForegroundColor White
     Write-Host "  -Help                 Show this help" -ForegroundColor White
@@ -157,6 +159,29 @@ if (-not $NoBuild) {
     Write-Host ""
     Write-Host "✅ Build successful" -ForegroundColor Green
     Write-Host "📍 Output: src\Tidalarr\bin\$Configuration" -ForegroundColor Gray
+    
+    if ($Package) {
+        Write-Host "📦 Packaging plugin..." -ForegroundColor Blue
+        $modulePath = Join-Path $scriptRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
+        Import-Module $modulePath -Force
+        $manifestPath = Join-Path $scriptRoot 'plugin.json'
+        $packagePath = New-PluginPackage -Csproj $pluginProject -Manifest $manifestPath -Framework 'net6.0' -Configuration $Configuration
+        Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
+
+        try {
+            $pluginAssemblyPath = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net6.0/Lidarr.Plugin.Tidalarr.dll"
+            if (Test-Path $pluginAssemblyPath) {
+                try { Add-Type -Path $pluginAssemblyPath -ErrorAction Stop } catch {}
+            }
+            $metadata = [Tidalarr.Integration.PackagingHelper]::WritePackagingMetadata($packagePath, 'net6.0', $Configuration)
+            Write-Host "Package metadata: $($metadata.MetadataPath)" -ForegroundColor Gray
+            Write-Host "Package hash: $($metadata.HashPath)" -ForegroundColor Gray
+        }
+        catch {
+            Write-Host "Failed to write packaging metadata: $_" -ForegroundColor Yellow
+        }
+
+    }
 
     if ($Deploy) {
         Write-Host "🚀 Plugin deployed; restart Lidarr to load the update" -ForegroundColor Green
@@ -178,3 +203,8 @@ if (-not $Deploy -and -not $NoBuild) {
 }
 
 Pop-Location
+
+
+
+
+
