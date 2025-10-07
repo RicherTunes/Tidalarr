@@ -14,3 +14,4 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly f
 
 ## Support & Questions
 Open a GitHub issue with detailed logs and reproduction steps.
+

@@ -8,7 +8,7 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 
 **ALWAYS**:
 - Use constants from `TidalConstants.cs` rather than hardcoding.
-- Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalIndexerSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
+- Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
 - Be aware that this project shares a common library with http://github.com/RicherTunes/Lidarr.Plugin.Common so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
 
 ## Build Commands
@@ -85,7 +85,7 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 ## Key Components
 
 ### **Plugin Architecture (Plugin-First Design)**
-- **TidalIndexer**: Implements `BaseStreamingIndexer<TidalIndexerSettings>` for Lidarr search integration
+- **TidalIndexer**: Implements `BaseStreamingIndexer<TidalarrSettings>` for Lidarr search integration
 - **TidalDownloadClient**: Implements `BaseStreamingDownloadClient<TidalDownloadSettings>` for downloads
 - **TidalApiClient**: HTTP client using StreamingApiRequestBuilder pattern
 - **TidalModelMapper**: Maps between Tidal models and shared library models

@@ -31,3 +31,4 @@
 - Communicate changes via docs: update docs/alignment/ with status, and add release notes to each repo when behaviour changes (e.g., new settings UI).
 
 With these workstreams and safeguards defined, Step 3 of the alignment plan is complete and the implementation phase can begin.
+

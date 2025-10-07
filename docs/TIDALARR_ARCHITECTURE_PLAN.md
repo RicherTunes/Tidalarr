@@ -50,8 +50,8 @@ Tidalarr/
 │   │   └── TidalCoverArtService.cs   # Cover art handling
 │   ├── Configuration/                # Settings & constants
 │   │   ├── TidalConstants.cs         # API endpoints, keys
-│   │   ├── TidalIndexerSettings.cs   # Indexer configuration
-│   │   └── TidalDownloadSettings.cs  # Download configuration
+│   │   ├── TidalarrSettings.cs   # Indexer configuration
+│   │   └── TidalarrSettings.cs  # Download configuration
 │   ├── Exceptions/                   # Custom exceptions
 │   │   ├── TidalApiException.cs
 │   │   ├── TidalAuthException.cs
@@ -238,7 +238,7 @@ public class TidalRequestSigner : ITidalRequestSigner
 
 ```csharp
 // TidalIndexer.cs
-public class TidalIndexer : HttpIndexerBase<TidalIndexerSettings>
+public class TidalIndexer : HttpIndexerBase<TidalarrSettings>
 {
     private readonly ITidalApiClient _apiClient;
     private readonly ITidalQualityDetector _qualityDetector;
@@ -452,10 +452,10 @@ public class TidalMetadataService : ITidalMetadataService
 ### 3.1 Plugin Settings
 
 ```csharp
-// TidalIndexerSettings.cs
-public class TidalIndexerSettings : IIndexerSettings
+// TidalarrSettings.cs
+public class TidalarrSettings : IIndexerSettings
 {
-    private static readonly TidalIndexerSettingsValidator Validator = new();
+    private static readonly TidalarrSettingsValidator Validator = new();
     
     [FieldDefinition(1, Label = "Authentication Method", Type = FieldType.Select, 
                      SelectOptions = new[] { "OAuth Browser", "Token Import" })]
@@ -786,3 +786,4 @@ Key success factors:
 - Security-first design principles
 
 With this plan, Tidalarr will provide a seamless Tidal experience for Lidarr users while maintaining the high standards set by the Qobuzarr implementation.
+

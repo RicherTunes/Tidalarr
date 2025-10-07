@@ -6,7 +6,7 @@ namespace Tidalarr;
 public class TidalProtocol : IDownloadProtocol
 {
     public const string Scheme = "tidal";
-    public const string Name = "Tidal";
+    public const string Name = "TidalProtocol";
     public const string Description = "Tidal streaming protocol";
 
     public static bool IsValidUrl(string url)
@@ -32,23 +32,16 @@ public class TidalProtocol : IDownloadProtocol
 
     public static string BuildAlbumUrl(string albumId)
     {
-        if (string.IsNullOrWhiteSpace(albumId))
-        {
-            throw new ArgumentException("Album id cannot be null or empty", nameof(albumId));
-        }
-
-        return $"{Scheme}://album/{albumId}";
+        var safe = albumId ?? string.Empty;
+        return $"{Scheme}://album/{safe}";
     }
 
     public static string BuildTrackUrl(string trackId)
     {
-        if (string.IsNullOrWhiteSpace(trackId))
-        {
-            throw new ArgumentException("Track id cannot be null or empty", nameof(trackId));
-        }
-
-        return $"{Scheme}://track/{trackId}";
+        var safe = trackId ?? string.Empty;
+        return $"{Scheme}://track/{safe}";
     }
 }
+
 
 

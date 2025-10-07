@@ -23,13 +23,14 @@ public class TidalIndexerAuthExceptionTests
     [Fact]
     public async Task InitializeAsync_ReturnsInvalid_WhenAuthThrows()
     {
-        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
+        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
         var core = new ThrowAuthCore();
         var indexer = new TidalIndexer(new TidalSearchService(core, new Tidalarr.Domain.Quality.TidalQualityDetector()), core, settings, NullLogger.Instance);
         var res = await indexer.InitializeAsync();
         Assert.False(res.IsValid);
     }
 }
+
 
 
 

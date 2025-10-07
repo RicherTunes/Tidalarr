@@ -35,7 +35,7 @@ public class TidalDownloadClientEnhancedFlowTests
     public async Task DownloadTrackEnhancedAsync_WritesFile_ForDifferentMime(string mime, string ext)
     {
         var tmp = Path.Combine(Path.GetTempPath(), $"tidal_enh_{Guid.NewGuid():N}");
-        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var streamSvc = new TidalStreamService(new CoreStub(mime, ext), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
         var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(mime, ext), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
@@ -46,5 +46,7 @@ public class TidalDownloadClientEnhancedFlowTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 }
+
+
 
 

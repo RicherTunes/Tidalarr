@@ -11,7 +11,7 @@ public class TidalDownloadClientStreamUrlTests
 {
     private class ExposedDownloadClient : TidalDownloadClient
     {
-        public ExposedDownloadClient(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, ITidalCore apiClient, Tidalarr.Domain.Quality.TidalQualityDetector qualityDetector, TidalDownloadSettings settings)
+        public ExposedDownloadClient(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, ITidalCore apiClient, Tidalarr.Domain.Quality.TidalQualityDetector qualityDetector, TidalDownloadClientSettings settings)
             : base(streamService, chunkDownloader, apiClient, qualityDetector, settings, NullLogger.Instance) {}
         public Task<string> ExposeGetStreamUrlAsync(string trackId, string quality) => base.GetStreamUrlAsync(trackId, quality);
     }
@@ -30,7 +30,7 @@ public class TidalDownloadClientStreamUrlTests
     [Fact]
     public async Task GetStreamUrlAsync_ReturnsFirstChunkUrl()
     {
-        var settings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
         var client = new ExposedDownloadClient(streamSvc, new TidalChunkDownloader(new HttpClient()), new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings);
 
@@ -38,5 +38,7 @@ public class TidalDownloadClientStreamUrlTests
         Assert.Equal("https://first", url);
     }
 }
+
+
 
 

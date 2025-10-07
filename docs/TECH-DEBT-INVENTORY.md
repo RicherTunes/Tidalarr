@@ -92,7 +92,7 @@ This document explicitly tracks technical debt accepted during Tidalarr v1.0 dev
 12. **Limited Configuration Options**
     - **Description**: Minimal user-configurable settings
     - **Impact**: Less flexibility for power users
-    - **Files**: `Integration/TidalIndexerSettings.cs`
+    - **Files**: `Integration/TidalarrSettings.cs`
 
 13. **No Telemetry or Metrics**
     - **Description**: No performance or usage tracking

@@ -167,3 +167,4 @@ public class TidalCacheStatistics
     public int TrackCacheEntries { get; set; }
     public int ArtistCacheEntries { get; set; }
 }
+

@@ -79,3 +79,4 @@ if ($errors.Count -gt 0) {
 }
 
 Write-Host "Manifest validation succeeded: version $($manifest.version), common $($manifest.commonVersion), host $hostVersionTarget" -ForegroundColor Green
+

@@ -21,11 +21,11 @@ et6.0 (xt/qobuzarr/Qobuzarr.csproj:4) | Framework parity makes shared library a
 - Tidalarr recently introduced compile-only NLog to satisfy Lidarr adapters without bundling runtime (src/Tidalarr/Tidalarr.csproj:27). Qobuzarr ships a custom NLogAdapter under src/Abstractions and still distributes NLog binaries.
 
 ## Lidarr Integration Surfaces
-- **Tidalarr**: src/Tidalarr/Lidarr/TidalLidarrDownloadClient.cs and src/Tidalarr/Lidarr/TidalLidarrIndexer.cs wrap the existing orchestrator and settings so Lidarr only sees the new adapters.
+ - **Tidalarr**: src/Tidalarr/Integration/TidalarrPlugin.cs orchestrates runtime creation of Lidarr-facing adapters (src/Tidalarr/Integration/Adapters/*) so the host only interacts with the new StreamingPlugin bridge.
 - **Qobuzarr**: Download/Indexer implementations live under src/Download/Clients and src/Indexers with extensive plugin-specific helpers (queue management, metadata strategies). Alignment requires extracting reusable parts into Lidarr.Plugin.Common and reshaping the per-plugin adapters to mirror the lean approach.
 
 ## Settings & Configuration
-- Tidalarr settings use strongly-typed TidalQuality enum (src/Tidalarr/Integration/TidalDownloadSettings.cs:19) and validators hooked into BaseStreamingSettings.
+ - Tidalarr settings use the consolidated TidalarrSettings model (src/Tidalarr/Integration/TidalarrSettings.cs:16) with validators hooked into BaseStreamingSettings.
 - Qobuzarr maintains numerous bespoke configuration classes (e.g., src/Qobuzarr/src/Settings/QobuzSettings.cs) with additional ML/queue toggles. Need to reconcile which options belong in the shared library vs plugin-specific layers.
 
 ## CLI Harness
@@ -50,3 +50,4 @@ et6.0 and reference many Lidarr host assemblies (xt/qobuzarr/tests/Qobuzarr.Tes
 5. **Manifest Generation**: Pick either template-driven or static manifests; whichever approach we choose should be codified in Lidarr.Plugin.Common build targets so both plugins ingest identical metadata.
 
 This snapshot completes Step 1 of the alignment plan: we have a concrete map of structural, build, and runtime differences that the remaining steps can address without introducing regressions.
+
