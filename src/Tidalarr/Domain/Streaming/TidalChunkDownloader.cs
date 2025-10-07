@@ -39,7 +39,7 @@ public class TidalChunkDownloader
             try
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
-                var response = await _httpClient.ExecuteWithResilienceAsync(req, cancellationToken: cancellationToken);
+                var response = await _httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
                 response.EnsureSuccessStatusCode();
 
                 var chunkData = await response.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -102,7 +102,7 @@ public class TidalChunkDownloader
                 var chunkUrl = streamInfo.ChunkUrls[i];
 
                 using var req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
-                using var response = await _httpClient.ExecuteWithResilienceAsync(req);
+                using var response = await _httpClient.ExecuteWithRetryAsync(req, cancellationToken: CancellationToken.None);
                 response.EnsureSuccessStatusCode();
 
                 using var contentStream = await response.Content.ReadAsStreamAsync();

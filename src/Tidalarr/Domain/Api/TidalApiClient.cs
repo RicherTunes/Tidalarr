@@ -56,7 +56,7 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        var response = await _httpClient.ExecuteWithResilienceAsync(request, cancellationToken: cancellationToken);
+        var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalTrackDto>(content);
@@ -81,7 +81,7 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        var response = await _httpClient.ExecuteWithResilienceAsync(request, cancellationToken: cancellationToken);
+        var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalAlbumDto>(content);
@@ -107,7 +107,7 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        var response = await _httpClient.ExecuteWithResilienceAsync(request, cancellationToken: cancellationToken);
+        var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content);
@@ -151,7 +151,7 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        var response = await _httpClient.ExecuteWithResilienceAsync(request, cancellationToken: cancellationToken);
+        var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content);
@@ -177,7 +177,7 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        var response = await _httpClient.ExecuteWithResilienceAsync(request, cancellationToken: cancellationToken);
+        var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);

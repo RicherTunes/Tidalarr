@@ -44,7 +44,6 @@ public class TidalModule : StreamingPluginModule
     {
         RegisterSharedLibraryServices(services);
         services.AddTransient<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
-        services.AddTransient<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
         services.AddHttpClient<TidalApiClient>(client =>
@@ -57,7 +56,6 @@ public class TidalModule : StreamingPluginModule
             AutomaticDecompression = DecompressionMethods.All
         })
         .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>()
         .AddHttpMessageHandler(sp =>
         {
             var tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
@@ -74,8 +72,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
 
         // Core services
         // PKCEGenerator is created internally by TidalOAuthService; no DI registration needed here.
@@ -155,8 +152,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
 
         services.AddHttpClient<TidalChunkDownloader>(client =>
         {
@@ -166,8 +162,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
     
     }
 
