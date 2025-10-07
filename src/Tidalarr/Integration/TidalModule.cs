@@ -21,6 +21,8 @@ using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.Services.Authentication;
+using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration;
 
@@ -77,17 +79,14 @@ public class TidalModule : StreamingPluginModule
         .AddHttpMessageHandler<WiretapDiagnosticHandler>();
 
         // Core services
-        services.AddSingleton<PKCEGenerator>();
+        // PKCEGenerator is created internally by TidalOAuthService; no DI registration needed here.
         services.AddSingleton<ITokenStorage, JsonTokenStorage>();
         services.AddScoped<ITidalAuth, TidalOAuthService>();
-        services.AddSingleton<Lidarr.Plugin.Common.Services.Authentication.IStreamingAuthManager, Tidalarr.Domain.Authentication.TidalStreamingAuthManager>();
-        // Expose as shared token provider for OAuth handler; adapt stubs if needed
-        services.AddScoped<IStreamingTokenProvider>(sp =>
-        {
-            var auth = sp.GetRequiredService<ITidalAuth>();
-            if (auth is IStreamingTokenProvider tp) return tp;
-            return new OAuthTokenProviderAdapter(auth);
-        });
+        services.AddSingleton<IStreamingAuthManager, Tidalarr.Domain.Authentication.TidalStreamingAuthManager>();
+        // Token manager + provider
+        services.AddSingleton<IStreamingTokenAuthenticationService<TidalTokens, TidalCredentials>>(sp => new TidalAuthTokenAuthAdapter(sp.GetRequiredService<ITidalAuth>()));
+        services.AddSingleton<StreamingTokenManager<TidalTokens, TidalCredentials>>();
+        services.AddSingleton<IStreamingTokenProvider, ManagedTokenProvider>();
         services.AddScoped<ITidalCore, TidalApiClient>();
 
         // Shared-integrations
