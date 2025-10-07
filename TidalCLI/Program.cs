@@ -12,6 +12,7 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using IntegrationModule = Tidalarr.Integration.TidalModule;
 
@@ -82,6 +83,7 @@ public class Program
             Console.WriteLine("8. download-track   - Live track download via orchestrator");
             Console.WriteLine("9. download-album   - Live album download via orchestrator");
             Console.WriteLine("A. test-all         - Run all tests");
+            Console.WriteLine("S. settings-validate - Validate settings and print diagnostics JSON");
             Console.WriteLine("C. config           - Configure defaults (output dir, quality)");
             Console.WriteLine("X. exit             - Exit application");
 
@@ -150,6 +152,9 @@ public class Program
                 case "c" or "config":
                     await ConfigureDefaults();
                     break;
+                case "s" or "settings-validate":
+                    await RunSettingsValidateInteractiveAsync();
+                    break;
                 case "x" or "exit":
                     Console.WriteLine("👋 Goodbye!");
                     return;
@@ -209,6 +214,9 @@ public class Program
                 break;
             case "test-all":
                 await RunAllTests();
+                break;
+            case "settings-validate":
+                await RunSettingsValidateAsync(args.Skip(1).ToArray());
                 break;
             default:
                 Console.WriteLine($"❌ Unknown command: {command}");
@@ -893,32 +901,87 @@ public class Program
         }
         */
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static async Task RunSettingsValidateInteractiveAsync()
+    {
+        Console.WriteLine("\n🔧 Settings Validation (diagnostics)");
+        Console.Write("ConfigPath (blank for temp): ");
+        var config = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
+
+        Console.Write("RedirectUrl (blank for sample): ");
+        var redirect = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+
+        Console.Write("DownloadPath (blank for temp): ");
+        var output = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
+
+        var args = new[] { $"ConfigPath={config}", $"RedirectUrl={redirect}", $"DownloadPath={output}" };
+        await RunSettingsValidateAsync(args);
+    }
+
+    private static async Task RunSettingsValidateAsync(string[] args)
+    {
+        var map = new Dictionary<string, object?>();
+        foreach (var arg in args)
+        {
+            var idx = arg.IndexOf('=');
+            if (idx > 0)
+            {
+                var key = arg.Substring(0, idx);
+                var val = arg.Substring(idx + 1);
+                map[key] = val;
+            }
+        }
+
+        if (!map.ContainsKey("ConfigPath")) map["ConfigPath"] = Path.GetTempPath();
+        if (!map.ContainsKey("RedirectUrl")) map["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state";
+        if (!map.ContainsKey("DownloadPath")) map["DownloadPath"] = Path.GetTempPath();
+
+        var plugin = new Tidalarr.Integration.TidalarrPlugin();
+        await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
+        var validation = plugin.SettingsProvider.Validate(map);
+        var payload = new
+        {
+            isValid = validation.IsValid,
+            errors = validation.Errors,
+            warnings = validation.Warnings
+        };
+        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private sealed class HarnessContext : Lidarr.Plugin.Abstractions.Contracts.IPluginContext
+    {
+        public Version HostVersion { get; } = new(2, 14, 2, 4786);
+        public Microsoft.Extensions.Logging.ILoggerFactory LoggerFactory { get; } = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
+        public IServiceProvider? Services { get; } = null;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

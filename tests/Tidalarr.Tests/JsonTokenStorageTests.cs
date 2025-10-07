@@ -4,15 +4,15 @@ using Xunit;
 
 namespace Tidalarr.Tests;
 
-public class JsonTokenStorageTests : IDisposable
+public class FileTokenStoreTests : IDisposable
 {
     private readonly string _testStoragePath;
-    private readonly JsonTokenStorage _storage;
+    private readonly FileTokenStore _storage;
     
-    public JsonTokenStorageTests()
+    public FileTokenStoreTests()
     {
         _testStoragePath = Path.Combine(Path.GetTempPath(), $"tidalarr_test_{Guid.NewGuid():N}.json");
-        _storage = new JsonTokenStorage(_testStoragePath);
+        _storage = new FileTokenStore(_testStoragePath);
     }
     
     [Fact]
@@ -46,7 +46,7 @@ public class JsonTokenStorageTests : IDisposable
     {
         // Arrange
         var nonExistentPath = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.json");
-        var storage = new JsonTokenStorage(nonExistentPath);
+        var storage = new FileTokenStore(nonExistentPath);
         
         // Act
         var tokens = await storage.LoadTokensAsync();
@@ -88,7 +88,7 @@ public class JsonTokenStorageTests : IDisposable
     {
         // Arrange
         var invalidPath = "<>|*?invalid:path";
-        var storage = new JsonTokenStorage(invalidPath);
+        var storage = new FileTokenStore(invalidPath);
         var tokens = new TidalTokens("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
         
         // Act & Assert
