@@ -84,6 +84,8 @@ public class Program
             Console.WriteLine("9. download-album   - Live album download via orchestrator");
             Console.WriteLine("A. test-all         - Run all tests");
             Console.WriteLine("S. settings-validate - Validate settings and print diagnostics JSON");
+            Console.WriteLine("I. indexer-validate  - Validate indexer (IX* diagnostics) JSON");
+            Console.WriteLine("D. download-validate - Validate download (DL* diagnostics) JSON");
             Console.WriteLine("C. config           - Configure defaults (output dir, quality)");
             Console.WriteLine("X. exit             - Exit application");
 
@@ -155,6 +157,12 @@ public class Program
                 case "s" or "settings-validate":
                     await RunSettingsValidateInteractiveAsync();
                     break;
+                case "i" or "indexer-validate":
+                    await RunIndexerValidateInteractiveAsync();
+                    break;
+                case "d" or "download-validate":
+                    await RunDownloadValidateInteractiveAsync();
+                    break;
                 case "x" or "exit":
                     Console.WriteLine("👋 Goodbye!");
                     return;
@@ -217,6 +225,12 @@ public class Program
                 break;
             case "settings-validate":
                 await RunSettingsValidateAsync(args.Skip(1).ToArray());
+                break;
+            case "indexer-validate":
+                await RunIndexerValidateAsync(args.Skip(1).ToArray());
+                break;
+            case "download-validate":
+                await RunDownloadValidateAsync(args.Skip(1).ToArray());
                 break;
             default:
                 Console.WriteLine($"❌ Unknown command: {command}");
@@ -976,6 +990,102 @@ public class Program
             warnings = validation.Warnings
         };
         Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task RunIndexerValidateInteractiveAsync()
+    {
+        Console.WriteLine("\n📇 Indexer Validation (diagnostics)");
+        Console.Write("ConfigPath (blank for temp): ");
+        var config = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
+
+        Console.Write("RedirectUrl (blank for sample): ");
+        var redirect = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+
+        Console.Write("Market (default US): ");
+        var market = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(market)) market = "US";
+
+        await RunIndexerValidateAsync(new[] { $"ConfigPath={config}", $"RedirectUrl={redirect}", $"TidalMarket={market}" });
+    }
+
+    private static async Task RunIndexerValidateAsync(string[] args)
+    {
+        var idxSettings = new Tidalarr.Integration.TidalIndexerSettings();
+        foreach (var arg in args)
+        {
+            var i = arg.IndexOf('=');
+            if (i <= 0) continue;
+            var k = arg[..i];
+            var v = arg[(i + 1)..];
+            if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase)) idxSettings.ConfigPath = v;
+            else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase)) idxSettings.RedirectUrl = v;
+            else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase)) idxSettings.TidalMarket = v;
+        }
+
+        var services = new ServiceCollection();
+        services.AddSingleton(idxSettings);
+        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var indexer = provider.GetRequiredService<Tidalarr.Integration.TidalIndexer>();
+        // Use public plugin SettingsProvider for validation output
+        var plugin = new Tidalarr.Integration.TidalarrPlugin();
+        await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
+        var defaults = plugin.SettingsProvider.GetDefaults();
+        var mutable = new System.Collections.Generic.Dictionary<string, object?>(defaults);
+        var validation = plugin.SettingsProvider.Validate(mutable);
+        var payload = new { isValid = validation.IsValid, errors = validation.Errors, warnings = validation.Warnings };
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task RunDownloadValidateInteractiveAsync()
+    {
+        Console.WriteLine("\n⬇️ Download Validation (diagnostics)");
+        Console.Write("TrackId: ");
+        var track = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(track)) track = "test-track";
+
+        Console.Write("Preferred Quality (Low|High|Lossless|HiRes, default Lossless): ");
+        var q = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(q)) q = "Lossless";
+
+        Console.Write("DownloadPath (blank for temp): ");
+        var output = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
+
+        await RunDownloadValidateAsync(new[] { $"TrackId={track}", $"Quality={q}", $"DownloadPath={output}" });
+    }
+
+    private static async Task RunDownloadValidateAsync(string[] args)
+    {
+        string trackId = "";
+        var quality = Tidalarr.Core.Models.TidalQuality.Lossless;
+        var dlSettings = new Tidalarr.Integration.TidalDownloadClientSettings();
+        foreach (var arg in args)
+        {
+            var i = arg.IndexOf('=');
+            if (i <= 0) continue;
+            var k = arg[..i];
+            var v = arg[(i + 1)..];
+            if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase)) trackId = v;
+            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(v, true, out var q)) quality = q;
+            else if (k.Equals(nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
+        }
+
+        if (string.IsNullOrWhiteSpace(trackId)) { Console.WriteLine("Provide TrackId="); return; }
+        if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath)) dlSettings.DownloadPath = Path.GetTempPath();
+
+        var services = new ServiceCollection();
+        services.AddSingleton(dlSettings);
+        Tidalarr.Integration.TidalModule.RegisterServices(services);
+        var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<Tidalarr.Integration.TidalDownloadClient>();
+        // Minimal smoke: query stream info and print projection
+        var api = provider.GetRequiredService<Tidalarr.Domain.Api.TidalApiClient>();
+        var info = await api.GetStreamInfoAsync(trackId, quality);
+        var proj = new { info.FileExtension, info.MimeType, Encrypted = info.IsEncrypted };
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(proj, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
     }
 
     private sealed class HarnessContext : Lidarr.Plugin.Abstractions.Contracts.IPluginContext
