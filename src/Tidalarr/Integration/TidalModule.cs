@@ -80,6 +80,7 @@ public class TidalModule : StreamingPluginModule
         services.AddSingleton<PKCEGenerator>();
         services.AddSingleton<ITokenStorage, JsonTokenStorage>();
         services.AddScoped<ITidalAuth, TidalOAuthService>();
+        services.AddSingleton<Lidarr.Plugin.Common.Services.Authentication.IStreamingAuthManager, Tidalarr.Domain.Authentication.TidalStreamingAuthManager>();
         // Expose as shared token provider for OAuth handler; adapt stubs if needed
         services.AddScoped<IStreamingTokenProvider>(sp =>
         {
