@@ -336,6 +336,41 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
             return false;
         }
     }
+
+    // New: diagnostics-based validation result with stable ID codes
+    internal async Task<Tidalarr.Integration.Diagnostics.OperationResult> ValidateDownloadWithDiagnosticsAsync(string trackId, TidalQuality quality)
+    {
+        const string OK = "DL000";              // Validation OK
+        const string CHUNK_UNAVAILABLE = "DL001"; // First chunk not accessible
+        const string STREAM_ERROR = "DL100";      // Failed to get stream info
+
+        try
+        {
+            var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
+            var ok = await _chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
+            if (!ok)
+            {
+                return Tidalarr.Integration.Diagnostics.OperationResult.Fail(
+                    CHUNK_UNAVAILABLE,
+                    "First chunk is not accessible",
+                    new() { ["trackId"] = trackId, ["quality"] = quality.ToString(), ["firstChunk"] = streamInfo.ChunkUrls.FirstOrDefault() }
+                );
+            }
+
+            return Tidalarr.Integration.Diagnostics.OperationResult.Ok(
+                OK,
+                metadata: new() { ["trackId"] = trackId, ["quality"] = quality.ToString(), ["chunkCount"] = streamInfo.ChunkUrls?.Length ?? 0 }
+            );
+        }
+        catch (Exception ex)
+        {
+            return Tidalarr.Integration.Diagnostics.OperationResult.Fail(
+                STREAM_ERROR,
+                ex.Message,
+                new() { ["trackId"] = trackId, ["quality"] = quality.ToString() }
+            );
+        }
+    }
     
     
     private static TidalQuality ParseQualityFromString(string quality)
