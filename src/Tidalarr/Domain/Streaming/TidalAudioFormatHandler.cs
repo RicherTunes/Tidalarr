@@ -147,3 +147,4 @@ public class TidalDownloadResult
     public TimeSpan Duration { get; set; }
     public string Quality { get; set; } = string.Empty;
 }
+

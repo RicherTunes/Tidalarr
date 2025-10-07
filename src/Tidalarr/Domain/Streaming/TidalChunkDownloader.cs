@@ -187,3 +187,4 @@ public class TidalChunkDownloader
     private static bool RequiresDecryption(bool isEncrypted, string? securityToken)
         => isEncrypted && !string.IsNullOrWhiteSpace(securityToken);
 }
+

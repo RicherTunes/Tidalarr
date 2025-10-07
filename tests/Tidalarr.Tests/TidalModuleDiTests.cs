@@ -19,8 +19,8 @@ public class TidalModuleDiTests
     public void RegistersExpectedServices_AndLifetimes()
     {
         var services = new ServiceCollection();
-        var indexerSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
-        var downloadSettings = new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = System.IO.Path.GetTempPath() };
+        var indexerSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
+        var downloadSettings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = System.IO.Path.GetTempPath() };
         services.AddSingleton(indexerSettings);
         services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -44,3 +44,5 @@ public class TidalModuleDiTests
         Assert.IsType<TidalRateLimiter>(limiter);
     }
 }
+
+

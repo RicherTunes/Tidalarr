@@ -17,7 +17,7 @@ public class TidalDownloadClientFileNameTests
                    new TidalChunkDownloader(new HttpClient()),
                    new CoreStub(),
                    new TidalQualityDetector(),
-                   new TidalDownloadSettings())
+                   new TidalDownloadClientSettings())
         {}
 
         public string ExposeGenerateFileName(StreamingTrack track, StreamingAlbum album)
@@ -74,6 +74,8 @@ public class TidalDownloadClientFileNameTests
         Assert.StartsWith("03 - ", fileName);
     }
 }
+
+
 
 
 

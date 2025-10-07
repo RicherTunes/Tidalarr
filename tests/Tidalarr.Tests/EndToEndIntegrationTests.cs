@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
@@ -14,70 +16,61 @@ public class EndToEndIntegrationTests
     [Fact]
     public void EndToEnd_SearchAndDownloadFlow_WorksWithMocks()
     {
-        // Arrange - Complete Tidalarr configuration
         var indexerSettings = new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_auth_code&state=test_state",
             EnableCache = true,
             CacheDuration = 15,
-            ConfigPath = "C:/temp"
+            ConfigPath = Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadSettings
+        var downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = System.IO.Path.GetTempPath()
+            DownloadPath = Path.GetTempPath(),
+            DownloadDelay = 1000
         };
-        
-        // Validate settings
-        Assert.True(indexerSettings.IsValid(out var errorMessage), errorMessage);
-        
-        // Act - Create plugin components with DI
+
+        Assert.True(indexerSettings.ValidateFluent().IsValid);
+        Assert.True(downloadSettings.ValidateFluent().IsValid);
+
         var serviceProvider = CreateServiceProvider(indexerSettings, downloadSettings);
         var indexer = serviceProvider.GetRequiredService<TidalIndexer>();
         var downloadClient = serviceProvider.GetRequiredService<TidalDownloadClient>();
-        
-        // Assert - Verify components can be created
+
         Assert.NotNull(indexer);
         Assert.NotNull(downloadClient);
-        
-        // Verify module functionality
+
         Assert.True(TidalModule.ValidateConfiguration(indexerSettings));
         Assert.Equal("Tidalarr", TidalModule.ModuleName);
-        Assert.Equal("1.0.0", TidalModule.Version);
-        
-        // This represents the complete plugin functionality:
-        // 1. Settings validation ✅
-        // 2. Component creation ✅  
-        // 3. Search capability ✅ (via indexer)
-        // 4. Download capability ✅ (via download client)
-        
+        Assert.Equal("1.0.1", TidalModule.Version);
+
         Assert.True(true, "End-to-End: Complete Tidalarr plugin integration works!");
     }
-    
+
     [Fact]
     public void EndToEnd_AllComponentsIntegrate_NoMissingDependencies()
     {
-        // This test ensures all our carefully built components integrate correctly
-        
         var indexerSettings2 = new TidalIndexerSettings
         {
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = "C:/temp"
+            ConfigPath = Path.GetTempPath()
         };
-        
-        // Test complete dependency chain can be built
+
         try
         {
             var services = new ServiceCollection();
             services.AddSingleton(indexerSettings2);
-            services.AddSingleton(new TidalDownloadSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = System.IO.Path.GetTempPath() });
+            services.AddSingleton(new TidalDownloadClientSettings
+            {
+                PreferredQuality = TidalQuality.Lossless,
+                DownloadPath = Path.GetTempPath()
+            });
             TidalModule.RegisterServices(services);
             var provider = services.BuildServiceProvider();
-            var indexer = provider.GetRequiredService<TidalIndexer>();
-            var downloadClient = provider.GetRequiredService<TidalDownloadClient>();
-            
-            // If we get here without exceptions, dependency injection works
+            _ = provider.GetRequiredService<TidalIndexer>();
+            _ = provider.GetRequiredService<TidalDownloadClient>();
+
             Assert.True(true, "All dependencies resolve correctly!");
         }
         catch (Exception ex)
@@ -85,36 +78,37 @@ public class EndToEndIntegrationTests
             throw new Xunit.Sdk.XunitException($"Dependency resolution failed: {ex.Message}");
         }
     }
-    
+
     [Theory]
-    [InlineData("US", TidalQuality.Lossless, true)]
-    [InlineData("UK", TidalQuality.High, true)]
-    [InlineData("DE", TidalQuality.HiRes, true)]
-    [InlineData("INVALID", TidalQuality.Lossless, false)]
-    public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, TidalQuality quality, bool shouldBeValid)
+    [InlineData("US", TidalQuality.Lossless, true, null)]
+    [InlineData("UK", TidalQuality.High, true, null)]
+    [InlineData("DE", TidalQuality.HiRes, true, null)]
+    [InlineData("INVALID", TidalQuality.Lossless, false, TidalarrValidationCodes.MarketUnsupported)]
+    public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, TidalQuality quality, bool shouldBeValid, string? expectedErrorCode)
     {
-        // Arrange
         var settings = new TidalIndexerSettings
         {
             TidalMarket = market,
-            RedirectUrl = shouldBeValid ? "https://tidal.com/android/login/auth?code=test&state=test" : "",
-            ConfigPath = shouldBeValid ? "C:/temp" : ""
+            RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
+            ConfigPath = Path.GetTempPath()
         };
-        
-        // Act
-        var isValid = settings.IsValid(out var errorMessage);
-        var dl = new TidalDownloadSettings { PreferredQuality = quality, DownloadPath = System.IO.Path.GetTempPath() };
-        Assert.True(dl.IsValid(out _));
-        
-        // Assert
-        Assert.Equal(shouldBeValid, isValid);
+
+        var validation = settings.ValidateFluent();
+        var downloadSettings = new TidalDownloadClientSettings
+        {
+            PreferredQuality = quality,
+            DownloadPath = Path.GetTempPath()
+        };
+        Assert.True(downloadSettings.ValidateFluent().IsValid);
+
+        Assert.Equal(shouldBeValid, validation.IsValid);
         if (!shouldBeValid)
         {
-            Assert.NotEmpty(errorMessage);
+            Assert.Contains(expectedErrorCode, validation.Errors.Select(e => e.ErrorCode));
         }
     }
-    
-    private static IServiceProvider CreateServiceProvider(TidalIndexerSettings indexerSettings, TidalDownloadSettings downloadSettings)
+
+    private static IServiceProvider CreateServiceProvider(TidalIndexerSettings indexerSettings, TidalDownloadClientSettings downloadSettings)
     {
         var services = new ServiceCollection();
         services.AddSingleton(indexerSettings);
@@ -123,6 +117,3 @@ public class EndToEndIntegrationTests
         return services.BuildServiceProvider();
     }
 }
-
-
-

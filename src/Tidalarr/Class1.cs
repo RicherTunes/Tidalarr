@@ -1,6 +1,7 @@
-﻿namespace Tidalarr;
+namespace Tidalarr;
 
 public class Class1
 {
 
 }
+

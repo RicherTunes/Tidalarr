@@ -61,3 +61,4 @@ public class TidalManifestException : TidalException
         ManifestType = manifestType;
     }
 }
+

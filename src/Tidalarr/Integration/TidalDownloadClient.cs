@@ -22,7 +22,7 @@ using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration;
 
-public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSettings>
+public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClientSettings>
 {
     private readonly TidalStreamService _streamService;
     private readonly TidalChunkDownloader _chunkDownloader;
@@ -38,7 +38,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         TidalChunkDownloader chunkDownloader,
         ITidalCore apiClient,
         TidalQualityDetector qualityDetector,
-        TidalDownloadSettings settings,
+        TidalDownloadClientSettings settings,
         Microsoft.Extensions.Logging.ILogger? logger = null)
         : base(settings, logger!)
     {
@@ -91,7 +91,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadSett
         return streamInfo.ChunkUrls?.FirstOrDefault() ?? string.Empty;
     }
     
-    protected override ValidationResult ValidateDownloadSettings(TidalDownloadSettings settings)
+    protected override ValidationResult ValidateDownloadSettings(TidalDownloadClientSettings settings)
     {
         var result = new ValidationResult();
         
@@ -433,5 +433,7 @@ public class StreamingDownloadResult
     public string ErrorMessage { get; set; } = string.Empty;
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 }
+
+
 
 

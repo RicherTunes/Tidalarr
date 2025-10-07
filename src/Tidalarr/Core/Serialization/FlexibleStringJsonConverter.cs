@@ -29,3 +29,4 @@ public sealed class FlexibleStringJsonConverter : JsonConverter<string>
         writer.WriteStringValue(value);
     }
 }
+

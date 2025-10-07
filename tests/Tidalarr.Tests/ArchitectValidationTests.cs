@@ -78,7 +78,7 @@ public class ArchitectValidationTests
         // - 50MB threshold for memory vs disk strategy
         // - FilePath property in TidalDownloadResult
         
-        var settings = new TidalDownloadSettings 
+        var settings = new TidalDownloadClientSettings 
         { 
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = System.IO.Path.GetTempPath()
@@ -119,7 +119,7 @@ public class ArchitectValidationTests
     {
         // Validate optimal shared library usage
         
-        var idxSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/test", ConfigPath = "C:/temp" };
+        var idxSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/test", ConfigPath = System.IO.Path.GetTempPath() };
         
         // ✅ FIXED: Inherits from BaseStreamingSettings
         Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
@@ -164,6 +164,8 @@ public class ArchitectValidationTests
         Console.WriteLine("   📈 Quality: Architect-validated production standards");
     }
 }
+
+
 
 
 

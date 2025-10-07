@@ -6,6 +6,7 @@ using Lidarr.Plugin.Common.Services.Caching;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
 using Lidarr.Plugin.Common.Services.Registration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Mappers;
@@ -15,6 +16,7 @@ using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
 using Tidalarr.Infrastructure.Http;
+using Lidarr.Plugin.Common.Services.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
 using Lidarr.Plugin.Common.Services.Download;
@@ -40,7 +42,7 @@ public class TidalModule : StreamingPluginModule
     protected override void ConfigureServices(IServiceCollection services)
     {
         RegisterSharedLibraryServices(services);
-        services.AddTransient<GzipSniffingHandler>();
+        services.AddTransient<ContentDecodingSnifferHandler>();
         services.AddTransient<WiretapDiagnosticHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
@@ -53,7 +55,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler<WiretapDiagnosticHandler>()
         .AddHttpMessageHandler(sp =>
         {
@@ -71,7 +73,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler<WiretapDiagnosticHandler>();
 
         // Core services
@@ -103,6 +105,43 @@ public class TidalModule : StreamingPluginModule
         // Application services
         services.AddScoped<TidalSearchService>();
 
+        // Back-compat: Map aggregated settings to distinct runtime settings if callers only registered TidalarrSettings
+        services.TryAddSingleton<TidalIndexerSettings>(sp =>
+        {
+            var s = sp.GetService<TidalarrSettings>();
+            if (s is null) return new TidalIndexerSettings();
+            return new TidalIndexerSettings
+            {
+                BaseUrl = s.BaseUrl,
+                ConfigPath = s.ConfigPath,
+                RedirectUrl = s.RedirectUrl,
+                TidalMarket = s.TidalMarket,
+                EarlyReleaseLimit = s.EarlyReleaseLimit,
+                EnableCache = s.EnableCache,
+                CacheDuration = s.CacheDuration
+            };
+        });
+
+        services.TryAddSingleton<TidalDownloadClientSettings>(sp =>
+        {
+            var s = sp.GetService<TidalarrSettings>();
+            if (s is null) return new TidalDownloadClientSettings();
+            return new TidalDownloadClientSettings
+            {
+                BaseUrl = s.BaseUrl,
+                PreferredQuality = s.PreferredQuality,
+                DownloadPath = s.DownloadPath,
+                IncludeMqa = s.IncludeMqa,
+                ExtractFlac = s.ExtractFlac,
+                ReEncodeAAC = s.ReEncodeAAC,
+                SaveSyncedLyrics = s.SaveSyncedLyrics,
+                UseLRCLIB = s.UseLRCLIB,
+                DownloadDelay = s.DownloadDelay,
+                DownloadDelayMin = s.DownloadDelayMin,
+                DownloadDelayMax = s.DownloadDelayMax
+            };
+        });
+
         // Integration endpoints
         services.AddScoped<TidalIndexer>();
         services.AddScoped<TidalDownloadClient>();
@@ -117,7 +156,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler<WiretapDiagnosticHandler>();
 
         services.AddHttpClient<TidalChunkDownloader>(client =>
@@ -128,7 +167,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<GzipSniffingHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler<WiretapDiagnosticHandler>();
     
     }
@@ -155,7 +194,7 @@ public class TidalModule : StreamingPluginModule
         return provider.GetRequiredService<TidalIndexer>();
     }
 
-    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadSettings settings)
+    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadClientSettings settings)
     {
         var module = new TidalModule();
         var provider = module.BuildServiceProvider(settings);
@@ -163,7 +202,7 @@ public class TidalModule : StreamingPluginModule
     }
 
     public static bool ValidateConfiguration(TidalIndexerSettings settings) => settings.IsValid(out _);
-    public static bool ValidateConfiguration(TidalDownloadSettings settings) => settings.IsValid(out _);
+    public static bool ValidateConfiguration(TidalDownloadClientSettings settings) => settings.IsValid(out _);
 
     // Convenience factory to produce a shared orchestrator wired to Tidal services
     public static SimpleDownloadOrchestrator CreateOrchestrator(IServiceProvider serviceProvider)
@@ -203,6 +242,10 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
+
+
+
+
 
 
 

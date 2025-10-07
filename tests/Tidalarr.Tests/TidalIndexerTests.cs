@@ -31,7 +31,7 @@ public class TidalIndexerTests
     {
         var core = new CoreFake();
         var search = new TidalSearchService(core, new Tidalarr.Domain.Quality.TidalQualityDetector());
-        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
+        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
 
         var indexer = new TidalIndexer(search, core, settings, NullLogger.Instance);
         var init = await indexer.InitializeAsync();
@@ -47,13 +47,14 @@ public class TidalIndexerTests
     {
         var core = new CoreFake { Authenticated = false };
         var search = new TidalSearchService(core, new Tidalarr.Domain.Quality.TidalQualityDetector());
-        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp" };
+        var settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = System.IO.Path.GetTempPath() };
         var indexer = new TidalIndexer(search, core, settings, NullLogger.Instance);
 
         var result = await indexer.InitializeAsync();
         Assert.False(result.IsValid);
     }
 }
+
 
 
 

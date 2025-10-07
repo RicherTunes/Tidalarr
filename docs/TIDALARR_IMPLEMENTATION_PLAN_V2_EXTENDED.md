@@ -25,8 +25,8 @@ Tidalarr/
 │   ├── Integration/                 # Qobuzarr-style integration layer
 │   │   ├── TidalIndexer.cs          # Implements HttpIndexerBase
 │   │   ├── TidalDownloadClient.cs   # Implements DownloadClientBase
-│   │   ├── TidalIndexerSettings.cs  # Lidarr settings UI
-│   │   └── TidalDownloadSettings.cs # Lidarr settings UI
+│   │   ├── TidalarrSettings.cs  # Lidarr settings UI
+│   │   └── TidalarrSettings.cs # Lidarr settings UI
 │   │
 │   ├── Services/                    # Adapter layer
 │   │   ├── TidalSessionAdapter.cs   # Wraps TidalSharp's Session
@@ -606,3 +606,4 @@ By adding TidalCLI and investing in the shared library refactoring, we:
 5. Build a professional, scalable architecture
 
 The extra week of investment pays massive dividends in reduced maintenance and faster future development.
+

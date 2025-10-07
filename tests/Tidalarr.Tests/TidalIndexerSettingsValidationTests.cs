@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Tidalarr.Tests;
 
-public class TidalIndexerSettingsValidationTests
+public class TidalarrSettingsValidationTests
 {
     private class CoreStub : ITidalCore
     {
@@ -28,5 +28,6 @@ public class TidalIndexerSettingsValidationTests
         Assert.False(result.IsValid);
     }
 }
+
 
 

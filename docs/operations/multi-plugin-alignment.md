@@ -23,7 +23,7 @@ Add or update the following fields in `plugin.json`:
   "id": "<plugin-id>",
   "version": "<semver>",
   "apiVersion": "1.x",
-  "commonVersion": "1.1.3",
+  "commonVersion": "1.1.4",
   "minHostVersion": "2.14.2.4786",
   "minimumVersion": "2.14.2.4786"
 }
@@ -54,4 +54,6 @@ Every plugin should run `./scripts/ci.ps1` in CI. This ensures:
 - Schedule the automated isolation host sample (`ext/Lidarr.Plugin.Common/examples/IsolationHostSample`) against the newly packaged plugin to validate cross-ALC loading.
 
 By following this checklist every plugin release stays compatible even when users mix versions, and the loader will reject incompatible manifests instead of crashing Lidarr.
+
+
 
