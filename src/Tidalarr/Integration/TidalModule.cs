@@ -15,7 +15,6 @@ using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Infrastructure.Caching;
-using Tidalarr.Infrastructure.Http;
 using Lidarr.Plugin.Common.Services.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
@@ -44,8 +43,8 @@ public class TidalModule : StreamingPluginModule
     protected override void ConfigureServices(IServiceCollection services)
     {
         RegisterSharedLibraryServices(services);
-        services.AddTransient<ContentDecodingSnifferHandler>();
-        services.AddTransient<WiretapDiagnosticHandler>();
+        services.AddTransient<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
+        services.AddTransient<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
         services.AddHttpClient<TidalApiClient>(client =>
@@ -57,8 +56,8 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<WiretapDiagnosticHandler>()
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>()
         .AddHttpMessageHandler(sp =>
         {
             var tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
@@ -75,12 +74,12 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
 
         // Core services
         // PKCEGenerator is created internally by TidalOAuthService; no DI registration needed here.
-        services.AddSingleton<ITokenStorage, JsonTokenStorage>();
+        services.AddSingleton<ITokenStorage, FileTokenStore>();
         services.AddScoped<ITidalAuth, TidalOAuthService>();
         services.AddSingleton<IStreamingAuthManager, Tidalarr.Domain.Authentication.TidalStreamingAuthManager>();
         // Token manager + provider
@@ -156,8 +155,8 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
 
         services.AddHttpClient<TidalChunkDownloader>(client =>
         {
@@ -167,8 +166,8 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
-        .AddHttpMessageHandler<WiretapDiagnosticHandler>();
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.DiagnosticTapHandler>();
     
     }
 
