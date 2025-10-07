@@ -982,14 +982,23 @@ public class Program
 
         var plugin = new Tidalarr.Integration.TidalarrPlugin();
         await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
-        var validation = plugin.SettingsProvider.Validate(map);
-        var payload = new
+        var result = plugin.ValidateSettingsWithDiagnostics(map);
+        var meta = result.Metadata.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? string.Empty);
+        string json;
+        if (result.Success)
         {
-            isValid = validation.IsValid,
-            errors = validation.Errors,
-            warnings = validation.Warnings
-        };
-        Console.WriteLine(JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+            var value = new Dictionary<string, string>(meta) { ["id"] = result.Code };
+            var ok = Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Success(value);
+            json = Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(ok);
+        }
+        else
+        {
+            var errMeta = new Dictionary<string, string>(meta) { ["id"] = result.Code };
+            var error = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, result.Message, null, errMeta);
+            var fail = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(error);
+            json = Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(fail);
+        }
+        Console.WriteLine(json);
     }
 
     private static async Task RunIndexerValidateInteractiveAsync()
