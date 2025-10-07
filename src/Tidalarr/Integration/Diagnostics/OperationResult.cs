@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Tidalarr.Integration.Diagnostics;
 
-internal sealed class OperationResult
+public sealed class OperationResult
 {
     public bool Success { get; init; }
     public string Code { get; init; } = string.Empty;
@@ -16,3 +16,14 @@ internal sealed class OperationResult
         => new OperationResult { Success = false, Code = code, Message = message, Metadata = metadata ?? new() };
 }
 
+public static class OperationResultJson
+{
+    private static readonly System.Text.Json.JsonSerializerOptions Options = new()
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
+
+    public static string ToJson(OperationResult result)
+        => System.Text.Json.JsonSerializer.Serialize(result, Options);
+}
