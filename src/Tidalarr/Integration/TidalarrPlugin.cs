@@ -62,7 +62,7 @@ public sealed class TidalarrPlugin : IPlugin
     }
 
     // Diagnostics-first settings validation (CFG*) for consumers/tests
-    internal OperationResult ValidateSettingsWithDiagnostics(IDictionary<string, object?> settings)
+    public OperationResult ValidateSettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
         const string INVALID = "CFG100";
@@ -85,7 +85,7 @@ public sealed class TidalarrPlugin : IPlugin
         });
     }
 
-    internal OperationResult ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
+    public OperationResult ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
         var check = ValidateSettingsWithDiagnostics(settings);

@@ -24,7 +24,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
         : base(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator())
     {
         _httpClient = httpClient;
-        _tokenStorage = tokenStorage ?? new JsonTokenStorage();
+        _tokenStorage = tokenStorage ?? new FileTokenStore();
     }
 
     // Backward-compatible overload used by existing tests/clients that passed a local PKCE generator

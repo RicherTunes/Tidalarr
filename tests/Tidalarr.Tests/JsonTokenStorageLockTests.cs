@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Tidalarr.Tests;
 
-public class JsonTokenStorageLockTests
+public class FileTokenStoreLockTests
 {
     [Fact]
     public async Task SaveTokens_WhenFileLocked_ThrowsInvalidOperation()
@@ -13,7 +13,7 @@ public class JsonTokenStorageLockTests
         await File.WriteAllTextAsync(path, "{}");
 
         await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
-        var storage = new JsonTokenStorage(path);
+        var storage = new FileTokenStore(path);
         var tokens = new TidalTokens("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveTokensAsync(tokens));
