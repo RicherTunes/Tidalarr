@@ -16,3 +16,8 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly f
 ## Support & Questions
 Open a GitHub issue with detailed logs and reproduction steps.
 
+
+## Host vs. Core
+- Core plugin (`src/Tidalarr`): hostless runtime used by CLI/tests; no NzbDrone/Lidarr references. Ships in the plugin zip.
+- Host bridge (`src/Tidalarr.HostBridge`): host-only wrappers with NzbDrone annotations and pretty enum labels; translates host UI models to core settings via `IHostSettingsMapper`. Not shipped in the plugin zip.
+- Start here for host wiring: `docs/hostbridge-integration.md`.
