@@ -23,3 +23,12 @@ Open a GitHub issue with detailed logs and reproduction steps.
 - Host bridge (`src/Tidalarr.HostBridge`): host-only wrappers with NzbDrone annotations and pretty enum labels; translates host UI models to core settings via `IHostSettingsMapper`. Not shipped in the plugin zip.
 - Start here for host wiring: `docs/hostbridge-integration.md`.
  - Framework rationale: `docs/TFM_RATIONALE.md`.
+## CLI: Named argument support for search/download
+
+The CLI now supports named arguments alongside positional ones:
+
+- search: search <query> or search Query=<query>
+- download-track: download-track <trackId> <outputDir> or download-track TrackId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]
+- download-album: download-album <albumId> <outputDir> or download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]
+
+Unknown keys and invalid values are surfaced with friendly messages, and tests are gated via RUN_REAL_CLI_TESTS=1.
