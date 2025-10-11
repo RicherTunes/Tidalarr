@@ -4,16 +4,13 @@ using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
-using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Validation;
-using NzbDrone.Core.Validation.Paths;
 using Tidalarr.Core.Models;
-using NzbDrone.Core.Indexers;
-using NzbDrone.Core.ThingiProvider;
+using FieldDefinition = Tidalarr.Integration.Annotations.FieldDefinitionAttribute;
+using FieldType = Tidalarr.Integration.Annotations.FieldType;
 
 namespace Tidalarr.Integration;
 
-public class TidalarrSettings : BaseStreamingSettings, IIndexerSettings, IProviderConfig
+public class TidalarrSettings : BaseStreamingSettings
 {
     private static readonly TidalarrSettingsValidator Validator = new();
 
@@ -74,11 +71,6 @@ public class TidalarrSettings : BaseStreamingSettings, IIndexerSettings, IProvid
         return validation.IsValid;
     }
 
-    public NzbDroneValidationResult Validate()
-    {
-        return new NzbDroneValidationResult(Validator.Validate(this));
-    }
-
     public ValidationResult ValidateFluent()
     {
         return Validator.Validate(this);
@@ -102,7 +94,7 @@ public class TidalarrSettings : BaseStreamingSettings, IIndexerSettings, IProvid
         {
             RuleFor(x => x.ConfigPath)
                 .NotEmpty().WithMessage("Config path is required").WithErrorCode(TidalarrValidationCodes.ConfigPathRequired)
-                .IsValidPath().WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
+                .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Config path is invalid").WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
 
             RuleFor(x => x.RedirectUrl)
                 .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication").WithErrorCode(TidalarrValidationCodes.RedirectRequired)
@@ -128,7 +120,7 @@ public class TidalarrSettings : BaseStreamingSettings, IIndexerSettings, IProvid
 
             RuleFor(x => x.DownloadPath)
                 .NotEmpty().WithMessage("Download path is required").WithErrorCode(TidalarrValidationCodes.DownloadPathRequired)
-                .IsValidPath().WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
+                .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Download path is invalid").WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
 
             RuleFor(x => x.DownloadDelay)
                 .InclusiveBetween(0, 60000)
