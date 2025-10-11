@@ -11,7 +11,7 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Domain.Quality;
-using Tidalarr.Integration.Diagnostics;
+using Lidarr.Plugin.Abstractions.Results;
 
 namespace Tidalarr.Integration;
 
@@ -139,8 +139,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         return result;
     }
 
-    // Diagnostics-first settings validation with stable IDs
-    internal OperationResult ValidateSettingsWithDiagnostics()
+    // Diagnostics-first settings validation with stable IDs (Common result)
+    internal PluginOperationResult<Dictionary<string, string>> ValidateSettingsWithDiagnostics()
     {
         const string OK = "IX000";     // Settings valid
         const string INVALID_CODE = "IX100"; // Settings invalid
@@ -148,7 +148,11 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         var validation = Settings.ValidateFluent();
         if (validation.IsValid)
         {
-            return OperationResult.Ok(OK, metadata: new() { ["service"] = ServiceName });
+            return PluginOperationResult<Dictionary<string, string>>.Success(new()
+            {
+                ["id"] = OK,
+                ["service"] = ServiceName
+            });
         }
 
         var codes = validation.Errors
@@ -157,21 +161,26 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             .Distinct()
             .ToArray();
 
-        return OperationResult.Fail(INVALID_CODE, "Settings failed validation", new()
-        {
-            ["service"] = ServiceName,
-            ["errors"] = codes
-        });
+        return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
+            PluginErrorCode.ValidationFailed,
+            "Settings failed validation",
+            null,
+            new Dictionary<string, string>
+            {
+                ["id"] = INVALID_CODE,
+                ["service"] = ServiceName,
+                ["errors"] = string.Join(",", codes)
+            }));
     }
 
     // Diagnostics-first initialize that checks validation + auth and returns stable ID
-    internal async Task<OperationResult> InitializeWithDiagnosticsAsync(CancellationToken cancellationToken = default)
+    internal async Task<PluginOperationResult<Dictionary<string, string>>> InitializeWithDiagnosticsAsync(CancellationToken cancellationToken = default)
     {
         const string OK = "IX000";       // Initialization OK
         const string AUTHFAIL = "IX200";  // Authentication failed
 
         var settingsResult = ValidateSettingsWithDiagnostics();
-        if (!settingsResult.Success)
+        if (!settingsResult.IsSuccess)
         {
             return settingsResult;
         }
@@ -181,13 +190,33 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             var authed = await _apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
             if (!authed)
             {
-                return OperationResult.Fail(AUTHFAIL, "Authentication failed", new() { ["service"] = ServiceName });
+                return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
+                    PluginErrorCode.Unauthorized,
+                    "Authentication failed",
+                    null,
+                    new Dictionary<string, string>
+                    {
+                        ["id"] = AUTHFAIL,
+                        ["service"] = ServiceName
+                    }));
             }
-            return OperationResult.Ok(OK, metadata: new() { ["service"] = ServiceName });
+            return PluginOperationResult<Dictionary<string, string>>.Success(new()
+            {
+                ["id"] = OK,
+                ["service"] = ServiceName
+            });
         }
         catch (Exception ex)
         {
-            return OperationResult.Fail(AUTHFAIL, ex.Message, new() { ["service"] = ServiceName });
+            return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
+                PluginErrorCode.Unauthorized,
+                ex.Message,
+                ex,
+                new Dictionary<string, string>
+                {
+                    ["id"] = AUTHFAIL,
+                    ["service"] = ServiceName
+                }));
         }
     }
 

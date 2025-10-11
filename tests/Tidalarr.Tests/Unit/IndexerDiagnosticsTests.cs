@@ -30,9 +30,10 @@ public class IndexerDiagnosticsTests
         var indexer = new TidalIndexer(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
 
         var result = indexer.ValidateSettingsWithDiagnostics();
-        Assert.False(result.Success);
-        Assert.Equal("IX100", result.Code);
-        Assert.NotNull(result.Metadata["errors"]);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal("IX100", result.Error!.Metadata["id"]);
+        Assert.True(result.Error!.Metadata.ContainsKey("errors"));
     }
 
     [Fact]
@@ -47,7 +48,8 @@ public class IndexerDiagnosticsTests
         var indexer = new TidalIndexer(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
 
         var result = await indexer.InitializeWithDiagnosticsAsync();
-        Assert.False(result.Success);
-        Assert.Equal("IX200", result.Code);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal("IX200", result.Error!.Metadata["id"]);
     }
 }
