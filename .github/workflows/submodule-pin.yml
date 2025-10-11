@@ -1,0 +1,33 @@
+name: Submodule Pinning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-submodule-sha:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Verify ext/Lidarr.Plugin.Common SHA
+        shell: pwsh
+        run: |
+          $expected = (Get-Content "$env:GITHUB_WORKSPACE/ext-common-sha.txt").Trim()
+          if (-not $expected) { Write-Error "ext-common-sha.txt is empty"; exit 1 }
+          $status = git submodule status --recursive | Select-String 'ext/Lidarr.Plugin.Common' | ForEach-Object { $_.ToString().Trim() }
+          if (-not $status) { Write-Error "Submodule status not found for ext/Lidarr.Plugin.Common"; exit 1 }
+          $parts = $status -split '\s+'
+          $actual = $parts[0].TrimStart('-','+')
+          if (-not $actual) { Write-Error "Failed to parse submodule SHA from: $status"; exit 1 }
+          if (-not $actual.StartsWith($expected.Substring(0,7))) {
+            Write-Error "Submodule SHA mismatch. Expected $expected, found $actual"
+            exit 1
+          }
+          Write-Host "Submodule SHA OK: $actual"
+
