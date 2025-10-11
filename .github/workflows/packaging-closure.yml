@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch: {}
 
 jobs:
   verify-package-closure:
@@ -52,4 +53,3 @@ jobs:
         with:
           name: plugin-package
           path: src/Tidalarr/artifacts/packages/*.zip
-
