@@ -29,14 +29,6 @@
     <PackageReference Include="Lidarr.Plugin.Common" Version="1.1.5" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Lidarr.Core">
-      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Lidarr.Common">
-      <HintPath>..\..\ext\Lidarr\_output\net6.0\Lidarr.Common.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="9.5.4" />

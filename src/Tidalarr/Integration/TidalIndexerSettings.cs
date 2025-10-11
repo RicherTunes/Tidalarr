@@ -3,9 +3,8 @@ using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
-using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Validation;
-using NzbDrone.Core.Validation.Paths;
+using FieldDefinition = Tidalarr.Integration.Annotations.FieldDefinitionAttribute;
+using FieldType = Tidalarr.Integration.Annotations.FieldType;
 
 namespace Tidalarr.Integration;
 
@@ -40,11 +39,6 @@ public class TidalIndexerSettings : BaseStreamingSettings
         return validation.IsValid;
     }
 
-    public NzbDroneValidationResult Validate()
-    {
-        return new NzbDroneValidationResult(Validator.Validate(this));
-    }
-
     public ValidationResult ValidateFluent()
     {
         return Validator.Validate(this);
@@ -68,7 +62,7 @@ public class TidalIndexerSettings : BaseStreamingSettings
         {
             RuleFor(x => x.ConfigPath)
                 .NotEmpty().WithMessage("Config path is required").WithErrorCode(TidalarrValidationCodes.ConfigPathRequired)
-                .IsValidPath().WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
+                .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Config path is invalid").WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
 
             RuleFor(x => x.RedirectUrl)
                 .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication").WithErrorCode(TidalarrValidationCodes.RedirectRequired)
@@ -100,4 +94,3 @@ public class TidalIndexerSettings : BaseStreamingSettings
         }
     }
 }
-
