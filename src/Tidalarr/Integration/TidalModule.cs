@@ -163,7 +163,7 @@ public class TidalModule : StreamingPluginModule
             AutomaticDecompression = DecompressionMethods.All
         })
         .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
-    
+
     }
 
 

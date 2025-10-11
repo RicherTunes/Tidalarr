@@ -16,8 +16,8 @@ public class TidalApiClientMappingTests
         var dto = new TidalTrackDto(
             id: "t1",
             title: "T",
-            artist: new("A","a1"),
-            album: new("al1","Alb", new("A","a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1,1,true,"c"),
+            artist: new("A", "a1"),
+            album: new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"),
             trackNumber: 1,
             duration: 10,
             streamReady: true,
@@ -31,11 +31,11 @@ public class TidalApiClientMappingTests
     private class Auth : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","","", string.Empty));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
-        private static TidalTokens Default() => new("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+        private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
     }
 
     private class Handler : HttpMessageHandler

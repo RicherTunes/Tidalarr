@@ -8,8 +8,8 @@ namespace Tidalarr.Domain.Streaming;
 public static class AudioFormatHandler
 {
     public static async Task<string> ProcessAudioFileAsync(
-        string inputPath, 
-        string codecs, 
+        string inputPath,
+        string codecs,
         bool extractFlac = true,
         bool keepOriginal = false,
         IAudioProcessor? audio = null)
@@ -22,7 +22,7 @@ public static class AudioFormatHandler
                 // Extract FLAC from M4A container
                 Console.WriteLine("🎵 Extracting FLAC from M4A container...");
                 var flacPath = Path.ChangeExtension(inputPath, "flac");
-                
+
                 var success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio, keepOriginal);
                 if (success)
                 {
@@ -38,7 +38,7 @@ public static class AudioFormatHandler
                     return inputPath;
                 }
             }
-            
+
             return inputPath; // Keep original M4A file
         }
         catch (Exception ex)
@@ -47,7 +47,7 @@ public static class AudioFormatHandler
             return inputPath; // Return original path on error
         }
     }
-    
+
     private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath, IAudioProcessor audio, bool keepOriginal)
     {
         try
@@ -83,7 +83,7 @@ public static class AudioFormatHandler
         }
     }
 
-    
+
     public static string DetectCodecs(string filePath)
     {
         try
@@ -106,10 +106,10 @@ public static class AudioFormatHandler
         {
             // Ignore errors, return default
         }
-        
+
         return "MP4A"; // Default assumption
     }
-    
+
     public static bool IsFFmpegAvailable()
     {
         try

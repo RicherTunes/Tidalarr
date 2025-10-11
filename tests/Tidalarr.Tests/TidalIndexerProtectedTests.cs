@@ -11,15 +11,15 @@ public class TidalIndexerProtectedTests
 {
     private class CoreStub : ITidalCore
     {
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId,"Song",new(){"Artist"},"al1","Album",1,100,TidalQuality.High,true,DateTime.UtcNow));
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId, "Song", new() { "Artist" }, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow));
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalAlbumInfo(albumId,"Album", new(){"Artist"}, new(){ new TidalTrackInfo("t1","Song", new(){"Artist"}, albumId, "Album",1,100,TidalQuality.High,true,DateTime.UtcNow) }, new(){TidalQuality.High}, DateTime.UtcNow, "cover", true));
+            => Task.FromResult(new TidalAlbumInfo(albumId, "Album", new() { "Artist" }, new() { new TidalTrackInfo("t1", "Song", new() { "Artist" }, albumId, "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, new() { TidalQuality.High }, DateTime.UtcNow, "cover", true));
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new List<TidalTrackInfo>());
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
             => GetAlbumAsync(albumId, cancellationToken);
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalSearchResults(new(), new(){ new TidalTrackInfo("t1","Song", new(){"Artist"}, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, 1, false));
-        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, new[]{"u"}, ".flac", "audio/flac", false, null));
+            => Task.FromResult(new TidalSearchResults(new(), new() { new TidalTrackInfo("t1", "Song", new() { "Artist" }, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, 1, false));
+        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, new[] { "u" }, ".flac", "audio/flac", false, null));
         public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
     }
 

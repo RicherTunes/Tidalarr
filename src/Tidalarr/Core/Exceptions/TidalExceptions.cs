@@ -18,7 +18,7 @@ public class TidalAuthenticationException : TidalException
 public class TidalRateLimitException : TidalException
 {
     public int RetryAfterSeconds { get; }
-    
+
     public TidalRateLimitException(int retryAfterSeconds, string message) : base(message)
     {
         RetryAfterSeconds = retryAfterSeconds;
@@ -29,7 +29,7 @@ public class TidalStreamUnavailableException : TidalException
 {
     public string TrackId { get; }
     public TidalQuality RequestedQuality { get; }
-    
+
     public TidalStreamUnavailableException(string trackId, TidalQuality quality, string message) : base(message)
     {
         TrackId = trackId;
@@ -40,12 +40,12 @@ public class TidalStreamUnavailableException : TidalException
 public class TidalApiException : TidalException
 {
     public int? StatusCode { get; }
-    
+
     public TidalApiException(string message, int? statusCode = null) : base(message)
     {
         StatusCode = statusCode;
     }
-    
+
     public TidalApiException(string message, Exception innerException, int? statusCode = null) : base(message, innerException)
     {
         StatusCode = statusCode;
@@ -55,7 +55,7 @@ public class TidalApiException : TidalException
 public class TidalManifestException : TidalException
 {
     public string ManifestType { get; }
-    
+
     public TidalManifestException(string manifestType, string message) : base(message)
     {
         ManifestType = manifestType;

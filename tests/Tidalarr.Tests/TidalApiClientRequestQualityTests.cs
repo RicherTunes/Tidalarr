@@ -13,22 +13,22 @@ public class TidalApiClientRequestQualityTests
     private class Auth : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","","", string.Empty));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
-        private static TidalTokens Default() => new("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+        private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
     }
 
     private class CaptureHandler : HttpMessageHandler
     {
         private readonly string _response; private readonly HttpStatusCode _code;
         public HttpRequestMessage? Last { get; private set; }
-        public CaptureHandler(string response, HttpStatusCode code = HttpStatusCode.OK){ _response = response; _code = code; }
+        public CaptureHandler(string response, HttpStatusCode code = HttpStatusCode.OK) { _response = response; _code = code; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Last = request;
-            return Task.FromResult(new HttpResponseMessage(_code){ Content = new StringContent(_response, Encoding.UTF8, "application/json") });
+            return Task.FromResult(new HttpResponseMessage(_code) { Content = new StringContent(_response, Encoding.UTF8, "application/json") });
         }
     }
 
