@@ -16,6 +16,9 @@ using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Tidalarr.Infrastructure.Observability;
 namespace Tidalarr.Domain.Api;
 public class TidalApiClient : ITidalCore, IDisposable
 {
@@ -24,6 +27,7 @@ public class TidalApiClient : ITidalCore, IDisposable
     private readonly IStreamingResponseCache? _cache;
     private readonly ITidalAuth _authService;
     private readonly Tidalarr.Domain.Streaming.TidalManifestParser? _manifestParser;
+    private readonly ILogger<TidalApiClient> _logger;
     public TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStreamingResponseCache? cache = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -31,13 +35,15 @@ public class TidalApiClient : ITidalCore, IDisposable
         _requestBuilder = new StreamingApiRequestBuilder(TidalConstants.API_V1_BASE)
             .Header("X-Tidal-Token", TidalConstants.CLIENT_ID);
         _cache = cache;
+        _logger = NullLogger<TidalApiClient>.Instance;
     }
     // Overload that allows DI to provide a manifest parser without breaking existing callers
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public TidalApiClient(HttpClient httpClient, ITidalAuth authService, Tidalarr.Domain.Streaming.TidalManifestParser manifestParser, IStreamingResponseCache? cache = null)
+    public TidalApiClient(HttpClient httpClient, ITidalAuth authService, Tidalarr.Domain.Streaming.TidalManifestParser manifestParser, IStreamingResponseCache? cache = null, ILogger<TidalApiClient>? logger = null)
         : this(httpClient, authService, cache)
     {
         _manifestParser = manifestParser;
+        _logger = logger ?? NullLogger<TidalApiClient>.Instance;
     }
     public async Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
@@ -56,7 +62,11 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        using var scope = ObservabilityShim.StartApi(_logger, service: "tidal", endpoint: endpoint);
         var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        sw.Stop();
+        ObservabilityShim.CompleteApi(_logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalTrackDto>(content);
@@ -81,7 +91,11 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
+        var sw2 = System.Diagnostics.Stopwatch.StartNew();
+        using var scope2 = ObservabilityShim.StartApi(_logger, service: "tidal", endpoint: endpoint);
         var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        sw2.Stop();
+        ObservabilityShim.CompleteApi(_logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalAlbumDto>(content);
@@ -107,7 +121,11 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
+        var sw3 = System.Diagnostics.Stopwatch.StartNew();
+        using var scope3 = ObservabilityShim.StartApi(_logger, service: "tidal", endpoint: endpoint);
         var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        sw3.Stop();
+        ObservabilityShim.CompleteApi(_logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content);
@@ -151,7 +169,11 @@ public class TidalApiClient : ITidalCore, IDisposable
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
+        var sw4 = System.Diagnostics.Stopwatch.StartNew();
+        using var scope4 = ObservabilityShim.StartApi(_logger, service: "tidal", endpoint: endpoint);
         var response = await _httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        sw4.Stop();
+        ObservabilityShim.CompleteApi(_logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
         response.EnsureSuccessStatusCode();
         var content = await ReadContentAsStringAsync(response, cancellationToken);
         var dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content);
