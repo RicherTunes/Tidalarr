@@ -21,6 +21,18 @@ namespace TidalCLI;
 public class Program
 {
     private static readonly HttpClient httpClient = CreateHttpClient();
+    private static readonly HashSet<string> SettingsAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ConfigPath","RedirectUrl","DownloadPath","PreferredQuality"
+    };
+    private static readonly HashSet<string> IndexerAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ConfigPath","RedirectUrl","TidalMarket","EarlyReleaseLimit","EnableCache","CacheDuration"
+    };
+    private static readonly HashSet<string> DownloadAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TrackId","Quality","DownloadPath"
+    };
     static async Task Main(string[] args)
     {
         args = NormalizeArgs(args);
@@ -975,7 +987,21 @@ public class Program
                 map[key] = val;
             }
         }
-
+        // Unknown key validation
+        var unknown = map.Keys.Select(k => k.ToString()).Where(k => k is not null).Cast<string>().Where(k => !SettingsAllowedKeys.Contains(k)).ToArray();
+        if (unknown.Length > 0)
+        {
+            var meta = new Dictionary<string, string>
+            {
+                ["id"] = "CFGVAL",
+                ["field"] = "Unknown",
+                ["unknown"] = string.Join(",", unknown)
+            };
+            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown settings keys.", null, meta);
+            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
+            return;
+        }
         if (!map.ContainsKey("ConfigPath")) map["ConfigPath"] = Path.GetTempPath();
         if (!map.ContainsKey("RedirectUrl")) map["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state";
         if (!map.ContainsKey("DownloadPath")) map["DownloadPath"] = Path.GetTempPath();
@@ -1016,6 +1042,19 @@ public class Program
             if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase)) idxSettings.ConfigPath = v;
             else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase)) idxSettings.RedirectUrl = v;
             else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase)) idxSettings.TidalMarket = v;
+            else
+            {
+                var meta = new Dictionary<string, string>
+                {
+                    ["id"] = "IXVAL",
+                    ["field"] = "Unknown",
+                    ["unknown"] = k
+                };
+                var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown indexer key.", null, meta);
+                var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+                Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
+                return;
+            }
         }
 
         var services = new ServiceCollection();
@@ -1052,19 +1091,47 @@ public class Program
         var dlSettings = new Tidalarr.Integration.TidalDownloadClientSettings();
         bool qualityProvided = false;
         string? rawQuality = null;
+        var providedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var arg in args)
         {
             var i = arg.IndexOf('=');
             if (i <= 0) continue;
             var k = arg[..i];
             var v = arg[(i + 1)..];
+            providedKeys.Add(k);
             if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase)) trackId = v;
             else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityProvided = true; rawQuality = v; if (Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(v, true, out var q)) quality = q; }
             else if (k.Equals(nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
+            else
+            {
+                var meta = new Dictionary<string, string>
+                {
+                    ["id"] = "DLVAL",
+                    ["field"] = "Unknown",
+                    ["unknown"] = k
+                };
+                var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown download key.", null, meta);
+                var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+                Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
+                return;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(trackId)) { Console.WriteLine("Provide TrackId="); return; }
         if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath)) dlSettings.DownloadPath = Path.GetTempPath();
+        if (!Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(dlSettings.DownloadPath))
+        {
+            var meta = new Dictionary<string, string>
+            {
+                ["id"] = "DLVAL",
+                ["field"] = nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath),
+                ["value"] = dlSettings.DownloadPath
+            };
+            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid download path.", null, meta);
+            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
+            return;
+        }
 
         if (qualityProvided && rawQuality is not null && !Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(rawQuality, true, out _))
         {

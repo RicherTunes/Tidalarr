@@ -78,6 +78,41 @@ public class CLIDiagnosticsTests
 
     [Tidalarr.Tests.Utils.CliFact]
     [Trait("scope", "cli")]
+    public async Task DownloadValidate_Invalid_Quality_Returns_DLVAL()
+    {
+        var res = await RunCliAsync(new[]
+        {
+            "download-validate",
+            "TrackId=t1",
+            "Quality=INVALID",
+            $"DownloadPath={Temp}"
+        });
+        using var doc = JsonDocument.Parse(res.Stdout);
+        var err = doc.RootElement.GetProperty("error").GetProperty("metadata");
+        Assert.Equal("DLVAL", err.GetProperty("id").GetString());
+        Assert.Equal("Quality", err.GetProperty("field").GetString());
+    }
+
+    [Tidalarr.Tests.Utils.CliFact]
+    [Trait("scope", "cli")]
+    public async Task SettingsValidate_UnknownKey_Returns_CFGVAL()
+    {
+        var res = await RunCliAsync(new[]
+        {
+            "settings-validate",
+            $"ConfigPath={Temp}",
+            "RedirectUrl=https://tidal.com/android/login/auth?code=test&state=state",
+            $"DownloadPath={Temp}",
+            "UnknownKey=foo"
+        });
+        using var doc = JsonDocument.Parse(res.Stdout);
+        var err = doc.RootElement.GetProperty("error").GetProperty("metadata");
+        Assert.Equal("CFGVAL", err.GetProperty("id").GetString());
+        Assert.Equal("Unknown", err.GetProperty("field").GetString());
+    }
+
+    [Tidalarr.Tests.Utils.CliFact]
+    [Trait("scope", "cli")]
     public void Package_Dependency_Closure_Has_No_Host_Assemblies()
     {
         // Invoke packaging to produce a zip, then assert closure excludes host assemblies.

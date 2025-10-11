@@ -12,22 +12,22 @@ public class TidalIndexerSettings : BaseStreamingSettings
 {
     private static readonly TidalIndexerSettingsValidator Validator = new();
 
-    [FieldDefinition(0, Label = "Config Path", Type = FieldType.Textbox, HelpText = "Directory used to persist Tidal authentication tokens.")]
+    [FieldDefinition(SettingsDisplay.Indexer.ConfigPathOrder, Label = SettingsDisplay.Indexer.ConfigPathLabel, Type = FieldType.Textbox, HelpText = "Directory used to persist Tidal authentication tokens.")]
     public string ConfigPath { get; set; } = string.Empty;
 
-    [FieldDefinition(1, Label = "Redirect URL", Type = FieldType.Textbox, HelpText = "OAuth redirect URL captured after completing the Tidal login flow.")]
+    [FieldDefinition(SettingsDisplay.Indexer.RedirectUrlOrder, Label = SettingsDisplay.Indexer.RedirectUrlLabel, Type = FieldType.Textbox, HelpText = "OAuth redirect URL captured after completing the Tidal login flow.")]
     public string RedirectUrl { get; set; } = string.Empty;
 
-    [FieldDefinition(2, Label = "Market", Type = FieldType.Textbox, HelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.MarketOrder, Label = SettingsDisplay.Indexer.MarketLabel, Type = FieldType.Textbox, HelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).", Advanced = true)]
     public string TidalMarket { get; set; } = "US";
 
-    [FieldDefinition(3, Label = "Early Download Limit", Type = FieldType.Number, Unit = "days", HelpText = "Limit pre-release downloads to this many days before release.", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.EarlyDownloadLimitOrder, Label = SettingsDisplay.Indexer.EarlyDownloadLimitLabel, Type = FieldType.Number, Unit = SettingsDisplay.Indexer.EarlyDownloadLimitUnit, HelpText = "Limit pre-release downloads to this many days before release.", Advanced = true)]
     public int? EarlyReleaseLimit { get; set; } = 14;
 
-    [FieldDefinition(4, Label = "Enable Cache", Type = FieldType.Checkbox, Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.EnableCacheOrder, Label = SettingsDisplay.Indexer.EnableCacheLabel, Type = FieldType.Checkbox, Advanced = true)]
     public bool EnableCache { get; set; } = true;
 
-    [FieldDefinition(5, Label = "Cache Duration", Type = FieldType.Number, Unit = "minutes", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.CacheDurationOrder, Label = SettingsDisplay.Indexer.CacheDurationLabel, Type = FieldType.Number, Unit = SettingsDisplay.Indexer.CacheDurationUnit, Advanced = true)]
     public new int CacheDuration { get; set; } = 15;
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";

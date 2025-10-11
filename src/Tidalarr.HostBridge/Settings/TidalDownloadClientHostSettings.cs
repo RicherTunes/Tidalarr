@@ -4,19 +4,19 @@ namespace Tidalarr.HostBridge.Settings;
 
 public class TidalDownloadClientHostSettings
 {
-    [FieldDefinition(20, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQualityHost), HelpText = "Audio quality requested from Tidal.")]
+    [FieldDefinition(Tidalarr.Integration.SettingsDisplay.Download.PreferredQualityOrder, Label = Tidalarr.Integration.SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQualityHost), HelpText = "Audio quality requested from Tidal.")]
     public TidalQualityHost PreferredQuality { get; set; } = TidalQualityHost.Lossless;
 
-    [FieldDefinition(21, Label = "Download Path", Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
+    [FieldDefinition(Tidalarr.Integration.SettingsDisplay.Download.DownloadPathOrder, Label = Tidalarr.Integration.SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(27, Label = "Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
+    [FieldDefinition(Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
     public int DownloadDelay { get; set; } = 1000;
 
-    [FieldDefinition(28, Label = "Min Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
+    [FieldDefinition(Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMinOrder, Label = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMinLabel, Type = FieldType.Number, Unit = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMinUnit, Advanced = true)]
     public int DownloadDelayMin { get; set; } = 500;
 
-    [FieldDefinition(29, Label = "Max Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
+    [FieldDefinition(Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMaxOrder, Label = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMaxLabel, Type = FieldType.Number, Unit = Tidalarr.Integration.SettingsDisplay.Download.ChunkDelayMaxUnit, Advanced = true)]
     public int DownloadDelayMax { get; set; } = 2000;
 
     public Tidalarr.Integration.TidalDownloadClientSettings ToCore()
