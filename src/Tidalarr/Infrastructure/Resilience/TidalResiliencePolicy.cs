@@ -5,6 +5,7 @@ using System.Net;
 
 namespace Tidalarr.Infrastructure.Resilience;
 
+[System.Obsolete("Replaced by Common HttpClientExtensions.ExecuteWithRetryAsync. Retained for reference/tests only; consider removal in next major.")]
 public static class TidalResiliencePolicy
 {
     public static IAsyncPolicy<HttpResponseMessage> CreateHttpRetryPolicy()
