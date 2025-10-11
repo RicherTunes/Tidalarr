@@ -28,5 +28,20 @@ public class PathValidationExtensionsTests
         var unc = "\\\\server\\share\\folder";
         Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc));
     }
-}
 
+    [Fact]
+    public void IsReasonablePath_LongLocalPath_ReturnsTrue()
+    {
+        var longSegment = new string('a', 260);
+        var path = $"C:/{longSegment}/file";
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
+    }
+
+    [Fact]
+    public void IsReasonablePath_LongUncPath_ReturnsTrue()
+    {
+        var longSegment = new string('b', 260);
+        var path = $"\\\\server\\share\\{longSegment}\\folder";
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
+    }
+}

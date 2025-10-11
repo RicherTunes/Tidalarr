@@ -13,34 +13,34 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
 {
     private static readonly TidalDownloadClientSettingsValidator Validator = new();
 
-    [FieldDefinition(20, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), HelpText = "Audio quality requested from Tidal.")]
+    [FieldDefinition(SettingsDisplay.Download.PreferredQualityOrder, Label = SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQuality), HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-    [FieldDefinition(21, Label = "Download Path", Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
+    [FieldDefinition(SettingsDisplay.Download.DownloadPathOrder, Label = SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(22, Label = "Include MQA Masters", Type = FieldType.Checkbox, Advanced = true, HelpText = "Allow Master (MQA) releases when available.")]
+    [FieldDefinition(SettingsDisplay.Download.IncludeMqaOrder, Label = SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Allow Master (MQA) releases when available.")]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(23, Label = "Extract FLAC from M4A", Type = FieldType.Checkbox, Advanced = true, HelpText = "Convert M4A containers to FLAC when possible.")]
+    [FieldDefinition(SettingsDisplay.Download.ExtractFlacOrder, Label = SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Convert M4A containers to FLAC when possible.")]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(24, Label = "Re-encode AAC Streams", Type = FieldType.Checkbox, Advanced = true, HelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.")]
+    [FieldDefinition(SettingsDisplay.Download.ReEncodeAACOrder, Label = SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.")]
     public bool ReEncodeAAC { get; set; } = false;
 
-    [FieldDefinition(25, Label = "Save Synced Lyrics", Type = FieldType.Checkbox, Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Download.SaveSyncedLyricsOrder, Label = SettingsDisplay.Download.SaveSyncedLyricsLabel, Type = FieldType.Checkbox, Advanced = true)]
     public bool SaveSyncedLyrics { get; set; } = true;
 
-    [FieldDefinition(26, Label = "Use LRCLIB for Lyrics", Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
+    [FieldDefinition(SettingsDisplay.Download.UseLrclibOrder, Label = SettingsDisplay.Download.UseLrclibLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
     public bool UseLRCLIB { get; set; } = false;
 
-    [FieldDefinition(27, Label = "Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
+    [FieldDefinition(SettingsDisplay.Download.ChunkDelayOrder, Label = SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
     public int DownloadDelay { get; set; } = 1000;
 
-    [FieldDefinition(28, Label = "Min Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Download.ChunkDelayMinOrder, Label = SettingsDisplay.Download.ChunkDelayMinLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayMinUnit, Advanced = true)]
     public int DownloadDelayMin { get; set; } = 500;
 
-    [FieldDefinition(29, Label = "Max Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Download.ChunkDelayMaxOrder, Label = SettingsDisplay.Download.ChunkDelayMaxLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayMaxUnit, Advanced = true)]
     public int DownloadDelayMax { get; set; } = 2000;
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
