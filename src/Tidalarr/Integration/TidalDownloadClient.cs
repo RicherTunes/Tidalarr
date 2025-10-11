@@ -337,8 +337,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
         }
     }
 
-    // New: diagnostics-based validation result with stable ID codes
-    internal async Task<Tidalarr.Integration.Diagnostics.OperationResult> ValidateDownloadWithDiagnosticsAsync(string trackId, TidalQuality quality)
+    // Diagnostics-based validation result with stable ID codes (Common result)
+    internal async Task<Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>> ValidateDownloadWithDiagnosticsAsync(string trackId, TidalQuality quality)
     {
         const string OK = "DL000";              // Validation OK
         const string CHUNK_UNAVAILABLE = "DL001"; // First chunk not accessible
@@ -350,25 +350,43 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
             var ok = await _chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
             if (!ok)
             {
-                return Tidalarr.Integration.Diagnostics.OperationResult.Fail(
-                    CHUNK_UNAVAILABLE,
-                    "First chunk is not accessible",
-                    new() { ["trackId"] = trackId, ["quality"] = quality.ToString(), ["firstChunk"] = streamInfo.ChunkUrls.FirstOrDefault() }
-                );
+                var metaFail = new Dictionary<string, string>
+                {
+                    ["id"] = CHUNK_UNAVAILABLE,
+                    ["trackId"] = trackId,
+                    ["quality"] = quality.ToString(),
+                    ["firstChunk"] = streamInfo.ChunkUrls.FirstOrDefault() ?? string.Empty
+                };
+                return Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Failure(
+                    new Lidarr.Plugin.Abstractions.Results.PluginError(
+                        Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ProviderUnavailable,
+                        "First chunk is not accessible",
+                        null,
+                        metaFail));
             }
 
-            return Tidalarr.Integration.Diagnostics.OperationResult.Ok(
-                OK,
-                metadata: new() { ["trackId"] = trackId, ["quality"] = quality.ToString(), ["chunkCount"] = streamInfo.ChunkUrls?.Length ?? 0 }
-            );
+            return Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Success(new()
+            {
+                ["id"] = OK,
+                ["trackId"] = trackId,
+                ["quality"] = quality.ToString(),
+                ["chunkCount"] = (streamInfo.ChunkUrls?.Length ?? 0).ToString()
+            });
         }
         catch (Exception ex)
         {
-            return Tidalarr.Integration.Diagnostics.OperationResult.Fail(
-                STREAM_ERROR,
-                ex.Message,
-                new() { ["trackId"] = trackId, ["quality"] = quality.ToString() }
-            );
+            var metaErr = new Dictionary<string, string>
+            {
+                ["id"] = STREAM_ERROR,
+                ["trackId"] = trackId,
+                ["quality"] = quality.ToString()
+            };
+            return Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Failure(
+                new Lidarr.Plugin.Abstractions.Results.PluginError(
+                    Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ProviderUnavailable,
+                    ex.Message,
+                    ex,
+                    metaErr));
         }
     }
     

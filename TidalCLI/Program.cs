@@ -983,22 +983,7 @@ public class Program
         var plugin = new Tidalarr.Integration.TidalarrPlugin();
         await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
         var result = plugin.ValidateSettingsWithDiagnostics(map);
-        var meta = result.Metadata.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? string.Empty);
-        string json;
-        if (result.Success)
-        {
-            var value = new Dictionary<string, string>(meta) { ["id"] = result.Code };
-            var ok = Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Success(value);
-            json = Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(ok);
-        }
-        else
-        {
-            var errMeta = new Dictionary<string, string>(meta) { ["id"] = result.Code };
-            var error = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, result.Message, null, errMeta);
-            var fail = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(error);
-            json = Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(fail);
-        }
-        Console.WriteLine(json);
+        Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(result));
     }
 
     private static async Task RunIndexerValidateInteractiveAsync()
@@ -1038,14 +1023,8 @@ public class Program
         Tidalarr.Integration.TidalModule.RegisterServices(services);
         var provider = services.BuildServiceProvider();
         var indexer = provider.GetRequiredService<Tidalarr.Integration.TidalIndexer>();
-        // Use public plugin SettingsProvider for validation output
-        var plugin = new Tidalarr.Integration.TidalarrPlugin();
-        await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
-        var defaults = plugin.SettingsProvider.GetDefaults();
-        var mutable = new System.Collections.Generic.Dictionary<string, object?>(defaults);
-        var validation = plugin.SettingsProvider.Validate(mutable);
-        var payload = new { isValid = validation.IsValid, errors = validation.Errors, warnings = validation.Warnings };
-        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        var res = await indexer.InitializeWithDiagnosticsAsync();
+        Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(res));
     }
 
     private static async Task RunDownloadValidateInteractiveAsync()
@@ -1090,11 +1069,8 @@ public class Program
         Tidalarr.Integration.TidalModule.RegisterServices(services);
         var provider = services.BuildServiceProvider();
         var client = provider.GetRequiredService<Tidalarr.Integration.TidalDownloadClient>();
-        // Minimal smoke: query stream info and print projection
-        var api = provider.GetRequiredService<Tidalarr.Domain.Api.TidalApiClient>();
-        var info = await api.GetStreamInfoAsync(trackId, quality);
-        var proj = new { info.FileExtension, info.MimeType, Encrypted = info.IsEncrypted };
-        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(proj, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        var res = await client.ValidateDownloadWithDiagnosticsAsync(trackId, quality);
+        Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(res));
     }
 
     private sealed class HarnessContext : Lidarr.Plugin.Abstractions.Contracts.IPluginContext
