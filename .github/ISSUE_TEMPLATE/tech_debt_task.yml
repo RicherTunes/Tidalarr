@@ -1,0 +1,37 @@
+name: Tech Debt Task
+description: Track a technical debt item with acceptance criteria
+title: "tech(debt): <short title>"
+labels: [tech-debt]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the debt, why it matters, and the approach.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Background and references (files, PRs, docs)
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Checklist for Done
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing/Validation
+      description: Unit/integration test notes or manual steps
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope/Out-of-scope
+      description: Boundaries to keep the task focused
+
