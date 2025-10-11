@@ -36,25 +36,25 @@ public class TidalResponseCache : StreamingResponseCache
         {
             // Search results - short cache for dynamic content
             _ when endpoint.Contains("/search") => TimeSpan.FromMinutes(5),
-            
+
             // Albums - longer cache as they rarely change
             _ when endpoint.Contains("/albums/") && !endpoint.Contains("/tracks") => TimeSpan.FromHours(2),
-            
+
             // Album tracks - long cache as tracklists are static
             _ when endpoint.Contains("/albums/") && endpoint.Contains("/tracks") => TimeSpan.FromHours(4),
-            
+
             // Individual tracks - medium cache
             _ when endpoint.Contains("/tracks/") && !endpoint.Contains("playbackinfo") => TimeSpan.FromHours(1),
-            
+
             // Artist info - long cache
             _ when endpoint.Contains("/artists/") => TimeSpan.FromHours(6),
-            
+
             // User-specific content - short cache
             _ when endpoint.Contains("/users/") => TimeSpan.FromMinutes(10),
-            
+
             // Playback info - never cache as URLs are temporary
             _ when endpoint.Contains("playbackinfo") => TimeSpan.Zero,
-            
+
             // Default for other endpoints
             _ => DefaultCacheDuration
         };
@@ -69,13 +69,13 @@ public class TidalResponseCache : StreamingResponseCache
         var sensitiveParams = new[]
         {
             "sessionId",
-            "accessToken", 
+            "accessToken",
             "refreshToken",
             "securityToken",
             "userToken"
         };
 
-        return Array.Exists(sensitiveParams, p => 
+        return Array.Exists(sensitiveParams, p =>
             string.Equals(p, parameterName, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -91,7 +91,7 @@ public class TidalResponseCache : StreamingResponseCache
 
     protected override void OnCacheEviction(string cacheKey, TimeSpan age)
     {
-        Logger?.LogDebug("Tidal cache eviction for key: {CacheKey} (age: {Age})", 
+        Logger?.LogDebug("Tidal cache eviction for key: {CacheKey} (age: {Age})",
             SanitizeCacheKey(cacheKey), age);
     }
 

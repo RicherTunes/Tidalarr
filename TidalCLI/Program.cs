@@ -21,6 +21,10 @@ namespace TidalCLI;
 public class Program
 {
     private static readonly HttpClient httpClient = CreateHttpClient();
+    private static readonly HashSet<string> SearchAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Query"
+    };
     private static readonly HashSet<string> SettingsAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "ConfigPath","RedirectUrl","DownloadPath","PreferredQuality"
@@ -28,6 +32,14 @@ public class Program
     private static readonly HashSet<string> IndexerAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "ConfigPath","RedirectUrl","TidalMarket","EarlyReleaseLimit","EnableCache","CacheDuration"
+    };
+    private static readonly HashSet<string> DownloadTrackAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TrackId","OutputDir","Quality"
+    };
+    private static readonly HashSet<string> DownloadAlbumAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AlbumId","OutputDir","Quality"
     };
     private static readonly HashSet<string> DownloadAllowedKeys = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -143,7 +155,7 @@ public class Program
                     }
                     else
                     {
-                        await DownloadTrack(tid!, od!);
+                        await DownloadTrack(tid!, od!, overrideQuality: null);
                     }
                     break;
                 case "9" or "download-album":
@@ -157,7 +169,7 @@ public class Program
                     }
                     else
                     {
-                        await DownloadAlbum(aid!, od2!);
+                        await DownloadAlbum(aid!, od2!, overrideQuality: null);
                     }
                     break;
                 case "a" or "test-all":
@@ -211,27 +223,102 @@ public class Program
                 await AuthComplete(args[1]);
                 break;
             case "search":
-                if (args.Length < 2) { Console.WriteLine("Usage: search <query>"); break; }
-                await SearchViaPlugin(args[1]);
-                break;
+                {
+                    if (args.Length >= 2 && !args[1].Contains('='))
+                    {
+                        await SearchViaPlugin(args[1]);
+                        break;
+                    }
+
+                    var kv = ParseKeyValueArgs(args.Skip(1));
+                    var unknown = kv.Keys.Where(k => !SearchAllowedKeys.Contains(k)).ToArray();
+                    if (unknown.Length > 0)
+                    {
+                        Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", SearchAllowedKeys)}");
+                        Console.WriteLine("Usage: search <query>  OR  search Query=<query>");
+                        break;
+                    }
+                    if (!kv.TryGetValue("Query", out var query) || string.IsNullOrWhiteSpace(query))
+                    {
+                        Console.WriteLine("Usage: search <query>  OR  search Query=<query>");
+                        break;
+                    }
+                    await SearchViaPlugin(query);
+                    break;
+                }
             case "download-track":
-                if (args.Length < 3)
                 {
-                    Console.WriteLine("Usage: download-track <trackId> <outputDir>");
-                    Console.WriteLine("Example: tidalcli download-track 36737274 \"C:/Music/Imports\"");
+                    // Positional: <trackId> <outputDir>
+                    if (args.Length >= 3 && !args[1].Contains('=') && !args[2].Contains('='))
+                    {
+                        await DownloadTrack(args[1], args[2], overrideQuality: null);
+                        break;
+                    }
+
+                    var kv = ParseKeyValueArgs(args.Skip(1));
+                    var unknown = kv.Keys.Where(k => !DownloadTrackAllowedKeys.Contains(k)).ToArray();
+                    if (unknown.Length > 0)
+                    {
+                        Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", DownloadTrackAllowedKeys)}");
+                        Console.WriteLine("Usage: download-track <trackId> <outputDir>  OR  download-track TrackId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
+                        break;
+                    }
+                    if (!kv.TryGetValue("TrackId", out var trackId) || string.IsNullOrWhiteSpace(trackId)
+                        || !kv.TryGetValue("OutputDir", out var outDir) || string.IsNullOrWhiteSpace(outDir))
+                    {
+                        Console.WriteLine("Usage: download-track <trackId> <outputDir>  OR  download-track TrackId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
+                        break;
+                    }
+
+                    TidalQuality? qOverride = null;
+                    if (kv.TryGetValue("Quality", out var rawQ) && !string.IsNullOrWhiteSpace(rawQ))
+                    {
+                        if (Enum.TryParse<TidalQuality>(rawQ, true, out var parsed)) qOverride = parsed;
+                        else
+                        {
+                            Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
+                            break;
+                        }
+                    }
+                    await DownloadTrack(trackId!, outDir!, qOverride);
                     break;
                 }
-                await DownloadTrack(args[1], args[2]);
-                break;
             case "download-album":
-                if (args.Length < 3)
                 {
-                    Console.WriteLine("Usage: download-album <albumId> <outputDir>");
-                    Console.WriteLine("Example: tidalcli download-album 61799588 \"C:/Music/Radiohead\"");
+                    // Positional: <albumId> <outputDir>
+                    if (args.Length >= 3 && !args[1].Contains('=') && !args[2].Contains('='))
+                    {
+                        await DownloadAlbum(args[1], args[2], overrideQuality: null);
+                        break;
+                    }
+
+                    var kv = ParseKeyValueArgs(args.Skip(1));
+                    var unknown = kv.Keys.Where(k => !DownloadAlbumAllowedKeys.Contains(k)).ToArray();
+                    if (unknown.Length > 0)
+                    {
+                        Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", DownloadAlbumAllowedKeys)}");
+                        Console.WriteLine("Usage: download-album <albumId> <outputDir>  OR  download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
+                        break;
+                    }
+                    if (!kv.TryGetValue("AlbumId", out var albumId) || string.IsNullOrWhiteSpace(albumId)
+                        || !kv.TryGetValue("OutputDir", out var outDir) || string.IsNullOrWhiteSpace(outDir))
+                    {
+                        Console.WriteLine("Usage: download-album <albumId> <outputDir>  OR  download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
+                        break;
+                    }
+                    TidalQuality? qOverride = null;
+                    if (kv.TryGetValue("Quality", out var rawQ) && !string.IsNullOrWhiteSpace(rawQ))
+                    {
+                        if (Enum.TryParse<TidalQuality>(rawQ, true, out var parsed)) qOverride = parsed;
+                        else
+                        {
+                            Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
+                            break;
+                        }
+                    }
+                    await DownloadAlbum(albumId!, outDir!, qOverride);
                     break;
                 }
-                await DownloadAlbum(args[1], args[2]);
-                break;
             case "test-all":
                 await RunAllTests();
                 break;
@@ -312,8 +399,23 @@ public class Program
         return list.ToArray();
     }
 
+    private static Dictionary<string, string> ParseKeyValueArgs(IEnumerable<string> args)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in args)
+        {
+            if (string.IsNullOrWhiteSpace(a)) continue;
+            var idx = a.IndexOf('=');
+            if (idx <= 0) continue;
+            var k = a.Substring(0, idx);
+            var v = a.Substring(idx + 1);
+            map[k] = v;
+        }
+        return map;
+    }
+
     // --- Orchestrator downloads ---
-    static async Task DownloadTrack(string trackId, string outputDir)
+    static async Task DownloadTrack(string trackId, string outputDir, TidalQuality? overrideQuality)
     {
         var cfg = CliConfig.Load();
         var resolvedOutputDir = Path.GetFullPath(string.IsNullOrWhiteSpace(outputDir) ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads")) : outputDir);
@@ -328,7 +430,8 @@ public class Program
         try
         {
             var tempPath = Path.Combine(resolvedOutputDir, trackId + ".flac");
-            var q = MakeQualityFromConfig(cfg.PreferredQuality);
+            var selectedQuality = overrideQuality ?? cfg.PreferredQuality;
+            var q = MakeQualityFromConfig(selectedQuality);
             var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize / 1024 / 1024:F2} MB)");
@@ -342,7 +445,7 @@ public class Program
         }
     }
 
-    static async Task DownloadAlbum(string albumId, string outputDir)
+    static async Task DownloadAlbum(string albumId, string outputDir, TidalQuality? overrideQuality)
     {
         var cfg = CliConfig.Load();
         outputDir = string.IsNullOrWhiteSpace(outputDir)
@@ -386,7 +489,8 @@ public class Program
 
             try
             {
-                var q = MakeQualityFromConfig(cfg.PreferredQuality);
+                var selectedQuality = overrideQuality ?? cfg.PreferredQuality;
+                var q = MakeQualityFromConfig(selectedQuality);
                 var result = await orchestrator.DownloadAlbumAsync(albumId, albumOutputDir, q, progress);
                 Console.WriteLine();
                 if (result.Success)

@@ -5,8 +5,8 @@ namespace Tidalarr.Tests.Unit;
 public class PathValidationExtensionsTests
 {
     [Theory]
-    [InlineData("C:/temp")] 
-    [InlineData("C:/temp/file.txt")] 
+    [InlineData("C:/temp")]
+    [InlineData("C:/temp/file.txt")]
     public void IsReasonablePath_Valid_ReturnsTrue(string path)
     {
         Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
@@ -15,7 +15,7 @@ public class PathValidationExtensionsTests
     [Theory]
     [InlineData("")]
     [InlineData(null)]
-    [InlineData("invalid|path")] 
+    [InlineData("invalid|path")]
     [InlineData("relative/path")]
     public void IsReasonablePath_Invalid_ReturnsFalse(string? path)
     {
