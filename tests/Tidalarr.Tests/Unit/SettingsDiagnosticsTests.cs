@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Integration;
-using Tidalarr.Integration.Diagnostics;
+using Lidarr.Plugin.Abstractions.Results;
 using Xunit;
 using Lidarr.Plugin.Abstractions.Contracts;
 
@@ -33,9 +33,11 @@ public class SettingsDiagnosticsTests
         };
 
         var result = plugin.ApplySettingsWithDiagnostics(settings);
-        Assert.False(result.Success);
-        Assert.Equal("CFG100", result.Code);
-        Assert.NotNull(result.Metadata["errors"]);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(PluginErrorCode.ValidationFailed, result.Error!.Code);
+        Assert.Equal("CFG100", result.Error!.Metadata["id"]);
+        Assert.True(result.Error!.Metadata.ContainsKey("errors"));
     }
 
     [Fact]
@@ -52,8 +54,8 @@ public class SettingsDiagnosticsTests
         };
 
         var result = plugin.ApplySettingsWithDiagnostics(settings);
-        Assert.True(result.Success);
-        Assert.Equal("CFG000", result.Code);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal("CFG000", result.Value!["id"]);
     }
 }
-

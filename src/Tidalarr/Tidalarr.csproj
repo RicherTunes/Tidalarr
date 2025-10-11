@@ -15,9 +15,18 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
-  <ItemGroup>
+  <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
+  <PropertyGroup>
+    <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' ">true</UseInRepoCommon>
+  </PropertyGroup>
+  <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' ">
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(UseInRepoCommon)' != 'true' ">
+    <!-- Pin to manifest.commonVersion; update when upstream publishes DiagnosticTapHandler -->
+    <PackageReference Include="Lidarr.Plugin.Abstractions" Version="1.1.5" />
+    <PackageReference Include="Lidarr.Plugin.Common" Version="1.1.5" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Lidarr.Core">

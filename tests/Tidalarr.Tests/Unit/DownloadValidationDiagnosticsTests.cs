@@ -44,9 +44,10 @@ public class DownloadValidationDiagnosticsTests
 
         var result = await client.ValidateDownloadWithDiagnosticsAsync("t1", TidalQuality.Lossless);
 
-        Assert.True(result.Success);
-        Assert.Equal("DL000", result.Code);
-        Assert.Equal("t1", result.Metadata["trackId"]);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal("DL000", result.Value!["id"]);
+        Assert.Equal("t1", result.Value!["trackId"]);
     }
 
     [Fact]
@@ -59,9 +60,9 @@ public class DownloadValidationDiagnosticsTests
 
         var result = await client.ValidateDownloadWithDiagnosticsAsync("t1", TidalQuality.Lossless);
 
-        Assert.False(result.Success);
-        Assert.Equal("DL001", result.Code);
-        Assert.Equal("t1", result.Metadata["trackId"]);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal("DL001", result.Error!.Metadata["id"]);
+        Assert.Equal("t1", result.Error!.Metadata["trackId"]);
     }
 }
-

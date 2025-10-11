@@ -8,7 +8,7 @@ using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Manifest;
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Integration.Adapters;
-using Tidalarr.Integration.Diagnostics;
+using Lidarr.Plugin.Abstractions.Results;
 
 namespace Tidalarr.Integration;
 
@@ -61,8 +61,8 @@ public sealed class TidalarrPlugin : IPlugin
         await ValueTask.CompletedTask;
     }
 
-    // Diagnostics-first settings validation (CFG*) for consumers/tests
-    public OperationResult ValidateSettingsWithDiagnostics(IDictionary<string, object?> settings)
+    // Diagnostics-first settings validation (CFG*) using Common result shape
+    public PluginOperationResult<Dictionary<string, string>> ValidateSettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
         const string INVALID = "CFG100";
@@ -71,7 +71,11 @@ public sealed class TidalarrPlugin : IPlugin
         var validation = typed.ValidateFluent();
         if (validation.IsValid)
         {
-            return OperationResult.Ok(OK, metadata: new() { ["service"] = "Tidal" });
+            return PluginOperationResult<Dictionary<string, string>>.Success(new()
+            {
+                ["id"] = OK,
+                ["service"] = "Tidal"
+            });
         }
 
         var codes = validation.Errors
@@ -79,21 +83,27 @@ public sealed class TidalarrPlugin : IPlugin
             .Select(e => e.ErrorCode)
             .Distinct()
             .ToArray();
-        return OperationResult.Fail(INVALID, "Settings failed validation", new()
+        var meta = new Dictionary<string, string>
         {
-            ["errors"] = codes
-        });
+            ["id"] = INVALID,
+            ["errors"] = string.Join(",", codes)
+        };
+        return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(PluginErrorCode.ValidationFailed, "Settings failed validation", null, meta));
     }
 
-    public OperationResult ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
+    public PluginOperationResult<Dictionary<string, string>> ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
         var check = ValidateSettingsWithDiagnostics(settings);
-        if (!check.Success) return check;
+        if (!check.IsSuccess) return check;
 
         _settings = MapToSettings(settings);
         RebuildServiceProvider();
-        return OperationResult.Ok(OK, metadata: new() { ["service"] = "Tidal" });
+        return PluginOperationResult<Dictionary<string, string>>.Success(new()
+        {
+            ["id"] = OK,
+            ["service"] = "Tidal"
+        });
     }
 
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
