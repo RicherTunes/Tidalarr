@@ -1,0 +1,55 @@
+name: Packaging Closure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-package-closure:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            9.0.x
+
+      - name: Build (Release)
+        shell: pwsh
+        run: dotnet build Tidalarr.sln -c Release -v minimal
+
+      - name: Package plugin (net6.0)
+        shell: pwsh
+        run: ./build.ps1 -Package -Configuration Release
+
+      - name: Verify dependency closure
+        shell: pwsh
+        run: |
+          $packagesDir = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/artifacts/packages'
+          if (-not (Test-Path $packagesDir)) { Write-Error "Packages directory not found: $packagesDir"; exit 1 }
+          $zip = Get-ChildItem $packagesDir -Filter *.zip | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $zip) { Write-Error "No package zip found under $packagesDir"; exit 1 }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          try {
+            $dlls = $archive.Entries | Where-Object { $_.FullName.ToLower().EndsWith('.dll') } | ForEach-Object { $_.Name }
+          } finally { $archive.Dispose() }
+          $allowed = @('Lidarr.Plugin.Tidalarr.dll','Lidarr.Plugin.Common.dll')
+          $disallowed = $dlls | Where-Object { $_ -like 'Lidarr.*' -and -not ($allowed -contains $_) }
+          if ($disallowed) { Write-Error "Disallowed host assemblies found: $($disallowed -join ', ')"; exit 1 }
+          Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: src/Tidalarr/artifacts/packages/*.zip
+
