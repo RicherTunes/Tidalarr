@@ -1,0 +1,53 @@
+name: Bump Common Submodule
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '13 2 * * *'
+
+jobs:
+  bump:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Update Common submodule to latest main
+        shell: pwsh
+        run: |
+          git -C ext/Lidarr.Plugin.Common fetch origin main
+          $newSha = git -C ext/Lidarr.Plugin.Common rev-parse origin/main
+          git -C ext/Lidarr.Plugin.Common checkout $newSha
+          Set-Content -Path ext-common-sha.txt -Value $newSha
+          git add ext/Lidarr.Plugin.Common ext-common-sha.txt
+          if ((git status --porcelain) -ne "") {
+            $branch = "chore/bump-ext-common"
+            git config user.email "actions@github.com"
+            git config user.name "github-actions"
+            git checkout -B $branch
+            git commit -m "chore(submodule): bump Common to $newSha"
+            git push -u origin $branch --force
+          } else {
+            echo "No changes in submodule; skipping PR."
+          }
+
+      - name: Create or update PR
+        if: ${{ success() }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $branch = "chore/bump-ext-common"
+          $exists = gh pr list --head $branch --json number --jq '.[0].number'
+          if (-not $exists) {
+            gh pr create --title "chore(submodule): bump Common to latest main" --body "Automated submodule bump to the latest commit on Common main." --head $branch --base main
+          } else {
+            gh pr edit $exists --title "chore(submodule): bump Common to latest main"
+          }
+
