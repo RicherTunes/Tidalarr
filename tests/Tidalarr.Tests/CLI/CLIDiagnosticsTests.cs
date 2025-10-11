@@ -24,7 +24,7 @@ public class CLIDiagnosticsTests
         }
     }
 
-    [Fact(Skip = "CLI integration tests are opt-in; run locally with host deps.")]
+    [Tidalarr.Tests.Utils.CliFact]
     [Trait("scope", "cli")]
     public async Task SettingsValidate_Returns_CFG000_Json()
     {
@@ -41,7 +41,7 @@ public class CLIDiagnosticsTests
         Assert.Equal("CFG000", root.GetProperty("value").GetProperty("id").GetString());
     }
 
-    [Fact(Skip = "CLI integration tests are opt-in; run locally with host deps.")]
+    [Tidalarr.Tests.Utils.CliFact]
     [Trait("scope", "cli")]
     public async Task IndexerValidate_NoAuth_Returns_IX200_Json()
     {
@@ -58,7 +58,7 @@ public class CLIDiagnosticsTests
         Assert.Equal("IX200", root.GetProperty("error").GetProperty("metadata").GetProperty("id").GetString());
     }
 
-    [Fact(Skip = "CLI integration tests are opt-in; run locally with host deps.")]
+    [Tidalarr.Tests.Utils.CliFact]
     [Trait("scope", "cli")]
     public async Task DownloadValidate_NoAuth_Returns_DL100_Json()
     {
@@ -76,7 +76,7 @@ public class CLIDiagnosticsTests
         Assert.True(id == "DL100" || id == "DL001", $"Unexpected id: {id}");
     }
 
-    [Fact(Skip = "CLI integration tests are opt-in; run locally with host deps.")]
+    [Tidalarr.Tests.Utils.CliFact]
     [Trait("scope", "cli")]
     public void Package_Dependency_Closure_Has_No_Host_Assemblies()
     {
@@ -163,4 +163,5 @@ public class CLIDiagnosticsTests
         return new CliResult(proc.ExitCode, stdout.Trim(), stderr.Trim());
     }
 }
+
 
