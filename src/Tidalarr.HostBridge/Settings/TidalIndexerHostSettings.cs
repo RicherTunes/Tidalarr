@@ -12,5 +12,14 @@ public class TidalIndexerHostSettings
 
     [FieldDefinition(2, Label = "Market", Type = FieldType.Textbox, HelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).", Advanced = true)]
     public string TidalMarket { get; set; } = "US";
-}
 
+    public Tidalarr.Integration.TidalIndexerSettings ToCore()
+    {
+        return new Tidalarr.Integration.TidalIndexerSettings
+        {
+            ConfigPath = ConfigPath,
+            RedirectUrl = RedirectUrl,
+            TidalMarket = TidalMarket
+        };
+    }
+}
