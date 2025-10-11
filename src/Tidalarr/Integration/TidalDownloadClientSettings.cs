@@ -3,10 +3,9 @@ using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
-using NzbDrone.Core.Annotations;
-using NzbDrone.Core.Validation;
-using NzbDrone.Core.Validation.Paths;
 using Tidalarr.Core.Models;
+using FieldDefinition = Tidalarr.Integration.Annotations.FieldDefinitionAttribute;
+using FieldType = Tidalarr.Integration.Annotations.FieldType;
 
 namespace Tidalarr.Integration;
 
@@ -53,11 +52,6 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
         return validation.IsValid;
     }
 
-    public NzbDroneValidationResult Validate()
-    {
-        return new NzbDroneValidationResult(Validator.Validate(this));
-    }
-
     public ValidationResult ValidateFluent()
     {
         return Validator.Validate(this);
@@ -74,7 +68,7 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
 
             RuleFor(x => x.DownloadPath)
                 .NotEmpty().WithMessage("Download path is required").WithErrorCode(TidalarrValidationCodes.DownloadPathRequired)
-                .IsValidPath().WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
+                .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Download path is invalid").WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
 
             RuleFor(x => x.DownloadDelay)
                 .InclusiveBetween(0, 60000)
@@ -99,4 +93,3 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
         }
     }
 }
-
