@@ -1050,6 +1050,8 @@ public class Program
         string trackId = "";
         var quality = Tidalarr.Core.Models.TidalQuality.Lossless;
         var dlSettings = new Tidalarr.Integration.TidalDownloadClientSettings();
+        bool qualityProvided = false;
+        string? rawQuality = null;
         foreach (var arg in args)
         {
             var i = arg.IndexOf('=');
@@ -1057,12 +1059,27 @@ public class Program
             var k = arg[..i];
             var v = arg[(i + 1)..];
             if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase)) trackId = v;
-            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(v, true, out var q)) quality = q;
+            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityProvided = true; rawQuality = v; if (Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(v, true, out var q)) quality = q; }
             else if (k.Equals(nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
         }
 
         if (string.IsNullOrWhiteSpace(trackId)) { Console.WriteLine("Provide TrackId="); return; }
         if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath)) dlSettings.DownloadPath = Path.GetTempPath();
+
+        if (qualityProvided && rawQuality is not null && !Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(rawQuality, true, out _))
+        {
+            var meta = new Dictionary<string, string>
+            {
+                ["id"] = "DLVAL",
+                ["field"] = "Quality",
+                ["value"] = rawQuality,
+                ["allowed"] = "Low|High|Lossless|HiRes"
+            };
+            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid quality value.", null, meta);
+            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
+            return;
+        }
 
         var services = new ServiceCollection();
         services.AddSingleton(dlSettings);

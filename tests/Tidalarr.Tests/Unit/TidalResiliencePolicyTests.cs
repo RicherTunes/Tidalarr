@@ -1,4 +1,5 @@
 using System.Net;
+#pragma warning disable 0618 // Suppress obsolete warnings for TidalResiliencePolicy tests
 using Polly.Timeout;
 using Tidalarr.Infrastructure.Resilience;
 using Xunit;
@@ -171,3 +172,5 @@ public class TidalResiliencePolicyTests
 
 
 
+
+#pragma warning restore 0618
