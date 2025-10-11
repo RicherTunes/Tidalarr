@@ -37,7 +37,7 @@ public class StreamManifest
             // Extract manifest information
             var manifestMimeType = streamData.GetProperty("manifestMimeType").GetString();
             var encodedManifest = streamData.GetProperty("manifest").GetString();
-            
+
             MimeType = manifestMimeType switch
             {
                 "application/dash+xml" => ManifestMimeType.MPD,
@@ -82,43 +82,43 @@ public class StreamManifest
             // Base64 decode the manifest
             var rawManifest = Convert.FromBase64String(encodedManifest);
             var decodedManifest = Encoding.UTF8.GetString(rawManifest);
-            
+
             // Use XDocument for better LINQ support (following TidalSharp pattern)
             var doc = XDocument.Parse(decodedManifest);
             var ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
-            
+
             // Navigate the DASH structure: MPD > Period > AdaptationSet > Representation
             var adaptationSet = doc.Root?
                 .Elements(ns + "Period").FirstOrDefault()?
                 .Elements(ns + "AdaptationSet").FirstOrDefault();
-                
+
             var representation = adaptationSet?
                 .Elements(ns + "Representation").FirstOrDefault();
-            
+
             if (representation != null)
             {
                 // Get codec information from representation
                 var codecsAttr = representation.Attribute("codecs")?.Value ?? "";
                 Codecs = ParseCodecs(codecsAttr);
                 FileExtension = DetermineFileExtension(codecsAttr);
-                
+
                 // Extract RepresentationID for template resolution
                 var representationId = representation.Attribute("id")?.Value ?? "0";
-                
+
                 // Extract segment template
                 var segmentTemplate = representation.Elements(ns + "SegmentTemplate").FirstOrDefault();
                 if (segmentTemplate != null)
                 {
                     var mediaTemplate = segmentTemplate.Attribute("media")?.Value ?? "";
                     var initializationTemplate = segmentTemplate.Attribute("initialization")?.Value ?? "";
-                    
+
                     // Handle startNumber (TidalSharp pattern)
                     var startNumber = uint.TryParse(segmentTemplate.Attribute("startNumber")?.Value, out var start) ? start : 1;
-                    
+
                     if (!string.IsNullOrEmpty(mediaTemplate))
                     {
                         var urls = new List<string>();
-                        
+
                         // Add initialization segment if present
                         if (!string.IsNullOrEmpty(initializationTemplate))
                         {
@@ -126,19 +126,19 @@ public class StreamManifest
                                 .Replace("$RepresentationID$", representationId)
                                 .Replace("$Number$", "0"));
                         }
-                        
+
                         // Process segment timeline (corrected TidalSharp approach)
                         var segmentTimeline = segmentTemplate.Elements(ns + "SegmentTimeline").FirstOrDefault();
                         if (segmentTimeline != null)
                         {
                             uint segmentNumber = startNumber; // Use startNumber as initial value
-                            
+
                             foreach (var s in segmentTimeline.Elements(ns + "S"))
                             {
                                 // Critical fix: TidalSharp uses (1 + r) not (r + 1)
                                 var repeat = int.TryParse(s.Attribute("r")?.Value, out var r) ? r : 0;
                                 var segmentCount = 1 + repeat; // 1 occurrence + r repeats
-                                
+
                                 // Generate segments with 0-based indexing (TidalSharp pattern)
                                 for (int i = 0; i < segmentCount; i++)
                                 {
@@ -151,7 +151,7 @@ public class StreamManifest
                                 }
                             }
                         }
-                        
+
                         ChunkUrls = urls.ToArray();
                     }
                 }
@@ -164,7 +164,7 @@ public class StreamManifest
             ChunkUrls = Array.Empty<string>();
         }
     }
-    
+
     private void ParseBtsManifest(string encodedManifest)
     {
         // BTS format is simpler - just the direct URL
@@ -172,7 +172,7 @@ public class StreamManifest
         FileExtension = ".m4a";
         Codecs = "MP4A";
     }
-    
+
     private string ParseCodecs(string codecsAttr)
     {
         if (codecsAttr.Contains("flac"))
@@ -182,7 +182,7 @@ public class StreamManifest
         else
             return "MP4A";
     }
-    
+
     private string DetermineFileExtension(string codecsAttr)
     {
         // Tidal always delivers in M4A containers, regardless of codec inside

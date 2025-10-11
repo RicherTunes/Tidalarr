@@ -18,8 +18,8 @@ public class TidalApiClientRequestTests
         var capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto(
             id: "t1",
             title: "T",
-            artist: new("A","a1"),
-            album: new("al1","Alb", new("A","a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"),
+            artist: new("A", "a1"),
+            album: new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"),
             trackNumber: 1,
             duration: 10,
             streamReady: true,
@@ -34,7 +34,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumAsync_BuildsExpectedEndpointAndQuery()
     {
-        var dto = new TidalAlbumDto("al1","Alb", new("A","a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1,1,true,"c");
+        var dto = new TidalAlbumDto("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
         var capture = new CaptureHandler(JsonSerializer.Serialize(dto));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetAlbumAsync("al1");
@@ -45,7 +45,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumTracksAsync_BuildsExpectedEndpointAndQuery()
     {
-        var payload = new TidalAlbumTracksDto(new(){ new("t","T", new("A","a1"), new("al1","Alb",new("A","a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"),1,1,true,"c"),1,10,true,"LOSSLESS") }, 1);
+        var payload = new TidalAlbumTracksDto(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
         var capture = new CaptureHandler(JsonSerializer.Serialize(payload));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetAlbumTracksAsync("al1");
@@ -81,11 +81,11 @@ public class TidalApiClientRequestTests
     private class RequestAuth : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("","","", string.Empty));
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
-        private static TidalTokens Default() => new("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+        private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
     }
 
     private class CaptureHandler : HttpMessageHandler

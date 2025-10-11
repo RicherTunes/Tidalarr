@@ -30,7 +30,7 @@ namespace Tidalarr.Integration
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
             var tidalQuality = quality != null ? _mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
-    
+
             TidalManifest? manifest = null;
             try
             {
@@ -40,7 +40,7 @@ namespace Tidalarr.Integration
             {
                 // Ignore and fall back to legacy stream info path
             }
-    
+
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
                 var assembled = await _chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
@@ -52,7 +52,7 @@ namespace Tidalarr.Integration
                     SuggestedExtension = manifest.FileExtension?.TrimStart('.') ?? "m4a"
                 };
             }
-    
+
             var info = await _streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
             var ms = await _chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
             return new AudioStreamResult

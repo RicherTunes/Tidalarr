@@ -24,7 +24,7 @@ public class TidalModelMapperTests
             Duration: 200,
             Quality: TidalQuality.Lossless,
             IsAvailable: true,
-            ReleaseDate: new DateTime(2020,1,2));
+            ReleaseDate: new DateTime(2020, 1, 2));
 
         var st = _mapper.ToStreamingTrack(track);
         Assert.Equal("t1", st.Id);
@@ -47,7 +47,7 @@ public class TidalModelMapperTests
             Artists: new List<string> { "Artist A" },
             Tracks: new List<TidalTrackInfo>(),
             AvailableQualities: new List<TidalQuality> { TidalQuality.High, TidalQuality.HiRes },
-            ReleaseDate: new DateTime(2020,1,3),
+            ReleaseDate: new DateTime(2020, 1, 3),
             CoverArtId: "aa-bb-cc",
             IsAvailable: true);
 

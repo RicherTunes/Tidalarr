@@ -12,9 +12,9 @@ public class TidalOAuthServiceTokenLifecycleTests
     [Fact]
     public async Task GetValidTokens_RefreshesWhenStoredExpired()
     {
-        var expired = new TidalTokens("old","refresh","Bearer", DateTime.UtcNow.AddMinutes(-10), "sess","US","u1");
+        var expired = new TidalTokens("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
         var storage = new MemoryTokenStorage(expired);
-        var refreshResponse = new TidalTokenResponse("new_access","new_refresh","Bearer",3600, new("sess2","US",123));
+        var refreshResponse = new TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new("sess2", "US", 123));
         var http = new HttpClient(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
         var svc = new TidalOAuthService(http, storage);

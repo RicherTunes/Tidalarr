@@ -14,7 +14,7 @@ public class FileTokenStoreLockTests
 
         await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
         var storage = new FileTokenStore(path);
-        var tokens = new TidalTokens("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+        var tokens = new TidalTokens("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveTokensAsync(tokens));
 

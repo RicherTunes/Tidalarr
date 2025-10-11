@@ -107,12 +107,12 @@ public class ApiMockHttpMessageHandler : HttpMessageHandler
 public class MockAuth : ITidalAuth
 {
     public bool IsAuthenticated => true;
-    public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("u","v","s", string.Empty));
+    public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("u", "v", "s", string.Empty));
     public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
     public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
     public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
 
-    private static TidalTokens Default() => new("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+    private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
 }
 
 public class SpyCache : IStreamingResponseCache

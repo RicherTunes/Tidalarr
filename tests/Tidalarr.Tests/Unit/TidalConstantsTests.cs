@@ -15,29 +15,29 @@ public class TidalConstantsTests
         Assert.NotEmpty(TidalConstants.CLIENT_ID_PKCE);
         Assert.NotEmpty(TidalConstants.CLIENT_SECRET_PKCE);
         Assert.NotEmpty(TidalConstants.REDIRECT_URI);
-        
+
         Assert.Matches(@"^[A-Za-z0-9]+$", TidalConstants.CLIENT_ID_PKCE);
         Assert.Contains("=", TidalConstants.CLIENT_SECRET_PKCE);
         Assert.StartsWith("https://", TidalConstants.REDIRECT_URI);
     }
-    
-    [Fact] 
+
+    [Fact]
     public void TidalConstants_QualityParameters_ContainAllQualities()
     {
         var allQualities = Enum.GetValues<TidalQuality>();
-        
+
         foreach (var quality in allQualities)
         {
             Assert.True(TidalConstants.QualityParameters.ContainsKey(quality));
             Assert.NotEmpty(TidalConstants.QualityParameters[quality]);
         }
-        
+
         Assert.Equal("LOW", TidalConstants.QualityParameters[TidalQuality.Low]);
         Assert.Equal("HIGH", TidalConstants.QualityParameters[TidalQuality.High]);
         Assert.Equal("LOSSLESS", TidalConstants.QualityParameters[TidalQuality.Lossless]);
         Assert.Equal("HI_RES_LOSSLESS", TidalConstants.QualityParameters[TidalQuality.HiRes]);
     }
-    
+
     [Fact]
     public void TidalConstants_ApiEndpoints_AreConfigured()
     {

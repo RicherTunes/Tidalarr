@@ -244,6 +244,6 @@ public sealed class TidalarrPlugin : IPlugin
             return PluginValidationResult.Success();
         }
 
-        
+
     }
 }

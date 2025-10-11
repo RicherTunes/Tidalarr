@@ -18,7 +18,7 @@ public class TidalDownloadClientFileNameTests
                    new CoreStub(),
                    new TidalQualityDetector(),
                    new TidalDownloadClientSettings())
-        {}
+        { }
 
         public string ExposeGenerateFileName(StreamingTrack track, StreamingAlbum album)
             => base.GenerateFileName(track, album);
@@ -26,12 +26,12 @@ public class TidalDownloadClientFileNameTests
 
     private class CoreStub : Tidalarr.Core.Interfaces.ITidalCore
     {
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo("","",new(),"","",0,0,TidalQuality.High,true,DateTime.MinValue));
-        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("","",new(),new(),new(),DateTime.MinValue,"",true));
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo("", "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.MinValue));
+        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.MinValue, "", true));
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new List<TidalTrackInfo>());
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default) => GetAlbumAsync(albumId, cancellationToken);
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
-        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, Array.Empty<string>(),".flac","audio/flac",false,null));
+        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, Array.Empty<string>(), ".flac", "audio/flac", false, null));
         public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
     }
 
@@ -53,7 +53,7 @@ public class TidalDownloadClientFileNameTests
         // Ensure illegal characters are removed
         var illegalChars = new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
         Assert.DoesNotContain(illegalChars, c => fileName.Contains(c));
-        
+
         // Ensure reserved names are not used verbatim as the final component
         var baseName = System.IO.Path.GetFileNameWithoutExtension(fileName);
         var lastComponent = baseName.Split(" - ").Last();

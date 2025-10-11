@@ -20,9 +20,9 @@ public class TidalDownloadClientEnhancedParsedTests
         private readonly TidalPlaybackInfoDto _playback;
         public CoreStub(TidalPlaybackInfoDto dto) { _playback = dto; }
         public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalTrackInfo(trackId, "Song", new(){"Artist"}, "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
+            => Task.FromResult(new TidalTrackInfo(trackId, "Song", new() { "Artist" }, "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalAlbumInfo(albumId, "Album", new(){"Artist"}, new(), new(){TidalQuality.Lossless}, DateTime.UtcNow, "cover", true));
+            => Task.FromResult(new TidalAlbumInfo(albumId, "Album", new() { "Artist" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "cover", true));
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<TidalTrackInfo>());
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
@@ -78,7 +78,7 @@ public class TidalDownloadClientEnhancedParsedTests
 </MPD>";
     }
 
-    [Fact(Skip="File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
+    [Fact(Skip = "File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
     public async Task EnhancedDownload_ParsedMpd_Flac_NoExtraction_WhenDisabled()
     {
         var dto = new TidalPlaybackInfoDto(Base64(MpdFlac()), "application/dash+xml", "NONE", null);
@@ -94,7 +94,7 @@ public class TidalDownloadClientEnhancedParsedTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 
-    [Fact(Skip="File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
+    [Fact(Skip = "File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
     public async Task EnhancedDownload_ParsedMpd_Aac_NoExtraction_EvenWhenEnabled()
     {
         var dto = new TidalPlaybackInfoDto(Base64(MpdAac()), "application/dash+xml", "NONE", null);

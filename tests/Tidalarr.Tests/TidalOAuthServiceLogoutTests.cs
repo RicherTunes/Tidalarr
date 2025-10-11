@@ -19,7 +19,7 @@ public class TidalOAuthServiceLogoutTests
     [Fact]
     public async Task LogoutAsync_ClearsStoredAndCurrentTokens()
     {
-        var tokens = new TidalTokens("at","rt","Bearer", DateTime.UtcNow.AddHours(1), "sess","US","uid");
+        var tokens = new TidalTokens("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
         var storage = new PreloadedStorage(tokens);
         var svc = new TidalOAuthService(new HttpClient(), storage);
 
