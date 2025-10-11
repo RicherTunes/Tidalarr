@@ -182,6 +182,8 @@ action-artifacts/
 build.log
 msbuild.log
 dotnet.log
+out.txt
+err.txt
 
 # Coverage reports
 coverage-report/
