@@ -11,10 +11,17 @@ jobs:
   verify-package-closure:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout (no submodules)
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
+
+      - name: Init required submodule (Common only)
+        shell: pwsh
+        run: |
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+          if (-not (Test-Path 'ext/Lidarr.Plugin.Common/src/Lidarr.Plugin.Common.csproj')) { Write-Error 'Common submodule not initialized'; exit 1 }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
