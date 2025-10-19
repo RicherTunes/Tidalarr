@@ -21,8 +21,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout (no submodules)
-        # actions/checkout v4.3.0
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        uses: actions/checkout@v4
         with:
           submodules: false
           persist-credentials: false
@@ -42,8 +41,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) { git config --local --unset-all url.https://x-access-token:$env:GH_TOKEN@github.com/.insteadof }
 
       - name: Setup .NET
-        # actions/setup-dotnet v4.3.1
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
             6.0.x
@@ -84,8 +82,7 @@ jobs:
           Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
 
       - name: Upload package artifact
-        # actions/upload-artifact v4.6.2
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: plugin-package
           path: src/Tidalarr/artifacts/packages/*.zip

@@ -11,8 +11,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        # actions/checkout v4.3.0
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        uses: actions/checkout@v4
         with:
           submodules: true
 
