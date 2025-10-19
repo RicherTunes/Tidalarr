@@ -52,7 +52,7 @@ jobs:
 
       - name: Formatting check (repo-only)
         shell: pwsh
-        continue-on-error: true
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
         run: |
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
 
@@ -86,4 +86,5 @@ jobs:
         with:
           name: plugin-package
           path: src/Tidalarr/artifacts/packages/*.zip
+
 
