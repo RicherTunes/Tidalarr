@@ -28,3 +28,6 @@ dotnet format Tidalarr.sln --verify-no-changes --exclude ext --exclude temp
 
 The check excludes the `ext/` submodule and any `temp/` content to avoid false positives from external sources. If you want to gate on formatting, remove `continue-on-error: true` from the step in `.github/workflows/packaging-closure.yml`.
 
+
+## Submodule Pin
+- The file xt-common-sha.txt may contain either a full/short commit SHA or a version tag like 1.2.1. The Submodule Pinning workflow resolves tags to their commit before comparison to the recorded submodule tree entry. Prefer pinning to a released tag for clarity.
