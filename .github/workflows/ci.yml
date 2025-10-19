@@ -33,6 +33,14 @@ jobs:
             8.0.x
             9.0.x
 
+      - name: Formatting check (repo-only)
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
+
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
+
+
