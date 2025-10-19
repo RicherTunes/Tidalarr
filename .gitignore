@@ -198,6 +198,13 @@ lcov.info
 *.key
 
 # Security scan results
+
+## Local Notes / Draft PR text
+# Keep personal or scratch notes untracked
+PR_BODY_*.md
+ISSUE*_UPDATE.md
+release_body.txt
+temp_tidalapiclient.txt
 security-scan/
 vulnerability-report.json
 
