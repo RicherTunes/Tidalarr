@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   verify-submodule-sha:
     runs-on: windows-latest
@@ -15,19 +18,24 @@ jobs:
         with:
           submodules: true
 
+      - name: Ensure Common submodule at indexed commit
+        shell: pwsh
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+
       - name: Verify ext/Lidarr.Plugin.Common SHA
         shell: pwsh
         run: |
           $expected = (Get-Content "$env:GITHUB_WORKSPACE/ext-common-sha.txt").Trim()
           if (-not $expected) { Write-Error "ext-common-sha.txt is empty"; exit 1 }
-          $status = git submodule status --recursive | Select-String 'ext/Lidarr.Plugin.Common' | ForEach-Object { $_.ToString().Trim() }
-          if (-not $status) { Write-Error "Submodule status not found for ext/Lidarr.Plugin.Common"; exit 1 }
-          $parts = $status -split '\s+'
-          $actual = $parts[0].TrimStart('-','+')
+          $ls = git ls-tree HEAD ext/Lidarr.Plugin.Common
+          if (-not $ls) { Write-Error "Failed to read submodule tree entry"; exit 1 }
+          $actual = ($ls -split '\s+')[2]
           if (-not $actual) { Write-Error "Failed to parse submodule SHA from: $status"; exit 1 }
           if (-not $actual.StartsWith($expected.Substring(0,7))) {
             Write-Error "Submodule SHA mismatch. Expected $expected, found $actual"
             exit 1
           }
           Write-Host "Submodule SHA OK: $actual"
-
