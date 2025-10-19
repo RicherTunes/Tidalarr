@@ -25,17 +25,27 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
 
-      - name: Verify ext/Lidarr.Plugin.Common SHA
+      - name: Verify ext/Lidarr.Plugin.Common SHA or Tag
         shell: pwsh
         run: |
           $expected = (Get-Content "$env:GITHUB_WORKSPACE/ext-common-sha.txt").Trim()
           if (-not $expected) { Write-Error "ext-common-sha.txt is empty"; exit 1 }
+          # Resolve expected to a commit (supports tags like v1.2.1 or raw SHA)
+          if ($expected -match '^v\d+\.\d+\.\d+(?:[-\.][A-Za-z0-9]+)?$') {
+            $url = git config -f .gitmodules --get submodule.ext/Lidarr.Plugin.Common.url
+            if (-not $url) { Write-Error 'Submodule URL not found'; exit 1 }
+            $remote = git ls-remote --tags $url $expected
+            if (-not $remote) { Write-Error "Tag $expected not found on $url"; exit 1 }
+            $expectedSha = ($remote -split '\s+')[0]
+          } else {
+            $expectedSha = $expected
+          }
           $ls = git ls-tree HEAD ext/Lidarr.Plugin.Common
           if (-not $ls) { Write-Error "Failed to read submodule tree entry"; exit 1 }
           $actual = ($ls -split '\s+')[2]
-          if (-not $actual) { Write-Error "Failed to parse submodule SHA from: $status"; exit 1 }
-          if (-not $actual.StartsWith($expected.Substring(0,7))) {
-            Write-Error "Submodule SHA mismatch. Expected $expected, found $actual"
+          if (-not $actual) { Write-Error "Failed to parse submodule SHA from: $ls"; exit 1 }
+          if (-not $actual.StartsWith($expectedSha.Substring(0,7))) {
+            Write-Error "Submodule mismatch. Expected $expected ($expectedSha), found $actual"
             exit 1
           }
-          Write-Host "Submodule SHA OK: $actual"
+          Write-Host "Submodule OK: $actual matches $expected"
