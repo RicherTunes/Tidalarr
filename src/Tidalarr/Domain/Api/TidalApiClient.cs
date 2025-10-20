@@ -32,8 +32,7 @@ public class TidalApiClient : ITidalCore, IDisposable
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
-        _requestBuilder = new StreamingApiRequestBuilder(TidalConstants.API_V1_BASE)
-            .Header("X-Tidal-Token", TidalConstants.CLIENT_ID);
+        _requestBuilder = new StreamingApiRequestBuilder(TidalConstants.API_V1_BASE);
         _cache = cache;
         _logger = NullLogger<TidalApiClient>.Instance;
     }

@@ -11,10 +11,13 @@ permissions:
 
 jobs:
   verify-submodule-sha:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # actions/checkout v4.3.0
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: true
 
@@ -22,6 +25,7 @@ jobs:
         shell: pwsh
         run: |
           git config --local url.https://github.com/.insteadOf git@github.com:
+          git config --local url.https://x-access-token:$env:GH_TOKEN@github.com/.insteadOf https://github.com/
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
 
