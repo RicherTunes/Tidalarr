@@ -11,10 +11,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: false
 
@@ -26,7 +26,7 @@ jobs:
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
 
       - name: Setup .NET SDKs
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: |
             6.0.x
@@ -42,5 +42,6 @@ jobs:
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
+
 
 

@@ -7,13 +7,13 @@ on:
 
 jobs:
   bump:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           fetch-depth: 0
           submodules: recursive
@@ -50,4 +50,5 @@ jobs:
           } else {
             gh pr edit $exists --title "chore(submodule): bump Common to latest main"
           }
+
 

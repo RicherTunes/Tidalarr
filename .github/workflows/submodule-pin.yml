@@ -11,10 +11,10 @@ permissions:
 
 jobs:
   verify-submodule-sha:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: true
 
@@ -49,3 +49,4 @@ jobs:
             exit 1
           }
           Write-Host "Submodule OK: $actual matches $expected"
+
