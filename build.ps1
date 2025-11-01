@@ -51,7 +51,7 @@ function Show-Help {
     Write-Host "  .\build.ps1 -UsePrebuiltAssemblies   # Use CI approach" -ForegroundColor Gray
     Write-Host ""
     Write-Host "DEFAULT DEPLOY PATH:" -ForegroundColor Cyan
-    Write-Host "  X:\lidarr-hotio-test2\plugins\RicherTunes\Tidalarr" -ForegroundColor Gray
+    Write-Host "  $defaultDeployPath" -ForegroundColor Gray
     Write-Host ""
 }
 
@@ -69,7 +69,11 @@ if (-not (Test-Path "Tidalarr.sln")) {
 }
 
 $pluginProject = "src/Tidalarr/Tidalarr.csproj"
-$defaultDeployPath = "X:/lidarr-hotio-test2/plugins/RicherTunes/Tidalarr"
+# Default to folder name that matches plugin 'id' under the container's plugins root mapping.
+# Hotio/Lidarr expects '/config/plugins/<plugin-id>' (case-sensitive on Linux).
+# Default to the path used in our hotio test container mapping
+# Keep this aligned with your local volume mapping
+$defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
 
 Write-Host "🔨 Building Tidalarr Plugin" -ForegroundColor Green
 Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
@@ -126,6 +130,15 @@ if (-not $NoBuild) {
 
     if ($Deploy) {
         $deployTarget = if ([string]::IsNullOrWhiteSpace($DeployPath)) { $defaultDeployPath } else { $DeployPath }
+        # Validate that the target root exists to avoid silent mis-deploys
+        try { $targetRoot = Split-Path -Path $deployTarget -Qualifier } catch { $targetRoot = $null }
+        if (-not [System.IO.Path]::IsPathRooted($deployTarget) -or [string]::IsNullOrWhiteSpace($targetRoot) -or -not (Test-Path $targetRoot)) {
+            Write-Host "? Deploy path appears invalid or the drive/share is unavailable:" -ForegroundColor Red
+            Write-Host "   $deployTarget" -ForegroundColor Yellow
+            Write-Host "   Tip: mount the drive/share, or pass -DeployPath to override." -ForegroundColor Yellow
+            Pop-Location
+            exit 1
+        }
         $buildParams += "-p:EnablePluginDeployment=true"
         $buildParams += "-p:LidarrPluginDeployPath=$deployTarget"
         Write-Host "🚀 Plugin deployment enabled" -ForegroundColor Cyan
@@ -202,7 +215,38 @@ if (-not $Deploy -and -not $NoBuild) {
     Write-Host "  Manual deploy: copy the build output to your Lidarr plugins folder" -ForegroundColor White
 }
 
+if ($Deploy) {
+    Write-Host "?? Plugin deployment requested; copying packaged outputs" -ForegroundColor Blue
+    $outputDir = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net6.0"
+    $dll = Join-Path $outputDir "Lidarr.Plugin.Tidalarr.dll"
+    $pdb = Join-Path $outputDir "Lidarr.Plugin.Tidalarr.pdb"
+    $manifest = Join-Path $outputDir "plugin.json"
+    if (-not (Test-Path $dll)) { Write-Host "? Packaged assembly not found: $dll" -ForegroundColor Red; Pop-Location; exit 1 }
+    if (-not (Test-Path $deployTarget)) { New-Item -ItemType Directory -Path $deployTarget | Out-Null }
+
+    # If Common remains in output (merge failed), include deps side-by-side
+    $common = Join-Path $outputDir "Lidarr.Plugin.Common.dll"
+    $sideBySide = Test-Path $common
+
+    Copy-Item $dll $deployTarget -Force
+    if (Test-Path $pdb) { Copy-Item $pdb $deployTarget -Force }
+    if (Test-Path $manifest) { Copy-Item $manifest $deployTarget -Force }
+
+    if ($sideBySide) {
+        $depNames = @('Lidarr.Plugin.Common.dll','FluentValidation.dll','Polly.dll','Polly.Extensions.Http.dll','System.Text.Json.dll')
+        foreach ($name in $depNames) {
+            $path = Join-Path $outputDir $name
+            if (Test-Path $path) { Copy-Item $path $deployTarget -Force }
+        }
+        Get-ChildItem -Path $outputDir -Filter 'Microsoft.Extensions.*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
+        Get-ChildItem -Path $outputDir -Filter 'TagLibSharp*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
+        $abstractions = Join-Path $deployTarget 'Lidarr.Plugin.Abstractions.dll'
+        if (Test-Path $abstractions) { Remove-Item $abstractions -Force }
+    }
+}
+
 Pop-Location
+
 
 
 

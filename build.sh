@@ -31,7 +31,7 @@ Examples:
   ./build.sh --use-prebuilt-assemblies       # Use CI-style prebuilt assemblies
 
 Default deploy path:
-  X:/lidarr-hotio-test2/plugins/RicherTunes/Tidalarr
+  X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr
 EOF
 }
 
@@ -84,7 +84,7 @@ if [[ ! -f "Tidalarr.sln" ]]; then
 fi
 
 PLUGIN_PROJECT="src/Tidalarr/Tidalarr.csproj"
-DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-test2/plugins/RicherTunes/Tidalarr"
+DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
 
 echo "🔨 Building Tidalarr Plugin"
 echo "Configuration: $CONFIGURATION"
