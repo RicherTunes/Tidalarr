@@ -84,7 +84,7 @@ if [[ ! -f "Tidalarr.sln" ]]; then
 fi
 
 PLUGIN_PROJECT="src/Tidalarr/Tidalarr.csproj"
-DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
+DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
 # Normalize a user-provided deploy path so it ends with the plugin folder
 resolve_deploy_path() {
@@ -100,11 +100,11 @@ resolve_deploy_path() {
   local leaf
   leaf=$(basename "$input")
   shopt -s nocasematch
-  if [[ "$leaf" == "plugins" ]]; then echo "$input/RicherTunes/$name"; shopt -u nocasematch; return; fi
-  if [[ "$leaf" == "RicherTunes" ]]; then echo "$input/$name"; shopt -u nocasematch; return; fi
+  if [[ "$leaf" == "plugins" ]]; then echo "$input/$id"; shopt -u nocasematch; return; fi
+  if [[ "$leaf" == "RicherTunes" ]]; then echo "$input/$id"; shopt -u nocasematch; return; fi
   if [[ "$leaf" == "$id" || "$leaf" == "$name" ]]; then echo "$input"; shopt -u nocasematch; return; fi
   shopt -u nocasematch
-  echo "$input/$name"
+  echo "$input/$id"
 }
 
 echo "🔨 Building Tidalarr Plugin"

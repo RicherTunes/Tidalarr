@@ -73,8 +73,8 @@ $pluginProject = "src/Tidalarr/Tidalarr.csproj"
 # Hotio/Lidarr expects '/config/plugins/<plugin-id>' (case-sensitive on Linux).
 # Default to the path used in our hotio test container mapping
 # Keep this aligned with your local volume mapping
-# Default to vendor + plugin name layout
-$defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
+# Default to plugin id folder (standard)
+$defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
 # Read plugin id and name from manifest to normalize deploy paths
 $manifestPath = Join-Path $scriptRoot 'plugin.json'
@@ -92,10 +92,10 @@ catch { }
 function Resolve-DeployPath([string] $inputPath) {
     if ([string]::IsNullOrWhiteSpace($inputPath)) { return $defaultDeployPath }
     $leaf = Split-Path -Path $inputPath -Leaf
-    if ($leaf -ieq 'plugins') { return Join-Path (Join-Path $inputPath 'RicherTunes') $pluginName }
-    if ($leaf -ieq 'RicherTunes') { return Join-Path $inputPath $pluginName }
+    if ($leaf -ieq 'plugins') { return Join-Path $inputPath $pluginId }
+    if ($leaf -ieq 'RicherTunes') { return Join-Path $inputPath $pluginId }
     if ($leaf -ieq $pluginId -or $leaf -ieq $pluginName) { return $inputPath }
-    return Join-Path $inputPath $pluginName
+    return Join-Path $inputPath $pluginId
 }
 
 Write-Host "🔨 Building Tidalarr Plugin" -ForegroundColor Green
