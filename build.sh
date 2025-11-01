@@ -86,6 +86,27 @@ fi
 PLUGIN_PROJECT="src/Tidalarr/Tidalarr.csproj"
 DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
+# Normalize a user-provided deploy path so it ends with the plugin folder
+resolve_deploy_path() {
+  local input="$1"
+  local id="tidalarr"
+  local name="Tidalarr"
+  # Read manifest if available
+  if [[ -f "plugin.json" ]]; then
+    id=$(grep -o '"id"\s*:\s*"[^"]*"' plugin.json | sed -E 's/.*:"([^"]*)"/\1/' || echo "$id")
+    name=$(grep -o '"name"\s*:\s*"[^"]*"' plugin.json | sed -E 's/.*:"([^"]*)"/\1/' || echo "$name")
+  fi
+  if [[ -z "$input" ]]; then echo "$DEFAULT_DEPLOY_PATH"; return; fi
+  local leaf
+  leaf=$(basename "$input")
+  shopt -s nocasematch
+  if [[ "$leaf" == "plugins" ]]; then echo "$input/$id"; shopt -u nocasematch; return; fi
+  if [[ "$leaf" == "RicherTunes" ]]; then echo "$input/$name"; shopt -u nocasematch; return; fi
+  if [[ "$leaf" == "$id" || "$leaf" == "$name" ]]; then echo "$input"; shopt -u nocasematch; return; fi
+  shopt -u nocasematch
+  echo "$input/$id"
+}
+
 echo "🔨 Building Tidalarr Plugin"
 echo "Configuration: $CONFIGURATION"
 
@@ -117,10 +138,8 @@ if ! $NO_BUILD; then
   fi
 
   if $DEPLOY; then
-    TARGET_PATH="$DEPLOY_PATH"
-    if [[ -z "$TARGET_PATH" ]]; then
-      TARGET_PATH="$DEFAULT_DEPLOY_PATH"
-    fi
+    TARGET_PATH=$(resolve_deploy_path "$DEPLOY_PATH")
+    if [[ -z "$TARGET_PATH" ]]; then TARGET_PATH="$DEFAULT_DEPLOY_PATH"; fi
     BUILD_ARGS+=("-p:EnablePluginDeployment=true" "-p:LidarrPluginDeployPath=$TARGET_PATH")
     echo "🚀 Plugin deployment enabled"
     echo "📁 Deploy path: $TARGET_PATH"

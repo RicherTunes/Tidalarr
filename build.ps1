@@ -76,6 +76,28 @@ $pluginProject = "src/Tidalarr/Tidalarr.csproj"
 # Use a folder exactly matching the manifest id for best compatibility
 $defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
+# Read plugin id and name from manifest to normalize deploy paths
+$manifestPath = Join-Path $scriptRoot 'plugin.json'
+$pluginId = "tidalarr"
+$pluginName = "Tidalarr"
+try {
+    if (Test-Path $manifestPath) {
+        $mf = Get-Content $manifestPath -Raw | ConvertFrom-Json
+        if ($mf.id) { $pluginId = "$($mf.id)" }
+        if ($mf.name) { $pluginName = "$($mf.name)" }
+    }
+}
+catch { }
+
+function Resolve-DeployPath([string] $inputPath) {
+    if ([string]::IsNullOrWhiteSpace($inputPath)) { return $defaultDeployPath }
+    $leaf = Split-Path -Path $inputPath -Leaf
+    if ($leaf -ieq 'plugins') { return Join-Path $inputPath $pluginId }
+    if ($leaf -ieq 'RicherTunes') { return Join-Path $inputPath $pluginName }
+    if ($leaf -ieq $pluginId -or $leaf -ieq $pluginName) { return $inputPath }
+    return Join-Path $inputPath $pluginId
+}
+
 Write-Host "🔨 Building Tidalarr Plugin" -ForegroundColor Green
 Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
 
@@ -130,7 +152,8 @@ if (-not $NoBuild) {
     }
 
     if ($Deploy) {
-        $deployTarget = if ([string]::IsNullOrWhiteSpace($DeployPath)) { $defaultDeployPath } else { $DeployPath }
+        $requestedPath = if ([string]::IsNullOrWhiteSpace($DeployPath)) { $defaultDeployPath } else { $DeployPath }
+        $deployTarget = Resolve-DeployPath $requestedPath
         # Validate that the target root exists to avoid silent mis-deploys
         try { $targetRoot = Split-Path -Path $deployTarget -Qualifier } catch { $targetRoot = $null }
         if (-not [System.IO.Path]::IsPathRooted($deployTarget) -or [string]::IsNullOrWhiteSpace($targetRoot) -or -not (Test-Path $targetRoot)) {
@@ -141,7 +164,7 @@ if (-not $NoBuild) {
             exit 1
         }
         $buildParams += "-p:EnablePluginDeployment=true"
-        $buildParams += "-p:LidarrPluginDeployPath=$deployTarget"
+        $buildParams += "-p:LidarrPluginDeployPath=\"$deployTarget\""
         Write-Host "🚀 Plugin deployment enabled" -ForegroundColor Cyan
         Write-Host "📁 Deploy path: $deployTarget" -ForegroundColor Cyan
     }
@@ -223,7 +246,7 @@ if ($Deploy) {
     $pdb = Join-Path $outputDir "Lidarr.Plugin.Tidalarr.pdb"
     $manifest = Join-Path $outputDir "plugin.json"
     if (-not (Test-Path $dll)) { Write-Host "? Packaged assembly not found: $dll" -ForegroundColor Red; Pop-Location; exit 1 }
-    if (-not (Test-Path $deployTarget)) { New-Item -ItemType Directory -Path $deployTarget | Out-Null }
+    try { [System.IO.Directory]::CreateDirectory($deployTarget) | Out-Null } catch {}
 
     # If Common remains in output (merge failed), include deps side-by-side
     $common = Join-Path $outputDir "Lidarr.Plugin.Common.dll"
