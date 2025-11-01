@@ -18,23 +18,11 @@
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
     <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' ">true</UseInRepoCommon>
-    <!-- Optional override path to a sibling checkout of lidarr.plugin.common -->
-    <CommonSiblingRoot Condition="'$(CommonSiblingRoot)' == ''">..\..\..\lidarr.plugin.common</CommonSiblingRoot>
   </PropertyGroup>
-  <!-- Prefer sibling checkout if present -->
-  <ItemGroup Condition="Exists('$(CommonSiblingRoot)\\src\\Lidarr.Plugin.Common.csproj')">
-    <ProjectReference Include="$(CommonSiblingRoot)\src\Lidarr.Plugin.Common.csproj" />
-    <ProjectReference Include="$(CommonSiblingRoot)\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
-  </ItemGroup>
-  <!-- Otherwise, use in-repo submodule when enabled -->
-  <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' and !Exists('$(CommonSiblingRoot)\\src\\Lidarr.Plugin.Common.csproj') ">
+  <!-- Use in-repo submodule only -->
+  <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' ">
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
-  </ItemGroup>
-  <!-- Fallback to packages only when no local sources are available -->
-  <ItemGroup Condition=" '$(UseInRepoCommon)' != 'true' and !Exists('$(CommonSiblingRoot)\\src\\Lidarr.Plugin.Common.csproj') ">
-    <PackageReference Include="Lidarr.Plugin.Abstractions" Version="1.1.5" />
-    <PackageReference Include="Lidarr.Plugin.Common" Version="1.1.5" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
