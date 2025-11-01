@@ -73,7 +73,8 @@ $pluginProject = "src/Tidalarr/Tidalarr.csproj"
 # Hotio/Lidarr expects '/config/plugins/<plugin-id>' (case-sensitive on Linux).
 # Default to the path used in our hotio test container mapping
 # Keep this aligned with your local volume mapping
-$defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
+# Use a folder exactly matching the manifest id for best compatibility
+$defaultDeployPath = "X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
 Write-Host "🔨 Building Tidalarr Plugin" -ForegroundColor Green
 Write-Host "Configuration: $Configuration" -ForegroundColor Cyan

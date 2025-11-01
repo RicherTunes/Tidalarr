@@ -84,7 +84,7 @@ if [[ ! -f "Tidalarr.sln" ]]; then
 fi
 
 PLUGIN_PROJECT="src/Tidalarr/Tidalarr.csproj"
-DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/RicherTunes/Tidalarr"
+DEFAULT_DEPLOY_PATH="X:/lidarr-hotio-plugins-test/plugins/tidalarr"
 
 echo "🔨 Building Tidalarr Plugin"
 echo "Configuration: $CONFIGURATION"
