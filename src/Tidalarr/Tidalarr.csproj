@@ -24,6 +24,10 @@
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
   </ItemGroup>
+  <Target Name="CheckCommonSubmodule" BeforeTargets="Restore" Condition=" '$(UseInRepoCommon)' == 'true' ">
+    <Error Condition="!Exists('..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj')"
+           Text="Lidarr.Plugin.Common submodule is missing. Run: git submodule update --init --recursive" />
+  </Target>
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
