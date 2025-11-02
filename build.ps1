@@ -164,7 +164,7 @@ if (-not $NoBuild) {
             exit 1
         }
         $buildParams += "-p:EnablePluginDeployment=true"
-        $buildParams += "-p:LidarrPluginDeployPath=\"$deployTarget\""
+        $buildParams += "-p:LidarrPluginDeployPath=`"$deployTarget`""
         Write-Host "🚀 Plugin deployment enabled" -ForegroundColor Cyan
         Write-Host "📁 Deploy path: $deployTarget" -ForegroundColor Cyan
     }
