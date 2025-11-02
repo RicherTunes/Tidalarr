@@ -264,19 +264,14 @@ if ($Deploy) {
     if (Test-Path $pdb) { Copy-Item $pdb $deployTarget -Force }
     if (Test-Path $manifest) { Copy-Item $manifest $deployTarget -Force }
 
-    if ($sideBySide) {
-        $depNames = @('Lidarr.Plugin.Common.dll','FluentValidation.dll','Polly.dll','Polly.Extensions.Http.dll','System.Text.Json.dll')
-        foreach ($name in $depNames) {
-            $path = Join-Path $outputDir $name
-            if (Test-Path $path) { Copy-Item $path $deployTarget -Force }
-        }
-        Get-ChildItem -Path $outputDir -Filter 'Microsoft.Extensions.*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
-        Get-ChildItem -Path $outputDir -Filter 'TagLibSharp*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
+    # Validate merged output: no sidecar DLLs expected
+    $extras = Get-ChildItem -Path $outputDir -Filter '*.dll' -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'Lidarr.Plugin.Tidalarr.dll' }
+    if ($extras -and $extras.Count -gt 0) {
+        Write-Host "? Packaging validation failed: unexpected DLLs present in output:" -ForegroundColor Red
+        $extras | ForEach-Object { Write-Host "   - $($_.Name)" -ForegroundColor Yellow }
+        Write-Host "   Expected only Lidarr.Plugin.Tidalarr.dll + plugin.json (+pdb)." -ForegroundColor Yellow
+        Pop-Location; exit 1
     }
-
-    # Always include Abstractions side-by-side for plugin resolution
-    $abstractionsSrc = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.dll'
-    if (Test-Path $abstractionsSrc) { Copy-Item $abstractionsSrc $deployTarget -Force }
 }
 
 Pop-Location
