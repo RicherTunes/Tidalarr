@@ -264,12 +264,16 @@ if ($Deploy) {
     if (Test-Path $pdb) { Copy-Item $pdb $deployTarget -Force }
     if (Test-Path $manifest) { Copy-Item $manifest $deployTarget -Force }
 
-    # Validate merged output: no sidecar DLLs expected
-    $extras = Get-ChildItem -Path $outputDir -Filter '*.dll' -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'Lidarr.Plugin.Tidalarr.dll' }
+    # Always copy Abstractions sidecar for host ALC resolution (if present)
+    $abstractions = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.dll'
+    if (Test-Path $abstractions) { Copy-Item $abstractions $deployTarget -Force }
+
+    # Validate merged output: allow only Abstractions as a sidecar
+    $extras = Get-ChildItem -Path $outputDir -Filter '*.dll' -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'Lidarr.Plugin.Tidalarr.dll' -and $_.Name -ne 'Lidarr.Plugin.Abstractions.dll' }
     if ($extras -and $extras.Count -gt 0) {
         Write-Host "? Packaging validation failed: unexpected DLLs present in output:" -ForegroundColor Red
         $extras | ForEach-Object { Write-Host "   - $($_.Name)" -ForegroundColor Yellow }
-        Write-Host "   Expected only Lidarr.Plugin.Tidalarr.dll + plugin.json (+pdb)." -ForegroundColor Yellow
+        Write-Host "   Expected only Lidarr.Plugin.Tidalarr.dll + Lidarr.Plugin.Abstractions.dll + plugin.json (+pdb)." -ForegroundColor Yellow
         Pop-Location; exit 1
     }
 }
