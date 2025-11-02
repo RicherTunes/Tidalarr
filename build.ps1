@@ -92,10 +92,13 @@ catch { }
 function Resolve-DeployPath([string] $inputPath) {
     if ([string]::IsNullOrWhiteSpace($inputPath)) { return $defaultDeployPath }
     $leaf = Split-Path -Path $inputPath -Leaf
-    if ($leaf -ieq 'plugins') { return Join-Path $inputPath $pluginId }
-    if ($leaf -ieq 'RicherTunes') { return Join-Path $inputPath $pluginId }
+    # If pointing at plugins root, use vendor + TitleCase plugin name
+    if ($leaf -ieq 'plugins') { return Join-Path (Join-Path $inputPath 'RicherTunes') $pluginName }
+    # If pointing at vendor folder, append TitleCase plugin name
+    if ($leaf -ieq 'RicherTunes') { return Join-Path $inputPath $pluginName }
     if ($leaf -ieq $pluginId -or $leaf -ieq $pluginName) { return $inputPath }
-    return Join-Path $inputPath $pluginId
+    # Otherwise, default to TitleCase plugin name when normalizing
+    return Join-Path $inputPath $pluginName
 }
 
 # If a DeployPath is provided, enable deployment implicitly
@@ -269,9 +272,11 @@ if ($Deploy) {
         }
         Get-ChildItem -Path $outputDir -Filter 'Microsoft.Extensions.*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
         Get-ChildItem -Path $outputDir -Filter 'TagLibSharp*.dll' -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName $deployTarget -Force }
-        $abstractions = Join-Path $deployTarget 'Lidarr.Plugin.Abstractions.dll'
-        if (Test-Path $abstractions) { Remove-Item $abstractions -Force }
     }
+
+    # Always include Abstractions side-by-side for plugin resolution
+    $abstractionsSrc = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.dll'
+    if (Test-Path $abstractionsSrc) { Copy-Item $abstractionsSrc $deployTarget -Force }
 }
 
 Pop-Location

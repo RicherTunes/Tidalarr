@@ -100,11 +100,14 @@ resolve_deploy_path() {
   local leaf
   leaf=$(basename "$input")
   shopt -s nocasematch
-  if [[ "$leaf" == "plugins" ]]; then echo "$input/$id"; shopt -u nocasematch; return; fi
-  if [[ "$leaf" == "RicherTunes" ]]; then echo "$input/$id"; shopt -u nocasematch; return; fi
+  # If pointing at plugins root, use vendor + TitleCase plugin name
+  if [[ "$leaf" == "plugins" ]]; then echo "$input/RicherTunes/$name"; shopt -u nocasematch; return; fi
+  # If pointing at vendor folder, append TitleCase plugin name
+  if [[ "$leaf" == "RicherTunes" ]]; then echo "$input/$name"; shopt -u nocasematch; return; fi
   if [[ "$leaf" == "$id" || "$leaf" == "$name" ]]; then echo "$input"; shopt -u nocasematch; return; fi
   shopt -u nocasematch
-  echo "$input/$id"
+  # Otherwise, default to TitleCase plugin name when normalizing
+  echo "$input/$name"
 }
 
 echo "🔨 Building Tidalarr Plugin"
