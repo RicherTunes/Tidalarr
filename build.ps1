@@ -98,6 +98,11 @@ function Resolve-DeployPath([string] $inputPath) {
     return Join-Path $inputPath $pluginId
 }
 
+# If a DeployPath is provided, enable deployment implicitly
+if (-not [string]::IsNullOrWhiteSpace($DeployPath)) {
+    $Deploy = $true
+}
+
 Write-Host "🔨 Building Tidalarr Plugin" -ForegroundColor Green
 Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
 
