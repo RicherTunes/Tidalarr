@@ -1,0 +1,94 @@
+title = "Tidalarr GitLeaks Configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "tidal-client-id"
+description = "Tidal Client ID"
+regex = '''(?i)(tidal[_-]?client[_-]?id|TIDAL_CLIENT_ID).{0,20}['"\s:=]+([a-zA-Z0-9\-_]{20,})'''
+tags = ["tidal", "credentials"]
+
+[[rules]]
+id = "tidal-client-secret"
+description = "Tidal Client Secret"
+regex = '''(?i)(tidal[_-]?client[_-]?secret|TIDAL_CLIENT_SECRET).{0,20}['"\s:=]+([a-zA-Z0-9\-_]{30,})'''
+tags = ["tidal", "credentials", "secret"]
+
+[[rules]]
+id = "tidal-access-token"
+description = "Tidal Access Token"
+regex = '''(?i)(tidal[_-]?access[_-]?token|TIDAL_ACCESS_TOKEN).{0,20}['"\s:=]+([a-zA-Z0-9\-_\.]{50,})'''
+tags = ["tidal", "token"]
+
+[[rules]]
+id = "tidal-refresh-token"
+description = "Tidal Refresh Token"
+regex = '''(?i)(tidal[_-]?refresh[_-]?token|TIDAL_REFRESH_TOKEN).{0,20}['"\s:=]+([a-zA-Z0-9\-_\.]{50,})'''
+tags = ["tidal", "token"]
+
+[[rules]]
+id = "email-password-combo"
+description = "Email and Password Combination"
+regex = '''(?i)(email|username).{0,30}['"\s:=]+([\w\.\-]+@[\w\.\-]+\.\w+).{0,100}(password|pwd).{0,30}['"\s:=]+([^\s'"]{8,})'''
+tags = ["credentials", "authentication"]
+
+[[rules]]
+id = "api-key-generic"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey|api_secret).{0,20}['"\s:=]+([a-zA-Z0-9\-_]{20,})'''
+tags = ["api", "key"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'''
+tags = ["private-key", "cryptography"]
+
+[[rules]]
+id = "connection-string"
+description = "Database Connection String"
+regex = '''(?i)(connection[_-]?string|conn[_-]?str).{0,20}['"\s:=]+([^'"\s]+password[^'"\s]+)'''
+tags = ["database", "connection"]
+
+[allowlist]
+description = "Allowlist for test data, documentation, and known false positives"
+
+paths = [
+    '''tests/.*''',
+    '''test/.*''',
+    '''docs/.*''',
+    '''\.md$''',
+    '''\.example$''',
+    '''\.template$''',
+    '''\.sample$''',
+]
+
+regexes = [
+    '''EXAMPLE_.*''',
+    '''SAMPLE_.*''',
+    '''TEST_.*''',
+    '''your[_-]?.*[_-]?here''',
+    '''replace[_-]?with[_-]?actual''',
+]
+
+commits = [
+    # Add specific commit SHAs to allowlist if needed
+]
+
+[allowlist.files]
+# Specific files to always allow
+paths = [
+    '''.gitleaks.toml''',
+    '''SECURITY.md''',
+]
+
+[allowlist.regexes]
+# Regex patterns that should not trigger alerts
+regexes = [
+    # Common test patterns
+    '''(?i)example\.com''',
+    '''(?i)test@test\.com''',
+    '''(?i)dummy[_-]?token''',
+    '''(?i)fake[_-]?secret''',
+]

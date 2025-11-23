@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # NuGet dependencies for main project
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - automated
+      - nuget
+    assignees:
+      - RicherTunes
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+      - automated
+    assignees:
+      - RicherTunes
+    commit-message:
+      prefix: "deps(actions)"
+
+  # Git submodules
+  - package-ecosystem: gitsubmodule
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: friday
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+      - submodule
+      - automated
+    commit-message:
+      prefix: "deps(submodule)"
