@@ -53,7 +53,6 @@ tags = ["database", "connection"]
 
 [allowlist]
 description = "Allowlist for test data, documentation, and known false positives"
-
 paths = [
     '''tests/.*''',
     '''test/.*''',
@@ -62,33 +61,20 @@ paths = [
     '''\.example$''',
     '''\.template$''',
     '''\.sample$''',
+    '''.gitleaks.toml''',
+    '''SECURITY.md''',
 ]
-
 regexes = [
     '''EXAMPLE_.*''',
     '''SAMPLE_.*''',
     '''TEST_.*''',
     '''your[_-]?.*[_-]?here''',
     '''replace[_-]?with[_-]?actual''',
-]
-
-commits = [
-    # Add specific commit SHAs to allowlist if needed
-]
-
-[allowlist.files]
-# Specific files to always allow
-paths = [
-    '''.gitleaks.toml''',
-    '''SECURITY.md''',
-]
-
-[allowlist.regexes]
-# Regex patterns that should not trigger alerts
-regexes = [
-    # Common test patterns
     '''(?i)example\.com''',
     '''(?i)test@test\.com''',
     '''(?i)dummy[_-]?token''',
     '''(?i)fake[_-]?secret''',
+]
+commits = [
+    # Add specific commit SHAs to allowlist if needed
 ]
