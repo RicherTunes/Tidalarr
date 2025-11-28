@@ -19,7 +19,9 @@ jobs:
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
+        continue-on-error: true  # Non-blocking - requires GitHub Advanced Security
         with:
           fail-on-severity: high
-          deny-licenses: GPL-3.0, AGPL-3.0
+          deny-licenses: GPL-3.0, AGPL-3.0, SSPL-1.0
           comment-summary-in-pr: always
+          warn-on-openssf-scorecard-level: 3
