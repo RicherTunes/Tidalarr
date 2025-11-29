@@ -1,0 +1,79 @@
+version: 2
+updates:
+  # Enable version updates for .NET/NuGet packages
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    reviewers:
+      - "richertunes"
+    assignees:
+      - "richertunes"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "nuget"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    ignore:
+      # Ignore major version updates for stable dependencies
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
+    allow:
+      # Allow all dependency types
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # GitHub Actions workflow dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    target-branch: "main"
+    reviewers:
+      - "richertunes"
+    assignees:
+      - "richertunes"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "github-actions"
+      - "ci-cd"
+    commit-message:
+      prefix: "deps(actions)"
+      include: "scope"
+
+  # Submodule updates
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 2
+    target-branch: "main"
+    reviewers:
+      - "richertunes"
+    assignees:
+      - "richertunes"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "submodule"
+    commit-message:
+      prefix: "deps(submodule)"
+      include: "scope"
