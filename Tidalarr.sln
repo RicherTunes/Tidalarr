@@ -9,13 +9,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tidalarr", "src\Tidalarr\Ti
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tidalarr.HostBridge", "src\Tidalarr.HostBridge\Tidalarr.HostBridge.csproj", "{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "temp", "temp", "{29F3AA1B-6D75-C75D-9183-749A65CD24A7}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ext", "ext", "{29F3AA1B-6D75-C75D-9183-749A65CD24A7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lidarr.Plugin.Common", "Lidarr.Plugin.Common", "{D1778223-09B4-641C-E1CD-563AB2393D27}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{58A4A048-C098-AF88-4F46-D4BA20DE053E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lidarr.Plugin.Common", "temp\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj", "{7C5FFA77-8F28-4C32-B642-C92DD7697792}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lidarr.Plugin.Common", "ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj", "{7C5FFA77-8F28-4C32-B642-C92DD7697792}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
