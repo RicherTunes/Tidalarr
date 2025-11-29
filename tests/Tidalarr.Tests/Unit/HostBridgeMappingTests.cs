@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
+[Trait("scope", "cli")]
 public class HostBridgeMappingTests
 {
     [Fact]
