@@ -19,6 +19,7 @@ using Tidalarr.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Infrastructure.Observability;
+
 namespace Tidalarr.Domain.Api;
 public class TidalApiClient : ITidalCore, IDisposable
 {
