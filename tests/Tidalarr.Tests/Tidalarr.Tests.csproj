@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Suppress analyzer warnings from Common library submodule -->
+    <!-- RS0025: PublicAPI duplicate entries in submodule - not our concern -->
+    <NoWarn>$(NoWarn);RS0025</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
@@ -23,8 +26,13 @@
     <ProjectReference Include="..\..\src\Tidalarr\Tidalarr.csproj" />
     <ProjectReference Include="..\..\src\Tidalarr.HostBridge\Tidalarr.HostBridge.csproj" />
     
-    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
-    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj">
+      <!-- Disable analyzers on submodule to avoid PublicAPI warnings in CI -->
+      <AdditionalProperties>RunAnalyzersDuringBuild=false;EnableNETAnalyzers=false</AdditionalProperties>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj">
+      <AdditionalProperties>RunAnalyzersDuringBuild=false;EnableNETAnalyzers=false</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Lidarr.Core">
