@@ -1,0 +1,60 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * 0'
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Init required submodule (Common only)
+        shell: pwsh
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Initialize CodeQL (manual build)
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+
+      - name: Build for CodeQL analysis
+        shell: pwsh
+        run: |
+          dotnet restore Tidalarr.sln
+          dotnet build Tidalarr.sln -c Release --no-restore -m:1
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
