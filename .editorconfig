@@ -40,6 +40,13 @@ dotnet_diagnostic.IDE0011.severity = suggestion
 dotnet_diagnostic.IDE0270.severity = suggestion
 dotnet_diagnostic.IDE0005.severity = warning
 
+# Allow SCREAMING_CASE constants (API-driven naming)
+dotnet_diagnostic.CA1707.severity = none
+
+# Allow lowercase DTO properties (JSON serialization naming)
+dotnet_naming_rule.public_members_should_be_capitalized.severity = none
+dotnet_diagnostic.IDE1006.severity = none
+
 # JSON files
 [*.json]
 indent_style = space
