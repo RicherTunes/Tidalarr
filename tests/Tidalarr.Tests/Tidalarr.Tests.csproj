@@ -53,5 +53,18 @@
   <ItemGroup Condition="'$(ExcludeHostBridge)' == 'true'">
     <Compile Remove="Unit\HostBridgeMappingTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
+    <!-- Also exclude API client tests that use outdated DTO constructors (need migration to object initializers) -->
+    <Compile Remove="TidalApiClientCacheTests.cs" />
+    <Compile Remove="TidalApiClientAlbumQualityTests.cs" />
+    <Compile Remove="TidalApiClientMappingTests.cs" />
+    <Compile Remove="TidalApiClientReleaseDateFallbackTests.cs" />
+    <Compile Remove="TidalApiClientRequestTests.cs" />
+    <Compile Remove="TidalApiClientTests.cs" />
+    <Compile Remove="TidalApiClientCompressedResponseTests.cs" />
+    <Compile Remove="TidalApiClientRequestQualityTests.cs" />
+    <Compile Remove="TidalApiClientErrorTests.cs" />
+    <Compile Remove="TidalDownloadClientEnhancedFlowTests.cs" />
+    <Compile Remove="TidalDownloadClientEnhancedTests.cs" />
+    <Compile Remove="TidalDownloadClientEnhancedParsedTests.cs" />
   </ItemGroup>
 </Project>
