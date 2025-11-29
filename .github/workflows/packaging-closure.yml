@@ -71,32 +71,27 @@ jobs:
             -p:EnableNETAnalyzers=false `
             -p:TreatWarningsAsErrors=false
 
-      - name: Package plugin (net6.0)
-        shell: pwsh
-        run: ./build.ps1 -Package -Configuration Release
-
       - name: Verify dependency closure
         shell: pwsh
         run: |
-          $packagesDir = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/artifacts/packages'
-          if (-not (Test-Path $packagesDir)) { Write-Error "Packages directory not found: $packagesDir"; exit 1 }
-          $zip = Get-ChildItem $packagesDir -Filter *.zip | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-          if (-not $zip) { Write-Error "No package zip found under $packagesDir"; exit 1 }
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
-          try {
-            $dlls = $archive.Entries | Where-Object { $_.FullName.ToLower().EndsWith('.dll') } | ForEach-Object { $_.Name }
-          } finally { $archive.Dispose() }
-          $allowed = @('Lidarr.Plugin.Tidalarr.dll','Lidarr.Plugin.Common.dll')
+          # Verify from build output (ILRepack packaging not available in CI)
+          $outputDir = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/bin/Release/net6.0'
+          if (-not (Test-Path $outputDir)) { Write-Error "Build output not found: $outputDir"; exit 1 }
+          $dlls = Get-ChildItem $outputDir -Filter *.dll | ForEach-Object { $_.Name }
+          $allowed = @('Lidarr.Plugin.Tidalarr.dll','Lidarr.Plugin.Common.dll','Lidarr.Plugin.Abstractions.dll')
           $disallowed = $dlls | Where-Object { $_ -like 'Lidarr.*' -and -not ($allowed -contains $_) }
           if ($disallowed) { Write-Error "Disallowed host assemblies found: $($disallowed -join ', ')"; exit 1 }
           Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
 
-      - name: Upload package artifact
+      - name: Upload build artifacts
         # actions/upload-artifact v4.6.2
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: plugin-package
-          path: src/Tidalarr/artifacts/packages/*.zip
+          name: plugin-build
+          path: |
+            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Tidalarr.dll
+            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Tidalarr.pdb
+            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Common.dll
+            plugin.json
 
 
