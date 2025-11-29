@@ -7,6 +7,7 @@ namespace Tidalarr.Tests.Unit;
 /// 100% Coverage: TidalProtocol static class testing
 /// Tests URL validation, parsing, and construction
 /// </summary>
+[Trait("scope", "cli")]
 public class TidalProtocolTests
 {
     [Theory]
