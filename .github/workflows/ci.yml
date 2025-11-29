@@ -35,18 +35,15 @@ jobs:
             8.0.x
             9.0.x
 
-      - name: Prepare host stub assemblies
-        shell: pwsh
-        run: |
-          $hostOutput = Join-Path $env:GITHUB_WORKSPACE 'ext/Lidarr/_output/net6.0'
-          $prepareStub = Join-Path $env:GITHUB_WORKSPACE 'ext/Lidarr.Plugin.Common/scripts/prepare-host-stub.ps1'
-          & $prepareStub -OutputPath $hostOutput
-
       - name: Formatting check (repo-only)
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
-          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
+          # Format check individual projects to avoid dependency on external Lidarr assemblies
+          # HostBridge is excluded as it requires Lidarr.Core/Common which are downloaded by ci.ps1
+          dotnet format src/Tidalarr/Tidalarr.csproj --verify-no-changes -v minimal
+          dotnet format tests/Tidalarr.Tests/Tidalarr.Tests.csproj --verify-no-changes -v minimal
+          dotnet format TidalCLI/TidalCLI.csproj --verify-no-changes -v minimal
 
       - name: Run unified plugin pipeline
         shell: pwsh
