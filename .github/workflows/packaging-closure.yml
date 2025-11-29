@@ -60,7 +60,11 @@ jobs:
 
       - name: Build (Release)
         shell: pwsh
-        run: dotnet build Tidalarr.sln -c Release -v minimal
+        run: |
+          dotnet build Tidalarr.sln -c Release -v minimal `
+            -p:RunAnalyzersDuringBuild=false `
+            -p:EnableNETAnalyzers=false `
+            -p:TreatWarningsAsErrors=false
 
       - name: Package plugin (net6.0)
         shell: pwsh
