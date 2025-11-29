@@ -29,6 +29,16 @@ csharp_new_line_before_members = true
 
 # File headers are not required
 file_header_template = none
+dotnet_diagnostic.IDE0073.severity = none
+
+# Namespace style - allow file-scoped namespaces
+dotnet_diagnostic.IDE0130.severity = none
+dotnet_diagnostic.IDE0160.severity = none
+
+# Code style preferences - relaxed for flexibility
+dotnet_diagnostic.IDE0011.severity = suggestion
+dotnet_diagnostic.IDE0270.severity = suggestion
+dotnet_diagnostic.IDE0005.severity = warning
 
 # JSON files
 [*.json]
