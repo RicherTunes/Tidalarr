@@ -1,0 +1,87 @@
+name: CodeQL Security Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly Monday 3 AM
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Non-blocking - requires GitHub Advanced Security (Code Scanning)
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['csharp']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+
+      - name: Extract Lidarr Plugins Branch Assemblies
+        run: |
+          # Extract assemblies from plugins branch Docker image (same as main CI)
+          mkdir -p ext/Lidarr/_output/net6.0
+          IMAGE="ghcr.io/hotio/lidarr:pr-plugins"
+          echo "Pulling $IMAGE..."
+          docker pull "$IMAGE"
+          cid=$(docker create "$IMAGE")
+          echo "Extracting assemblies from container..."
+          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+          docker rm "$cid" >/dev/null
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net6.0 \;
+
+          # Verify plugins branch API is present
+          if ! strings ext/Lidarr/_output/net6.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
+            echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
+            exit 1
+          fi
+          echo "[OK] Plugins branch assemblies extracted successfully"
+        shell: bash
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - ext/**
+              - tests/**
+
+      - name: Build
+        run: |
+          # Build main plugin with plugins branch assemblies
+          dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release \
+            -p:UsePluginsBranch=true \
+            -p:RunAnalyzersDuringBuild=false \
+            -p:EnableNETAnalyzers=false \
+            -p:TreatWarningsAsErrors=false
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true
