@@ -1,4 +1,5 @@
 name: 🔥 Multi-Plugin Smoke Test
+# Triggered by push/PR or manual dispatch
 
 on:
   push:
