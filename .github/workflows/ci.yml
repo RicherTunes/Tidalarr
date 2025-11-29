@@ -35,6 +35,13 @@ jobs:
             8.0.x
             9.0.x
 
+      - name: Prepare host stub assemblies
+        shell: pwsh
+        run: |
+          $hostOutput = Join-Path $env:GITHUB_WORKSPACE 'ext/Lidarr/_output/net6.0'
+          $prepareStub = Join-Path $env:GITHUB_WORKSPACE 'ext/Lidarr.Plugin.Common/scripts/prepare-host-stub.ps1'
+          & $prepareStub -OutputPath $hostOutput
+
       - name: Formatting check (repo-only)
         if: github.event_name == 'pull_request'
         shell: pwsh
