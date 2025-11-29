@@ -61,7 +61,12 @@ jobs:
       - name: Build (Release)
         shell: pwsh
         run: |
-          dotnet build Tidalarr.sln -c Release -v minimal `
+          # Build only plugin projects, exclude HostBridge which requires full Lidarr assemblies
+          dotnet build src/Tidalarr/Tidalarr.csproj -c Release -v minimal `
+            -p:RunAnalyzersDuringBuild=false `
+            -p:EnableNETAnalyzers=false `
+            -p:TreatWarningsAsErrors=false
+          dotnet build TidalCLI/TidalCLI.csproj -c Release -v minimal `
             -p:RunAnalyzersDuringBuild=false `
             -p:EnableNETAnalyzers=false `
             -p:TreatWarningsAsErrors=false
