@@ -1,0 +1,50 @@
+root = true
+
+# C#
+[*.cs]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+# Analyzer severity baseline (tighten over time)
+dotnet_analyzer_diagnostic.severity = warning
+
+# Nullable/reference types
+dotnet_diagnostic.CS8618.severity = warning
+dotnet_diagnostic.CS8602.severity = warning
+
+# Style preferences
+dotnet_style_qualification_for_field = true:silent
+dotnet_style_qualification_for_property = false:silent
+dotnet_style_qualification_for_method = false:silent
+dotnet_style_qualification_for_event = false:silent
+
+# Using directives
+csharp_using_directive_placement = outside_namespace:silent
+
+# New line options
+csharp_new_line_before_members = true
+
+# File headers are not required
+file_header_template = none
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# XML/csproj files
+[*.{xml,csproj,props,targets}]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
