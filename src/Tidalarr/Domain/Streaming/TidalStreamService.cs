@@ -39,7 +39,7 @@ public class TidalStreamService
         try
         {
             var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
-            var parsed = _manifestParser.ParseManifest(playback.manifest, playback.manifestMimeType);
+            var parsed = _manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
             var encryptionType = playback.encryptionType;
             var isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
             var combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
@@ -79,7 +79,7 @@ public class TidalStreamService
         try
         {
             var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
-            var parsed = _manifestParser.ParseManifest(playback.manifest, playback.manifestMimeType);
+            var parsed = _manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
             var encryptionType = playback.encryptionType;
             var isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
             var combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
