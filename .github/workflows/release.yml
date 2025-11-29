@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PLUGIN_NAME: Lidarr.Plugin.Tidalarr
+  MINIMUM_LIDARR_VERSION: 2.13.2.4685
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.CI_PAT || secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Determine version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+        elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+        else
+          echo "Invalid trigger for release workflow"
+          exit 1
+        fi
+
+        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Release version: $VERSION"
+
+    - name: Setup Lidarr assemblies
+      run: |
+        echo "Setting up Lidarr assemblies for release build (plugins branch)..."
+        set -e
+        mkdir -p ext/Lidarr/_output/net6.0
+        if ! docker --version >/dev/null 2>&1; then
+          echo "[ERROR] Docker is required to fetch plugins-branch assemblies for release."
+          exit 1
+        fi
+        IMAGE="ghcr.io/hotio/lidarr:pr-plugins"
+        echo "Pulling $IMAGE (with retry)"
+        n=0
+        until [ "$n" -ge 3 ]; do
+          docker pull "$IMAGE" && break
+          n=$((n+1))
+          echo "Pull failed ($n). Retrying in 10s..." && sleep 10
+        done
+        cid=$(docker create "$IMAGE")
+        echo "Extracting assemblies from container..."
+        docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+        docker rm "$cid" >/dev/null
+        find ext/Lidarr/_extracted -type f -name "*.dll" -print -exec cp {} ext/Lidarr/_output/net6.0 \;
+        ls -la ext/Lidarr/_output/net6.0/ || true
+        if [ ! -f ext/Lidarr/_output/net6.0/Lidarr.dll ]; then
+          echo "[ERROR] Missing Lidarr.dll after extraction."
+          exit 1
+        fi
+        if ! strings ext/Lidarr/_output/net6.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
+          echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
+          exit 1
+        fi
+
+    - name: Build release
+      run: |
+        echo "Building release version $RELEASE_VERSION..."
+        dotnet restore src/Tidalarr/Tidalarr.csproj
+        dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
+          -p:Version="$RELEASE_VERSION" \
+          -p:AssemblyVersion="$RELEASE_VERSION" \
+          -p:FileVersion="$RELEASE_VERSION" \
+          -p:RunAnalyzersDuringBuild=false \
+          -p:EnableNETAnalyzers=false \
+          -p:TreatWarningsAsErrors=false
+
+    - name: Create release package
+      run: |
+        echo "Creating release package..."
+        cd src/Tidalarr/bin/Release/net6.0
+        zip -r "../../../../../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip" *
+        cd ../../../../../
+
+        echo "Release package created"
+        ls -la *.zip
+
+    - name: Generate release notes
+      run: |
+        echo "Generating release notes..."
+        echo "## ${{ env.PLUGIN_NAME }} v$RELEASE_VERSION" > release-notes.md
+        echo "" >> release-notes.md
+        echo "### Installation" >> release-notes.md
+        echo "1. Download the plugin ZIP file" >> release-notes.md
+        echo "2. Extract to your Lidarr plugins directory" >> release-notes.md
+        echo "3. Restart Lidarr" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "### Compatibility" >> release-notes.md
+        echo "- Lidarr: ${{ env.MINIMUM_LIDARR_VERSION }}+ (plugins branch)" >> release-notes.md
+        echo "- .NET: 6.0" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "### Changes" >> release-notes.md
+        echo "See [commit history](https://github.com/${{ github.repository }}/commits/v$RELEASE_VERSION) for detailed changes." >> release-notes.md
+
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: ${{ env.PLUGIN_NAME }} v${{ env.RELEASE_VERSION }}
+        body_path: release-notes.md
+        files: ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip
+        draft: false
+        prerelease: false
