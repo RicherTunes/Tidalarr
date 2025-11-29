@@ -29,3 +29,4 @@ jobs:
       lidarr_docker_version: 'pr-plugins-2.14.2.4786'
     secrets:
       SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
+
