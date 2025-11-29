@@ -49,4 +49,9 @@
   <ItemGroup>
     <None Include="fixtures\sample_tone.m4a" CopyToOutputDirectory="Always" />
   </ItemGroup>
+  <!-- Exclude HostBridge-dependent test files when HostBridge is excluded -->
+  <ItemGroup Condition="'$(ExcludeHostBridge)' == 'true'">
+    <Compile Remove="Unit\HostBridgeMappingTests.cs" />
+    <Compile Remove="Unit\TidalProtocolTests.cs" />
+  </ItemGroup>
 </Project>
