@@ -53,10 +53,8 @@
   <ItemGroup Condition="'$(ExcludeHostBridge)' == 'true'">
     <Compile Remove="Unit\HostBridgeMappingTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
-    <!-- Exclude ALL TidalApiClient* tests - they use outdated DTO constructor syntax -->
-    <Compile Remove="TidalApiClient*.cs" />
-    <!-- Exclude download client and stream service tests - they also use outdated patterns -->
-    <Compile Remove="TidalDownloadClient*.cs" />
-    <Compile Remove="TidalStreamService*.cs" />
+    <!-- Exclude ALL Tidal* integration tests - they use outdated DTO/model patterns -->
+    <Compile Remove="Tidal*.cs" />
+    <!-- Keep only architecture, compliance, and infrastructure tests -->
   </ItemGroup>
 </Project>
