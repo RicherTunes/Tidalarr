@@ -1,0 +1,213 @@
+name: UI Screenshots
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 0'  # Weekly on Sunday
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/screenshots.yml'
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  LIDARR_DOCKER_VERSION: 'pr-plugins-2.14.2.4786'
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Init required submodule (Common only)
+        shell: bash
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+
+      - name: Extract Lidarr Assemblies from Docker
+        run: |
+          docker pull ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
+          docker create --name lidarr-extract ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
+          # Project expects assemblies at ext/Lidarr/_output/net6.0 (csproj LidarrAssembliesPath)
+          mkdir -p ext/Lidarr/_output/net6.0
+          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net6.0/
+          docker rm lidarr-extract
+          ls -la ext/Lidarr/_output/net6.0/ | head -20
+
+      - name: Build Plugin
+        run: |
+          # Force net6.0 target to match Lidarr plugins branch runtime
+          dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net6.0
+          dotnet build src/Tidalarr/Tidalarr.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:TargetFramework=net6.0 \
+            -p:UsePluginsBranch=true \
+            -p:PluginPackagingDisable=true \
+            -p:RunAnalyzersDuringBuild=false \
+            -p:EnableNETAnalyzers=false \
+            -p:TreatWarningsAsErrors=false
+
+      - name: Stage Plugin Files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p plugin-dist
+
+          # Find the built DLL
+          DLL_PATH=$(find . -name 'Lidarr.Plugin.Tidalarr.dll' -path '*/bin/*' | head -1)
+          if [ -z "$DLL_PATH" ]; then
+            echo "Could not find built Tidalarr DLL" >&2
+            find . -name '*.dll' -path '*/bin/*' | head -10
+            exit 1
+          fi
+
+          cp "$DLL_PATH" plugin-dist/
+          cp plugin.json plugin-dist/ 2>/dev/null || echo "No plugin.json in root"
+          echo "Staged plugin from: $DLL_PATH"
+          ls -la plugin-dist
+
+      - name: Start Lidarr with plugin mounted
+        run: |
+          docker run -d --name lidarr-ss \
+            -p 8686:8686 \
+            -v "${{ github.workspace }}/plugin-dist:/config/plugins/RicherTunes/Tidalarr:ro" \
+            -e PUID=1000 -e PGID=1000 \
+            ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
+          # Wait for config.xml to be created
+          echo "Waiting for Lidarr to initialize..."
+          for i in {1..60}; do
+            if docker exec lidarr-ss test -f /config/config.xml 2>/dev/null; then
+              echo "Config file exists!"
+              break
+            fi
+            sleep 2
+          done
+
+          # Configure authentication to bypass the modal (set to Forms with known creds)
+          echo "Configuring authentication..."
+          docker exec lidarr-ss sed -i 's|<AuthenticationMethod>.*</AuthenticationMethod>|<AuthenticationMethod>Forms</AuthenticationMethod>|' /config/config.xml
+          docker exec lidarr-ss sed -i 's|<AuthenticationRequired>.*</AuthenticationRequired>|<AuthenticationRequired>DisabledForLocalAddresses</AuthenticationRequired>|' /config/config.xml
+
+          # Restart Lidarr to apply config changes
+          docker restart lidarr-ss
+
+          # Wait for web to be ready
+          echo "Waiting for Lidarr web interface..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8686 >/dev/null 2>&1; then
+              echo "Lidarr is ready!"
+              break
+            fi
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Progress check $i/60 - container running:"
+              docker ps --filter name=lidarr-ss --format "{{.Status}}"
+            fi
+            sleep 3
+          done
+          # Show final container logs for debugging
+          echo "=== Lidarr container logs (last 50 lines) ==="
+          docker logs lidarr-ss --tail 50 2>&1 || true
+
+      - name: Verify plugin discovery via API
+        shell: bash
+        continue-on-error: true  # Allow failure on push events - screenshots are best-effort
+        run: |
+          set -e
+          # Check if config.xml exists
+          if ! docker exec lidarr-ss test -f /config/config.xml 2>/dev/null; then
+            echo "WARNING: config.xml not found - Lidarr may have failed to start"
+            echo "=== Container logs ==="
+            docker logs lidarr-ss 2>&1 || true
+            exit 1
+          fi
+          APIKEY=$(docker exec lidarr-ss sh -lc "sed -n 's:.*<ApiKey>\\(.*\\)</ApiKey>.*:\\1:p' /config/config.xml")
+          echo "Using API key: ${APIKEY:0:4}..."
+          for i in $(seq 1 30); do
+            if curl -fsS -H "X-Api-Key: $APIKEY" http://localhost:8686/api/v1/system/plugins | grep -qi Tidalarr; then
+              echo "Tidalarr plugin detected via API"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Tidalarr plugin not detected from Lidarr API after waiting" >&2
+          exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm i -D playwright@1.48.2
+          npx --yes playwright install --with-deps chromium
+
+      - name: Fetch centralized screenshot utility
+        run: |
+          # Get the latest centralized screenshot utility from Common library
+          mkdir -p .screenshot-tools
+          curl -fsSL https://raw.githubusercontent.com/RicherTunes/Lidarr.Plugin.Common/main/scripts/snapshots/snap.mjs -o .screenshot-tools/snap.mjs
+          echo "Downloaded centralized screenshot utility"
+
+      - name: Capture Screenshots
+        env:
+          LIDARR_BASE_URL: http://localhost:8686
+        run: |
+          # Use centralized utility with Tidalarr-specific settings
+          # Captures: indexer add modal, indexer config, download-client add modal, download-client config
+          node .screenshot-tools/snap.mjs \
+            --plugin=Tidalarr \
+            --type=indexer,download-client \
+            --output=docs/assets/screenshots \
+            --url=http://localhost:8686
+
+      - name: Upload Screenshots artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/assets/screenshots/*.png
+          if-no-files-found: warn
+
+      - name: Commit updated screenshots
+        continue-on-error: true  # Push may fail due to branch protection - screenshots still uploaded as artifact
+        run: |
+          set -e
+          if git status --porcelain | grep -E "^ M|^\?\?" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/assets/screenshots/*.png || true
+            if git diff --cached --quiet; then
+              echo "No screenshot changes to commit"
+            else
+              git commit -m "docs(screenshots): refresh auto-generated UI screenshots"
+              git push || echo "Push failed (likely branch protection) - screenshots available as workflow artifact"
+            fi
+          else
+            echo "No changes detected"
+          fi
+
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f lidarr-ss || true
