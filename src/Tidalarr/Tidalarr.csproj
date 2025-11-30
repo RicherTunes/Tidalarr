@@ -1,19 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.0.1</Version>
-    <FileVersion>1.0.1.0</FileVersion>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <AssemblyName>Lidarr.Plugin.Tidalarr</AssemblyName>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-    <Deterministic>true</Deterministic>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Version managed by Directory.Build.props from VERSION file -->
   </PropertyGroup>
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
@@ -24,19 +13,18 @@
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup Condition=" '$(UseInRepoCommon)' != 'true' ">
-    <!-- Pin to manifest.commonVersion; update when upstream publishes DiagnosticTapHandler -->
-    <PackageReference Include="Lidarr.Plugin.Abstractions" Version="1.1.5" />
-    <PackageReference Include="Lidarr.Plugin.Common" Version="1.1.5" />
+    <!-- Use centralized versions from Directory.Packages.props -->
+    <PackageReference Include="Lidarr.Plugin.Abstractions" />
+    <PackageReference Include="Lidarr.Plugin.Common" />
   </ItemGroup>
+  <!-- Dependencies use centralized versions from Directory.Packages.props -->
   <ItemGroup>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="9.5.4" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.4" />
-    <PackageReference Include="System.Text.Json" Version="6.0.11" />
-    <PackageReference Include="NLog" Version="5.0.0" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="NLog" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\plugin.json">
