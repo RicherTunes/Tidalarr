@@ -34,9 +34,14 @@ try {
     Write-Host "Restoring solution" -ForegroundColor Cyan
     dotnet restore "$repoRoot/Tidalarr.sln"
 
-    Write-Host "Building solution (Release configuration)" -ForegroundColor Cyan
-    # Build entire solution including test projects (build.ps1 only builds plugin)
-    dotnet build "$repoRoot/Tidalarr.sln" --configuration Release --no-restore `
+    Write-Host "Building plugin and test projects (Release configuration)" -ForegroundColor Cyan
+    # Build main plugin
+    dotnet build "$repoRoot/src/Tidalarr/Tidalarr.csproj" --configuration Release --no-restore `
+        -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
+
+    # Build test project (excluded from main solution build due to HostBridge requiring real Lidarr assemblies)
+    Write-Host "Building test project" -ForegroundColor Cyan
+    dotnet build "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" --configuration Release --no-restore `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
