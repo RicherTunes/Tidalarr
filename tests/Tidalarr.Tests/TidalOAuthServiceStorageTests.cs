@@ -21,7 +21,7 @@ public class TidalOAuthServiceStorageTests
     [Fact]
     public async Task ExchangeCodeAsync_SavesTokensToStorage()
     {
-        var response = new TidalTokenResponse("atk", "rtk", "Bearer", 3600, new("sess", "US", 1));
+        var response = new Tidalarr.Core.Models.TidalTokenResponse("atk", "rtk", "Bearer", 3600, new("sess", "US", 1));
         var http = new HttpClient(new tests_Tidalarr_Tests_Utils.RoutingHandler()
             .MapAny(JsonSerializer.Serialize(response)));
         var storage = new SpyStorage();
