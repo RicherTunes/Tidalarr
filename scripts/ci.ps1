@@ -31,18 +31,21 @@ try {
     Write-Host "Verifying plugin manifest alignment" -ForegroundColor Cyan
     & $verifyPlugin
 
-    Write-Host "Restoring solution" -ForegroundColor Cyan
-    dotnet restore "$repoRoot/Tidalarr.sln"
+    # Restore only the projects we can build (HostBridge requires real Lidarr assemblies not available in CI)
+    Write-Host "Restoring plugin project" -ForegroundColor Cyan
+    dotnet restore "$repoRoot/src/Tidalarr/Tidalarr.csproj"
 
-    Write-Host "Building plugin and test projects (Release configuration)" -ForegroundColor Cyan
-    # Build main plugin
+    Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
     dotnet build "$repoRoot/src/Tidalarr/Tidalarr.csproj" --configuration Release --no-restore `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
 
-    # Build test project (excluded from main solution build due to HostBridge requiring real Lidarr assemblies)
-    Write-Host "Building test project" -ForegroundColor Cyan
+    # Build test project without HostBridge (requires real Lidarr assemblies not available in CI)
+    Write-Host "Restoring test project (excluding HostBridge)" -ForegroundColor Cyan
+    dotnet restore "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -p:SkipHostBridge=true
+
+    Write-Host "Building test project (excluding HostBridge)" -ForegroundColor Cyan
     dotnet build "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" --configuration Release --no-restore `
-        -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
+        -p:SkipHostBridge=true -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
     try {
@@ -60,11 +63,11 @@ try {
     Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
     if ($IncludeCliTests) {
         Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+        dotnet test "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-build -p:SkipHostBridge=true
     }
     else {
         Write-Host "Excluding CLI-scope tests (scope=cli) for PR/CI runs" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build --filter "scope!=cli"
+        dotnet test "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-build -p:SkipHostBridge=true --filter "scope!=cli"
     }
 
     if (-not $SkipPackage) {
