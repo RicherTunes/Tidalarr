@@ -107,6 +107,7 @@ oauth.json
 ## Plugin Development
 # ML models and training data (if added later)
 models/
+!src/Tidalarr/Core/Models/
 training-data/
 *.model
 ml-cache/
