@@ -8,7 +8,14 @@
     <!-- Suppress analyzer warnings from Common library submodule -->
     <!-- RS0025: PublicAPI duplicate entries in submodule - not our concern -->
     <NoWarn>$(NoWarn);RS0025</NoWarn>
+    <!-- Define constant when HostBridge is skipped (for conditional compilation) -->
+    <DefineConstants Condition="'$(SkipHostBridge)' == 'true'">$(DefineConstants);SKIP_HOST_BRIDGE</DefineConstants>
   </PropertyGroup>
+
+  <!-- Exclude HostBridge tests when HostBridge is skipped -->
+  <ItemGroup Condition="'$(SkipHostBridge)' == 'true'">
+    <Compile Remove="**/*HostBridge*.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="coverlet.msbuild" Version="6.0.0">
