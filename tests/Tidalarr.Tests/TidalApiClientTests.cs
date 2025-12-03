@@ -15,13 +15,26 @@ public class TidalApiClientTests
     public async Task SearchAsync_ValidQuery_ReturnsResults()
     {
         // Arrange
-        var mockSearchResponse = new TidalSearchResponseDto(
-            albums: new TidalAlbumsResponseDto(new List<TidalAlbumDto> {
-                new("123", "Test Album", new TidalArtistDto("Test Artist", "456"),
-                    DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover123")
-            }),
-            tracks: new TidalTracksResponseDto(new List<TidalTrackDto>())
-        );
+        var mockSearchResponse = new TidalSearchResponseDto
+        {
+            albums = new TidalPagedItemsDto<TidalAlbumDto>
+            {
+                items = new List<TidalAlbumDto>
+                {
+                    new TidalAlbumDto
+                    {
+                        id = "123",
+                        title = "Test Album",
+                        artist = new TidalArtistDto { name = "Test Artist", id = "456" },
+                        releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                        numberOfTracks = 10,
+                        streamReady = true,
+                        cover = "cover123"
+                    }
+                }
+            },
+            tracks = new TidalPagedItemsDto<TidalTrackDto> { items = new List<TidalTrackDto>() }
+        };
 
         var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockSearchResponse));
         var mockAuth = CreateAuthenticatedMockAuth();
@@ -41,17 +54,26 @@ public class TidalApiClientTests
     public async Task GetTrackAsync_ValidId_ReturnsTrack()
     {
         // Arrange
-        var mockTrackResponse = new TidalTrackDto(
-            id: "123",
-            title: "Test Track",
-            artist: new TidalArtistDto("Test Artist", "789"),
-            album: new TidalAlbumDto("456", "Test Album", new TidalArtistDto("Test Artist", "789"),
-                DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover456"),
-            trackNumber: 1,
-            duration: 240,
-            streamReady: true,
-            audioQuality: "LOSSLESS"
-        );
+        var mockTrackResponse = new TidalTrackDto
+        {
+            id = "123",
+            title = "Test Track",
+            artist = new TidalArtistDto { name = "Test Artist", id = "789" },
+            album = new TidalAlbumDto
+            {
+                id = "456",
+                title = "Test Album",
+                artist = new TidalArtistDto { name = "Test Artist", id = "789" },
+                releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                numberOfTracks = 10,
+                streamReady = true,
+                cover = "cover456"
+            },
+            trackNumber = 1,
+            duration = 240,
+            streamReady = true,
+            audioQuality = "LOSSLESS"
+        };
 
         var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockTrackResponse));
         var mockAuth = CreateAuthenticatedMockAuth();
@@ -73,12 +95,13 @@ public class TidalApiClientTests
     public async Task GetStreamInfoAsync_ValidTrack_ReturnsStreamInfo()
     {
         // Arrange
-        var mockStreamResponse = new TidalPlaybackInfoDto(
-            manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes(CreateTestDashManifest())),
-            manifestMimeType: "application/dash+xml",
-            encryptionType: "NONE",
-            securityToken: null
-        );
+        var mockStreamResponse = new TidalPlaybackInfoDto
+        {
+            manifest = Convert.ToBase64String(Encoding.UTF8.GetBytes(CreateTestDashManifest())),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
 
         var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockStreamResponse));
         var mockAuth = CreateAuthenticatedMockAuth();
@@ -174,6 +197,3 @@ public class MockTidalAuth : ITidalAuth
         return Task.FromResult(_tokens);
     }
 }
-
-
-

@@ -13,15 +13,26 @@ public class TidalApiClientMappingTests
     [Fact]
     public async Task GetTrackAsync_UnknownAudioQuality_MapsToHigh()
     {
-        var dto = new TidalTrackDto(
-            id: "t1",
-            title: "T",
-            artist: new("A", "a1"),
-            album: new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"),
-            trackNumber: 1,
-            duration: 10,
-            streamReady: true,
-            audioQuality: "UNKNOWN");
+        var dto = new TidalTrackDto
+        {
+            id = "t1",
+            title = "T",
+            artist = new TidalArtistDto { name = "A", id = "a1" },
+            album = new TidalAlbumDto
+            {
+                id = "al1",
+                title = "Alb",
+                artist = new TidalArtistDto { name = "A", id = "a1" },
+                releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                numberOfTracks = 1,
+                streamReady = true,
+                cover = "c"
+            },
+            trackNumber = 1,
+            duration = 10,
+            streamReady = true,
+            audioQuality = "UNKNOWN"
+        };
         var http = new HttpClient(new Handler(JsonSerializer.Serialize(dto)));
         var client = new TidalApiClient(http, new Auth());
         var track = await client.GetTrackAsync("t1");
@@ -53,7 +64,3 @@ public class TidalApiClientMappingTests
         }
     }
 }
-
-
-
-

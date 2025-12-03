@@ -16,11 +16,13 @@ public class TidalApiClientCompressedResponseTests
     [Fact]
     public async Task TidalApiClientPlaybackInfoGzipBodyParses()
     {
-        var playback = new TidalPlaybackInfoDto(
-            manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes("manifest")),
-            manifestMimeType: "application/dash+xml",
-            encryptionType: "NONE",
-            securityToken: null);
+        var playback = new TidalPlaybackInfoDto
+        {
+            manifest = Convert.ToBase64String(Encoding.UTF8.GetBytes("manifest")),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
 
         var handler = new GzipPlaybackHandler(JsonSerializer.Serialize(playback));
         var client = new TidalApiClient(new HttpClient(handler), new AuthStub());
@@ -81,6 +83,3 @@ public class TidalApiClientCompressedResponseTests
         public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(_tokens);
     }
 }
-
-
-

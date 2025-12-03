@@ -35,11 +35,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        var playback = new TidalPlaybackInfoDto(
-            manifest: encoded,
-            manifestMimeType: "application/vnd.tidal.bts",
-            encryptionType: "AES_CTR",
-            securityToken: null);
+        var playback = new TidalPlaybackInfoDto
+        {
+            manifest = encoded,
+            manifestMimeType = "application/vnd.tidal.bts",
+            encryptionType = "AES_CTR",
+            securityToken = null
+        };
 
         var service = new Tidalarr.Domain.Streaming.TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         var manifest = await service.GetParsedManifestAsync("track-token", TidalQuality.Lossless);
@@ -60,11 +62,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        var playback = new TidalPlaybackInfoDto(
-            manifest: encoded,
-            manifestMimeType: "application/vnd.tidal.bts",
-            encryptionType: "AES_CTR",
-            securityToken: null);
+        var playback = new TidalPlaybackInfoDto
+        {
+            manifest = encoded,
+            manifestMimeType = "application/vnd.tidal.bts",
+            encryptionType = "AES_CTR",
+            securityToken = null
+        };
 
         var service = new Tidalarr.Domain.Streaming.TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         var info = await service.GetStreamInfoParsedAsync("track-info-token", TidalQuality.Lossless);
@@ -110,19 +114,12 @@ public class TidalStreamServiceManifestParsingBtsTests
 
     private class TestsCommonCore : Tidalarr.Core.Interfaces.ITidalCore
     {
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
-        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.UtcNow, "", true));
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId, "", new List<string>(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
+        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("", "", new List<string>(), new List<TidalTrackInfo>(), new List<TidalQuality>(), DateTime.UtcNow, "", true));
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new List<TidalTrackInfo>());
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default) => GetAlbumAsync(albumId, cancellationToken);
-        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo>(), 0, false));
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, Array.Empty<string>(), ".flac", "audio/flac", false, null));
         public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
     }
 }
-
-
-
-
-
-
-

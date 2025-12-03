@@ -15,15 +15,26 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetTrackAsync_BuildsExpectedEndpointAndQuery()
     {
-        var capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto(
-            id: "t1",
-            title: "T",
-            artist: new("A", "a1"),
-            album: new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"),
-            trackNumber: 1,
-            duration: 10,
-            streamReady: true,
-            audioQuality: "LOSSLESS")));
+        var capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto
+        {
+            id = "t1",
+            title = "T",
+            artist = new TidalArtistDto { name = "A", id = "a1" },
+            album = new TidalAlbumDto
+            {
+                id = "al1",
+                title = "Alb",
+                artist = new TidalArtistDto { name = "A", id = "a1" },
+                releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                numberOfTracks = 1,
+                streamReady = true,
+                cover = "c"
+            },
+            trackNumber = 1,
+            duration = 10,
+            streamReady = true,
+            audioQuality = "LOSSLESS"
+        }));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetTrackAsync("t1");
         Assert.Contains("/tracks/t1", capture.LastRequest?.RequestUri?.AbsoluteUri);
@@ -34,7 +45,16 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumAsync_BuildsExpectedEndpointAndQuery()
     {
-        var dto = new TidalAlbumDto("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
+        var dto = new TidalAlbumDto
+        {
+            id = "al1",
+            title = "Alb",
+            artist = new TidalArtistDto { name = "A", id = "a1" },
+            releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            numberOfTracks = 1,
+            streamReady = true,
+            cover = "c"
+        };
         var capture = new CaptureHandler(JsonSerializer.Serialize(dto));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetAlbumAsync("al1");
@@ -45,7 +65,33 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumTracksAsync_BuildsExpectedEndpointAndQuery()
     {
-        var payload = new TidalAlbumTracksDto(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
+        var payload = new TidalAlbumTracksDto
+        {
+            items = new List<TidalTrackDto>
+            {
+                new TidalTrackDto
+                {
+                    id = "t",
+                    title = "T",
+                    artist = new TidalArtistDto { name = "A", id = "a1" },
+                    album = new TidalAlbumDto
+                    {
+                        id = "al1",
+                        title = "Alb",
+                        artist = new TidalArtistDto { name = "A", id = "a1" },
+                        releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                        numberOfTracks = 1,
+                        streamReady = true,
+                        cover = "c"
+                    },
+                    trackNumber = 1,
+                    duration = 10,
+                    streamReady = true,
+                    audioQuality = "LOSSLESS"
+                }
+            },
+            totalNumberOfItems = 1
+        };
         var capture = new CaptureHandler(JsonSerializer.Serialize(payload));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetAlbumTracksAsync("al1");
@@ -56,7 +102,11 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task SearchAsync_BuildsExpectedEndpointAndQuery()
     {
-        var payload = new TidalSearchResponseDto(new(new()), new(new()));
+        var payload = new TidalSearchResponseDto
+        {
+            albums = new TidalPagedItemsDto<TidalAlbumDto> { items = new List<TidalAlbumDto>() },
+            tracks = new TidalPagedItemsDto<TidalTrackDto> { items = new List<TidalTrackDto>() }
+        };
         var capture = new CaptureHandler(JsonSerializer.Serialize(payload));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.SearchAsync("abc");
@@ -68,7 +118,13 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetStreamInfoAsync_BuildsExpectedEndpoint_AndParams()
     {
-        var dto = new TidalPlaybackInfoDto(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
+        var dto = new TidalPlaybackInfoDto
+        {
+            manifest = Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
         var capture = new CaptureHandler(JsonSerializer.Serialize(dto));
         var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
         var _ = await client.GetStreamInfoAsync("t1", TidalQuality.Lossless);
@@ -109,7 +165,3 @@ public class TidalApiClientRequestTests
         }
     }
 }
-
-
-
-

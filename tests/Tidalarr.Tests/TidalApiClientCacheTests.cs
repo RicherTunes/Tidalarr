@@ -16,8 +16,26 @@ public class TidalApiClientCacheTests
         var http = new HttpClient(new ThrowingHandler());
         var auth = new StubAuth();
         var cache = new PrepopulatedCache()
-            .With("tracks/123", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" } }, new TidalTrackDto(
-                id: "123", title: "Title", artist: new("Artist", "a1"), album: new("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover"), trackNumber: 1, duration: 200, streamReady: true, audioQuality: "LOSSLESS"));
+            .With("tracks/123", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" } }, new TidalTrackDto
+            {
+                id = "123",
+                title = "Title",
+                artist = new TidalArtistDto { name = "Artist", id = "a1" },
+                album = new TidalAlbumDto
+                {
+                    id = "al1",
+                    title = "Album",
+                    artist = new TidalArtistDto { name = "Artist", id = "a1" },
+                    releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                    numberOfTracks = 10,
+                    streamReady = true,
+                    cover = "cover"
+                },
+                trackNumber = 1,
+                duration = 200,
+                streamReady = true,
+                audioQuality = "LOSSLESS"
+            });
 
         var client = new TidalApiClient(http, auth, cache);
         var track = await client.GetTrackAsync("123");
@@ -30,7 +48,16 @@ public class TidalApiClientCacheTests
     {
         var http = new HttpClient(new ThrowingHandler());
         var auth = new StubAuth();
-        var dto = new TidalAlbumDto("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover");
+        var dto = new TidalAlbumDto
+        {
+            id = "al1",
+            title = "Album",
+            artist = new TidalArtistDto { name = "Artist", id = "a1" },
+            releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            numberOfTracks = 10,
+            streamReady = true,
+            cover = "cover"
+        };
         var cache = new PrepopulatedCache()
             .With("albums/al1", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
 
@@ -45,8 +72,27 @@ public class TidalApiClientCacheTests
     {
         var http = new HttpClient(new ThrowingHandler());
         var auth = new StubAuth();
-        var track = new TidalTrackDto("t1", "Song", new("Artist", "a1"), new("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover"), 1, 180, true, "LOSSLESS");
-        var dto = new TidalAlbumTracksDto(new List<TidalTrackDto> { track }, 1);
+        var track = new TidalTrackDto
+        {
+            id = "t1",
+            title = "Song",
+            artist = new TidalArtistDto { name = "Artist", id = "a1" },
+            album = new TidalAlbumDto
+            {
+                id = "al1",
+                title = "Album",
+                artist = new TidalArtistDto { name = "Artist", id = "a1" },
+                releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                numberOfTracks = 10,
+                streamReady = true,
+                cover = "cover"
+            },
+            trackNumber = 1,
+            duration = 180,
+            streamReady = true,
+            audioQuality = "LOSSLESS"
+        };
+        var dto = new TidalAlbumTracksDto { items = new List<TidalTrackDto> { track }, totalNumberOfItems = 1 };
         var cache = new PrepopulatedCache()
             .With("albums/al1/tracks", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" }, { "limit", "1000" } }, dto);
 
@@ -61,7 +107,11 @@ public class TidalApiClientCacheTests
     {
         var http = new HttpClient(new ThrowingHandler());
         var auth = new StubAuth();
-        var dto = new TidalSearchResponseDto(new(new()), new(new()));
+        var dto = new TidalSearchResponseDto
+        {
+            albums = new TidalPagedItemsDto<TidalAlbumDto> { items = new List<TidalAlbumDto>() },
+            tracks = new TidalPagedItemsDto<TidalTrackDto> { items = new List<TidalTrackDto>() }
+        };
         var cache = new PrepopulatedCache()
             .With("search", new Dictionary<string, string> { { "query", "abc" }, { "types", "albums,tracks" }, { "limit", "100" }, { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
 
@@ -125,6 +175,3 @@ class PrepopulatedCache : IStreamingResponseCache
     public void Clear() { }
     public void ClearEndpoint(string endpoint) { }
 }
-
-
-

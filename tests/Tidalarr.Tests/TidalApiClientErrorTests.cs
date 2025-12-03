@@ -65,11 +65,13 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetStreamInfoAsync_DoesNotCachePlaybackInfo()
     {
-        var playbackDto = new TidalPlaybackInfoDto(
-            manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes("test")),
-            manifestMimeType: "application/dash+xml",
-            encryptionType: "NONE",
-            securityToken: null);
+        var playbackDto = new TidalPlaybackInfoDto
+        {
+            manifest = Convert.ToBase64String(Encoding.UTF8.GetBytes("test")),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
 
         var httpClient = new HttpClient(new ApiMockHttpMessageHandler(JsonSerializer.Serialize(playbackDto), HttpStatusCode.OK));
         var auth = new MockAuth();
@@ -127,6 +129,3 @@ public class SpyCache : IStreamingResponseCache
     public void Clear() { }
     public void ClearEndpoint(string endpoint) { }
 }
-
-
-

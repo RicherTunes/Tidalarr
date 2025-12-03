@@ -21,14 +21,19 @@ public class TidalApiClientReleaseDateFallbackTests
     [Fact]
     public async Task GetAlbumAsync_InvalidReleaseDate_UsesMinValue()
     {
-        var dto = new TidalAlbumDto("al1", "A", new("X", "a1"), "not-a-date", 1, 1, true, "c");
+        var dto = new TidalAlbumDto
+        {
+            id = "al1",
+            title = "A",
+            artist = new TidalArtistDto { name = "X", id = "a1" },
+            releaseDate = "not-a-date",
+            numberOfTracks = 1,
+            streamReady = true,
+            cover = "c"
+        };
         var http = new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(JsonSerializer.Serialize(dto)));
         var client = new TidalApiClient(http, new Auth());
         var album = await client.GetAlbumAsync("al1");
         Assert.Equal(DateTime.MinValue, album.ReleaseDate);
     }
 }
-
-
-
-

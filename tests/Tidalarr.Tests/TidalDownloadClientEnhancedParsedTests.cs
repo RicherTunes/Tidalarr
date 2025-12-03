@@ -20,15 +20,15 @@ public class TidalDownloadClientEnhancedParsedTests
         private readonly TidalPlaybackInfoDto _playback;
         public CoreStub(TidalPlaybackInfoDto dto) { _playback = dto; }
         public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalTrackInfo(trackId, "Song", new() { "Artist" }, "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
+            => Task.FromResult(new TidalTrackInfo(trackId, "Song", new List<string> { "Artist" }, "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalAlbumInfo(albumId, "Album", new() { "Artist" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "cover", true));
+            => Task.FromResult(new TidalAlbumInfo(albumId, "Album", new List<string> { "Artist" }, new List<TidalTrackInfo>(), new List<TidalQuality> { TidalQuality.Lossless }, DateTime.UtcNow, "cover", true));
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<TidalTrackInfo>());
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
             => GetAlbumAsync(albumId, cancellationToken);
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+            => Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo>(), 0, false));
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
             => Task.FromResult(new TidalStreamInfo(trackId, Array.Empty<string>(), ".m4a", "application/dash+xml", false, null));
         public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
@@ -81,7 +81,13 @@ public class TidalDownloadClientEnhancedParsedTests
     [Fact(Skip = "File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
     public async Task EnhancedDownload_ParsedMpd_Flac_NoExtraction_WhenDisabled()
     {
-        var dto = new TidalPlaybackInfoDto(Base64(MpdFlac()), "application/dash+xml", "NONE", null);
+        var dto = new TidalPlaybackInfoDto
+        {
+            manifest = Base64(MpdFlac()),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
         var streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
         var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = false };
@@ -97,7 +103,13 @@ public class TidalDownloadClientEnhancedParsedTests
     [Fact(Skip = "File move semantics can lock on Windows CI; run locally to exercise end-to-end write path")]
     public async Task EnhancedDownload_ParsedMpd_Aac_NoExtraction_EvenWhenEnabled()
     {
-        var dto = new TidalPlaybackInfoDto(Base64(MpdAac()), "application/dash+xml", "NONE", null);
+        var dto = new TidalPlaybackInfoDto
+        {
+            manifest = Base64(MpdAac()),
+            manifestMimeType = "application/dash+xml",
+            encryptionType = "NONE",
+            securityToken = null
+        };
         var streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
         var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
         var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = true };
@@ -110,7 +122,3 @@ public class TidalDownloadClientEnhancedParsedTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 }
-
-
-
-
