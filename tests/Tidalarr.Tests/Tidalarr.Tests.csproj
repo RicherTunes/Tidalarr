@@ -12,9 +12,11 @@
     <DefineConstants Condition="'$(SkipHostBridge)' == 'true'">$(DefineConstants);SKIP_HOST_BRIDGE</DefineConstants>
   </PropertyGroup>
 
-  <!-- Exclude HostBridge tests when HostBridge is skipped -->
+  <!-- Exclude HostBridge and TidalProtocol tests when HostBridge is skipped -->
+  <!-- TidalProtocol is defined in HostBridge project -->
   <ItemGroup Condition="'$(SkipHostBridge)' == 'true'">
     <Compile Remove="**/*HostBridge*.cs" />
+    <Compile Remove="**/*TidalProtocol*.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
