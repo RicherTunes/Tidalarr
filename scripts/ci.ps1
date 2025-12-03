@@ -34,8 +34,10 @@ try {
     Write-Host "Restoring solution" -ForegroundColor Cyan
     dotnet restore "$repoRoot/Tidalarr.sln"
 
-    Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
-    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false
+    Write-Host "Building solution (Release configuration)" -ForegroundColor Cyan
+    # Build entire solution including test projects (build.ps1 only builds plugin)
+    dotnet build "$repoRoot/Tidalarr.sln" --configuration Release --no-restore `
+        -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
     try {
