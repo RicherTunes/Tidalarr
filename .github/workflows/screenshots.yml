@@ -60,7 +60,8 @@ jobs:
           # CRITICAL: Build with net6.0 to match Lidarr plugins branch runtime (.NET 6.0)
           # The plugins branch (v2.x) still uses .NET 6.0, not .NET 8.0
           # Building for net8.0 causes ReflectionTypeLoadException when plugin loads
-          dotnet restore src/Tidalarr/Tidalarr.csproj
+          # Must restore and build with matching TargetFramework to generate correct assets
+          dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net6.0
           dotnet build src/Tidalarr/Tidalarr.csproj \
             --configuration Release \
             --no-restore \
