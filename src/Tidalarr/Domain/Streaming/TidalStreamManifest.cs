@@ -171,9 +171,7 @@ public class StreamManifest
 
     private string ParseCodecs(string codecsAttr)
     {
-        if (codecsAttr.Contains("flac"))
-            return "FLAC";
-        else return codecsAttr.Contains("mp4a.40.5") || codecsAttr.Contains("mp4a") ? "MP4A" : "MP4A";
+        return codecsAttr.Contains("flac") ? "FLAC" : codecsAttr.Contains("mp4a.40.5") || codecsAttr.Contains("mp4a") ? "MP4A" : "MP4A";
     }
 
     private string DetermineFileExtension(string codecsAttr)

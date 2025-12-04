@@ -9,8 +9,8 @@ public class TidalSettingsTests
     public void TidalSettings_DefaultValues_AreCorrect()
     {
         // Arrange & Act
-        TidalIndexerSettings indexer = new TidalIndexerSettings();
-        TidalDownloadClientSettings download = new TidalDownloadClientSettings();
+        TidalIndexerSettings indexer = new();
+        TidalDownloadClientSettings download = new();
 
         // Assert
         Assert.Equal("US", indexer.TidalMarket);
@@ -28,7 +28,7 @@ public class TidalSettingsTests
     public void ValidateRedirectUrl_ProducesExpectedDiagnostics(string redirectUrl, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
-        TidalIndexerSettings settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             RedirectUrl = redirectUrl,
             ConfigPath = Path.GetTempPath()
@@ -49,8 +49,8 @@ public class TidalSettingsTests
     public void TidalSettings_InheritsFromBaseStreamingSettings()
     {
         // Arrange & Act
-        TidalIndexerSettings indexer = new TidalIndexerSettings();
-        TidalDownloadClientSettings download = new TidalDownloadClientSettings();
+        TidalIndexerSettings indexer = new();
+        TidalDownloadClientSettings download = new();
 
         // Assert - Verify inheritance from shared library
         _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(indexer);
@@ -71,7 +71,7 @@ public class TidalSettingsTests
     public void ValidateMarket_VariousMarkets_ValidatesCorrectly(string market, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
-        TidalIndexerSettings settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             TidalMarket = market,
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",

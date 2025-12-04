@@ -49,8 +49,8 @@ public class TidalStreamServiceAdditionalTests
     [Fact]
     public async Task ValidateStreamAvailability_EmptyChunks_ReturnsFalse()
     {
-        TidalStreamInfo info = new TidalStreamInfo("t1", [], ".flac", "audio/flac", false, null);
-        TidalStreamService svc = new TidalStreamService(new CoreStub(info), new TidalManifestParser());
+        TidalStreamInfo info = new("t1", [], ".flac", "audio/flac", false, null);
+        TidalStreamService svc = new(new CoreStub(info), new TidalManifestParser());
         bool ok = await svc.ValidateStreamAvailabilityAsync("t1", TidalQuality.High);
         Assert.False(ok);
     }
@@ -58,8 +58,8 @@ public class TidalStreamServiceAdditionalTests
     [Fact]
     public async Task ValidateStreamAvailability_EmptyExtension_ReturnsFalse()
     {
-        TidalStreamInfo info = new TidalStreamInfo("t1", ["https://u"], string.Empty, "audio/flac", false, null);
-        TidalStreamService svc = new TidalStreamService(new CoreStub(info), new TidalManifestParser());
+        TidalStreamInfo info = new("t1", ["https://u"], string.Empty, "audio/flac", false, null);
+        TidalStreamService svc = new(new CoreStub(info), new TidalManifestParser());
         bool ok = await svc.ValidateStreamAvailabilityAsync("t1", TidalQuality.High);
         Assert.False(ok);
     }

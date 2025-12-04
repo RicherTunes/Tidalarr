@@ -62,10 +62,10 @@ public class TidalDownloadClientEnhancedFlowTests
     public async Task DownloadTrackEnhancedAsync_WritesFile_ForDifferentMime(string mime, string ext)
     {
         string tmp = Path.Combine(Path.GetTempPath(), $"tidal_enh_{Guid.NewGuid():N}");
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(mime, ext), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(mime, ext), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalStreamService streamSvc = new(new CoreStub(mime, ext), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(mime, ext), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", tmp, TidalQuality.Lossless);
         Assert.True(res.Success);

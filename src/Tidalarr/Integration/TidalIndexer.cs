@@ -36,7 +36,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         {
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
             ILogger ologger = loggerFactory.CreateLogger("OAuthDelegatingHandler");
-            Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler handler = new Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler(tokenProvider, ologger)
+            Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler handler = new(tokenProvider, ologger)
             {
                 InnerHandler = new HttpClientHandler()
             };
@@ -126,7 +126,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     protected override ValidationResult ValidateSettings(TidalIndexerSettings settings)
     {
-        ValidationResult result = new ValidationResult();
+        ValidationResult result = new();
         if (string.IsNullOrEmpty(settings.TidalMarket))
             result.Errors.Add(new ValidationFailure("TidalMarket", "Tidal market is required"));
         if (string.IsNullOrEmpty(settings.ConfigPath))
@@ -150,11 +150,10 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             });
         }
 
-        string[] codes = validation.Errors
+        string[] codes = [.. validation.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
             .Select(e => e.ErrorCode)
-            .Distinct()
-            .ToArray();
+            .Distinct()];
 
         return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
             PluginErrorCode.ValidationFailed,
@@ -194,10 +193,10 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                         ["service"] = ServiceName
                     }))
                 : PluginOperationResult<Dictionary<string, string>>.Success(new()
-            {
-                ["id"] = OK,
-                ["service"] = ServiceName
-            });
+                {
+                    ["id"] = OK,
+                    ["service"] = ServiceName
+                });
         }
         catch (Exception ex)
         {

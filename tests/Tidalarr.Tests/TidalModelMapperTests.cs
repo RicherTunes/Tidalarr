@@ -11,7 +11,7 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingTrack_MapsCoreFields_AndMetadata()
     {
-        TidalTrackInfo track = new TidalTrackInfo(
+        TidalTrackInfo track = new(
             Id: "t1",
             Title: "Song",
             Artists: ["Artist A", "Artist B"],
@@ -38,7 +38,7 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingAlbum_MapsQualities_CoverUrls_AndMetadata()
     {
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: "al1",
             Title: "Album",
             Artists: ["Artist A"],
@@ -60,7 +60,7 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingSearchResults_CombinesAlbumsAndTracks()
     {
-        TidalSearchResults results = new TidalSearchResults(
+        TidalSearchResults results = new(
             Albums:
             [
                 new("al1","A", ["X"], new(), new(){TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)

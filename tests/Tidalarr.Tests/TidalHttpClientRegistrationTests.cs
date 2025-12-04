@@ -8,7 +8,7 @@ public class TidalHttpClientRegistrationTests
     [Fact]
     public void IHttpClientFactory_IsRegistered_ByModule()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // DI contains the HttpClient factory registration

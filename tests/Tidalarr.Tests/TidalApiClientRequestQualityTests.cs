@@ -57,9 +57,9 @@ public class TidalApiClientRequestQualityTests
     [InlineData(TidalQuality.HiRes, "HI_RES_LOSSLESS")]
     public async Task GetStreamInfoAsync_IncludesAudioQualityParameter(TidalQuality q, string expectedParam)
     {
-        TidalPlaybackInfoDto dto = new TidalPlaybackInfoDto(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
-        CaptureHandler handler = new CaptureHandler(JsonSerializer.Serialize(dto));
-        TidalApiClient api = new TidalApiClient(new HttpClient(handler), new Auth());
+        TidalPlaybackInfoDto dto = new(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
+        CaptureHandler handler = new(JsonSerializer.Serialize(dto));
+        TidalApiClient api = new(new HttpClient(handler), new Auth());
         TidalStreamInfo _ = await api.GetStreamInfoAsync("t1", q);
         Assert.Contains($"audioquality={expectedParam}", handler.Last!.RequestUri!.Query);
     }

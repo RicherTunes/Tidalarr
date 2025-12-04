@@ -12,7 +12,7 @@ public class TidalApiClientMappingTests
     [Fact]
     public async Task GetTrackAsync_UnknownAudioQuality_MapsToHigh()
     {
-        TidalTrackDto dto = new TidalTrackDto(
+        TidalTrackDto dto = new(
             id: "t1",
             title: "T",
             artist: new("A", "a1"),
@@ -21,8 +21,8 @@ public class TidalApiClientMappingTests
             duration: 10,
             streamReady: true,
             audioQuality: "UNKNOWN");
-        HttpClient http = new HttpClient(new Handler(JsonSerializer.Serialize(dto)));
-        TidalApiClient client = new TidalApiClient(http, new Auth());
+        HttpClient http = new(new Handler(JsonSerializer.Serialize(dto)));
+        TidalApiClient client = new(http, new Auth());
         TidalTrackInfo track = await client.GetTrackAsync("t1");
         Assert.Equal(TidalQuality.High, track.Quality);
     }
@@ -63,7 +63,7 @@ public class TidalApiClientMappingTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpResponseMessage msg = new HttpResponseMessage(this._code)
+            HttpResponseMessage msg = new(this._code)
             {
                 Content = new StringContent(this._body, Encoding.UTF8, "application/json")
             };

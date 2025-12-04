@@ -107,11 +107,11 @@ public class TidalDownloadClientEnhancedParsedTests
     [Fact]
     public async Task EnhancedDownload_ParsedMpd_Flac_NoExtraction_WhenDisabled()
     {
-        TidalPlaybackInfoDto dto = new TidalPlaybackInfoDto(Base64(MpdFlac()), "application/dash+xml", "NONE", null);
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = false };
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(dto), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalPlaybackInfoDto dto = new(Base64(MpdFlac()), "application/dash+xml", "NONE", null);
+        TidalStreamService streamSvc = new(new CoreStub(dto), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = false };
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(dto), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         string outPath = Path.Combine(Path.GetTempPath(), $"tidal_enh_parsed_{Guid.NewGuid():N}");
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", outPath, TidalQuality.Lossless);
 
@@ -123,11 +123,11 @@ public class TidalDownloadClientEnhancedParsedTests
     [Fact]
     public async Task EnhancedDownload_ParsedMpd_Aac_NoExtraction_EvenWhenEnabled()
     {
-        TidalPlaybackInfoDto dto = new TidalPlaybackInfoDto(Base64(MpdAac()), "application/dash+xml", "NONE", null);
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(dto), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = true };
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(dto), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalPlaybackInfoDto dto = new(Base64(MpdAac()), "application/dash+xml", "NONE", null);
+        TidalStreamService streamSvc = new(new CoreStub(dto), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath(), ExtractFlac = true };
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(dto), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         string outPath = Path.Combine(Path.GetTempPath(), $"tidal_enh_parsed_{Guid.NewGuid():N}");
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", outPath, TidalQuality.Lossless);
 

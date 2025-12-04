@@ -25,8 +25,8 @@ public class TidalChunkDownloaderRetryTests
     [Fact]
     public async Task DownloadChunkWithRetryAsync_EventuallySucceeds()
     {
-        FlakyHandler handler = new FlakyHandler(failures: 2, payload: [1, 2, 3]);
-        TidalChunkDownloader dl = new TidalChunkDownloader(new HttpClient(handler));
+        FlakyHandler handler = new(failures: 2, payload: [1, 2, 3]);
+        TidalChunkDownloader dl = new(new HttpClient(handler));
 
         MethodInfo? mi = typeof(TidalChunkDownloader).GetMethod("DownloadChunkWithRetryAsync", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(mi);
@@ -40,8 +40,8 @@ public class TidalChunkDownloaderRetryTests
     [Fact]
     public async Task DownloadChunkWithRetryAsync_ExhaustsRetries_ThrowsHttpRequest()
     {
-        FlakyHandler handler = new FlakyHandler(failures: 3, payload: []);
-        TidalChunkDownloader dl = new TidalChunkDownloader(new HttpClient(handler));
+        FlakyHandler handler = new(failures: 3, payload: []);
+        TidalChunkDownloader dl = new(new HttpClient(handler));
         MethodInfo? mi = typeof(TidalChunkDownloader).GetMethod("DownloadChunkWithRetryAsync", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(mi);
         Task<byte[]> task = (Task<byte[]>)mi!.Invoke(dl, ["https://chunk", 3])!;

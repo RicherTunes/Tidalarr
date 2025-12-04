@@ -90,10 +90,10 @@ public class TidalModuleEndToEndDiFlowsTests
     [Fact]
     public async Task DI_Flow_IndexerSearch_And_DownloadValidation_Work()
     {
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings { TidalMarket = "US", RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp", EnableCache = true, CacheDuration = 5 };
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalIndexerSettings indexerSettings = new() { TidalMarket = "US", RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = "C:/temp", EnableCache = true, CacheDuration = 5 };
+        TidalDownloadClientSettings downloadSettings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
 
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);

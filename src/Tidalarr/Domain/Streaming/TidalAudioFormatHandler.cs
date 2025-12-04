@@ -84,7 +84,7 @@ public static class AudioFormatHandler
         try
         {
             // Use ffprobe to detect codecs
-            SystemAudioProcessor ap = new SystemAudioProcessor();
+            SystemAudioProcessor ap = new();
             (int exitCode, string stdout, string _) = ap.RunFfprobe($"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"");
             if (exitCode == 0)
             {
@@ -109,7 +109,7 @@ public static class AudioFormatHandler
     {
         try
         {
-            SystemAudioProcessor ap = new SystemAudioProcessor();
+            SystemAudioProcessor ap = new();
             (int exitCode, string _, string _) = ap.RunFfprobe("-version");
             return exitCode == 0;
         }

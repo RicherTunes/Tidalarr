@@ -13,7 +13,7 @@ public class EndToEndIntegrationTests
     [Fact]
     public void EndToEnd_SearchAndDownloadFlow_WorksWithMocks()
     {
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_auth_code&state=test_state",
@@ -21,7 +21,7 @@ public class EndToEndIntegrationTests
             CacheDuration = 15,
             ConfigPath = Path.GetTempPath()
         };
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath(),
@@ -48,7 +48,7 @@ public class EndToEndIntegrationTests
     [Fact]
     public void EndToEnd_AllComponentsIntegrate_NoMissingDependencies()
     {
-        TidalIndexerSettings indexerSettings2 = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings2 = new()
         {
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
             ConfigPath = Path.GetTempPath()
@@ -56,7 +56,7 @@ public class EndToEndIntegrationTests
 
         try
         {
-            ServiceCollection services = new ServiceCollection();
+            ServiceCollection services = new();
             _ = services.AddSingleton(indexerSettings2);
             _ = services.AddSingleton(new TidalDownloadClientSettings
             {
@@ -83,7 +83,7 @@ public class EndToEndIntegrationTests
     [InlineData("INVALID", TidalQuality.Lossless, false, TidalarrValidationCodes.MarketUnsupported)]
     public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, TidalQuality quality, bool shouldBeValid, string? expectedErrorCode)
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             TidalMarket = market,
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
@@ -91,7 +91,7 @@ public class EndToEndIntegrationTests
         };
 
         FluentValidation.Results.ValidationResult validation = settings.ValidateFluent();
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = quality,
             DownloadPath = Path.GetTempPath()
@@ -107,7 +107,7 @@ public class EndToEndIntegrationTests
 
     private static IServiceProvider CreateServiceProvider(TidalIndexerSettings indexerSettings, TidalDownloadClientSettings downloadSettings)
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);

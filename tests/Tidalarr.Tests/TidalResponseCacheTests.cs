@@ -7,14 +7,14 @@ public class TidalResponseCacheTests
     [Fact]
     public void GenerateCacheKey_OrderIndependent_ForNonSensitiveParameters()
     {
-        TidalResponseCache cache = new TidalResponseCache();
+        TidalResponseCache cache = new();
         string endpoint = "/tracks/123/playbackinfopostpaywall";
-        Dictionary<string, string> p1 = new Dictionary<string, string>
+        Dictionary<string, string> p1 = new()
         {
             ["countryCode"] = "US",
             ["audioquality"] = "LOSSLESS"
         };
-        Dictionary<string, string> p2 = new Dictionary<string, string>
+        Dictionary<string, string> p2 = new()
         {
             ["audioquality"] = "LOSSLESS",
             ["countryCode"] = "US"
@@ -28,7 +28,7 @@ public class TidalResponseCacheTests
     [Fact]
     public void ShouldCache_PlaybackInfo_ReturnsFalse_OthersTrue()
     {
-        TidalResponseCache cache = new TidalResponseCache();
+        TidalResponseCache cache = new();
         Assert.False(cache.ShouldCache("/tracks/1/playbackinfopostpaywall"));
         Assert.True(cache.ShouldCache("/tracks/1"));
         Assert.True(cache.ShouldCache("/albums/1"));
@@ -39,7 +39,7 @@ public class TidalResponseCacheTests
     [Fact]
     public void GetCacheDuration_MatchesEndpointPolicies()
     {
-        TidalResponseCache cache = new TidalResponseCache();
+        TidalResponseCache cache = new();
         Assert.Equal(TimeSpan.FromMinutes(5), cache.GetCacheDuration("/search"));
         Assert.Equal(TimeSpan.FromHours(2), cache.GetCacheDuration("/albums/123"));
         Assert.Equal(TimeSpan.FromHours(4), cache.GetCacheDuration("/albums/123/tracks"));
@@ -51,7 +51,7 @@ public class TidalResponseCacheTests
     [Fact]
     public void InvalidateHelpers_BuildExpectedPrefixes()
     {
-        TidalResponseCache cache = new TidalResponseCache();
+        TidalResponseCache cache = new();
         // These calls should not throw and should accept expected prefixes
         cache.InvalidateAlbum("al1");
         cache.InvalidateArtist("ar1");

@@ -41,7 +41,7 @@ public class TidalApiClientMalformedTrackTests
     {
         var track = new { id = "t1", title = "T", artist = new { name = "A", id = "a1" }, album = (object?)null, trackNumber = 1, duration = 10, streamReady = true, audioQuality = "LOSSLESS" };
         string json = JsonSerializer.Serialize(track);
-        TidalApiClient api = new TidalApiClient(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+        TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
         _ = await Assert.ThrowsAnyAsync<Exception>(() => api.GetTrackAsync("t1"));
     }
 }

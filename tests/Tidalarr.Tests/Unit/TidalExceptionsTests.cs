@@ -13,7 +13,7 @@ public class TidalExceptionsTests
     public void TidalException_Constructor_WithMessage_SetsMessageCorrectly()
     {
         // Arrange & Act
-        TidalException exception = new TidalException("Test message");
+        TidalException exception = new("Test message");
 
         // Assert
         Assert.Equal("Test message", exception.Message);
@@ -24,10 +24,10 @@ public class TidalExceptionsTests
     public void TidalException_Constructor_WithMessageAndInnerException_SetsBoth()
     {
         // Arrange
-        ArgumentException innerException = new ArgumentException("Inner error");
+        ArgumentException innerException = new("Inner error");
 
         // Act
-        TidalException exception = new TidalException("Outer message", innerException);
+        TidalException exception = new("Outer message", innerException);
 
         // Assert
         Assert.Equal("Outer message", exception.Message);
@@ -38,7 +38,7 @@ public class TidalExceptionsTests
     public void TidalAuthenticationException_InheritsFrom_TidalException()
     {
         // Arrange & Act
-        TidalAuthenticationException exception = new TidalAuthenticationException("Auth failed");
+        TidalAuthenticationException exception = new("Auth failed");
 
         // Assert
         _ = Assert.IsAssignableFrom<TidalException>(exception);
@@ -49,10 +49,10 @@ public class TidalExceptionsTests
     public void TidalAuthenticationException_Constructor_WithInnerException_SetsCorrectly()
     {
         // Arrange
-        HttpRequestException innerException = new HttpRequestException("HTTP error");
+        HttpRequestException innerException = new("HTTP error");
 
         // Act
-        TidalAuthenticationException exception = new TidalAuthenticationException("Authentication failed", innerException);
+        TidalAuthenticationException exception = new("Authentication failed", innerException);
 
         // Assert
         Assert.Equal("Authentication failed", exception.Message);
@@ -63,7 +63,7 @@ public class TidalExceptionsTests
     public void TidalRateLimitException_Constructor_SetsRetryAfterSeconds()
     {
         // Arrange & Act
-        TidalRateLimitException exception = new TidalRateLimitException(120, "Rate limited");
+        TidalRateLimitException exception = new(120, "Rate limited");
 
         // Assert
         Assert.Equal(120, exception.RetryAfterSeconds);
@@ -75,7 +75,7 @@ public class TidalExceptionsTests
     public void TidalStreamUnavailableException_Constructor_SetsTrackIdAndQuality()
     {
         // Arrange & Act
-        TidalStreamUnavailableException exception = new TidalStreamUnavailableException(
+        TidalStreamUnavailableException exception = new(
             "track123",
             TidalQuality.HiRes,
             "Stream not available");
@@ -91,7 +91,7 @@ public class TidalExceptionsTests
     public void TidalApiException_Constructor_WithStatusCode_SetsStatusCode()
     {
         // Arrange & Act
-        TidalApiException exception = new TidalApiException("API error", 404);
+        TidalApiException exception = new("API error", 404);
 
         // Assert
         Assert.Equal("API error", exception.Message);
@@ -103,10 +103,10 @@ public class TidalExceptionsTests
     public void TidalApiException_Constructor_WithInnerExceptionAndStatusCode_SetsBoth()
     {
         // Arrange
-        HttpRequestException innerException = new HttpRequestException("Network error");
+        HttpRequestException innerException = new("Network error");
 
         // Act
-        TidalApiException exception = new TidalApiException("API failed", innerException, 500);
+        TidalApiException exception = new("API failed", innerException, 500);
 
         // Assert
         Assert.Equal("API failed", exception.Message);
@@ -118,7 +118,7 @@ public class TidalExceptionsTests
     public void TidalApiException_Constructor_WithoutStatusCode_StatusCodeIsNull()
     {
         // Arrange & Act
-        TidalApiException exception = new TidalApiException("No status code");
+        TidalApiException exception = new("No status code");
 
         // Assert
         Assert.Null(exception.StatusCode);
@@ -128,7 +128,7 @@ public class TidalExceptionsTests
     public void TidalManifestException_Constructor_SetsManifestType()
     {
         // Arrange & Act
-        TidalManifestException exception = new TidalManifestException("application/dash+xml", "Manifest parsing failed");
+        TidalManifestException exception = new("application/dash+xml", "Manifest parsing failed");
 
         // Assert
         Assert.Equal("application/dash+xml", exception.ManifestType);

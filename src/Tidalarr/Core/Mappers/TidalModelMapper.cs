@@ -9,7 +9,7 @@ public class TidalModelMapper
     {
         // Create a non-null StreamingTrack even if inputs are sparse
         string artistName = string.Join(", ", track.Artists ?? []);
-        StreamingTrack streaming = new StreamingTrack
+        StreamingTrack streaming = new()
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
@@ -55,7 +55,7 @@ public class TidalModelMapper
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
         string artistName = string.Join(", ", album.Artists ?? []);
-        StreamingAlbum streaming = new StreamingAlbum
+        StreamingAlbum streaming = new()
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,

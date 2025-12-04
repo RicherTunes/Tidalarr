@@ -11,9 +11,9 @@ public class FileTokenStoreLockTests
         string path = Path.Combine(Path.GetTempPath(), $"tidalarr_lock_{Guid.NewGuid():N}.json");
         await File.WriteAllTextAsync(path, "{}");
 
-        await using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
-        FileTokenStore storage = new FileTokenStore(path);
-        TidalTokens tokens = new TidalTokens("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        await using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.None);
+        FileTokenStore storage = new(path);
+        TidalTokens tokens = new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
 
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveTokensAsync(tokens));
 

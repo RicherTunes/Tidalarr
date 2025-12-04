@@ -16,7 +16,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
     public Task<TidalStreamInfo> GetStreamInfoWithManifestParsingAsync(string trackId, TidalQuality quality, string manifest, string manifestMimeType)
     {
         TidalManifest parsed = this._manifestParser.ParseManifest(manifest, manifestMimeType);
-        TidalStreamInfo info = new TidalStreamInfo(
+        TidalStreamInfo info = new(
             TrackId: trackId,
             ChunkUrls: parsed.ChunkUrls,
             FileExtension: parsed.FileExtension,

@@ -26,7 +26,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         string optimizedQuery = sanitizedQuery;
         if (this._queryOptimizer != null)
         {
-            QueryContext context = new QueryContext
+            QueryContext context = new()
             {
                 Type = QueryType.Album,
                 PreferredQuality = MapToStreamingQualityTier(preferredQuality),
@@ -57,14 +57,14 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         // Learn from results if optimizer is available
         if (this._queryOptimizer != null)
         {
-            QueryResults queryResults = new QueryResults
+            QueryResults queryResults = new()
             {
                 ResultCount = searchResults.TotalCount,
                 ExecutionTime = stopwatch.Elapsed,
                 RelevanceScore = CalculateRelevanceScore(searchResults)
             };
 
-            QueryFeedback feedback = new QueryFeedback
+            QueryFeedback feedback = new()
             {
                 Satisfied = searchResults.TotalCount > 0,
                 Rating = searchResults.TotalCount > 0 ? 4 : 2 // Simple scoring
@@ -75,19 +75,18 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         }
 
         // Enhance results with quality detection
-        List<TidalAlbumInfo> enhancedAlbums = searchResults.Albums.Select(album =>
-            EnhanceAlbumWithQuality(album, preferredQuality)).ToList();
+        List<TidalAlbumInfo> enhancedAlbums = [.. searchResults.Albums.Select(album =>
+            EnhanceAlbumWithQuality(album, preferredQuality))];
 
-        List<TidalTrackInfo> enhancedTracksAll = searchResults.Tracks.Select(track =>
-            EnhanceTrackWithQuality(track, preferredQuality)).ToList();
+        List<TidalTrackInfo> enhancedTracksAll = [.. searchResults.Tracks.Select(track =>
+            EnhanceTrackWithQuality(track, preferredQuality))];
 
         // Filter likely preview/sample content early
-        List<TidalTrackInfo> enhancedTracks = enhancedTracksAll
+        List<TidalTrackInfo> enhancedTracks = [.. enhancedTracksAll
             .Where(t => !PreviewDetectionUtility.IsLikelyPreview(
                 url: string.Empty,
                 durationSeconds: t.Duration,
-                restrictionMessage: string.Empty))
-            .ToList();
+                restrictionMessage: string.Empty))];
 
         return new TidalSearchResults(
             Albums: enhancedAlbums,
@@ -107,7 +106,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         string optimizedQuery = sanitizedQuery;
         if (this._queryOptimizer != null)
         {
-            QueryContext context = new QueryContext
+            QueryContext context = new()
             {
                 Type = MapSearchTypeToQueryType(searchType),
                 Country = "US"

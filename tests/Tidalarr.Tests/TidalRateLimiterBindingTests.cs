@@ -10,7 +10,7 @@ public class TidalRateLimiterBindingTests
     [Fact]
     public void IUniversalAdaptiveRateLimiter_ResolvesTo_TidalRateLimiter()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
         ServiceProvider sp = services.BuildServiceProvider();
 

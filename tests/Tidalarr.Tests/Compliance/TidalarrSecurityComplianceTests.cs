@@ -55,7 +55,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
             foreach (string? pattern in credentialPatterns)
             {
-                Regex regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                Regex regex = new(pattern, RegexOptions.IgnoreCase);
                 Match match = regex.Match(content);
                 if (match.Success)
                 {
@@ -76,9 +76,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Credentials_TokensStoredSecurely()
     {
         Type[] allTypes = this._pluginAssembly.GetTypes();
-        List<Type> tokenStorageTypes = allTypes.Where(t =>
+        List<Type> tokenStorageTypes = [.. allTypes.Where(t =>
             t.Name.Contains("TokenStore", StringComparison.OrdinalIgnoreCase) ||
-            t.Name.Contains("TokenStorage", StringComparison.OrdinalIgnoreCase)).ToList();
+            t.Name.Contains("TokenStorage", StringComparison.OrdinalIgnoreCase))];
 
         // Verify token storage types have some protection
         foreach (Type? storageType in tokenStorageTypes)
@@ -179,8 +179,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        Regex sqlPattern = new Regex(@"(""[^""]*\+\s*\w+[^""]*""|string\.Format\([^)]*SQL|new\s+SqlCommand\([^)]*\+)",
-            RegexOptions.IgnoreCase);
+        Regex sqlPattern = MyRegex1();
         List<string> issues = [];
 
         foreach (string file in csFiles)
@@ -202,7 +201,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        Regex pathPattern = new Regex(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
+        Regex pathPattern = new(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
             RegexOptions.IgnoreCase);
         _ = new List<string>();
 
@@ -254,7 +253,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
             foreach (string? pattern in logPatterns)
             {
-                Regex regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                Regex regex = new(pattern, RegexOptions.IgnoreCase);
                 if (regex.IsMatch(content))
                 {
                     issues.Add($"Potential sensitive data logging in {fileName}");
@@ -324,4 +323,6 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
     [GeneratedRegex(@"""http://[^""]*""", RegexOptions.IgnoreCase, "en-CA")]
     private static partial Regex MyRegex();
+    [GeneratedRegex(@"(""[^""]*\+\s*\w+[^""]*""|string\.Format\([^)]*SQL|new\s+SqlCommand\([^)]*\+)", RegexOptions.IgnoreCase, "en-CA")]
+    private static partial Regex MyRegex1();
 }

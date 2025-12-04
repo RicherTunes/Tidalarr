@@ -12,9 +12,9 @@ public class TidalApiClientAlbumQualityTests
     [Fact]
     public async Task GetAlbumAsync_WithHiResAudioQuality_IncludesHiRes()
     {
-        TidalAlbumDto dto = new TidalAlbumDto("al1", "A", new("X", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c", audioQuality: "HI_RES_LOSSLESS");
-        HttpClient http = new HttpClient(new BodyHandler(JsonSerializer.Serialize(dto)));
-        TidalApiClient client = new TidalApiClient(http, new AuthStub());
+        TidalAlbumDto dto = new("al1", "A", new("X", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c", audioQuality: "HI_RES_LOSSLESS");
+        HttpClient http = new(new BodyHandler(JsonSerializer.Serialize(dto)));
+        TidalApiClient client = new(http, new AuthStub());
         TidalAlbumInfo album = await client.GetAlbumAsync("al1");
         Assert.Contains(TidalQuality.HiRes, album.AvailableQualities);
         Assert.Contains(TidalQuality.Lossless, album.AvailableQualities);
@@ -24,9 +24,9 @@ public class TidalApiClientAlbumQualityTests
     [Fact]
     public async Task GetAlbumAsync_WithoutHiRes_DoesNotIncludeHiRes()
     {
-        TidalAlbumDto dto = new TidalAlbumDto("al1", "A", new("X", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c", audioQuality: "LOSSLESS");
-        HttpClient http = new HttpClient(new BodyHandler(JsonSerializer.Serialize(dto)));
-        TidalApiClient client = new TidalApiClient(http, new AuthStub());
+        TidalAlbumDto dto = new("al1", "A", new("X", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c", audioQuality: "LOSSLESS");
+        HttpClient http = new(new BodyHandler(JsonSerializer.Serialize(dto)));
+        TidalApiClient client = new(http, new AuthStub());
         TidalAlbumInfo album = await client.GetAlbumAsync("al1");
         Assert.DoesNotContain(TidalQuality.HiRes, album.AvailableQualities);
         Assert.Contains(TidalQuality.Lossless, album.AvailableQualities);
@@ -68,7 +68,7 @@ public class TidalApiClientAlbumQualityTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpResponseMessage msg = new HttpResponseMessage(this._code)
+            HttpResponseMessage msg = new(this._code)
             {
                 Content = new StringContent(this._body, Encoding.UTF8, "application/json")
             };

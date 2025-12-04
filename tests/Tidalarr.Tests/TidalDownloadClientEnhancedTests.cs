@@ -73,10 +73,10 @@ public class TidalDownloadClientEnhancedTests
     public async Task DownloadTrackWithMetadataAsync_Succeeds_AndWritesFile()
     {
         string tmp = Path.Combine(Path.GetTempPath(), $"tidal_test_{Guid.NewGuid():N}.flac");
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub("https://chunk1"), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalStreamService streamSvc = new(new CoreStub("https://chunk1"), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         StreamingDownloadResult result = await client.DownloadTrackWithMetadataAsync("t1", tmp, TidalQuality.Lossless);
         Assert.True(result.Success);
@@ -89,10 +89,10 @@ public class TidalDownloadClientEnhancedTests
     public async Task DownloadTrackWithMetadataAsync_Failure_ReturnsError()
     {
         string tmp = Path.Combine(Path.GetTempPath(), $"tidal_test_{Guid.NewGuid():N}.flac");
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub("https://chunk1"), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new FailingHandler()));
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalStreamService streamSvc = new(new CoreStub("https://chunk1"), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new FailingHandler()));
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         StreamingDownloadResult result = await client.DownloadTrackWithMetadataAsync("t1", tmp, TidalQuality.Lossless);
         Assert.False(result.Success);

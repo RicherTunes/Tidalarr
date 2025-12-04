@@ -32,7 +32,7 @@ public class TidalSearchServiceOptimizerTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            TidalAlbumInfo album = new TidalAlbumInfo("al1", "Album", new() { "Artist" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "c", true);
+            TidalAlbumInfo album = new("al1", "Album", new() { "Artist" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "c", true);
             return Task.FromResult(new TidalSearchResults(new() { album }, new(), 1, false));
         }
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
@@ -70,8 +70,8 @@ public class TidalSearchServiceOptimizerTests
     [Fact]
     public async Task SearchWithQualityDetection_UsesOptimizer_AndLearns()
     {
-        OptimizerStub optimizer = new OptimizerStub();
-        TidalSearchService svc = new TidalSearchService(new CoreFake(), new TidalQualityDetector(), optimizer);
+        OptimizerStub optimizer = new();
+        TidalSearchService svc = new(new CoreFake(), new TidalQualityDetector(), optimizer);
         TidalSearchResults results = await svc.SearchWithQualityDetectionAsync("query", TidalQuality.Lossless);
         Assert.NotEmpty(results.Albums);
         // learning happens fire-and-forget; wait briefly

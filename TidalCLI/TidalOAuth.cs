@@ -85,7 +85,7 @@ public class TidalOAuthService(HttpClient httpClient, PKCEGenerator pkceGenerato
     {
         try
         {
-            Uri uri = new Uri(callbackUrl);
+            Uri uri = new(callbackUrl);
             System.Collections.Specialized.NameValueCollection query = HttpUtility.ParseQueryString(uri.Query);
 
             if (query["error"] != null)
@@ -107,11 +107,11 @@ public class TidalOAuthService(HttpClient httpClient, PKCEGenerator pkceGenerato
                     ErrorMessage = "No authorization code found"
                 }
                 : new TidalCallbackResult
-            {
-                IsSuccess = true,
-                AuthCode = code,
-                State = state ?? ""
-            };
+                {
+                    IsSuccess = true,
+                    AuthCode = code,
+                    State = state ?? ""
+                };
         }
         catch (Exception ex)
         {

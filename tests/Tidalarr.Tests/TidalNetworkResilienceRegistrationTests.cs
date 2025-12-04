@@ -9,7 +9,7 @@ public class TidalNetworkResilienceRegistrationTests
     [Fact]
     public void NetworkResilienceService_IsRegistered_ByModule()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
         ServiceProvider sp = services.BuildServiceProvider();
 

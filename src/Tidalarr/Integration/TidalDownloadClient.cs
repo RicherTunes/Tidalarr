@@ -25,7 +25,7 @@ public class TidalDownloadClient(
     private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader;
     private readonly ITidalCore _apiClient = apiClient;
     private readonly TidalQualityDetector _qualityDetector = qualityDetector;
-    private readonly TidalModelMapper _mapper = new TidalModelMapper();
+    private readonly TidalModelMapper _mapper = new();
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
@@ -74,7 +74,7 @@ public class TidalDownloadClient(
 
     protected override ValidationResult ValidateDownloadSettings(TidalDownloadClientSettings settings)
     {
-        ValidationResult result = new ValidationResult();
+        ValidationResult result = new();
 
         if (!Enum.IsDefined(typeof(TidalQuality), settings.PreferredQuality))
         {
@@ -127,7 +127,7 @@ public class TidalDownloadClient(
             string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir);
 
-            Progress<ChunkDownloadProgress> progress = new Progress<ChunkDownloadProgress>(p =>
+            Progress<ChunkDownloadProgress> progress = new(p =>
             {
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
@@ -136,7 +136,7 @@ public class TidalDownloadClient(
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
-            await using FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+            await using FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write);
             audioStream.Position = 0;
             await audioStream.CopyToAsync(fileStream, cancellationToken);
 
@@ -224,10 +224,10 @@ public class TidalDownloadClient(
                 try { File.Delete(tempPath); } catch { /* ignore */ }
             }
 
-            Progress<int> progress = new Progress<int>();
+            Progress<int> progress = new();
             using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
 
-            await using (FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
                 await audioStream.CopyToAsync(fileStream, cancellationToken);
                 await fileStream.FlushAsync(cancellationToken);
@@ -275,7 +275,7 @@ public class TidalDownloadClient(
         try
         {
             string ext = (fileExtension ?? string.Empty).ToLowerInvariant();
-            using FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             Span<byte> header = stackalloc byte[12];
             int read = fs.Read(header);
             if (read < 4) return; // not enough to validate
@@ -331,7 +331,7 @@ public class TidalDownloadClient(
             bool ok = await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
             if (!ok)
             {
-                Dictionary<string, string> metaFail = new Dictionary<string, string>
+                Dictionary<string, string> metaFail = new()
                 {
                     ["id"] = CHUNK_UNAVAILABLE,
                     ["trackId"] = trackId,
@@ -356,7 +356,7 @@ public class TidalDownloadClient(
         }
         catch (Exception ex)
         {
-            Dictionary<string, string> metaErr = new Dictionary<string, string>
+            Dictionary<string, string> metaErr = new()
             {
                 ["id"] = STREAM_ERROR,
                 ["trackId"] = trackId,

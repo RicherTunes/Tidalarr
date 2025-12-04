@@ -31,7 +31,7 @@ public class SilverMedalIntegrationTests
         Assert.Contains("tidal.com", authUrl.AuthorizationUrl);
 
         // STEP 3: Search Functionality
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -53,9 +53,9 @@ public class SilverMedalIntegrationTests
         TidalIndexerSettings indexerSettings = CreateValidIndexerSettings();
         TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
 
-        HttpClient httpClient = new HttpClient();
-        PKCEGenerator pkceGenerator = new PKCEGenerator();
-        TidalOAuthService authService = new TidalOAuthService(httpClient, pkceGenerator);
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService authService = new(httpClient, pkceGenerator);
 
         TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
         Assert.NotNull(authUrl);
@@ -65,7 +65,7 @@ public class SilverMedalIntegrationTests
         TidalCallbackResult callbackResult = authService.ParseCallbackUrl(testCallback);
         Assert.True(callbackResult.IsSuccess);
 
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -82,14 +82,14 @@ public class SilverMedalIntegrationTests
     [Fact]
     public void SilverMedal_ErrorHandling_WorksGracefully()
     {
-        TidalIndexerSettings invalidSettings = new TidalIndexerSettings();
+        TidalIndexerSettings invalidSettings = new();
         FluentValidation.Results.ValidationResult validation = invalidSettings.ValidateFluent();
         Assert.False(validation.IsValid);
-        string[] errorCodes = validation.Errors.Select(e => e.ErrorCode).ToArray();
+        string[] errorCodes = [.. validation.Errors.Select(e => e.ErrorCode)];
         Assert.Contains(TidalarrValidationCodes.RedirectRequired, errorCodes);
         Assert.Contains(TidalarrValidationCodes.ConfigPathRequired, errorCodes);
 
-        TidalOAuthService authService = new TidalOAuthService(new HttpClient(), new PKCEGenerator());
+        TidalOAuthService authService = new(new HttpClient(), new PKCEGenerator());
 
         TidalCallbackResult invalidCallback1 = authService.ParseCallbackUrl("not-a-url");
         Assert.False(invalidCallback1.IsSuccess);
@@ -109,7 +109,7 @@ public class SilverMedalIntegrationTests
     {
         _ = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.HiRes, DownloadPath = Path.GetTempPath() };
 
-        Domain.Quality.TidalQualityDetector qualityDetector = new Domain.Quality.TidalQualityDetector();
+        Domain.Quality.TidalQualityDetector qualityDetector = new();
         TidalQuality detectedQuality = qualityDetector.DetectQualityFromString("HI_RES_LOSSLESS");
         Assert.Equal(TidalQuality.HiRes, detectedQuality);
 
@@ -144,9 +144,9 @@ public class SilverMedalIntegrationTests
 
     private static async Task<TidalAuthUrl> SimulateOAuthFlow()
     {
-        HttpClient httpClient = new HttpClient();
-        PKCEGenerator pkceGenerator = new PKCEGenerator();
-        TidalOAuthService authService = new TidalOAuthService(httpClient, pkceGenerator);
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService authService = new(httpClient, pkceGenerator);
 
         return await authService.GenerateAuthUrlAsync();
     }

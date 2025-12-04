@@ -30,7 +30,7 @@ public class PathValidationExtensionsTests
     [Fact]
     public void IsReasonablePath_LongLocalPath_ReturnsTrue()
     {
-        string longSegment = new string('a', 260);
+        string longSegment = new('a', 260);
         string path = $"C:/{longSegment}/file";
         Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
     }
@@ -38,7 +38,7 @@ public class PathValidationExtensionsTests
     [Fact]
     public void IsReasonablePath_LongUncPath_ReturnsTrue()
     {
-        string longSegment = new string('b', 260);
+        string longSegment = new('b', 260);
         string path = $"\\\\server\\share\\{longSegment}\\folder";
         Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
     }

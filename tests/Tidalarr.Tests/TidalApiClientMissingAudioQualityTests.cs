@@ -41,7 +41,7 @@ public class TidalApiClientMissingAudioQualityTests
     {
         var dto = new { id = "t1", title = "T", artist = new { name = "A", id = "a1" }, album = new { id = "al1", title = "A", artist = new { name = "A", id = "a1" }, releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"), numberOfTracks = 1, duration = 1, streamReady = true, cover = "c" }, trackNumber = 1, duration = 10, streamReady = true };
         string json = JsonSerializer.Serialize(dto);
-        TidalApiClient api = new TidalApiClient(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+        TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
         try
         {
             TidalTrackInfo track = await api.GetTrackAsync("t1");

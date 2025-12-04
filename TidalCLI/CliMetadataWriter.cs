@@ -115,7 +115,7 @@ internal static class CliMetadataWriter
 
         if (coverArtBytes?.Length > 0)
         {
-            Picture picture = new Picture([.. coverArtBytes])
+            Picture picture = new([.. coverArtBytes])
             {
                 MimeType = "image/jpeg",
                 Type = PictureType.FrontCover,
@@ -140,12 +140,12 @@ internal static class CliMetadataWriter
 
     private static HttpClient CreateCoverArtClient()
     {
-        HttpClientHandler handler = new HttpClientHandler
+        HttpClientHandler handler = new()
         {
             AutomaticDecompression = System.Net.DecompressionMethods.All
         };
 
-        HttpClient client = new HttpClient(handler, disposeHandler: true);
+        HttpClient client = new(handler, disposeHandler: true);
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Tidalarr CLI Metadata/1.0");
         return client;
     }

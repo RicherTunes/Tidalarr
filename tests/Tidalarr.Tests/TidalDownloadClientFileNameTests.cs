@@ -69,9 +69,9 @@ public class TidalDownloadClientFileNameTests
     [InlineData("  T  I  T  L  E  ", "  A  R  T  I  S  T  ", "00 - A  R  T  I  S  T  - T  I  T  L  E.flac")] // Multiple spaces preserved in middle
     public void GenerateFileName_SanitizesReservedAndInvalidCharacters(string title, string artist, string expectedEndsWith)
     {
-        ExposedDownloadClient client = new ExposedDownloadClient();
-        StreamingAlbum album = new StreamingAlbum { Artist = new StreamingArtist { Name = artist } };
-        StreamingTrack track = new StreamingTrack { Title = title, Artist = new StreamingArtist { Name = artist }, TrackNumber = 0 };
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = artist } };
+        StreamingTrack track = new() { Title = title, Artist = new StreamingArtist { Name = artist }, TrackNumber = 0 };
 
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.EndsWith(".flac", fileName);
@@ -93,9 +93,9 @@ public class TidalDownloadClientFileNameTests
     [Fact]
     public void GenerateFileName_ZeroPadsTrackNumber()
     {
-        ExposedDownloadClient client = new ExposedDownloadClient();
-        StreamingAlbum album = new StreamingAlbum { Artist = new StreamingArtist { Name = "Artist" } };
-        StreamingTrack track = new StreamingTrack { Title = "Title", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 3 };
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = "Title", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 3 };
 
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.StartsWith("03 - ", fileName);

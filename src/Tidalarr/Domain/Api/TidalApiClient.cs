@@ -17,7 +17,7 @@ namespace Tidalarr.Domain.Api;
 public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStreamingResponseCache? cache = null) : ITidalCore, IDisposable
 {
     private readonly HttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-    private readonly StreamingApiRequestBuilder _requestBuilder = new StreamingApiRequestBuilder(TidalConstants.API_V1_BASE);
+    private readonly StreamingApiRequestBuilder _requestBuilder = new(TidalConstants.API_V1_BASE);
     private readonly IStreamingResponseCache? _cache = cache;
     private readonly ITidalAuth _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     private readonly Streaming.TidalManifestParser? _manifestParser;
@@ -35,7 +35,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"tracks/{trackId}";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
@@ -64,7 +64,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"albums/{albumId}";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
@@ -93,7 +93,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"albums/{albumId}/tracks";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode,
@@ -139,7 +139,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = "search";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["query"] = query,
             ["types"] = "albums,tracks",
@@ -171,7 +171,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"tracks/{trackId}/playbackinfopostpaywall";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["audioquality"] = TidalConstants.QualityParameters[quality],
             ["playbackmode"] = "STREAM",
@@ -226,7 +226,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"tracks/{trackId}/playbackinfopostpaywall";
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["audioquality"] = TidalConstants.QualityParameters[quality],
             ["playbackmode"] = "STREAM",
@@ -244,7 +244,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
-        return dto == null ? throw new InvalidOperationException("Failed to parse playback info") : dto;
+        return dto ?? throw new InvalidOperationException("Failed to parse playback info");
     }
     public async Task<bool> IsAuthenticatedAsync()
     {
@@ -357,9 +357,9 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static string InferPlaybackExtension(TidalPlaybackInfoDto dto)
     {
         string mime = dto.manifestMimeType ?? string.Empty;
-        if (mime.Contains("mp4", StringComparison.OrdinalIgnoreCase) || mime.Contains("mpeg", StringComparison.OrdinalIgnoreCase))
-            return ".m4a";
-        return mime.Contains("flac", StringComparison.OrdinalIgnoreCase) || mime.Contains("wav", StringComparison.OrdinalIgnoreCase)
+        return mime.Contains("mp4", StringComparison.OrdinalIgnoreCase) || mime.Contains("mpeg", StringComparison.OrdinalIgnoreCase)
+            ? ".m4a"
+            : mime.Contains("flac", StringComparison.OrdinalIgnoreCase) || mime.Contains("wav", StringComparison.OrdinalIgnoreCase)
             ? ".flac"
             : ".m4a";
     }
@@ -370,7 +370,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return string.Empty;
         }
         await using Stream responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        using MemoryStream buffer = new MemoryStream();
+        using MemoryStream buffer = new();
         await responseStream.CopyToAsync(buffer, 81920, cancellationToken).ConfigureAwait(false);
         byte[] bytes = buffer.ToArray();
         return DecodeResponseBody(bytes, response);
@@ -408,9 +408,9 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static string Decompress(byte[] bytes, Func<Stream, Stream> streamFactory)
     {
-        using MemoryStream compressed = new MemoryStream(bytes);
+        using MemoryStream compressed = new(bytes);
         using Stream decompressed = streamFactory(compressed);
-        using StreamReader reader = new StreamReader(decompressed, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: false);
+        using StreamReader reader = new(decompressed, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: false);
         return reader.ReadToEnd();
     }
     private static bool LooksLikeGzip(IReadOnlyList<byte> bytes)

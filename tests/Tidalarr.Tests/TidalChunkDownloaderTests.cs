@@ -18,9 +18,9 @@ public class TidalChunkDownloaderTests
         // Arrange
         string[] testData = ["chunk1data", "chunk2data", "chunk3data"];
         HttpClient httpClient = CreateMockHttpClientWithChunks(testData);
-        TidalChunkDownloader downloader = new TidalChunkDownloader(httpClient);
+        TidalChunkDownloader downloader = new(httpClient);
 
-        TidalStreamInfo streamInfo = new TidalStreamInfo(
+        TidalStreamInfo streamInfo = new(
             TrackId: "123",
             ChunkUrls: ["https://test.com/1", "https://test.com/2", "https://test.com/3"],
             FileExtension: ".flac",
@@ -34,7 +34,7 @@ public class TidalChunkDownloaderTests
 
         // Assert
         Assert.NotNull(result);
-        using StreamReader reader = new StreamReader(result, Encoding.UTF8, leaveOpen: true);
+        using StreamReader reader = new(result, Encoding.UTF8, leaveOpen: true);
         _ = result.Seek(0, SeekOrigin.Begin);
         string content = reader.ReadToEnd();
         Assert.Equal("chunk1datachunk2datachunk3data", content);
@@ -44,8 +44,8 @@ public class TidalChunkDownloaderTests
     public async Task ValidateChunkAccessibility_EmptyUrls_ReturnsFalse()
     {
         // Arrange
-        HttpClient httpClient = new HttpClient();
-        TidalChunkDownloader downloader = new TidalChunkDownloader(httpClient);
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync([]);
@@ -61,9 +61,9 @@ public class TidalChunkDownloaderTests
         (string token, byte[][] encryptedChunks) = BuildEncryptedChunks([plain]);
 
         HttpClient httpClient = CreateMockHttpClientWithBinaryChunks(encryptedChunks);
-        TidalChunkDownloader downloader = new TidalChunkDownloader(httpClient);
+        TidalChunkDownloader downloader = new(httpClient);
 
-        TidalManifest manifest = new TidalManifest(
+        TidalManifest manifest = new(
             ChunkUrls: ["https://test.com/1"],
             Codec: "flac",
             MimeType: "application/dash+xml",
@@ -74,7 +74,7 @@ public class TidalChunkDownloaderTests
             SecurityToken: token);
 
         using MemoryStream result = await downloader.DownloadAndAssembleAsync(manifest);
-        using MemoryStream ms = new MemoryStream();
+        using MemoryStream ms = new();
         await result.CopyToAsync(ms);
         Assert.Equal(plain, ms.ToArray());
     }
@@ -82,9 +82,9 @@ public class TidalChunkDownloaderTests
     [Fact]
     public async Task DownloadAndAssembleAsync_EncryptedManifestMissingToken_Throws()
     {
-        HttpClient httpClient = CreateMockHttpClientWithBinaryChunks([new byte[] { 0x01, 0x02 }]);
-        TidalChunkDownloader downloader = new TidalChunkDownloader(httpClient);
-        TidalManifest manifest = new TidalManifest(
+        HttpClient httpClient = CreateMockHttpClientWithBinaryChunks([[0x01, 0x02]]);
+        TidalChunkDownloader downloader = new(httpClient);
+        TidalManifest manifest = new(
             ChunkUrls: ["https://test.com/1"],
             Codec: "flac",
             MimeType: "application/dash+xml",
@@ -100,7 +100,7 @@ public class TidalChunkDownloaderTests
     private static (string Token, byte[][] Chunks) BuildEncryptedChunks(byte[][] plainChunks)
     {
         string token = BuildSecurityToken(TestKey, TestCounter, TokenIv);
-        byte[] concatenated = plainChunks.SelectMany(b => b).ToArray();
+        byte[] concatenated = [.. plainChunks.SelectMany(b => b)];
         byte[] encryptedAll = EncryptCtr(concatenated, TestKey, TestCounter);
 
         byte[][] encryptedChunks = new byte[plainChunks.Length][];
@@ -180,14 +180,14 @@ public class TidalChunkDownloaderTests
 
     private static HttpClient CreateMockHttpClientWithChunks(string[] chunks)
     {
-        byte[][] bytes = chunks.Select(Encoding.UTF8.GetBytes).ToArray();
-        MockChunkHttpMessageHandler handler = new MockChunkHttpMessageHandler(bytes);
+        byte[][] bytes = [.. chunks.Select(Encoding.UTF8.GetBytes)];
+        MockChunkHttpMessageHandler handler = new(bytes);
         return new HttpClient(handler);
     }
 
     private static HttpClient CreateMockHttpClientWithBinaryChunks(byte[][] chunks)
     {
-        MockChunkHttpMessageHandler handler = new MockChunkHttpMessageHandler(chunks);
+        MockChunkHttpMessageHandler handler = new(chunks);
         return new HttpClient(handler);
     }
 }
@@ -199,7 +199,7 @@ public class MockChunkHttpMessageHandler(byte[][] chunks) : HttpMessageHandler
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        HttpResponseMessage response = new HttpResponseMessage(HttpStatusCode.OK);
+        HttpResponseMessage response = new(HttpStatusCode.OK);
         // Return chunks in order
         if (this._chunkIndex < this._chunks.Length)
         {

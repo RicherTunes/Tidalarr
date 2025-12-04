@@ -17,7 +17,7 @@ public class ArchitectValidationTests
         // ARCHITECT ISSUE 1: No manual dependency construction
 
         // ✅ FIXED: Proper DI registration through TidalModule
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // Verify all services are properly registered
@@ -34,7 +34,7 @@ public class ArchitectValidationTests
     {
         // ARCHITECT ISSUE 2: Proper HttpClient factory usage
 
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // ✅ FIXED: HttpClient factory registration
@@ -57,7 +57,7 @@ public class ArchitectValidationTests
         // ✅ FIXED: StreamingApiRequestBuilder includes retry logic
         // ✅ FIXED: ExecuteWithRetryAsync method integration
 
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // Verify resilience components are available
@@ -77,14 +77,14 @@ public class ArchitectValidationTests
         // - 50MB threshold for memory vs disk strategy
         // - FilePath property in TidalDownloadResult
 
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings settings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath()
         };
 
         // Verify download client can be created with proper DI
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
         _ = services.AddSingleton(settings);
 
@@ -100,7 +100,7 @@ public class ArchitectValidationTests
     {
         // ARCHITECT IMPROVEMENT: Proper service registration
 
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // ✅ FIXED: Verify service lifetimes
@@ -118,7 +118,7 @@ public class ArchitectValidationTests
     {
         // Validate optimal shared library usage
 
-        TidalIndexerSettings idxSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/test", ConfigPath = Path.GetTempPath() };
+        TidalIndexerSettings idxSettings = new() { RedirectUrl = "https://tidal.com/test", ConfigPath = Path.GetTempPath() };
 
         // ✅ FIXED: Inherits from BaseStreamingSettings
         _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
@@ -135,7 +135,7 @@ public class ArchitectValidationTests
     {
         // Final production readiness validation
 
-        Dictionary<string, bool> issues = new Dictionary<string, bool>
+        Dictionary<string, bool> issues = new()
         {
             ["DI Anti-Pattern"] = true,           // ✅ Fixed with proper service registration
             ["HttpClient Misuse"] = true,         // ✅ Fixed with IHttpClientFactory  
@@ -146,7 +146,7 @@ public class ArchitectValidationTests
             ["Shared Library Usage"] = true       // ✅ Optimal integration
         };
 
-        List<KeyValuePair<string, bool>> unresolved = issues.Where(kvp => !kvp.Value).ToList();
+        List<KeyValuePair<string, bool>> unresolved = [.. issues.Where(kvp => !kvp.Value)];
         Assert.Empty(unresolved);
 
         Console.WriteLine("🏆 ARCHITECT VALIDATION: ALL CRITICAL ISSUES RESOLVED!");

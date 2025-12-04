@@ -14,19 +14,19 @@ public class Week2MilestoneTests
     public async Task SilverMilestone_DownloadSingleTrack_WorksEndToEnd()
     {
         // Arrange
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
             ConfigPath = Path.GetTempPath()
         };
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath(),
             IncludeMqa = true
         };
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -46,18 +46,18 @@ public class Week2MilestoneTests
     public void SilverMilestone_SearchAndDownload_IntegrationWorks()
     {
         // Arrange
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
             ConfigPath = Path.GetTempPath()
         };
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath()
         };
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
@@ -84,7 +84,7 @@ public class Week2MilestoneTests
         // Verify complete component integration chain
 
         // 1. Settings validation
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
@@ -92,7 +92,7 @@ public class Week2MilestoneTests
         };
         Assert.True(indexerSettings.IsValid(out _));
 
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath()
@@ -100,7 +100,7 @@ public class Week2MilestoneTests
         Assert.True(downloadSettings.IsValid(out _));
 
         // 2/3. Instantiate via DI
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);

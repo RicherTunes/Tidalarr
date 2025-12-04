@@ -7,7 +7,7 @@ public class CLIArgParsingTests
     {
         get
         {
-            DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+            DirectoryInfo dir = new(Directory.GetCurrentDirectory());
             for (int i = 0; i < 7 && dir != null; i++, dir = dir.Parent!)
             {
                 if (File.Exists(Path.Combine(dir.FullName, "Tidalarr.sln"))) return dir.FullName;
@@ -73,7 +73,7 @@ public class CLIArgParsingTests
     private static async Task<CliResult> RunCliAsync(string[] args)
     {
         // Build CLI to ensure consistent output path
-        System.Diagnostics.ProcessStartInfo buildInfo = new System.Diagnostics.ProcessStartInfo
+        System.Diagnostics.ProcessStartInfo buildInfo = new()
         {
             FileName = "dotnet",
             Arguments = "build TidalCLI/TidalCLI.csproj -c Release -v minimal",
@@ -92,7 +92,7 @@ public class CLIArgParsingTests
         }
         string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net9.0", "TidalCLI.dll");
 
-        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo
+        System.Diagnostics.ProcessStartInfo psi = new()
         {
             FileName = "dotnet",
             Arguments = $"\"{cliDll}\" {string.Join(' ', args.Select(a => a.Contains(' ') ? "\"" + a + "\"" : a))}",

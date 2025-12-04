@@ -18,10 +18,10 @@ public class SettingsDiagnosticsTests
     [Fact]
     public async Task ApplySettingsWithDiagnostics_Invalid_ReturnsCFG100_WithCodes()
     {
-        TidalarrPlugin plugin = new TidalarrPlugin();
+        TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new TestPluginContext(), CancellationToken.None);
 
-        Dictionary<string, object?> settings = new Dictionary<string, object?>
+        Dictionary<string, object?> settings = new()
         {
             ["ConfigPath"] = "",
             ["RedirectUrl"] = "",
@@ -39,10 +39,10 @@ public class SettingsDiagnosticsTests
     [Fact]
     public async Task ApplySettingsWithDiagnostics_Valid_ReturnsCFG000()
     {
-        TidalarrPlugin plugin = new TidalarrPlugin();
+        TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new TestPluginContext(), CancellationToken.None);
 
-        Dictionary<string, object?> settings = new Dictionary<string, object?>
+        Dictionary<string, object?> settings = new()
         {
             ["ConfigPath"] = Path.GetTempPath(),
             ["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state",

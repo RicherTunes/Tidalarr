@@ -40,7 +40,7 @@ public class TidalApiClientAlbumTracksMissingItemsTests
     public async Task GetAlbumTracksAsync_MissingItems_Throws()
     {
         string json = JsonSerializer.Serialize(new { totalNumberOfItems = 1 });
-        TidalApiClient api = new TidalApiClient(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+        TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
         _ = await Assert.ThrowsAnyAsync<Exception>(() => api.GetAlbumTracksAsync("al1"));
     }
 }

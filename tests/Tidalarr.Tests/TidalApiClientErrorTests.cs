@@ -13,9 +13,9 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetTrackAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler("", HttpStatusCode.BadRequest));
-        MockAuth auth = new MockAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.BadRequest));
+        MockAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetTrackAsync("123"));
     }
@@ -23,9 +23,9 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetAlbumAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler("", HttpStatusCode.BadGateway));
-        MockAuth auth = new MockAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.BadGateway));
+        MockAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAlbumAsync("al1"));
     }
@@ -33,9 +33,9 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetAlbumTracksAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler("", HttpStatusCode.ServiceUnavailable));
-        MockAuth auth = new MockAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.ServiceUnavailable));
+        MockAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAlbumTracksAsync("al1"));
     }
@@ -43,9 +43,9 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task SearchAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler("", HttpStatusCode.GatewayTimeout));
-        MockAuth auth = new MockAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.GatewayTimeout));
+        MockAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchAsync("abc"));
     }
@@ -53,9 +53,9 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetTrackAsync_InvalidJson_ThrowsJsonException()
     {
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler("not-json", HttpStatusCode.OK));
-        MockAuth auth = new MockAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler("not-json", HttpStatusCode.OK));
+        MockAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
 
         _ = await Assert.ThrowsAsync<JsonException>(() => client.GetTrackAsync("123"));
     }
@@ -63,16 +63,16 @@ public class TidalApiClientErrorTests
     [Fact]
     public async Task GetStreamInfoAsync_DoesNotCachePlaybackInfo()
     {
-        TidalPlaybackInfoDto playbackDto = new TidalPlaybackInfoDto(
+        TidalPlaybackInfoDto playbackDto = new(
             manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes("test")),
             manifestMimeType: "application/dash+xml",
             encryptionType: "NONE",
             securityToken: null);
 
-        HttpClient httpClient = new HttpClient(new ApiMockHttpMessageHandler(JsonSerializer.Serialize(playbackDto), HttpStatusCode.OK));
-        MockAuth auth = new MockAuth();
-        SpyCache cache = new SpyCache();
-        TidalApiClient client = new TidalApiClient(httpClient, auth, cache);
+        HttpClient httpClient = new(new ApiMockHttpMessageHandler(JsonSerializer.Serialize(playbackDto), HttpStatusCode.OK));
+        MockAuth auth = new();
+        SpyCache cache = new();
+        TidalApiClient client = new(httpClient, auth, cache);
 
         TidalStreamInfo info = await client.GetStreamInfoAsync("t1", TidalQuality.Lossless);
         Assert.NotNull(info);
@@ -87,7 +87,7 @@ public class ApiMockHttpMessageHandler(string response, HttpStatusCode code) : H
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        HttpResponseMessage msg = new HttpResponseMessage(this._code);
+        HttpResponseMessage msg = new(this._code);
         if (!string.IsNullOrEmpty(this._response))
         {
             msg.Content = new StringContent(this._response, Encoding.UTF8, "application/json");

@@ -41,7 +41,7 @@ public class TidalApiClientMissingFieldsTests
     {
         // Build JSON missing 'title' field
         string json = "{" + "\"id\":\"al1\",\"artist\":{\"name\":\"A\",\"id\":\"a1\"},\"releaseDate\":\"2020-01-01\",\"numberOfTracks\":1,\"duration\":1,\"streamReady\":true,\"cover\":\"c\"}";
-        TidalApiClient api = new TidalApiClient(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+        TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
         try
         {
             TidalAlbumInfo album = await api.GetAlbumAsync("al1");
@@ -58,7 +58,7 @@ public class TidalApiClientMissingFieldsTests
     public async Task SearchAsync_MissingCollections_ThrowsArgumentNull()
     {
         string json = "{" + "\"albums\":{},\"tracks\":{}}"; // missing 'items' arrays
-        TidalApiClient api = new TidalApiClient(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+        TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
         _ = await Assert.ThrowsAsync<ArgumentNullException>(() => api.SearchAsync("abc"));
     }
 }

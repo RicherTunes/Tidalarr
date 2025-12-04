@@ -161,10 +161,10 @@ public class TidalarrStreamingComplianceTests : IDisposable
     public void Infrastructure_HasExceptionTypes()
     {
         Type[] allTypes = this._pluginAssembly.GetTypes();
-        List<Type> exceptionTypes = allTypes.Where(t =>
+        List<Type> exceptionTypes = [.. allTypes.Where(t =>
             typeof(Exception).IsAssignableFrom(t) &&
             !t.IsAbstract &&
-            t != typeof(Exception)).ToList();
+            t != typeof(Exception))];
 
         Assert.NotEmpty(exceptionTypes);
     }

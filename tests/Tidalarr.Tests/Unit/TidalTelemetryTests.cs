@@ -59,7 +59,7 @@ public class TidalTelemetryTests
     public void TidalTelemetry_TrackDownloadFailed_LogsException()
     {
         // Arrange
-        InvalidOperationException testException = new InvalidOperationException("Download failed");
+        InvalidOperationException testException = new("Download failed");
 
         // Act
         this._telemetry.TrackDownloadFailed("track789", TidalQuality.High, testException);
@@ -132,7 +132,7 @@ public class TidalTelemetryTests
     public void TidalTelemetry_CircuitBreakerEvents_LogCorrectly()
     {
         // Test circuit breaker opened
-        TimeoutException testException = new TimeoutException("Service timeout");
+        TimeoutException testException = new("Service timeout");
         this._telemetry.CircuitBreakerOpened("TidalAPI", testException);
 
         _ = Assert.Single(this._mockLogger.LogEntries);

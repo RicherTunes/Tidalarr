@@ -13,7 +13,7 @@ public class TidalApiClientTests
     public async Task SearchAsync_ValidQuery_ReturnsResults()
     {
         // Arrange
-        TidalSearchResponseDto mockSearchResponse = new TidalSearchResponseDto(
+        TidalSearchResponseDto mockSearchResponse = new(
             albums: new TidalAlbumsResponseDto(new List<TidalAlbumDto> {
                 new("123", "Test Album", new TidalArtistDto("Test Artist", "456"),
                     DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover123")
@@ -23,7 +23,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockSearchResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new TidalApiClient(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth);
 
         // Act
         TidalSearchResults results = await apiClient.SearchAsync("test query");
@@ -39,7 +39,7 @@ public class TidalApiClientTests
     public async Task GetTrackAsync_ValidId_ReturnsTrack()
     {
         // Arrange
-        TidalTrackDto mockTrackResponse = new TidalTrackDto(
+        TidalTrackDto mockTrackResponse = new(
             id: "123",
             title: "Test Track",
             artist: new TidalArtistDto("Test Artist", "789"),
@@ -53,7 +53,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockTrackResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new TidalApiClient(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth);
 
         // Act
         TidalTrackInfo track = await apiClient.GetTrackAsync("123");
@@ -71,7 +71,7 @@ public class TidalApiClientTests
     public async Task GetStreamInfoAsync_ValidTrack_ReturnsStreamInfo()
     {
         // Arrange
-        TidalPlaybackInfoDto mockStreamResponse = new TidalPlaybackInfoDto(
+        TidalPlaybackInfoDto mockStreamResponse = new(
             manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes(CreateTestDashManifest())),
             manifestMimeType: "application/dash+xml",
             encryptionType: "NONE",
@@ -80,7 +80,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockStreamResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new TidalApiClient(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth);
 
         // Act
         TidalStreamInfo streamInfo = await apiClient.GetStreamInfoAsync("123", TidalQuality.Lossless);
@@ -96,9 +96,9 @@ public class TidalApiClientTests
     public async Task ApiCall_NotAuthenticated_ThrowsException()
     {
         // Arrange
-        HttpClient httpClient = new HttpClient();
+        HttpClient httpClient = new();
         ITidalAuth mockAuth = CreateNotAuthenticatedMockAuth();
-        TidalApiClient apiClient = new TidalApiClient(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth);
 
         // Act & Assert
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -107,20 +107,20 @@ public class TidalApiClientTests
 
     private static HttpClient CreateMockHttpClient(string jsonResponse, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
-        MockHttpMessageHandler mockHandler = new MockHttpMessageHandler(jsonResponse, statusCode);
+        MockHttpMessageHandler mockHandler = new(jsonResponse, statusCode);
         return new HttpClient(mockHandler);
     }
 
     private static ITidalAuth CreateAuthenticatedMockAuth()
     {
-        MockTidalAuth mockAuth = new MockTidalAuth();
+        MockTidalAuth mockAuth = new();
         mockAuth.SetAuthenticated(true);
         return mockAuth;
     }
 
     private static ITidalAuth CreateNotAuthenticatedMockAuth()
     {
-        MockTidalAuth mockAuth = new MockTidalAuth();
+        MockTidalAuth mockAuth = new();
         mockAuth.SetAuthenticated(false);
         return mockAuth;
     }
@@ -147,7 +147,7 @@ public class MockTidalAuth : ITidalAuth
 
     public void SetAuthenticated(bool authenticated)
     {
-        this.IsAuthenticated = authenticated;
+        IsAuthenticated = authenticated;
         if (authenticated)
         {
             this._tokens = new TidalTokens("test_token", "refresh_token", "Bearer",
@@ -172,7 +172,7 @@ public class MockTidalAuth : ITidalAuth
 
     public Task<TidalTokens> GetValidTokensAsync()
     {
-        return !this.IsAuthenticated || this._tokens == null
+        return !IsAuthenticated || this._tokens == null
             ? throw new InvalidOperationException("Not authenticated")
             : Task.FromResult(this._tokens);
     }

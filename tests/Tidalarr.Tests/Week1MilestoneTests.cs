@@ -16,10 +16,10 @@ public class Week1MilestoneTests
     public async Task BronzeMilestone_CompleteOAuthFlow_WorksEndToEnd()
     {
         // Arrange - Complete OAuth flow simulation
-        HttpClient httpClient = new HttpClient();
-        PKCEGenerator pkceGenerator = new PKCEGenerator();
-        MockTokenStorage tokenStorage = new MockTokenStorage();
-        TidalOAuthService oauthService = new TidalOAuthService(httpClient, pkceGenerator, tokenStorage);
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        MockTokenStorage tokenStorage = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, tokenStorage);
 
         // Step 1: Generate OAuth URL
         TidalAuthUrl authUrl = await oauthService.GenerateAuthUrlAsync();
@@ -42,7 +42,7 @@ public class Week1MilestoneTests
     public void BronzeMilestone_QualityDetection_WorksCorrectly()
     {
         // Arrange
-        TidalQualityDetector qualityDetector = new TidalQualityDetector();
+        TidalQualityDetector qualityDetector = new();
 
         // Test quality string mapping
         Assert.Equal(TidalQuality.Lossless, qualityDetector.DetectQualityFromString("LOSSLESS"));
@@ -55,7 +55,7 @@ public class Week1MilestoneTests
 
         // Test best quality selection
         TidalQuality bestQuality = qualityDetector.SelectBestQuality(
-            new[] { TidalQuality.High, TidalQuality.Lossless },
+            [TidalQuality.High, TidalQuality.Lossless],
             TidalQuality.HiRes);
         Assert.Equal(TidalQuality.Lossless, bestQuality); // Best available
 
@@ -66,9 +66,9 @@ public class Week1MilestoneTests
     public async Task BronzeMilestone_SearchIntegration_WorksWithQuality()
     {
         // Arrange
-        MockTidalApiClient mockApiClient = new MockTidalApiClient();
-        TidalQualityDetector qualityDetector = new TidalQualityDetector();
-        TidalSearchService searchService = new TidalSearchService(mockApiClient, qualityDetector);
+        MockTidalApiClient mockApiClient = new();
+        TidalQualityDetector qualityDetector = new();
+        TidalSearchService searchService = new(mockApiClient, qualityDetector);
 
         // Act
         TidalSearchResults results = await searchService.SearchWithQualityDetectionAsync("test album");
@@ -91,23 +91,23 @@ public class Week1MilestoneTests
         // Verify all core components can be instantiated and work together
 
         // 1. Authentication components
-        PKCEGenerator pkceGenerator = new PKCEGenerator();
+        PKCEGenerator pkceGenerator = new();
         (string verifier, string challenge) = pkceGenerator.GeneratePair();
         Assert.NotEmpty(verifier);
         Assert.NotEmpty(challenge);
 
         // 2. Quality detection
-        TidalQualityDetector qualityDetector = new TidalQualityDetector();
+        TidalQualityDetector qualityDetector = new();
         TidalQuality quality = qualityDetector.DetectQualityFromString("LOSSLESS");
         Assert.Equal(TidalQuality.Lossless, quality);
 
         // 3. Token storage
-        MockTokenStorage tokenStorage = new MockTokenStorage();
-        TidalTokens testTokens = new TidalTokens("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
+        MockTokenStorage tokenStorage = new();
+        TidalTokens testTokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
         _ = tokenStorage.SaveTokensAsync(testTokens);
 
         // 4. API client mock
-        MockTidalApiClient mockApiClient = new MockTidalApiClient();
+        MockTidalApiClient mockApiClient = new();
         Task<TidalSearchResults> searchTask = mockApiClient.SearchAsync("test");
         Assert.NotNull(searchTask);
 
@@ -119,7 +119,7 @@ public class MockTidalApiClient : ITidalCore
 {
     public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
-        TidalTrackInfo track = new TidalTrackInfo(
+        TidalTrackInfo track = new(
             Id: trackId,
             Title: "Test Track",
             Artists: ["Test Artist"],
@@ -136,7 +136,7 @@ public class MockTidalApiClient : ITidalCore
 
     public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: albumId,
             Title: "Test Album",
             Artists: ["Test Artist"],
@@ -151,7 +151,7 @@ public class MockTidalApiClient : ITidalCore
 
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
-        TidalSearchResults results = new TidalSearchResults(
+        TidalSearchResults results = new(
             Albums: [
                 new("123", "Test Album", ["Test Artist"],
                     [], [TidalQuality.Lossless],
@@ -166,7 +166,7 @@ public class MockTidalApiClient : ITidalCore
 
     public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
-        TidalStreamInfo streamInfo = new TidalStreamInfo(
+        TidalStreamInfo streamInfo = new(
             TrackId: trackId,
             ChunkUrls: ["https://test.tidal.com/chunk1.flac"],
             FileExtension: ".flac",
@@ -212,7 +212,7 @@ public class MockTidalApiClient : ITidalCore
                 IsAvailable: true,
                 ReleaseDate: DateTime.Now)
         ];
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: albumId,
             Title: "Test Album",
             Artists: ["Test Artist"],

@@ -48,7 +48,7 @@ public class TidalSearchServiceEmptyTests
     [Fact]
     public async Task SearchWithQualityDetection_NoResults_ReturnsEmpty()
     {
-        TidalSearchService svc = new TidalSearchService(new EmptyCore(), new TidalQualityDetector());
+        TidalSearchService svc = new(new EmptyCore(), new TidalQualityDetector());
         TidalSearchResults res = await svc.SearchWithQualityDetectionAsync("query");
         Assert.Empty(res.Albums);
         Assert.Empty(res.Tracks);
@@ -58,7 +58,7 @@ public class TidalSearchServiceEmptyTests
     [Fact]
     public async Task SearchWithQualityDetection_InvalidQuery_Throws()
     {
-        TidalSearchService svc = new TidalSearchService(new EmptyCore(), new TidalQualityDetector());
+        TidalSearchService svc = new(new EmptyCore(), new TidalQualityDetector());
         _ = await Assert.ThrowsAsync<ArgumentException>(() => svc.SearchWithQualityDetectionAsync(" "));
     }
 }

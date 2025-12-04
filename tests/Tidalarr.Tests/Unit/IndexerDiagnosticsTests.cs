@@ -48,12 +48,12 @@ public class IndexerDiagnosticsTests
     [Fact]
     public void ValidateSettingsWithDiagnostics_InvalidSettings_ReturnsIX100AndCodes()
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             ConfigPath = "", // invalid
             RedirectUrl = ""  // invalid
         };
-        TidalIndexer indexer = new TidalIndexer(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
+        TidalIndexer indexer = new(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
 
         Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> result = indexer.ValidateSettingsWithDiagnostics();
         Assert.False(result.IsSuccess);
@@ -65,13 +65,13 @@ public class IndexerDiagnosticsTests
     [Fact]
     public async Task InitializeWithDiagnostics_AuthFailure_ReturnsIX200()
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             ConfigPath = Path.GetTempPath(),
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=state",
             TidalMarket = "US"
         };
-        TidalIndexer indexer = new TidalIndexer(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
+        TidalIndexer indexer = new(new Application.Services.TidalSearchService(new CoreAuthFalse(), new Domain.Quality.TidalQualityDetector(), null), new CoreAuthFalse(), settings, NullLogger.Instance);
 
         Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> result = await indexer.InitializeWithDiagnosticsAsync();
         Assert.False(result.IsSuccess);

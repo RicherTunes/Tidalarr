@@ -106,15 +106,15 @@ public class TidalModule : StreamingPluginModule
             return s is null
                 ? new TidalIndexerSettings()
                 : new TidalIndexerSettings
-            {
-                BaseUrl = s.BaseUrl,
-                ConfigPath = s.ConfigPath,
-                RedirectUrl = s.RedirectUrl,
-                TidalMarket = s.TidalMarket,
-                EarlyReleaseLimit = s.EarlyReleaseLimit,
-                EnableCache = s.EnableCache,
-                CacheDuration = s.CacheDuration
-            };
+                {
+                    BaseUrl = s.BaseUrl,
+                    ConfigPath = s.ConfigPath,
+                    RedirectUrl = s.RedirectUrl,
+                    TidalMarket = s.TidalMarket,
+                    EarlyReleaseLimit = s.EarlyReleaseLimit,
+                    EnableCache = s.EnableCache,
+                    CacheDuration = s.CacheDuration
+                };
         });
 
         services.TryAddSingleton(sp =>
@@ -123,19 +123,19 @@ public class TidalModule : StreamingPluginModule
             return s is null
                 ? new TidalDownloadClientSettings()
                 : new TidalDownloadClientSettings
-            {
-                BaseUrl = s.BaseUrl,
-                PreferredQuality = s.PreferredQuality,
-                DownloadPath = s.DownloadPath,
-                IncludeMqa = s.IncludeMqa,
-                ExtractFlac = s.ExtractFlac,
-                ReEncodeAAC = s.ReEncodeAAC,
-                SaveSyncedLyrics = s.SaveSyncedLyrics,
-                UseLRCLIB = s.UseLRCLIB,
-                DownloadDelay = s.DownloadDelay,
-                DownloadDelayMin = s.DownloadDelayMin,
-                DownloadDelayMax = s.DownloadDelayMax
-            };
+                {
+                    BaseUrl = s.BaseUrl,
+                    PreferredQuality = s.PreferredQuality,
+                    DownloadPath = s.DownloadPath,
+                    IncludeMqa = s.IncludeMqa,
+                    ExtractFlac = s.ExtractFlac,
+                    ReEncodeAAC = s.ReEncodeAAC,
+                    SaveSyncedLyrics = s.SaveSyncedLyrics,
+                    UseLRCLIB = s.UseLRCLIB,
+                    DownloadDelay = s.DownloadDelay,
+                    DownloadDelayMin = s.DownloadDelayMin,
+                    DownloadDelayMax = s.DownloadDelayMax
+                };
         });
 
         // Integration endpoints
@@ -183,14 +183,14 @@ public class TidalModule : StreamingPluginModule
 
     public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
     {
-        TidalModule module = new TidalModule();
+        TidalModule module = new();
         ServiceProvider provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalIndexer>();
     }
 
     public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadClientSettings settings)
     {
-        TidalModule module = new TidalModule();
+        TidalModule module = new();
         ServiceProvider provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalDownloadClient>();
     }
@@ -217,8 +217,16 @@ public class TidalModule : StreamingPluginModule
         TidalChunkStreamProvider chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
 
         // Delegates for orchestrator
-        async Task<StreamingAlbum> getAlbum(string id) => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
-        async Task<StreamingTrack> getTrack(string id) => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
+        async Task<StreamingAlbum> getAlbum(string id)
+        {
+            return mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
+        }
+
+        async Task<StreamingTrack> getTrack(string id)
+        {
+            return mapper.ToStreamingTrack(await api.GetTrackAsync(id));
+        }
+
         async Task<IReadOnlyList<string>> getTrackIds(string id)
         {
             TidalAlbumInfo a = await api.GetAlbumWithTracksAsync(id);

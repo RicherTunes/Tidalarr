@@ -56,9 +56,9 @@ public class TidalDownloadClientStreamUrlTests
     [Fact]
     public async Task GetStreamUrlAsync_ReturnsFirstChunkUrl()
     {
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
-        ExposedDownloadClient client = new ExposedDownloadClient(streamSvc, new TidalChunkDownloader(new HttpClient()), new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings);
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
+        ExposedDownloadClient client = new(streamSvc, new TidalChunkDownloader(new HttpClient()), new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings);
 
         string url = await client.ExposeGetStreamUrlAsync("t1", "LOSSLESS");
         Assert.Equal("https://first", url);

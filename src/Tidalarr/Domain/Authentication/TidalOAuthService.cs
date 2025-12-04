@@ -37,9 +37,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     protected override async Task<TidalTokens> PerformAuthenticationAsync(TidalCredentials credentials)
     {
         TidalTokens tokens = await GetValidTokensAsync();
-        return tokens == null
-            ? throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.")
-            : tokens;
+        return tokens ?? throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.");
     }
 
     protected override Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
@@ -173,7 +171,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     private string BuildAuthorizationUrl(string codeChallenge, string state, string clientUniqueKey)
     {
-        Dictionary<string, string> parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["response_type"] = "code",
             ["redirect_uri"] = TidalConstants.REDIRECT_URI,
@@ -193,9 +191,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     private HttpRequestMessage BuildTokenExchangeRequest(string authCode, string codeVerifier, string clientUniqueKey)
     {
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, TidalConstants.AUTH_BASE);
-        FormUrlEncodedContent formData = new FormUrlEncodedContent(new[]
-        {
+        HttpRequestMessage request = new(HttpMethod.Post, TidalConstants.AUTH_BASE);
+        FormUrlEncodedContent formData = new(
+        [
             new KeyValuePair<string, string>("code", authCode),
             new KeyValuePair<string, string>("client_id", TidalConstants.CLIENT_ID_PKCE),
             new KeyValuePair<string, string>("grant_type", "authorization_code"),
@@ -204,21 +202,21 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             new KeyValuePair<string, string>("code_verifier", codeVerifier),
             new KeyValuePair<string, string>("client_unique_key", clientUniqueKey),
             new KeyValuePair<string, string>("client_secret", TidalConstants.CLIENT_SECRET_PKCE)
-        });
+        ]);
         request.Content = formData;
         return request;
     }
 
     private HttpRequestMessage BuildTokenRefreshRequest(string refreshToken)
     {
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, TidalConstants.AUTH_BASE);
-        FormUrlEncodedContent formData = new FormUrlEncodedContent(new[]
-        {
+        HttpRequestMessage request = new(HttpMethod.Post, TidalConstants.AUTH_BASE);
+        FormUrlEncodedContent formData = new(
+        [
             new KeyValuePair<string, string>("grant_type", "refresh_token"),
             new KeyValuePair<string, string>("refresh_token", refreshToken),
             new KeyValuePair<string, string>("client_id", TidalConstants.CLIENT_ID_PKCE),
             new KeyValuePair<string, string>("client_secret", TidalConstants.CLIENT_SECRET_PKCE)
-        });
+        ]);
         request.Content = formData;
         return request;
     }

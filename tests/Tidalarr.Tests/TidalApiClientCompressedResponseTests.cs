@@ -14,14 +14,14 @@ public class TidalApiClientCompressedResponseTests
     [Fact]
     public async Task TidalApiClientPlaybackInfoGzipBodyParses()
     {
-        TidalPlaybackInfoDto playback = new TidalPlaybackInfoDto(
+        TidalPlaybackInfoDto playback = new(
             manifest: Convert.ToBase64String(Encoding.UTF8.GetBytes("manifest")),
             manifestMimeType: "application/dash+xml",
             encryptionType: "NONE",
             securityToken: null);
 
-        GzipPlaybackHandler handler = new GzipPlaybackHandler(JsonSerializer.Serialize(playback));
-        TidalApiClient client = new TidalApiClient(new HttpClient(handler), new AuthStub());
+        GzipPlaybackHandler handler = new(JsonSerializer.Serialize(playback));
+        TidalApiClient client = new(new HttpClient(handler), new AuthStub());
 
         TidalStreamInfo result = await client.GetStreamInfoAsync("123", TidalQuality.High);
 
@@ -36,7 +36,7 @@ public class TidalApiClientCompressedResponseTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpResponseMessage response = new HttpResponseMessage(HttpStatusCode.OK)
+            HttpResponseMessage response = new(HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(this._body)
             };
@@ -46,9 +46,9 @@ public class TidalApiClientCompressedResponseTests
 
         private static byte[] Compress(string payload)
         {
-            using MemoryStream buffer = new MemoryStream();
-            using (GZipStream gzip = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
-            using (StreamWriter writer = new StreamWriter(gzip, Encoding.UTF8, leaveOpen: true))
+            using MemoryStream buffer = new();
+            using (GZipStream gzip = new(buffer, CompressionMode.Compress, leaveOpen: true))
+            using (StreamWriter writer = new(gzip, Encoding.UTF8, leaveOpen: true))
             {
                 writer.Write(payload);
             }

@@ -10,7 +10,7 @@ public class CLIDiagnosticsTests
     {
         get
         {
-            DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+            DirectoryInfo dir = new(Directory.GetCurrentDirectory());
             for (int i = 0; i < 7 && dir != null; i++, dir = dir.Parent!)
             {
                 if (File.Exists(Path.Combine(dir.FullName, "Tidalarr.sln"))) return dir.FullName;
@@ -111,7 +111,7 @@ public class CLIDiagnosticsTests
     public void Package_Dependency_Closure_Has_No_Host_Assemblies()
     {
         // Invoke packaging to produce a zip, then assert closure excludes host assemblies.
-        System.Diagnostics.ProcessStartInfo ps = new System.Diagnostics.ProcessStartInfo
+        System.Diagnostics.ProcessStartInfo ps = new()
         {
             FileName = "pwsh",
             Arguments = "-NoLogo -NoProfile -Command \"./build.ps1 -Package -Configuration Release\"",
@@ -129,12 +129,12 @@ public class CLIDiagnosticsTests
         Assert.True(File.Exists(zip), "Package zip not found.");
 
         using ZipArchive archive = ZipFile.OpenRead(zip);
-        string[] dlls = archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).Select(e => e.Name).ToArray();
+        string[] dlls = [.. archive.Entries.Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).Select(e => e.Name)];
         // Allowed: plugin + common runtime
         string[] allowed = ["Lidarr.Plugin.Tidalarr.dll", "Lidarr.Plugin.Common.dll"];
 
         // No Lidarr.* other than the allowed set
-        string[] disallowed = dlls.Where(n => n.StartsWith("Lidarr.", StringComparison.OrdinalIgnoreCase) && !allowed.Contains(n)).ToArray();
+        string[] disallowed = [.. dlls.Where(n => n.StartsWith("Lidarr.", StringComparison.OrdinalIgnoreCase) && !allowed.Contains(n))];
         Assert.True(disallowed.Length == 0, $"Disallowed host assemblies found: {string.Join(", ", disallowed)}");
     }
 
@@ -143,7 +143,7 @@ public class CLIDiagnosticsTests
     private static async Task<CliResult> RunCliAsync(string[] args)
     {
         // Build CLI to ensure consistent output path
-        System.Diagnostics.ProcessStartInfo buildInfo = new System.Diagnostics.ProcessStartInfo
+        System.Diagnostics.ProcessStartInfo buildInfo = new()
         {
             FileName = "dotnet",
             Arguments = "build TidalCLI/TidalCLI.csproj -c Release -v minimal",
@@ -177,7 +177,7 @@ public class CLIDiagnosticsTests
             }
         }
 
-        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo
+        System.Diagnostics.ProcessStartInfo psi = new()
         {
             FileName = "dotnet",
             Arguments = $"\"{cliDll}\" {string.Join(' ', args.Select(a => a.Contains(' ') ? "\"" + a + "\"" : a))}",

@@ -66,10 +66,10 @@ public class DownloadValidationDiagnosticsTests
     [Fact]
     public async Task ValidateDownloadWithDiagnostics_Succeeds_WithCode()
     {
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> result = await client.ValidateDownloadWithDiagnosticsAsync("t1", TidalQuality.Lossless);
 
@@ -82,10 +82,10 @@ public class DownloadValidationDiagnosticsTests
     [Fact]
     public async Task ValidateDownloadWithDiagnostics_Fails_WithStableCode()
     {
-        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new FailHandler()));
-        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
+        TidalChunkDownloader downloader = new(new HttpClient(new FailHandler()));
+        TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> result = await client.ValidateDownloadWithDiagnosticsAsync("t1", TidalQuality.Lossless);
 

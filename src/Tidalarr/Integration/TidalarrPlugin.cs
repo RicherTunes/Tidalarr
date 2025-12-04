@@ -34,7 +34,7 @@ public sealed class TidalarrPlugin : IPlugin
                     Name = "Tidalarr",
                     Version = "1.0.1",
                     ApiVersion = "1.x",
-                    RequiredSettings = new[] { "ConfigPath", "RedirectUrl", "DownloadPath" }
+                    RequiredSettings = ["ConfigPath", "RedirectUrl", "DownloadPath"]
                 };
             }
         }
@@ -72,12 +72,11 @@ public sealed class TidalarrPlugin : IPlugin
             });
         }
 
-        string[] codes = validation.Errors
+        string[] codes = [.. validation.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
             .Select(e => e.ErrorCode)
-            .Distinct()
-            .ToArray();
-        Dictionary<string, string> meta = new Dictionary<string, string>
+            .Distinct()];
+        Dictionary<string, string> meta = new()
         {
             ["id"] = INVALID,
             ["errors"] = string.Join(",", codes)
@@ -103,21 +102,21 @@ public sealed class TidalarrPlugin : IPlugin
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
     {
         IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        TidalIndexerAdapter adapter = new TidalIndexerAdapter(scope);
+        TidalIndexerAdapter adapter = new(scope);
         return ValueTask.FromResult<IIndexer?>(adapter);
     }
 
     public ValueTask<IDownloadClient?> CreateDownloadClientAsync(CancellationToken cancellationToken = default)
     {
         IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        TidalDownloadClientAdapter adapter = new TidalDownloadClientAdapter(scope);
+        TidalDownloadClientAdapter adapter = new(scope);
         return ValueTask.FromResult<IDownloadClient?>(adapter);
     }
 
     private void RebuildServiceProvider()
     {
         this._serviceProvider?.Dispose();
-        TidalModule module = new TidalModule();
+        TidalModule module = new();
         this._serviceProvider = module.BuildServiceProvider(this._settings);
     }
 
@@ -136,13 +135,13 @@ public sealed class TidalarrPlugin : IPlugin
 
     private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
     {
-        TidalarrSettings s = new TidalarrSettings();
+        TidalarrSettings s = new();
         if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out object? cp) && cp is string cpStr) s.ConfigPath = cpStr;
         if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out object? ru) && ru is string ruStr) s.RedirectUrl = ruStr;
         if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out object? dp) && dp is string dpStr) s.DownloadPath = dpStr;
         if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out object? pq))
         {
-            if (pq is string pqStr && Enum.TryParse<Core.Models.TidalQuality>(pqStr, ignoreCase: true, out Core.Models.TidalQuality parsedEnum))
+            if (pq is string pqStr && Enum.TryParse(pqStr, ignoreCase: true, out Core.Models.TidalQuality parsedEnum))
             {
                 s.PreferredQuality = parsedEnum;
             }
@@ -160,8 +159,8 @@ public sealed class TidalarrPlugin : IPlugin
 
         public IReadOnlyCollection<SettingDefinition> Describe()
         {
-            return new[]
-            {
+            return
+            [
                 new SettingDefinition
                 {
                     Key = nameof(TidalarrSettings.ConfigPath),
@@ -192,10 +191,10 @@ public sealed class TidalarrPlugin : IPlugin
                     DisplayName = "Preferred Quality",
                     Description = "Audio quality requested from Tidal.",
                     DataType = SettingDataType.Enum,
-                    AllowedValues = new[] { "Low", "High", "Lossless", "HiRes" },
+                    AllowedValues = ["Low", "High", "Lossless", "HiRes"],
                     DefaultValue = "Lossless"
                 }
-            };
+            ];
         }
 
         public IReadOnlyDictionary<string, object?> GetDefaults()

@@ -12,7 +12,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetTrackAsync_BuildsExpectedEndpointAndQuery()
     {
-        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto(
+        CaptureHandler capture = new(JsonSerializer.Serialize(new TidalTrackDto(
             id: "t1",
             title: "T",
             artist: new("A", "a1"),
@@ -21,7 +21,7 @@ public class TidalApiClientRequestTests
             duration: 10,
             streamReady: true,
             audioQuality: "LOSSLESS")));
-        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         TidalTrackInfo _ = await client.GetTrackAsync("t1");
         Assert.Contains("/tracks/t1", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("countryCode=US", capture.LastRequest?.RequestUri?.Query);
@@ -31,9 +31,9 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumAsync_BuildsExpectedEndpointAndQuery()
     {
-        TidalAlbumDto dto = new TidalAlbumDto("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
-        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(dto));
-        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalAlbumDto dto = new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
+        CaptureHandler capture = new(JsonSerializer.Serialize(dto));
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         TidalAlbumInfo _ = await client.GetAlbumAsync("al1");
         Assert.Contains("/albums/al1", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("countryCode=US", capture.LastRequest?.RequestUri?.Query);
@@ -42,9 +42,9 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumTracksAsync_BuildsExpectedEndpointAndQuery()
     {
-        TidalAlbumTracksDto payload = new TidalAlbumTracksDto(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
-        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(payload));
-        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalAlbumTracksDto payload = new(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
+        CaptureHandler capture = new(JsonSerializer.Serialize(payload));
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         List<TidalTrackInfo> _ = await client.GetAlbumTracksAsync("al1");
         Assert.Contains("/albums/al1/tracks", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("limit=1000", capture.LastRequest?.RequestUri?.Query);
@@ -53,9 +53,9 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task SearchAsync_BuildsExpectedEndpointAndQuery()
     {
-        TidalSearchResponseDto payload = new TidalSearchResponseDto(new(new()), new(new()));
-        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(payload));
-        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalSearchResponseDto payload = new(new(new()), new(new()));
+        CaptureHandler capture = new(JsonSerializer.Serialize(payload));
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         TidalSearchResults _ = await client.SearchAsync("abc");
         Assert.Contains("/search", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("query=abc", capture.LastRequest?.RequestUri?.Query);
@@ -65,9 +65,9 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetStreamInfoAsync_BuildsExpectedEndpoint_AndParams()
     {
-        TidalPlaybackInfoDto dto = new TidalPlaybackInfoDto(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
-        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(dto));
-        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalPlaybackInfoDto dto = new(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
+        CaptureHandler capture = new(JsonSerializer.Serialize(dto));
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         TidalStreamInfo _ = await client.GetStreamInfoAsync("t1", TidalQuality.Lossless);
         Assert.Contains("/tracks/t1/playbackinfopostpaywall", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("audioquality=LOSSLESS", capture.LastRequest?.RequestUri?.Query);
@@ -113,7 +113,7 @@ public class TidalApiClientRequestTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
-            HttpResponseMessage msg = new HttpResponseMessage(this._code)
+            HttpResponseMessage msg = new(this._code)
             {
                 Content = new StringContent(this._response, Encoding.UTF8, "application/json")
             };

@@ -14,7 +14,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WhenExpiresAtInPast_ReturnsTrue()
     {
         // Arrange
-        TidalTokens expiredTokens = new TidalTokens(
+        TidalTokens expiredTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddMinutes(-10), // 10 minutes ago
             "session", "US", "123");
@@ -27,7 +27,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WithFiveMinuteBuffer_ReturnsTrue()
     {
         // Arrange - Token expires in 3 minutes (within 5 minute buffer)
-        TidalTokens almostExpiredTokens = new TidalTokens(
+        TidalTokens almostExpiredTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddMinutes(3), // 3 minutes from now
             "session", "US", "123");
@@ -40,7 +40,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WithValidToken_ReturnsFalse()
     {
         // Arrange - Token expires in 1 hour
-        TidalTokens validTokens = new TidalTokens(
+        TidalTokens validTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddHours(1),
             "session", "US", "123");
@@ -62,7 +62,7 @@ public class TidalModelsTests
         string userId = "user456";
 
         // Act
-        TidalTokens tokens = new TidalTokens(accessToken, refreshToken, tokenType, expiresAt, sessionId, countryCode, userId);
+        TidalTokens tokens = new(accessToken, refreshToken, tokenType, expiresAt, sessionId, countryCode, userId);
 
         // Assert
         Assert.Equal(accessToken, tokens.AccessToken);
@@ -82,7 +82,7 @@ public class TidalModelsTests
     public void TidalAuthUrl_Constructor_SetsAllProperties()
     {
         // Arrange & Act
-        TidalAuthUrl authUrl = new TidalAuthUrl("https://test.url", "verifier123", "state456", string.Empty);
+        TidalAuthUrl authUrl = new("https://test.url", "verifier123", "state456", string.Empty);
 
         // Assert
         Assert.Equal("https://test.url", authUrl.AuthorizationUrl);
@@ -99,7 +99,7 @@ public class TidalModelsTests
     public void TidalCredentials_Constructor_SetsRedirectUrl()
     {
         // Arrange & Act
-        TidalCredentials credentials = new TidalCredentials("https://tidal.com/callback");
+        TidalCredentials credentials = new("https://tidal.com/callback");
 
         // Assert
         Assert.Equal("https://tidal.com/callback", credentials.RedirectUrl);
@@ -114,10 +114,10 @@ public class TidalModelsTests
     {
         // Arrange
         List<string> artists = ["Artist1", "Artist2"];
-        DateTime releaseDate = new DateTime(2023, 5, 15);
+        DateTime releaseDate = new(2023, 5, 15);
 
         // Act
-        TidalTrackInfo track = new TidalTrackInfo(
+        TidalTrackInfo track = new(
             "track123", "Test Track", artists, "album456", "Test Album",
             3, 240, TidalQuality.Lossless, true, releaseDate);
 
@@ -145,10 +145,10 @@ public class TidalModelsTests
         List<string> artists = ["Artist"];
         List<TidalTrackInfo> tracks = [];
         List<TidalQuality> qualities = [TidalQuality.Lossless];
-        DateTime releaseDate = new DateTime(2023, 1, 1);
+        DateTime releaseDate = new(2023, 1, 1);
 
         // Act
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             "album123", "Test Album", artists, tracks, qualities,
             releaseDate, "cover123", true);
 
@@ -175,7 +175,7 @@ public class TidalModelsTests
         List<TidalTrackInfo> tracks = [];
 
         // Act
-        TidalSearchResults results = new TidalSearchResults(albums, tracks, 10, true);
+        TidalSearchResults results = new(albums, tracks, 10, true);
 
         // Assert
         Assert.Equal(albums, results.Albums);
@@ -225,7 +225,7 @@ public class TidalModelsTests
         string[] chunkUrls = ["url1", "url2"];
 
         // Act
-        TidalStreamInfo streamInfo = new TidalStreamInfo(
+        TidalStreamInfo streamInfo = new(
             "track123", chunkUrls, ".flac", "audio/flac", true, "token");
 
         // Assert
@@ -248,7 +248,7 @@ public class TidalModelsTests
         string[] chunkUrls = ["chunk1", "chunk2"];
 
         // Act
-        TidalManifest manifest = new TidalManifest(
+        TidalManifest manifest = new(
             chunkUrls, "flac", "audio/flac", ".flac", 44100, false, null, null);
 
         // Assert
@@ -285,8 +285,8 @@ public class TidalModelsTests
     public void TidalTokens_EqualityComparison_WithSameValues_AreEqual()
     {
         // Arrange
-        TidalTokens tokens1 = new TidalTokens("access", "refresh", "Bearer", DateTime.UtcNow, "session", "US", "123");
-        TidalTokens tokens2 = new TidalTokens("access", "refresh", "Bearer", tokens1.ExpiresAt, "session", "US", "123");
+        TidalTokens tokens1 = new("access", "refresh", "Bearer", DateTime.UtcNow, "session", "US", "123");
+        TidalTokens tokens2 = new("access", "refresh", "Bearer", tokens1.ExpiresAt, "session", "US", "123");
 
         // Act & Assert
         Assert.Equal(tokens1, tokens2);

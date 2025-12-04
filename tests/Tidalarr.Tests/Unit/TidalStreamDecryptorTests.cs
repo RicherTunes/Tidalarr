@@ -16,7 +16,7 @@ public class TidalStreamDecryptorTests
     public void Decrypt_ReturnsPlaintext_ForKnownCipher(bool useFullCounter)
     {
         byte[] counter = useFullCounter ? Counter16 : Counter8;
-        byte[] plain = Enumerable.Range(100, 48).Select(i => (byte)i).ToArray();
+        byte[] plain = [.. Enumerable.Range(100, 48).Select(i => (byte)i)];
         byte[] cipher = EncryptCtr(plain, TestKey, counter);
         string securityToken = BuildSecurityToken(TestKey, counter, TokenIv);
 
@@ -31,11 +31,11 @@ public class TidalStreamDecryptorTests
     public async Task DecryptFileStreamAsync_RewritesStream(bool useFullCounter)
     {
         byte[] counter = useFullCounter ? Counter16 : Counter8;
-        byte[] plain = Enumerable.Range(60, 32).Select(i => (byte)i).ToArray();
+        byte[] plain = [.. Enumerable.Range(60, 32).Select(i => (byte)i)];
         byte[] cipher = EncryptCtr(plain, TestKey, counter);
         string securityToken = BuildSecurityToken(TestKey, counter, TokenIv);
 
-        using FileStream temp = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+        using FileStream temp = new(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
         await temp.WriteAsync(cipher);
         await temp.FlushAsync();
 

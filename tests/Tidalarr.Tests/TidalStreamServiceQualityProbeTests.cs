@@ -50,8 +50,8 @@ public class TidalStreamServiceQualityProbeTests
     [Fact]
     public async Task GetAvailableQualitiesForTrackAsync_ProbesInOrder()
     {
-        ProbeCore core = new ProbeCore(TidalQuality.Lossless, TidalQuality.High);
-        TidalStreamService svc = new TidalStreamService(core, new TidalManifestParser());
+        ProbeCore core = new(TidalQuality.Lossless, TidalQuality.High);
+        TidalStreamService svc = new(core, new TidalManifestParser());
         List<TidalQuality> list = await svc.GetAvailableQualitiesForTrackAsync("t1");
         Assert.Equal(new[] { TidalQuality.Lossless, TidalQuality.High }, list);
     }

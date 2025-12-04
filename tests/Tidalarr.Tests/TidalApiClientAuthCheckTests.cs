@@ -33,7 +33,7 @@ public class TidalApiClientAuthCheckTests
     [Fact]
     public async Task IsAuthenticatedAsync_ReturnsFalse_WhenAuthThrows()
     {
-        TidalApiClient client = new TidalApiClient(new HttpClient(), new ThrowAuth());
+        TidalApiClient client = new(new HttpClient(), new ThrowAuth());
         bool ok = await client.IsAuthenticatedAsync();
         Assert.False(ok);
     }

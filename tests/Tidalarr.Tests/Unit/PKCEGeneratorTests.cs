@@ -129,7 +129,7 @@ public class PKCEGeneratorTests
         }
 
         // All should be unique
-        List<string> uniqueVerifiers = verifiers.Distinct().ToList();
+        List<string> uniqueVerifiers = [.. verifiers.Distinct()];
         Assert.Equal(verifiers.Count, uniqueVerifiers.Count);
 
         // Each should have good character distribution

@@ -10,8 +10,8 @@ public class TidalStreamServiceManifestParsingBtsTests
     [Fact]
     public async Task GetStreamInfoWithManifestParsingAsync_BTS_ReturnsParsedInfo()
     {
-        TidalManifestParser parser = new TidalManifestParser();
-        TidalStreamService service = new TidalStreamService(new TestsCommonCore(), parser);
+        TidalManifestParser parser = new();
+        TidalStreamService service = new(new TestsCommonCore(), parser);
         string btsJson = "{" +
                       "\"urls\":[\"https://u1\",\"https://u2\"]," +
                       "\"codecs\":\"flac\",\"mimeType\":\"audio/flac\",\"encryptionType\":\"NONE\"}";
@@ -34,13 +34,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        TidalPlaybackInfoDto playback = new TidalPlaybackInfoDto(
+        TidalPlaybackInfoDto playback = new(
             manifest: encoded,
             manifestMimeType: "application/vnd.tidal.bts",
             encryptionType: "AES_CTR",
             securityToken: null);
 
-        TidalStreamService service = new TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
+        TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         TidalManifest manifest = await service.GetParsedManifestAsync("track-token", TidalQuality.Lossless);
 
         Assert.True(manifest.IsEncrypted);
@@ -59,13 +59,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        TidalPlaybackInfoDto playback = new TidalPlaybackInfoDto(
+        TidalPlaybackInfoDto playback = new(
             manifest: encoded,
             manifestMimeType: "application/vnd.tidal.bts",
             encryptionType: "AES_CTR",
             securityToken: null);
 
-        TidalStreamService service = new TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
+        TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         TidalStreamInfo info = await service.GetStreamInfoParsedAsync("track-info-token", TidalQuality.Lossless);
 
         Assert.True(info.IsEncrypted);

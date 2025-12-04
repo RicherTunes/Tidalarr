@@ -11,12 +11,12 @@ public class TidalOAuthServiceTokenLifecycleTests
     [Fact]
     public async Task GetValidTokens_RefreshesWhenStoredExpired()
     {
-        TidalTokens expired = new TidalTokens("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
-        MemoryTokenStorage storage = new MemoryTokenStorage(expired);
+        TidalTokens expired = new("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
+        MemoryTokenStorage storage = new(expired);
         var refreshResponse = new TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new("sess2", "US", 123));
-        HttpClient http = new HttpClient(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
+        HttpClient http = new(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
-        TidalOAuthService svc = new TidalOAuthService(http, storage);
+        TidalOAuthService svc = new(http, storage);
         TidalTokens tokens = await svc.GetValidTokensAsync();
         Assert.Equal("new_access", tokens.AccessToken);
         Assert.Equal("new_refresh", tokens.RefreshToken);
@@ -25,9 +25,9 @@ public class TidalOAuthServiceTokenLifecycleTests
     [Fact]
     public async Task GetValidTokens_Throws_WhenNoStoredOrCurrentTokens()
     {
-        MemoryTokenStorage storage = new MemoryTokenStorage(null);
-        HttpClient http = new HttpClient(new FixedResponseHandler("", HttpStatusCode.BadRequest));
-        TidalOAuthService svc = new TidalOAuthService(http, storage);
+        MemoryTokenStorage storage = new(null);
+        HttpClient http = new(new FixedResponseHandler("", HttpStatusCode.BadRequest));
+        TidalOAuthService svc = new(http, storage);
         _ = await Assert.ThrowsAsync<InvalidOperationException>(svc.GetValidTokensAsync);
     }
 }

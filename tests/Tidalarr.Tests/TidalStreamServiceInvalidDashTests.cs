@@ -8,7 +8,7 @@ public class TidalStreamServiceInvalidDashTests
     [Fact]
     public async Task GetStreamInfoWithManifestParsingAsync_InvalidDash_ThrowsFormatException()
     {
-        TidalStreamService svc = new TidalStreamService(new DummyCore(), new TidalManifestParser());
+        TidalStreamService svc = new(new DummyCore(), new TidalManifestParser());
         _ = await Assert.ThrowsAsync<FormatException>(() => svc.GetStreamInfoWithManifestParsingAsync("t1", TidalQuality.Lossless, "not-base64", "application/dash+xml"));
     }
 

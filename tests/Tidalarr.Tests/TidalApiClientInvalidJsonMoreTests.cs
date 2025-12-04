@@ -49,21 +49,21 @@ public class TidalApiClientInvalidJsonMoreTests
     [Fact]
     public async Task GetAlbumAsync_InvalidJson_ThrowsJsonException()
     {
-        TidalApiClient client = new TidalApiClient(new HttpClient(new BadJsonHandler()), new Auth());
+        TidalApiClient client = new(new HttpClient(new BadJsonHandler()), new Auth());
         _ = await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => client.GetAlbumAsync("al1"));
     }
 
     [Fact]
     public async Task GetAlbumTracksAsync_InvalidJson_ThrowsJsonException()
     {
-        TidalApiClient client = new TidalApiClient(new HttpClient(new BadJsonHandler()), new Auth());
+        TidalApiClient client = new(new HttpClient(new BadJsonHandler()), new Auth());
         _ = await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => client.GetAlbumTracksAsync("al1"));
     }
 
     [Fact]
     public async Task SearchAsync_InvalidJson_ThrowsJsonException()
     {
-        TidalApiClient client = new TidalApiClient(new HttpClient(new BadJsonHandler()), new Auth());
+        TidalApiClient client = new(new HttpClient(new BadJsonHandler()), new Auth());
         _ = await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => client.SearchAsync("abc"));
     }
 }

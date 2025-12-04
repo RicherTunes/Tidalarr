@@ -10,7 +10,7 @@ public class HostBridgeMappingTests
     [Fact]
     public void TidalarrHostSettings_ToCore_MapsAllFields()
     {
-        TidalarrHostSettings host = new TidalarrHostSettings
+        TidalarrHostSettings host = new()
         {
             ConfigPath = "C:/cfg",
             RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y",
@@ -34,7 +34,7 @@ public class HostBridgeMappingTests
     [Fact]
     public void TidalIndexerHostSettings_ToCore_MapsAllFields()
     {
-        TidalIndexerHostSettings host = new TidalIndexerHostSettings
+        TidalIndexerHostSettings host = new()
         {
             ConfigPath = "C:/cfg",
             RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y",
@@ -49,7 +49,7 @@ public class HostBridgeMappingTests
     [Fact]
     public void TidalDownloadClientHostSettings_ToCore_MapsAllFieldsAndEnum()
     {
-        TidalDownloadClientHostSettings host = new TidalDownloadClientHostSettings
+        TidalDownloadClientHostSettings host = new()
         {
             PreferredQuality = TidalQualityHost.HiRes,
             DownloadPath = "C:/out",
@@ -68,7 +68,7 @@ public class HostBridgeMappingTests
     [Fact]
     public void ServiceCollectionExtensions_RegistersMapper()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         _ = services.AddTidalarrHostBridgeServices();
         ServiceProvider provider = services.BuildServiceProvider();
         IHostSettingsMapper mapper = provider.GetRequiredService<IHostSettingsMapper>();

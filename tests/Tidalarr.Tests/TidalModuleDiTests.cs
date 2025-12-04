@@ -16,9 +16,9 @@ public class TidalModuleDiTests
     [Fact]
     public void RegistersExpectedServices_AndLifetimes()
     {
-        ServiceCollection services = new ServiceCollection();
-        TidalIndexerSettings indexerSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
-        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        ServiceCollection services = new();
+        TidalIndexerSettings indexerSettings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        TidalDownloadClientSettings downloadSettings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);

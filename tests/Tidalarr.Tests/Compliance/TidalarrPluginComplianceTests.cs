@@ -90,9 +90,7 @@ public class TidalarrPluginComplianceTests : IDisposable
         Type[] publicTypes = this._pluginAssembly.GetExportedTypes();
 
         // Check for exposed Common library types that should be internalized
-        List<Type> exposedCommonTypes = publicTypes
-            .Where(t => t.Namespace?.StartsWith("Lidarr.Plugin.Common", StringComparison.Ordinal) == true)
-            .ToList();
+        List<Type> exposedCommonTypes = [.. publicTypes.Where(t => t.Namespace?.StartsWith("Lidarr.Plugin.Common", StringComparison.Ordinal) == true)];
 
         Assert.Empty(exposedCommonTypes);
     }
@@ -100,9 +98,7 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Assembly_ImplementsIPlugin()
     {
-        List<Type> pluginTypes = this._pluginAssembly.GetTypes()
-            .Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)
-            .ToList();
+        List<Type> pluginTypes = [.. this._pluginAssembly.GetTypes().Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)];
 
         Assert.NotEmpty(pluginTypes);
     }
@@ -202,11 +198,10 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Namespace_HasCorrectRootNamespace()
     {
-        List<string?> namespaces = this._pluginAssembly.GetTypes()
+        List<string?> namespaces = [.. this._pluginAssembly.GetTypes()
             .Select(t => t.Namespace)
             .Where(n => !string.IsNullOrEmpty(n))
-            .Distinct()
-            .ToList();
+            .Distinct()];
 
         Assert.Contains(namespaces, n => n!.StartsWith("Tidalarr", StringComparison.Ordinal));
     }
@@ -214,9 +209,7 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Namespace_HasIntegrationNamespace()
     {
-        List<Type> integrationTypes = this._pluginAssembly.GetTypes()
-            .Where(t => t.Namespace?.Contains("Integration", StringComparison.Ordinal) == true)
-            .ToList();
+        List<Type> integrationTypes = [.. this._pluginAssembly.GetTypes().Where(t => t.Namespace?.Contains("Integration", StringComparison.Ordinal) == true)];
 
         Assert.NotEmpty(integrationTypes);
     }

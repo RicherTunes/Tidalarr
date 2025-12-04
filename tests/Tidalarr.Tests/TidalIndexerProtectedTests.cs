@@ -62,9 +62,9 @@ public class TidalIndexerProtectedTests
     [Fact]
     public async Task SearchTracksAsync_MapsTracks()
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
-        TidalSearchService searchSvc = new TidalSearchService(new CoreStub(), new Domain.Quality.TidalQualityDetector());
-        IndexerExposed indexer = new IndexerExposed(searchSvc, new CoreStub(), settings);
+        TidalIndexerSettings settings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        TidalSearchService searchSvc = new(new CoreStub(), new Domain.Quality.TidalQualityDetector());
+        IndexerExposed indexer = new(searchSvc, new CoreStub(), settings);
         List<Lidarr.Plugin.Abstractions.Models.StreamingTrack> tracks = await indexer.ExposeSearchTracksAsync("query");
         Assert.NotEmpty(tracks);
         Assert.Equal("Song", tracks[0].Title);
@@ -73,9 +73,9 @@ public class TidalIndexerProtectedTests
     [Fact]
     public async Task GetAlbumDetailsAsync_ReturnsMappedAlbum()
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
-        TidalSearchService searchSvc = new TidalSearchService(new CoreStub(), new Domain.Quality.TidalQualityDetector());
-        IndexerExposed indexer = new IndexerExposed(searchSvc, new CoreStub(), settings);
+        TidalIndexerSettings settings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        TidalSearchService searchSvc = new(new CoreStub(), new Domain.Quality.TidalQualityDetector());
+        IndexerExposed indexer = new(searchSvc, new CoreStub(), settings);
         Lidarr.Plugin.Abstractions.Models.StreamingAlbum album = await indexer.ExposeGetAlbumDetailsAsync("al1");
         Assert.Equal("Album", album.Title);
     }

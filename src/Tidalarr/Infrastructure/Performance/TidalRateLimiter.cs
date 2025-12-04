@@ -12,7 +12,7 @@ public sealed class TidalRateLimiter(ILogger<TidalRateLimiter>? logger = null) :
 {
     private const string Service = "Tidal";
 
-    private readonly UniversalAdaptiveRateLimiter _inner = new UniversalAdaptiveRateLimiter();
+    private readonly UniversalAdaptiveRateLimiter _inner = new();
     private readonly ILogger<TidalRateLimiter>? _logger = logger;
     private bool _disposed;
 

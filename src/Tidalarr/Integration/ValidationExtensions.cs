@@ -9,7 +9,7 @@ internal static class ValidationExtensions
     {
         if (result == null)
         {
-            return PluginValidationResult.Failure(new[] { "Validation result was null." });
+            return PluginValidationResult.Failure(["Validation result was null."]);
         }
 
         if (result.IsValid)
@@ -17,10 +17,9 @@ internal static class ValidationExtensions
             return PluginValidationResult.Success();
         }
 
-        string[] errors = result.Errors
+        string[] errors = [.. result.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorMessage))
-            .Select(e => e.ErrorMessage)
-            .ToArray();
+            .Select(e => e.ErrorMessage)];
 
         return PluginValidationResult.Failure(errors);
     }

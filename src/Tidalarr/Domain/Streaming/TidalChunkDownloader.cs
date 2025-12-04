@@ -22,7 +22,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
         IProgress<ChunkDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        MemoryStream outputStream = new MemoryStream();
+        MemoryStream outputStream = new();
         int totalChunks = manifest.ChunkUrls.Length;
         int completedChunks = 0;
 
@@ -32,7 +32,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
 
             try
             {
-                using HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
+                using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
                 HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
@@ -87,7 +87,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
     public async Task<Stream> DownloadAndAssembleAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
     {
         string tempFilePath = Path.GetTempFileName();
-        FileStream fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
+        FileStream fileStream = new(tempFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
 
         try
         {
@@ -95,7 +95,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
             {
                 string chunkUrl = streamInfo.ChunkUrls[i];
 
-                using HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, chunkUrl);
+                using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
                 using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: CancellationToken.None);
                 _ = response.EnsureSuccessStatusCode();
 
@@ -129,29 +129,9 @@ public class TidalChunkDownloader(HttpClient httpClient)
     public async Task<byte[]> DownloadAndAssembleBytesAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
     {
         await using Stream stream = await DownloadAndAssembleAsync(streamInfo, progress);
-        using MemoryStream ms = new MemoryStream();
+        using MemoryStream ms = new();
         await stream.CopyToAsync(ms);
         return ms.ToArray();
-    }
-
-    private async Task<byte[]> DownloadChunkWithRetryAsync(string chunkUrl, int maxRetries = 3)
-    {
-        Exception? lastException = null;
-
-        for (int attempt = 0; attempt < maxRetries; attempt++)
-        {
-            try
-            {
-                return await this._httpClient.GetByteArrayAsync(chunkUrl);
-            }
-            catch (HttpRequestException ex) when (attempt < maxRetries - 1)
-            {
-                lastException = ex;
-                await Task.Delay(TimeSpan.FromMilliseconds(500 * (attempt + 1)));
-            }
-        }
-
-        throw new InvalidOperationException($"Failed to download chunk {chunkUrl} after {maxRetries} attempts", lastException);
     }
 
     public async Task<bool> ValidateChunkAccessibilityAsync(string[] chunkUrls)

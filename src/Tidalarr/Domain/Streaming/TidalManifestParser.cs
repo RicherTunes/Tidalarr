@@ -59,11 +59,10 @@ public class TidalManifestParser
             throw new InvalidOperationException("No URLs found in BTS manifest");
         }
 
-        string[] urls = urlsElement
+        string[] urls = [.. urlsElement
             .EnumerateArray()
             .Select(e => e.GetString() ?? string.Empty)
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToArray();
+            .Where(s => !string.IsNullOrEmpty(s))];
 
         if (urls.Length == 0)
         {
@@ -148,11 +147,10 @@ public class TidalManifestParser
         string? mediaTemplate = template?.Attribute("media")?.Value;
         if (string.IsNullOrEmpty(mediaTemplate))
         {
-            string[] mediaTemplates = adaptationSet.Descendants(ns + "SegmentTemplate")
+            string[] mediaTemplates = [.. adaptationSet.Descendants(ns + "SegmentTemplate")
                 .Select(st => st.Attribute("media")?.Value)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Select(s => s!)
-                .ToArray();
+                .Select(s => s!)];
             return mediaTemplates.Any() ? mediaTemplates : [];
         }
 

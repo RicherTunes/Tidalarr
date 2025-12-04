@@ -11,27 +11,27 @@ public class TidalApiClientNullDtoTests
     [Fact]
     public async Task GetAlbumAsync_NullJson_ThrowsInvalidOperationException()
     {
-        HttpClient httpClient = new HttpClient(new NullBodyHandler());
-        NullDtoAuth auth = new NullDtoAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new NullBodyHandler());
+        NullDtoAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetAlbumAsync("al1"));
     }
 
     [Fact]
     public async Task GetAlbumTracksAsync_NullJson_ThrowsInvalidOperationException()
     {
-        HttpClient httpClient = new HttpClient(new NullBodyHandler());
-        NullDtoAuth auth = new NullDtoAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new NullBodyHandler());
+        NullDtoAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetAlbumTracksAsync("al1"));
     }
 
     [Fact]
     public async Task SearchAsync_NullJson_ThrowsInvalidOperationException()
     {
-        HttpClient httpClient = new HttpClient(new NullBodyHandler());
-        NullDtoAuth auth = new NullDtoAuth();
-        TidalApiClient client = new TidalApiClient(httpClient, auth);
+        HttpClient httpClient = new(new NullBodyHandler());
+        NullDtoAuth auth = new();
+        TidalApiClient client = new(httpClient, auth);
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => client.SearchAsync("abc"));
     }
 
@@ -39,7 +39,7 @@ public class TidalApiClientNullDtoTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpResponseMessage msg = new HttpResponseMessage(HttpStatusCode.OK)
+            HttpResponseMessage msg = new(HttpStatusCode.OK)
             {
                 Content = new StringContent("null", Encoding.UTF8, "application/json")
             };

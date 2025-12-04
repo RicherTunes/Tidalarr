@@ -14,7 +14,7 @@ public static class TidalCLIHelper
 {
     private static HttpClient CreateHttpClient()
     {
-        HttpClientHandler handler = new HttpClientHandler
+        HttpClientHandler handler = new()
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
@@ -68,7 +68,7 @@ public static class TidalCLIHelper
             bool isEncrypted = !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(securityToken);
 
             Console.WriteLine("\n?? Step 3: Parsing DASH manifest using plugin...");
-            StreamManifest manifest = new StreamManifest(streamInfo);
+            StreamManifest manifest = new(streamInfo);
             Console.WriteLine("? Manifest parsed successfully!");
             Console.WriteLine($"   Format: {manifest.FileExtension} container");
             Console.WriteLine($"   Codec: {manifest.Codecs}");
@@ -79,9 +79,9 @@ public static class TidalCLIHelper
                 return "? No chunks found in manifest";
             }
             Console.WriteLine("\n?? Step 4: Downloading using plugin's chunk downloader...");
-            TidalChunkDownloader chunkDownloader = new TidalChunkDownloader(httpClient);
+            TidalChunkDownloader chunkDownloader = new(httpClient);
             string mime = manifest.MimeType == ManifestMimeType.BTS ? "application/vnd.tidal.bts" : "application/dash+xml";
-            TidalStreamInfo streamInfoModel = new TidalStreamInfo(
+            TidalStreamInfo streamInfoModel = new(
                 trackId,
                 manifest.ChunkUrls,
                 manifest.FileExtension,
@@ -93,13 +93,13 @@ public static class TidalCLIHelper
 
             Console.WriteLine("\n?? Step 5: Saving assembled audio file...");
             string fileName = $"{artist} - {title}";
-            foreach (char c in Path.GetInvalidFileNameChars().Concat(new[] { ':', '?', '*', '<', '>', '|' }))
+            foreach (char c in Path.GetInvalidFileNameChars().Concat([':', '?', '*', '<', '>', '|']))
             {
                 fileName = fileName.Replace(c, '_');
             }
             string outputPath = Path.Combine(Path.GetTempPath(), $"tidalarr_{fileName}{manifest.FileExtension}");
 
-            await using (FileStream fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+            await using (FileStream fileStream = new(outputPath, FileMode.Create, FileAccess.Write))
             {
                 audioStream.Position = 0;
                 await audioStream.CopyToAsync(fileStream);

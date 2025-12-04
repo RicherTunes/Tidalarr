@@ -18,7 +18,7 @@ public class FileTokenStoreTests : IDisposable
     public async Task SaveAndLoadTokens_ValidTokens_RoundTripSuccessful()
     {
         // Arrange
-        TidalTokens tokens = new TidalTokens(
+        TidalTokens tokens = new(
             AccessToken: "test_access_token",
             RefreshToken: "test_refresh_token",
             TokenType: "Bearer",
@@ -45,7 +45,7 @@ public class FileTokenStoreTests : IDisposable
     {
         // Arrange
         string nonExistentPath = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.json");
-        FileTokenStore storage = new FileTokenStore(nonExistentPath);
+        FileTokenStore storage = new(nonExistentPath);
 
         // Act
         TidalTokens? tokens = await storage.LoadTokensAsync();
@@ -71,7 +71,7 @@ public class FileTokenStoreTests : IDisposable
     public async Task DeleteTokens_FileExists_RemovesFile()
     {
         // Arrange
-        TidalTokens tokens = new TidalTokens("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
+        TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
         await this._storage.SaveTokensAsync(tokens);
         Assert.True(File.Exists(this._testStoragePath));
 
@@ -87,8 +87,8 @@ public class FileTokenStoreTests : IDisposable
     {
         // Arrange
         string invalidPath = "<>|*?invalid:path";
-        FileTokenStore storage = new FileTokenStore(invalidPath);
-        TidalTokens tokens = new TidalTokens("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
+        FileTokenStore storage = new(invalidPath);
+        TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
 
         // Act & Assert
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>

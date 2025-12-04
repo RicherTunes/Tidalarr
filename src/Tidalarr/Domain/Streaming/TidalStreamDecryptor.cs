@@ -45,7 +45,7 @@ public static class TidalStreamDecryptor
         }
 
         _ = stream.Seek(0, SeekOrigin.Begin);
-        using MemoryStream buffer = new MemoryStream();
+        using MemoryStream buffer = new();
         await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         byte[] decrypted = Decrypt(buffer.ToArray(), securityToken);
 

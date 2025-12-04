@@ -19,12 +19,12 @@ public static class PackagingHelper
         string hashPath = packagePath + ".sha256";
         string metadataPath = packagePath + ".metadata.json";
 
-        string[] assemblies = EnumerateAssemblies(packagePath, packageDirectory, framework, configuration).ToArray();
+        string[] assemblies = [.. EnumerateAssemblies(packagePath, packageDirectory, framework, configuration)];
         string hash = ComputeSha256(packagePath);
 
         File.WriteAllText(hashPath, hash);
 
-        PackagingMetadata metadata = new PackagingMetadata
+        PackagingMetadata metadata = new()
         {
             PackagePath = packagePath,
             HashPath = hashPath,

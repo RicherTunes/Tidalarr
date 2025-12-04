@@ -172,14 +172,14 @@ public class MockTidalApiClient : ITidalCore
 
     public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
-        TidalTrackInfo track = new TidalTrackInfo(trackId, "Test Track", ["Artist"],
+        TidalTrackInfo track = new(trackId, "Test Track", ["Artist"],
             "album", "Album", 1, 240, TidalQuality.Lossless, true, DateTime.Now);
         return Task.FromResult(track);
     }
 
     public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        TidalAlbumInfo album = new TidalAlbumInfo(albumId, "Test Album", ["Artist"],
+        TidalAlbumInfo album = new(albumId, "Test Album", ["Artist"],
             [], [TidalQuality.Lossless],
             DateTime.Now, "cover", true);
         return Task.FromResult(album);
@@ -187,7 +187,7 @@ public class MockTidalApiClient : ITidalCore
 
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
-        TidalSearchResults results = new TidalSearchResults(
+        TidalSearchResults results = new(
             [], [], 0, false);
         return Task.FromResult(results);
     }
@@ -205,7 +205,7 @@ public class MockTidalApiClient : ITidalCore
         if (this._streamInfoResponses.ContainsKey(trackId))
             return Task.FromResult(this._streamInfoResponses[trackId]);
 
-        TidalStreamInfo defaultStream = new TidalStreamInfo(trackId, ["default"], ".flac", "audio/flac", false, null);
+        TidalStreamInfo defaultStream = new(trackId, ["default"], ".flac", "audio/flac", false, null);
         return Task.FromResult(defaultStream);
     }
 
@@ -224,7 +224,7 @@ public class MockTidalApiClient : ITidalCore
         [
             new(albumId + "_t1", "Track 1", ["Artist"], albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
         ];
-        TidalAlbumInfo album = new TidalAlbumInfo(albumId, "Album", ["Artist"], tracks, [TidalQuality.Lossless], DateTime.Now, "cover", true);
+        TidalAlbumInfo album = new(albumId, "Album", ["Artist"], tracks, [TidalQuality.Lossless], DateTime.Now, "cover", true);
         return Task.FromResult(album);
     }
 

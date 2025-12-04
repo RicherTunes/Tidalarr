@@ -47,9 +47,9 @@ public class TidalarrSettingsValidationTests
     [Fact]
     public async Task ValidateSettings_MissingFields_ReturnsErrors()
     {
-        TidalIndexerSettings settings = new TidalIndexerSettings { RedirectUrl = "", ConfigPath = "" };
-        CoreStub core = new CoreStub();
-        TidalIndexer indexer = new TidalIndexer(new Application.Services.TidalSearchService(core, new Domain.Quality.TidalQualityDetector()), core, settings);
+        TidalIndexerSettings settings = new() { RedirectUrl = "", ConfigPath = "" };
+        CoreStub core = new();
+        TidalIndexer indexer = new(new Application.Services.TidalSearchService(core, new Domain.Quality.TidalQualityDetector()), core, settings);
         FluentValidation.Results.ValidationResult result = await indexer.InitializeAsync();
         Assert.False(result.IsValid);
     }

@@ -36,7 +36,7 @@ public class TidalStreamManifestParsingTests
             keyId = "kid-123"
         });
 
-        StreamManifest sm = new StreamManifest(json);
+        StreamManifest sm = new(json);
         Assert.Equal(ManifestMimeType.MPD, sm.MimeType);
         Assert.Equal("FLAC", sm.Codecs);
         Assert.Equal(".m4a", sm.FileExtension);
@@ -55,7 +55,7 @@ public class TidalStreamManifestParsingTests
             manifest = "https://audio.tidal.com/file.m4a"
         });
 
-        StreamManifest sm = new StreamManifest(json);
+        StreamManifest sm = new(json);
         Assert.Equal(ManifestMimeType.BTS, sm.MimeType);
         Assert.Equal("MP4A", sm.Codecs); // default
         Assert.Equal(".m4a", sm.FileExtension);
@@ -72,7 +72,7 @@ public class TidalStreamManifestParsingTests
             manifest = "not-base64"
         });
 
-        StreamManifest sm = new StreamManifest(json);
+        StreamManifest sm = new(json);
         Assert.Empty(sm.ChunkUrls);
     }
 }

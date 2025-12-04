@@ -49,7 +49,7 @@ public class TidalApiClientNullPlaybackTests
     [Fact]
     public async Task GetStreamInfoAsync_NullJson_ThrowsInvalidOperation()
     {
-        TidalApiClient api = new TidalApiClient(new HttpClient(new NullHandler()), new Auth());
+        TidalApiClient api = new(new HttpClient(new NullHandler()), new Auth());
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => api.GetStreamInfoAsync("t1", TidalQuality.Lossless));
     }
 }

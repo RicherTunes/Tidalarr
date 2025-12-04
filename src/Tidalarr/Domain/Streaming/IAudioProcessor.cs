@@ -12,7 +12,7 @@ public class SystemAudioProcessor : IAudioProcessor
 {
     public async Task<(int exitCode, string stdout, string stderr)> RunFfmpegAsync(string arguments, CancellationToken ct = default)
     {
-        ProcessStartInfo psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = "ffmpeg",
             Arguments = arguments,
@@ -31,7 +31,7 @@ public class SystemAudioProcessor : IAudioProcessor
 
     public (int exitCode, string stdout, string stderr) RunFfprobe(string arguments)
     {
-        ProcessStartInfo psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = "ffprobe",
             Arguments = arguments,

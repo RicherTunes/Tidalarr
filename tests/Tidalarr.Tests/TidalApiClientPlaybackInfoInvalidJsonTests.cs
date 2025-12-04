@@ -51,7 +51,7 @@ public class TidalApiClientPlaybackInfoInvalidJsonTests
     [Fact]
     public async Task GetStreamInfoAsync_InvalidJson_ThrowsJsonException()
     {
-        TidalApiClient client = new TidalApiClient(new HttpClient(new BadJsonHandler()), new Auth());
+        TidalApiClient client = new(new HttpClient(new BadJsonHandler()), new Auth());
         _ = await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => client.GetStreamInfoAsync("t1", TidalQuality.Lossless));
     }
 }

@@ -68,10 +68,9 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 
         ValidatePackagingMetadata(solutionRoot);
 
-        string?[] disallowed = Directory.EnumerateFiles(this.pluginDirectory, "*.dll")
+        string?[] disallowed = [.. Directory.EnumerateFiles(this.pluginDirectory, "*.dll")
             .Select(Path.GetFileName)
-            .Where(name => name is not null && DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))
-            .ToArray();
+            .Where(name => name is not null && DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))];
 
         if (disallowed.Length > 0)
         {
@@ -93,7 +92,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             PluginContext = new HarnessPluginContext();
             await Plugin.InitializeAsync(PluginContext, CancellationToken.None).ConfigureAwait(false);
 
-            Dictionary<string, object?> settings = new Dictionary<string, object?>
+            Dictionary<string, object?> settings = new()
             {
                 ["ConfigPath"] = Path.GetTempPath(),
                 ["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=test",
@@ -194,9 +193,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             throw new InvalidOperationException($"Expected hash file '{metadata.HashPath}' was not generated.");
         }
 
-        string[] hostHits = metadata.Assemblies
-            .Where(name => DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))
-            .ToArray();
+        string[] hostHits = [.. metadata.Assemblies.Where(name => DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))];
         if (hostHits.Length > 0)
         {
             throw new InvalidOperationException($"Packaging metadata includes host assemblies: {string.Join(", ", hostHits)}");
@@ -226,7 +223,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             "Lidarr.Common"
         };
 
-        private readonly AssemblyDependencyResolver resolver = new AssemblyDependencyResolver(pluginAssemblyPath);
+        private readonly AssemblyDependencyResolver resolver = new(pluginAssemblyPath);
         private readonly string? hostAssemblyDirectory = hostAssemblyDirectory;
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -265,10 +262,10 @@ public sealed class HarnessPluginContext : IPluginContext
 {
     public HarnessPluginContext()
     {
-        ServiceCollection serviceCollection = new ServiceCollection();
+        ServiceCollection serviceCollection = new();
         _ = serviceCollection.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
         Services = serviceCollection.BuildServiceProvider();
-        this.LoggerFactory = Services.GetRequiredService<ILoggerFactory>();
+        LoggerFactory = Services.GetRequiredService<ILoggerFactory>();
     }
 
     public Version HostVersion { get; } = new(2, 14, 2, 4786);

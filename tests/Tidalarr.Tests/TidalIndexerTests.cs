@@ -33,7 +33,7 @@ public class TidalIndexerTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            TidalAlbumInfo album = new TidalAlbumInfo("al1", "A", new() { "X" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "c", true);
+            TidalAlbumInfo album = new("al1", "A", new() { "X" }, new(), new() { TidalQuality.Lossless }, DateTime.UtcNow, "c", true);
             return Task.FromResult(new TidalSearchResults(new() { album }, new(), 1, false));
         }
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
@@ -50,11 +50,11 @@ public class TidalIndexerTests
     [Fact]
     public async Task InitializeAndSearch_ReturnsResults()
     {
-        CoreFake core = new CoreFake();
-        TidalSearchService search = new TidalSearchService(core, new Domain.Quality.TidalQualityDetector());
-        TidalIndexerSettings settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        CoreFake core = new();
+        TidalSearchService search = new(core, new Domain.Quality.TidalQualityDetector());
+        TidalIndexerSettings settings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
 
-        TidalIndexer indexer = new TidalIndexer(search, core, settings, NullLogger.Instance);
+        TidalIndexer indexer = new(search, core, settings, NullLogger.Instance);
         FluentValidation.Results.ValidationResult init = await indexer.InitializeAsync();
         Assert.True(init.IsValid);
 
@@ -66,10 +66,10 @@ public class TidalIndexerTests
     [Fact]
     public async Task Initialize_FailsWhenNotAuthenticated()
     {
-        CoreFake core = new CoreFake { Authenticated = false };
-        TidalSearchService search = new TidalSearchService(core, new Domain.Quality.TidalQualityDetector());
-        TidalIndexerSettings settings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
-        TidalIndexer indexer = new TidalIndexer(search, core, settings, NullLogger.Instance);
+        CoreFake core = new() { Authenticated = false };
+        TidalSearchService search = new(core, new Domain.Quality.TidalQualityDetector());
+        TidalIndexerSettings settings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        TidalIndexer indexer = new(search, core, settings, NullLogger.Instance);
 
         FluentValidation.Results.ValidationResult result = await indexer.InitializeAsync();
         Assert.False(result.IsValid);

@@ -10,7 +10,7 @@ public class TidalCacheBindingTests
     [Fact]
     public void IStreamingResponseCache_ResolvesTo_TidalResponseCache()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
         ServiceProvider sp = services.BuildServiceProvider();
 

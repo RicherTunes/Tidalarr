@@ -25,7 +25,7 @@ public static class TokenStorage
 {
     private static HttpClient CreateHttpClient()
     {
-        HttpClientHandler handler = new HttpClientHandler
+        HttpClientHandler handler = new()
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
@@ -103,7 +103,7 @@ public static class TokenStorage
             string clientId = "6BDSRdpK9hqEBTgU";
             string clientSecret = "xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=";
 
-            Dictionary<string, string> requestData = new Dictionary<string, string>
+            Dictionary<string, string> requestData = new()
             {
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = currentTokens.RefreshToken,
@@ -111,7 +111,7 @@ public static class TokenStorage
                 ["client_secret"] = clientSecret
             };
 
-            FormUrlEncodedContent formData = new FormUrlEncodedContent(requestData);
+            FormUrlEncodedContent formData = new(requestData);
             HttpResponseMessage response = await httpClient.PostAsync(tokenUrl, formData);
             string responseContent = await ReadContentAsStringAsync(response.Content);
 
@@ -245,9 +245,9 @@ public static class TokenStorage
 
         if (bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B)
         {
-            using MemoryStream compressed = new MemoryStream(bytes);
-            using GZipStream gzip = new GZipStream(compressed, CompressionMode.Decompress);
-            using StreamReader reader = new StreamReader(gzip, Encoding.UTF8);
+            using MemoryStream compressed = new(bytes);
+            using GZipStream gzip = new(compressed, CompressionMode.Decompress);
+            using StreamReader reader = new(gzip, Encoding.UTF8);
             return await reader.ReadToEndAsync().ConfigureAwait(false);
         }
 

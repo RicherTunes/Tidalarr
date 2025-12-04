@@ -12,7 +12,7 @@ public class TidalModelMapperRoundtripTests
     [InlineData(TidalQuality.HiRes)]
     public void Quality_Roundtrip_MappingMaintainsTier(TidalQuality q)
     {
-        TidalModelMapper mapper = new TidalModelMapper();
+        TidalModelMapper mapper = new();
         Lidarr.Plugin.Abstractions.Models.StreamingQuality streamingQ = mapper.ToStreamingQuality(q);
         TidalQuality back = mapper.FromStreamingQuality(streamingQ);
         Assert.Equal(q, back);
