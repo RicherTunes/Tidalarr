@@ -41,25 +41,30 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            6.0.x
+            8.0.x
 
       - name: Extract Lidarr Assemblies from Docker
         run: |
           docker pull ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
           docker create --name lidarr-extract ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
-          # Project expects assemblies at ext/Lidarr/_output/net8.0 (csproj LidarrAssembliesPath)
-          mkdir -p ext/Lidarr/_output/net8.0
-          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net8.0/
+          # Lidarr plugins branch (v2.x) runs .NET 6.0 runtime - extract to net6.0 folder
+          mkdir -p ext/Lidarr/_output/net6.0
+          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net6.0/
           docker rm lidarr-extract
-          ls -la ext/Lidarr/_output/net8.0/ | head -20
+          ls -la ext/Lidarr/_output/net6.0/ | head -20
 
       - name: Build Plugin
         run: |
-          # Build with net8.0 to match Lidarr plugins branch runtime
+          # CRITICAL: Build with net6.0 to match Lidarr plugins branch runtime (.NET 6.0)
+          # The plugins branch (v2.x) still uses .NET 6.0, not .NET 8.0
+          # Building for net8.0 causes ReflectionTypeLoadException when plugin loads
           dotnet restore src/Tidalarr/Tidalarr.csproj
           dotnet build src/Tidalarr/Tidalarr.csproj \
             --configuration Release \
             --no-restore \
+            -p:TargetFramework=net6.0 \
             -p:UsePluginsBranch=true \
             -p:PluginPackagingDisable=true \
             -p:RunAnalyzersDuringBuild=false \
