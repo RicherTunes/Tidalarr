@@ -94,13 +94,25 @@ jobs:
             ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
           # Wait for config.xml to be created
           echo "Waiting for Lidarr to initialize..."
+          CONFIG_FOUND=false
           for i in {1..60}; do
             if docker exec lidarr-ss test -f /config/config.xml 2>/dev/null; then
               echo "Config file exists!"
+              CONFIG_FOUND=true
               break
             fi
             sleep 2
           done
+
+          # Check if config.xml was found, fail gracefully with logs if not
+          if [ "$CONFIG_FOUND" != "true" ]; then
+            echo "ERROR: config.xml was not created after 120 seconds"
+            echo "=== Container status ==="
+            docker ps -a --filter name=lidarr-ss
+            echo "=== Container logs ==="
+            docker logs lidarr-ss 2>&1 || true
+            exit 1
+          fi
 
           # Configure authentication to bypass the modal (set to Forms with known creds)
           echo "Configuring authentication..."
