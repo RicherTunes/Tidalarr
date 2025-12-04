@@ -41,28 +41,25 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: |
-            6.0.x
-            8.0.x
+          dotnet-version: 8.0.x
 
       - name: Extract Lidarr Assemblies from Docker
         run: |
           docker pull ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
           docker create --name lidarr-extract ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
-          # Project expects assemblies at ext/Lidarr/_output/net6.0 (csproj LidarrAssembliesPath)
-          mkdir -p ext/Lidarr/_output/net6.0
-          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net6.0/
+          # Project expects assemblies at ext/Lidarr/_output/net8.0 (csproj LidarrAssembliesPath)
+          mkdir -p ext/Lidarr/_output/net8.0
+          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net8.0/
           docker rm lidarr-extract
-          ls -la ext/Lidarr/_output/net6.0/ | head -20
+          ls -la ext/Lidarr/_output/net8.0/ | head -20
 
       - name: Build Plugin
         run: |
-          # Force net6.0 target to match Lidarr plugins branch runtime
-          dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net6.0
+          # Build with net8.0 to match Lidarr plugins branch runtime
+          dotnet restore src/Tidalarr/Tidalarr.csproj
           dotnet build src/Tidalarr/Tidalarr.csproj \
             --configuration Release \
             --no-restore \
-            -p:TargetFramework=net6.0 \
             -p:UsePluginsBranch=true \
             -p:PluginPackagingDisable=true \
             -p:RunAnalyzersDuringBuild=false \
