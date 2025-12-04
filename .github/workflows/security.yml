@@ -38,7 +38,11 @@ jobs:
           queries: security-and-quality
 
       - name: Build for Analysis
-        run: dotnet build -c Release
+        shell: pwsh
+        run: |
+          # Build only the main plugin project (HostBridge requires real Lidarr assemblies not available in CI)
+          dotnet restore src/Tidalarr/Tidalarr.csproj
+          dotnet build src/Tidalarr/Tidalarr.csproj -c Release --no-restore -p:RunAnalyzersDuringBuild=false
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
