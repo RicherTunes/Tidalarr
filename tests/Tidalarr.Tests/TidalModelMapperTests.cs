@@ -66,7 +66,7 @@ public class TidalModelMapperTests
         var results = new TidalSearchResults(
             Albums: new List<TidalAlbumInfo>
             {
-                new("al1","A", new List<string>{"X"}, new(), new(){TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)
+                new("al1","A", new List<string>{"X"}, new List<TidalTrackInfo>(), new List<TidalQuality>{TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)
             },
             Tracks: new List<TidalTrackInfo>
             {
