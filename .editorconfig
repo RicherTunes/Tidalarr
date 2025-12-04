@@ -72,3 +72,6 @@ dotnet_diagnostic.IDE0060.severity = suggestion  # Unused parameter
 
 # Generated regex suggestion (allow runtime regex in tests)
 dotnet_diagnostic.SYSLIB1045.severity = suggestion
+
+# Collection expression preference - allow both styles
+dotnet_diagnostic.IDE0305.severity = suggestion

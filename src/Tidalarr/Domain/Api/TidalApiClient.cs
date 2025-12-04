@@ -323,8 +323,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
         return new TidalSearchResults(
-            Albums: albumDtos.Select(MapToTidalAlbumInfo).ToList(),
-            Tracks: trackDtos.Select(MapToTidalTrackInfo).ToList(),
+            Albums: [.. albumDtos.Select(MapToTidalAlbumInfo)],
+            Tracks: [.. trackDtos.Select(MapToTidalTrackInfo)],
             TotalCount: albumDtos.Count + trackDtos.Count,
             HasMore: false);
     }
