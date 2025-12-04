@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-alpha.*'
+      - 'v*.*.*-beta.*'
+      - 'v*.*.*-rc.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.0 or v1.2.0-beta.1)'
+        required: true
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          6.0.x
+          8.0.x
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/NuGet.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Determine Version
+      id: version
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        DISPATCH_VERSION: ${{ github.event.inputs.version }}
+      run: |
+        if [ -n "$DISPATCH_VERSION" ]; then
+          VERSION="$DISPATCH_VERSION"
+        elif [ -n "$INPUT_VERSION" ]; then
+          VERSION="$INPUT_VERSION"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        VERSION_NUM="${VERSION#v}"
+        echo "version_num=$VERSION_NUM" >> $GITHUB_OUTPUT
+
+        if [[ "$VERSION" =~ -alpha|-beta|-rc ]]; then
+          echo "prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "prerelease=false" >> $GITHUB_OUTPUT
+        fi
+
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+    - name: Check if Release exists
+      id: check_release
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="${{ steps.version.outputs.version }}"
+        CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+        if [ "$CODE" = "200" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update Version in Project Files
+      if: steps.check_release.outputs.exists == 'false'
+      shell: pwsh
+      run: |
+        $VERSION_NUM = "${{ steps.version.outputs.version_num }}"
+        Write-Host "Updating version to $VERSION_NUM..."
+
+        # Update plugin.json
+        $pluginJson = Get-Content plugin.json -Raw | ConvertFrom-Json
+        $pluginJson.version = $VERSION_NUM
+        $pluginJson | ConvertTo-Json -Depth 10 | Set-Content plugin.json
+        Write-Host "Updated plugin.json"
+
+    - name: Build Plugin
+      if: steps.check_release.outputs.exists == 'false'
+      shell: pwsh
+      run: |
+        Write-Host "Building Tidalarr plugin..."
+        ./scripts/ci.ps1
+        Write-Host "Build completed"
+
+    - name: Package Plugin
+      if: steps.check_release.outputs.exists == 'false'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path release | Out-Null
+
+        # Find the built plugin DLL
+        $dllPaths = @(
+          "src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll",
+          "src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Tidalarr.dll",
+          "src/Tidalarr/bin/Lidarr.Plugin.Tidalarr.dll"
+        )
+
+        $foundDll = $null
+        foreach ($path in $dllPaths) {
+          if (Test-Path $path) {
+            $foundDll = $path
+            $buildDir = Split-Path $path -Parent
+            break
+          }
+        }
+
+        if (-not $foundDll) {
+          Write-Error "Could not find Lidarr.Plugin.Tidalarr.dll"
+          Get-ChildItem -Recurse -Filter "*.dll" -Path "src" | Select-Object -First 10 | ForEach-Object { Write-Host $_.FullName }
+          exit 1
+        }
+
+        Write-Host "Found plugin DLL at: $foundDll"
+        Copy-Item $foundDll release/
+        Copy-Item plugin.json release/
+
+        # Copy dependencies
+        $deps = @(
+          "Newtonsoft.Json.dll",
+          "NLog.dll",
+          "FluentValidation.dll"
+        )
+        foreach ($dep in $deps) {
+          $depPath = Join-Path $buildDir $dep
+          if (Test-Path $depPath) {
+            Copy-Item $depPath release/
+          }
+        }
+
+        # Copy documentation
+        if (Test-Path "README.md") { Copy-Item README.md release/ }
+        if (Test-Path "LICENSE") { Copy-Item LICENSE release/ }
+
+        # Create ZIP
+        Compress-Archive -Path release/* -DestinationPath "Tidalarr-${{ steps.version.outputs.version }}.zip" -Force
+
+        # Create checksum
+        $hash = Get-FileHash "Tidalarr-${{ steps.version.outputs.version }}.zip" -Algorithm SHA256
+        "$($hash.Hash)  Tidalarr-${{ steps.version.outputs.version }}.zip" | Out-File "Tidalarr-${{ steps.version.outputs.version }}.zip.sha256" -Encoding ascii
+
+        Write-Host "Package contents:"
+        Get-ChildItem release/
+
+    - name: Upload Build Artifacts
+      if: steps.check_release.outputs.exists == 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: tidalarr-plugin-${{ steps.version.outputs.version }}
+        path: |
+          Tidalarr-${{ steps.version.outputs.version }}.zip
+          Tidalarr-${{ steps.version.outputs.version }}.zip.sha256
+          release/
+        retention-days: 90
+
+    - name: Generate Release Notes
+      if: steps.check_release.outputs.exists == 'false'
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        PREV_TAG="${{ steps.version.outputs.previous_tag }}"
+
+        cat > release_notes.md << EOF
+        ## Tidalarr $VERSION
+
+        Tidal integration for Lidarr - Search and download music from Tidal.
+
+        ### Changes
+        EOF
+
+        if [ -n "$PREV_TAG" ]; then
+          echo "" >> release_notes.md
+          git log --pretty=format:"- %s" "$PREV_TAG"..HEAD >> release_notes.md || true
+        else
+          echo "- Initial release" >> release_notes.md
+        fi
+
+        cat >> release_notes.md << EOF
+
+        ### Installation
+
+        1. Stop Lidarr
+        2. Extract the ZIP to your Lidarr plugins directory:
+           - Windows: \`%ProgramData%\Lidarr\plugins\Tidalarr\`
+           - Linux: \`/var/lib/lidarr/plugins/Tidalarr/\`
+           - Docker: \`/config/plugins/Tidalarr/\`
+        3. Restart Lidarr
+        4. Configure in Settings > Indexers and Settings > Download Clients
+
+        ### Features
+        - OAuth 2.0 PKCE Authentication
+        - High Quality Audio (Lossless, Hi-Res)
+        - Smart Quality Detection
+        - Sequential Chunk Downloading
+        EOF
+
+    - name: Create GitHub Release
+      if: steps.check_release.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: "Tidalarr ${{ steps.version.outputs.version }}"
+        body_path: release_notes.md
+        draft: ${{ github.event.inputs.draft == 'true' }}
+        prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+        files: |
+          Tidalarr-${{ steps.version.outputs.version }}.zip
+          Tidalarr-${{ steps.version.outputs.version }}.zip.sha256
+        generate_release_notes: false
+
+    - name: Release Summary
+      run: |
+        Write-Host "Successfully created release!"
+        Write-Host "Release: Tidalarr ${{ steps.version.outputs.version }}"
+        Write-Host "URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}"
