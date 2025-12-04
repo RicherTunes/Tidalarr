@@ -138,12 +138,12 @@ public class TidalOAuthServiceTests
     public async Task ExchangeCodeAsync_ValidResponse_ReturnsTokens()
     {
         // Arrange
-        var mockResponse = new TidalTokenResponse(
+        var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
             access_token: "test_access_token",
             refresh_token: "test_refresh_token",
             token_type: "Bearer",
             expires_in: 3600,
-            user: new TidalUserResponse("session123", "US", 12345)
+            user: new Tidalarr.Domain.Authentication.TidalUserResponse("session123", "US", 12345)
         );
 
         var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
@@ -168,12 +168,12 @@ public class TidalOAuthServiceTests
     public async Task RefreshTokensAsync_ValidResponse_ReturnsNewTokens()
     {
         // Arrange
-        var mockResponse = new TidalTokenResponse(
+        var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
             access_token: "new_access_token",
             refresh_token: "new_refresh_token",
             token_type: "Bearer",
             expires_in: 3600,
-            user: new TidalUserResponse("session456", "US", 12345)
+            user: new Tidalarr.Domain.Authentication.TidalUserResponse("session456", "US", 12345)
         );
 
         var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
