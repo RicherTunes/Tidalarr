@@ -10,7 +10,7 @@ $repoRoot = Resolve-Path "$PSScriptRoot/.."
 Push-Location $repoRoot
 try {
     $commonScripts = Join-Path $repoRoot 'ext/Lidarr.Plugin.Common/scripts'
-    $hostOutput = Join-Path $repoRoot 'ext/Lidarr/_output/net6.0'
+    $hostOutput = Join-Path $repoRoot 'ext/Lidarr/_output/net8.0'
 
     if (-not (Test-Path $commonScripts)) {
         throw "Lidarr.Plugin.Common scripts directory not found at $commonScripts"
@@ -44,7 +44,7 @@ try {
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $repoRoot 'plugin.json'
         $csproj = Join-Path $repoRoot 'src/Tidalarr/Tidalarr.csproj'
-        $null = New-PluginPackage -Csproj $csproj -Manifest $manifestPath -Framework 'net6.0' -Configuration 'Release'
+        $null = New-PluginPackage -Csproj $csproj -Manifest $manifestPath -Framework 'net8.0' -Configuration 'Release'
     } catch {
         Write-Warning "Packaging step failed: $_"
         if ($IncludeCliTests) { throw }
@@ -77,7 +77,7 @@ try {
         $packageName = "Tidalarr-$($manifest.version).zip"
         $packagePath = Join-Path $artifactsDir $packageName
 
-        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin/Release/net6.0'
+        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin/Release/net8.0'
         $payload = @(
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.dll'
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.pdb'

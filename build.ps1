@@ -165,15 +165,15 @@ if (-not $NoBuild) {
         $modulePath = Join-Path $scriptRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $scriptRoot 'plugin.json'
-        $packagePath = New-PluginPackage -Csproj $pluginProject -Manifest $manifestPath -Framework 'net6.0' -Configuration $Configuration
+        $packagePath = New-PluginPackage -Csproj $pluginProject -Manifest $manifestPath -Framework 'net8.0' -Configuration $Configuration
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 
         try {
-            $pluginAssemblyPath = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net6.0/Lidarr.Plugin.Tidalarr.dll"
+            $pluginAssemblyPath = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net8.0/Lidarr.Plugin.Tidalarr.dll"
             if (Test-Path $pluginAssemblyPath) {
                 try { Add-Type -Path $pluginAssemblyPath -ErrorAction Stop } catch {}
             }
-            $metadata = [Tidalarr.Integration.PackagingHelper]::WritePackagingMetadata($packagePath, 'net6.0', $Configuration)
+            $metadata = [Tidalarr.Integration.PackagingHelper]::WritePackagingMetadata($packagePath, 'net8.0', $Configuration)
             Write-Host "Package metadata: $($metadata.MetadataPath)" -ForegroundColor Gray
             Write-Host "Package hash: $($metadata.HashPath)" -ForegroundColor Gray
         }
