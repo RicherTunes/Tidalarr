@@ -47,6 +47,7 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
+        continue-on-error: true  # Don't fail if Code Scanning isn't enabled (requires GitHub Advanced Security for private repos)
         with:
           category: "/language:csharp"
 
