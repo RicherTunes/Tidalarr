@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -390,18 +391,26 @@ namespace Tidalarr.Tests.LibraryLinking
         [Fact]
         public void Plugin_Objects_Should_Be_GC_Eligible_After_Unload()
         {
-            // Arrange
-            var pluginState = new object();
-            var weakRef = new WeakReference(pluginState);
+            // Use a helper method to create the weak reference
+            // This ensures the object is out of scope and eligible for GC
+            var weakRef = CreateWeakReference();
 
-            // Act - Simulate plugin unload
-            pluginState = null!;
+            // Act - Force garbage collection
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            // Assert
+            // Assert - Object should be collected (may be flaky in some JIT modes)
+            // If this fails intermittently, it's due to GC non-determinism, not a real issue
             Assert.False(weakRef.IsAlive);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference CreateWeakReference()
+        {
+            // Create object in separate method scope to ensure it's truly out of scope
+            var pluginState = new object();
+            return new WeakReference(pluginState);
         }
 
         #endregion

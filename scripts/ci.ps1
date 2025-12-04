@@ -61,6 +61,8 @@ try {
     }
 
     Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
+    # Set environment variable so tests know which configuration was built
+    $env:TIDALARR_TEST_CONFIGURATION = 'Release'
     if ($IncludeCliTests) {
         Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
         dotnet test "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-build -p:SkipHostBridge=true
