@@ -59,7 +59,7 @@ jobs:
       run: |
         echo "Setting up Lidarr assemblies for release build (plugins branch)..."
         set -e
-        mkdir -p ext/Lidarr/_output/net6.0
+        mkdir -p ext/Lidarr/_output/net8.0
         if ! docker --version >/dev/null 2>&1; then
           echo "[ERROR] Docker is required to fetch plugins-branch assemblies for release."
           exit 1
@@ -76,13 +76,13 @@ jobs:
         echo "Extracting assemblies from container..."
         docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
         docker rm "$cid" >/dev/null
-        find ext/Lidarr/_extracted -type f -name "*.dll" -print -exec cp {} ext/Lidarr/_output/net6.0 \;
-        ls -la ext/Lidarr/_output/net6.0/ || true
-        if [ ! -f ext/Lidarr/_output/net6.0/Lidarr.dll ]; then
+        find ext/Lidarr/_extracted -type f -name "*.dll" -print -exec cp {} ext/Lidarr/_output/net8.0 \;
+        ls -la ext/Lidarr/_output/net8.0/ || true
+        if [ ! -f ext/Lidarr/_output/net8.0/Lidarr.dll ]; then
           echo "[ERROR] Missing Lidarr.dll after extraction."
           exit 1
         fi
-        if ! strings ext/Lidarr/_output/net6.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
+        if ! strings ext/Lidarr/_output/net8.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
           echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
           exit 1
         fi
@@ -102,7 +102,7 @@ jobs:
     - name: Create release package
       run: |
         echo "Creating release package..."
-        cd src/Tidalarr/bin/Release/net6.0
+        cd src/Tidalarr/bin/Release/net8.0
         zip -r "../../../../../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip" *
         cd ../../../../../
 

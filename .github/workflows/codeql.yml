@@ -36,14 +36,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            6.0.x
-            8.0.x
+          dotnet-version: 8.0.x
 
       - name: Extract Lidarr Plugins Branch Assemblies
         run: |
           # Extract assemblies from plugins branch Docker image (same as main CI)
-          mkdir -p ext/Lidarr/_output/net6.0
+          mkdir -p ext/Lidarr/_output/net8.0
           IMAGE="ghcr.io/hotio/lidarr:pr-plugins"
           echo "Pulling $IMAGE..."
           docker pull "$IMAGE"
@@ -51,10 +49,10 @@ jobs:
           echo "Extracting assemblies from container..."
           docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
           docker rm "$cid" >/dev/null
-          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net6.0 \;
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
 
           # Verify plugins branch API is present
-          if ! strings ext/Lidarr/_output/net6.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
+          if ! strings ext/Lidarr/_output/net8.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
             echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
             exit 1
           fi
