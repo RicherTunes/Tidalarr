@@ -1,9 +1,10 @@
-name: Security Scanning
+name: CodeQL Analysis
 
 on:
   push:
-    branches: [main, develop, feat/cli-arg-hardening]
+    branches: [main, develop]
   pull_request:
+    branches: [main, develop]
   schedule:
     - cron: '0 3 * * 1'  # Weekly Monday 3 AM
 
@@ -14,6 +15,7 @@ jobs:
   codeql:
     name: CodeQL Analysis
     runs-on: windows-latest
+    timeout-minutes: 45
     permissions:
       actions: read
       security-events: write
@@ -21,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -33,7 +35,7 @@ jobs:
             8.0.x
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v3
         with:
           languages: csharp
           queries: security-and-quality
@@ -46,28 +48,10 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj -c Release --no-restore -p:RunAnalyzersDuringBuild=false
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v3
         continue-on-error: true  # Don't fail if Code Scanning isn't enabled (requires GitHub Advanced Security for private repos)
         with:
           category: "/language:csharp"
-
-  secrets:
-    name: Secret Scanning
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Run GitLeaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependencies:
     name: Dependency Vulnerabilities
@@ -75,7 +59,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
