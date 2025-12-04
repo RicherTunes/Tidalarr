@@ -19,8 +19,8 @@ namespace Tidalarr.Tests.LibraryLinking
     [Trait("Category", "LibraryLinking")]
     public class LibraryLinkingEdgeCaseTests
     {
-        private static readonly string PluginAssemblyPath;
-        private static readonly Assembly PluginAssembly;
+        private static readonly string? PluginAssemblyPath;
+        private static readonly Assembly? PluginAssembly;
 
         static LibraryLinkingEdgeCaseTests()
         {
@@ -326,7 +326,7 @@ namespace Tidalarr.Tests.LibraryLinking
             // (UseInRepoCommon=true for submodule, false for package)
 
             // Skip if assembly not available
-            if (PluginAssembly == null)
+            if (PluginAssembly == null || string.IsNullOrEmpty(PluginAssemblyPath))
             {
                 return;
             }

@@ -167,15 +167,16 @@ namespace Tidalarr.Tests.LibraryLinking
         [Fact]
         public void TokenRefresh_Should_Not_Affect_Other_Plugins()
         {
-            // Arrange
-            var tidalToken = "tidal-v1";
-            var qobuzToken = "qobuz-v1";
+            // Arrange - Simulate isolated token storage for different plugins
+            var tidalTokenStore = new Dictionary<string, string> { ["token"] = "tidal-v1" };
+            var qobuzTokenStore = new Dictionary<string, string> { ["token"] = "qobuz-v1" };
 
             // Act - Refresh Tidal token (simulated)
-            tidalToken = "tidal-v2";
+            tidalTokenStore["token"] = "tidal-v2";
 
-            // Assert - Qobuz token should be unchanged
-            Assert.Equal("qobuz-v1", qobuzToken);
+            // Assert - Qobuz token should be unchanged (plugin isolation)
+            Assert.Equal("tidal-v2", tidalTokenStore["token"]);
+            Assert.Equal("qobuz-v1", qobuzTokenStore["token"]);
         }
 
         [Fact]
@@ -440,7 +441,7 @@ namespace Tidalarr.Tests.LibraryLinking
         #region Cancellation Token Isolation Tests
 
         [Fact]
-        public async Task Cancellation_Should_Be_Plugin_Scoped()
+        public void Cancellation_Should_Be_Plugin_Scoped()
         {
             // Arrange
             using var tidalCts = new CancellationTokenSource();
@@ -455,7 +456,7 @@ namespace Tidalarr.Tests.LibraryLinking
         }
 
         [Fact]
-        public async Task ChunkDownload_Cancellation_Should_Propagate_To_Track()
+        public void ChunkDownload_Cancellation_Should_Propagate_To_Track()
         {
             // Arrange
             using var trackCts = new CancellationTokenSource();
