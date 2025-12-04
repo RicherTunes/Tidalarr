@@ -1,4 +1,3 @@
-using System;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Services.Caching;
 
@@ -25,9 +24,7 @@ public class TidalResponseCache : StreamingResponseCache
     public override bool ShouldCache(string endpoint)
     {
         // Don't cache playback info as URLs are temporary
-        if (endpoint.Contains("playbackinfo"))
-            return false;
-        return true;
+        return !endpoint.Contains("playbackinfo");
     }
 
     public override TimeSpan GetCacheDuration(string endpoint)
@@ -66,14 +63,14 @@ public class TidalResponseCache : StreamingResponseCache
     protected override bool ShouldFilterParameter(string parameterName, object parameterValue)
     {
         // Filter sensitive parameters from cache keys
-        var sensitiveParams = new[]
-        {
+        string[] sensitiveParams =
+        [
             "sessionId",
             "accessToken",
             "refreshToken",
             "securityToken",
             "userToken"
-        };
+        ];
 
         return Array.Exists(sensitiveParams, p =>
             string.Equals(p, parameterName, StringComparison.OrdinalIgnoreCase));
@@ -98,11 +95,9 @@ public class TidalResponseCache : StreamingResponseCache
     private static string SanitizeCacheKey(string cacheKey)
     {
         // Remove sensitive information from log output
-        if (cacheKey.Contains("sessionId") || cacheKey.Contains("token"))
-        {
-            return cacheKey.Length > 20 ? cacheKey[..20] + "..." : cacheKey;
-        }
-        return cacheKey;
+        return cacheKey.Contains("sessionId") || cacheKey.Contains("token")
+            ? cacheKey.Length > 20 ? cacheKey[..20] + "..." : cacheKey
+            : cacheKey;
     }
 
     /// <summary>

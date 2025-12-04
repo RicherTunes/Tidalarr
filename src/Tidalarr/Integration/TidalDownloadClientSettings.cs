@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
@@ -47,7 +45,7 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
 
     public override bool IsValid(out string errorMessage)
     {
-        var validation = Validator.Validate(this);
+        ValidationResult validation = Validator.Validate(this);
         errorMessage = validation.IsValid ? string.Empty : validation.Errors.First().ErrorMessage;
         return validation.IsValid;
     }
@@ -61,21 +59,21 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
     {
         public TidalDownloadClientSettingsValidator()
         {
-            RuleFor(x => x.PreferredQuality)
+            _ = RuleFor(x => x.PreferredQuality)
                 .Must(quality => Enum.IsDefined(typeof(TidalQuality), quality))
                 .WithMessage("Preferred quality selection is invalid")
                 .WithErrorCode(TidalarrValidationCodes.PreferredQualityInvalid);
 
-            RuleFor(x => x.DownloadPath)
+            _ = RuleFor(x => x.DownloadPath)
                 .NotEmpty().WithMessage("Download path is required").WithErrorCode(TidalarrValidationCodes.DownloadPathRequired)
                 .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Download path is invalid").WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
 
-            RuleFor(x => x.DownloadDelay)
+            _ = RuleFor(x => x.DownloadDelay)
                 .InclusiveBetween(0, 60000)
                 .WithMessage("Chunk delay must be between 0 and 60000 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayRange);
 
-            RuleFor(x => x.DownloadDelayMin)
+            _ = RuleFor(x => x.DownloadDelayMin)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage("Minimum delay must be greater than or equal to 0 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange)
@@ -83,7 +81,7 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
                 .WithMessage("Minimum delay must be less than or equal to maximum delay")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange);
 
-            RuleFor(x => x.DownloadDelayMax)
+            _ = RuleFor(x => x.DownloadDelayMax)
                 .GreaterThanOrEqualTo(x => x.DownloadDelayMin)
                 .WithMessage("Maximum delay must be greater than or equal to minimum delay")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange)

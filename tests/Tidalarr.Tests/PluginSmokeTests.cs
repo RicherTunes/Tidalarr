@@ -1,28 +1,21 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Plugin;
 
 public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 {
     private static readonly string[] DisallowedHostAssemblies =
-    {
+    [
         "Lidarr.Core.dll",
         "Lidarr.Common.dll",
         "Lidarr.Host.dll"
-    };
+    ];
 
     private PluginAssemblyLoadContext? loadContext;
     private string? pluginDirectory;
@@ -37,10 +30,10 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var buildConfiguration = Environment.GetEnvironmentVariable("TIDALARR_TEST_CONFIGURATION") ?? "Debug";
-        var targetFramework = Environment.GetEnvironmentVariable("TIDALARR_TEST_TFM") ?? "net6.0";
-        var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var sourceDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin", buildConfiguration, targetFramework);
+        string buildConfiguration = Environment.GetEnvironmentVariable("TIDALARR_TEST_CONFIGURATION") ?? "Debug";
+        string targetFramework = Environment.GetEnvironmentVariable("TIDALARR_TEST_TFM") ?? "net6.0";
+        string solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        string sourceDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin", buildConfiguration, targetFramework);
 
         if (!Directory.Exists(sourceDirectory))
         {
@@ -48,37 +41,36 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             return;
         }
 
-        var hostFallbackDirectory = Path.Combine(solutionRoot, "ext", "Lidarr", "_output", "net6.0");
-        hostAssemblyDirectory = Directory.Exists(hostFallbackDirectory) ? hostFallbackDirectory : sourceDirectory;
+        string hostFallbackDirectory = Path.Combine(solutionRoot, "ext", "Lidarr", "_output", "net6.0");
+        this.hostAssemblyDirectory = Directory.Exists(hostFallbackDirectory) ? hostFallbackDirectory : sourceDirectory;
 
-        var pluginAssemblyName = "Lidarr.Plugin.Tidalarr.dll";
-        var sourceAssemblyPath = Path.Combine(sourceDirectory, pluginAssemblyName);
+        string pluginAssemblyName = "Lidarr.Plugin.Tidalarr.dll";
+        string sourceAssemblyPath = Path.Combine(sourceDirectory, pluginAssemblyName);
         if (!File.Exists(sourceAssemblyPath))
         {
             SkipReason = $"Plugin assembly not found at '{sourceAssemblyPath}'. Build the plugin before running the smoke tests.";
             return;
         }
 
-        pluginDirectory = Path.Combine(Path.GetTempPath(), $"tidalarr-smoke-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(pluginDirectory);
+        this.pluginDirectory = Path.Combine(Path.GetTempPath(), $"tidalarr-smoke-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(this.pluginDirectory);
 
-        foreach (var file in Directory.EnumerateFiles(sourceDirectory))
+        foreach (string file in Directory.EnumerateFiles(sourceDirectory))
         {
             if (string.Equals(Path.GetFileName(file), "Lidarr.Plugin.Abstractions.dll", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var destination = Path.Combine(pluginDirectory, Path.GetFileName(file));
+            string destination = Path.Combine(this.pluginDirectory, Path.GetFileName(file));
             File.Copy(file, destination, overwrite: true);
         }
 
         ValidatePackagingMetadata(solutionRoot);
 
-        var disallowed = Directory.EnumerateFiles(pluginDirectory, "*.dll")
+        string?[] disallowed = [.. Directory.EnumerateFiles(this.pluginDirectory, "*.dll")
             .Select(Path.GetFileName)
-            .Where(name => name is not null && DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))
-            .ToArray();
+            .Where(name => name is not null && DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))];
 
         if (disallowed.Length > 0)
         {
@@ -86,28 +78,28 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             return;
         }
 
-        var pluginAssemblyPath = Path.Combine(pluginDirectory, pluginAssemblyName);
-        loadContext = new PluginAssemblyLoadContext(pluginAssemblyPath, hostAssemblyDirectory);
+        string pluginAssemblyPath = Path.Combine(this.pluginDirectory, pluginAssemblyName);
+        this.loadContext = new PluginAssemblyLoadContext(pluginAssemblyPath, this.hostAssemblyDirectory);
 
-        using (loadContext.EnterContextualReflection())
+        using (this.loadContext.EnterContextualReflection())
         {
-            var pluginAssembly = loadContext.LoadFromAssemblyPath(pluginAssemblyPath);
-            pluginAssemblyReference = new WeakReference<Assembly>(pluginAssembly);
+            Assembly pluginAssembly = this.loadContext.LoadFromAssemblyPath(pluginAssemblyPath);
+            this.pluginAssemblyReference = new WeakReference<Assembly>(pluginAssembly);
 
-            var pluginType = pluginAssembly.DefinedTypes.First(type => typeof(IPlugin).IsAssignableFrom(type) && !type.IsAbstract);
+            TypeInfo pluginType = pluginAssembly.DefinedTypes.First(type => typeof(IPlugin).IsAssignableFrom(type) && !type.IsAbstract);
 
             Plugin = (IPlugin)Activator.CreateInstance(pluginType)!;
             PluginContext = new HarnessPluginContext();
             await Plugin.InitializeAsync(PluginContext, CancellationToken.None).ConfigureAwait(false);
 
-            var settings = new Dictionary<string, object?>
+            Dictionary<string, object?> settings = new()
             {
                 ["ConfigPath"] = Path.GetTempPath(),
                 ["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=test",
                 ["DownloadPath"] = Path.GetTempPath()
             };
 
-            var applied = Plugin.SettingsProvider.Apply(settings);
+            PluginValidationResult applied = Plugin.SettingsProvider.Apply(settings);
             if (!applied.IsValid)
             {
                 SkipReason = $"Plugin settings failed validation: {string.Join(", ", applied.Errors)}";
@@ -121,13 +113,10 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 
     public IServiceScope CreateScope()
     {
-        var createScopeMethod = Plugin.GetType().GetMethod("CreateScope", BindingFlags.Instance | BindingFlags.NonPublic);
-        if (createScopeMethod is null)
-        {
-            throw new InvalidOperationException("Streaming plugin must expose CreateScope method.");
-        }
-
-        return (IServiceScope)(createScopeMethod.Invoke(Plugin, Array.Empty<object?>()) ?? throw new InvalidOperationException("CreateScope returned null."));
+        MethodInfo? createScopeMethod = Plugin.GetType().GetMethod("CreateScope", BindingFlags.Instance | BindingFlags.NonPublic);
+        return createScopeMethod is null
+            ? throw new InvalidOperationException("Streaming plugin must expose CreateScope method.")
+            : (IServiceScope)(createScopeMethod.Invoke(Plugin, []) ?? throw new InvalidOperationException("CreateScope returned null."));
     }
 
     public async Task DisposeAsync()
@@ -146,22 +135,22 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
         }
         finally
         {
-            loadContext?.Unload();
-            loadContext = null;
+            this.loadContext?.Unload();
+            this.loadContext = null;
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            if (pluginAssemblyReference is not null && pluginAssemblyReference.TryGetTarget(out _))
+            if (this.pluginAssemblyReference is not null && this.pluginAssemblyReference.TryGetTarget(out _))
             {
                 Console.WriteLine("SMOKE WARN: Plugin assembly persisted after unload. Check for static references.");
             }
 
-            if (pluginDirectory is not null && Directory.Exists(pluginDirectory))
+            if (this.pluginDirectory is not null && Directory.Exists(this.pluginDirectory))
             {
                 try
                 {
-                    Directory.Delete(pluginDirectory, recursive: true);
+                    Directory.Delete(this.pluginDirectory, recursive: true);
                 }
                 catch
                 {
@@ -169,22 +158,22 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
                 }
             }
 
-            pluginDirectory = null;
-            hostAssemblyDirectory = null;
+            this.pluginDirectory = null;
+            this.hostAssemblyDirectory = null;
             Plugin = default!;
-            pluginAssemblyReference = null;
+            this.pluginAssemblyReference = null;
         }
     }
 
     private static void ValidatePackagingMetadata(string solutionRoot)
     {
-        var packagesDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "artifacts", "packages");
+        string packagesDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "artifacts", "packages");
         if (!Directory.Exists(packagesDirectory))
         {
             return;
         }
 
-        var metadataFile = Directory.EnumerateFiles(packagesDirectory, "*.metadata.json", SearchOption.TopDirectoryOnly)
+        string? metadataFile = Directory.EnumerateFiles(packagesDirectory, "*.metadata.json", SearchOption.TopDirectoryOnly)
             .OrderByDescending(File.GetLastWriteTime)
             .FirstOrDefault();
         if (metadataFile is null || !File.Exists(metadataFile))
@@ -192,8 +181,8 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             return;
         }
 
-        var json = File.ReadAllText(metadataFile);
-        var metadata = JsonSerializer.Deserialize<PackagingMetadata>(json);
+        string json = File.ReadAllText(metadataFile);
+        PackagingMetadata? metadata = JsonSerializer.Deserialize<PackagingMetadata>(json);
         if (metadata is null)
         {
             return;
@@ -204,9 +193,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             throw new InvalidOperationException($"Expected hash file '{metadata.HashPath}' was not generated.");
         }
 
-        var hostHits = metadata.Assemblies
-            .Where(name => DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))
-            .ToArray();
+        string[] hostHits = [.. metadata.Assemblies.Where(name => DisallowedHostAssemblies.Contains(name, StringComparer.OrdinalIgnoreCase))];
         if (hostHits.Length > 0)
         {
             throw new InvalidOperationException($"Packaging metadata includes host assemblies: {string.Join(", ", hostHits)}");
@@ -215,16 +202,13 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 
     private static IServiceProvider ResolveServices(IPlugin plugin)
     {
-        var servicesProperty = plugin.GetType().GetProperty("Services", BindingFlags.Instance | BindingFlags.NonPublic);
-        if (servicesProperty?.GetValue(plugin) is IServiceProvider services)
-        {
-            return services;
-        }
-
-        throw new InvalidOperationException("Plugin must expose the internal Services property provided by StreamingPlugin.");
+        PropertyInfo? servicesProperty = plugin.GetType().GetProperty("Services", BindingFlags.Instance | BindingFlags.NonPublic);
+        return servicesProperty?.GetValue(plugin) is IServiceProvider services
+            ? services
+            : throw new InvalidOperationException("Plugin must expose the internal Services property provided by StreamingPlugin.");
     }
 
-    private sealed class PluginAssemblyLoadContext : AssemblyLoadContext
+    private sealed class PluginAssemblyLoadContext(string pluginAssemblyPath, string? hostAssemblyDirectory) : AssemblyLoadContext("Tidalarr.Tests.Plugin", isCollectible: true)
     {
         private static readonly HashSet<string> SharedAssemblyNames = new(StringComparer.Ordinal)
         {
@@ -239,29 +223,22 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             "Lidarr.Common"
         };
 
-        private readonly AssemblyDependencyResolver resolver;
-        private readonly string? hostAssemblyDirectory;
-
-        public PluginAssemblyLoadContext(string pluginAssemblyPath, string? hostAssemblyDirectory)
-            : base("Tidalarr.Tests.Plugin", isCollectible: true)
-        {
-            resolver = new AssemblyDependencyResolver(pluginAssemblyPath);
-            this.hostAssemblyDirectory = hostAssemblyDirectory;
-        }
+        private readonly AssemblyDependencyResolver resolver = new(pluginAssemblyPath);
+        private readonly string? hostAssemblyDirectory = hostAssemblyDirectory;
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            var assemblyNameValue = assemblyName.Name;
+            string? assemblyNameValue = assemblyName.Name;
             if (assemblyNameValue is not null)
             {
                 if (SharedAssemblyNames.Contains(assemblyNameValue))
                 {
-                    return AssemblyLoadContext.Default.LoadFromAssemblyName(assemblyName);
+                    return Default.LoadFromAssemblyName(assemblyName);
                 }
 
-                if (HostAssemblyNames.Contains(assemblyNameValue) && hostAssemblyDirectory is not null)
+                if (HostAssemblyNames.Contains(assemblyNameValue) && this.hostAssemblyDirectory is not null)
                 {
-                    var candidate = Path.Combine(hostAssemblyDirectory, assemblyNameValue + ".dll");
+                    string candidate = Path.Combine(this.hostAssemblyDirectory, assemblyNameValue + ".dll");
                     if (File.Exists(candidate))
                     {
                         return LoadFromAssemblyPath(candidate);
@@ -269,13 +246,13 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
                 }
             }
 
-            var path = resolver.ResolveAssemblyToPath(assemblyName);
+            string? path = this.resolver.ResolveAssemblyToPath(assemblyName);
             return path is null ? null : LoadFromAssemblyPath(path);
         }
 
         protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
         {
-            var path = resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
+            string? path = this.resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
             return path is null ? base.LoadUnmanagedDll(unmanagedDllName) : LoadUnmanagedDllFromPath(path);
         }
     }
@@ -283,39 +260,35 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
 
 public sealed class HarnessPluginContext : IPluginContext
 {
-    private readonly ILoggerFactory loggerFactory;
-
     public HarnessPluginContext()
     {
-        var serviceCollection = new ServiceCollection();
-        serviceCollection.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        ServiceCollection serviceCollection = new();
+        _ = serviceCollection.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
         Services = serviceCollection.BuildServiceProvider();
-        loggerFactory = Services.GetRequiredService<ILoggerFactory>();
+        LoggerFactory = Services.GetRequiredService<ILoggerFactory>();
     }
 
     public Version HostVersion { get; } = new(2, 14, 2, 4786);
-    public ILoggerFactory LoggerFactory => loggerFactory;
+    public ILoggerFactory LoggerFactory { get; }
     public IServiceProvider? Services { get; }
 }
 
-public sealed class TidalarrPluginSmokeTests : IClassFixture<TidalarrPluginLoadFixture>
+public sealed class TidalarrPluginSmokeTests(TidalarrPluginLoadFixture fixture) : IClassFixture<TidalarrPluginLoadFixture>
 {
-    private readonly TidalarrPluginLoadFixture fixture;
-
-    public TidalarrPluginSmokeTests(TidalarrPluginLoadFixture fixture) => this.fixture = fixture;
+    private readonly TidalarrPluginLoadFixture fixture = fixture;
 
     [Fact]
     public void PluginLoadsAndProvidesServices()
     {
-        Assert.True(fixture.IsReady, fixture.SkipReason ?? "Plugin build not available.");
+        Assert.True(this.fixture.IsReady, this.fixture.SkipReason ?? "Plugin build not available.");
 
-        Assert.NotNull(fixture.Plugin);
-        Assert.NotNull(fixture.Services);
+        Assert.NotNull(this.fixture.Plugin);
+        Assert.NotNull(this.fixture.Services);
 
-        var searchServiceType = fixture.Plugin.GetType().Assembly.GetType("Tidalarr.Application.Services.TidalSearchService");
+        Type? searchServiceType = this.fixture.Plugin.GetType().Assembly.GetType("Tidalarr.Application.Services.TidalSearchService");
         Assert.NotNull(searchServiceType);
 
-        using var scope = fixture.CreateScope();
+        using IServiceScope scope = this.fixture.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetService(searchServiceType!));
     }
 }

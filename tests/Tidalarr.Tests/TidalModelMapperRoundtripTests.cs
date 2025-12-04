@@ -1,6 +1,5 @@
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -13,9 +12,9 @@ public class TidalModelMapperRoundtripTests
     [InlineData(TidalQuality.HiRes)]
     public void Quality_Roundtrip_MappingMaintainsTier(TidalQuality q)
     {
-        var mapper = new TidalModelMapper();
-        var streamingQ = mapper.ToStreamingQuality(q);
-        var back = mapper.FromStreamingQuality(streamingQ);
+        TidalModelMapper mapper = new();
+        Lidarr.Plugin.Abstractions.Models.StreamingQuality streamingQ = mapper.ToStreamingQuality(q);
+        TidalQuality back = mapper.FromStreamingQuality(streamingQ);
         Assert.Equal(q, back);
     }
 }

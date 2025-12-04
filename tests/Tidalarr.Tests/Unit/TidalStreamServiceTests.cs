@@ -1,7 +1,6 @@
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -17,20 +16,20 @@ public class TidalStreamServiceTests
 
     public TidalStreamServiceTests()
     {
-        _mockApiClient = new MockTidalApiClient();
-        _manifestParser = new TidalManifestParser();
-        _streamService = new TidalStreamService(_mockApiClient, _manifestParser);
+        this._mockApiClient = new MockTidalApiClient();
+        this._manifestParser = new TidalManifestParser();
+        this._streamService = new TidalStreamService(this._mockApiClient, this._manifestParser);
     }
 
     [Fact]
     public async Task TidalStreamService_GetStreamInfo_WithValidTrack_ReturnsStreamInfo()
     {
         // Arrange
-        _mockApiClient.SetupStreamInfo("track123", new TidalStreamInfo(
-            "track123", new[] { "url1", "url2" }, ".flac", "audio/flac", false, null));
+        this._mockApiClient.SetupStreamInfo("track123", new TidalStreamInfo(
+            "track123", ["url1", "url2"], ".flac", "audio/flac", false, null));
 
         // Act
-        var result = await _streamService.GetStreamInfoAsync("track123", TidalQuality.Lossless);
+        TidalStreamInfo result = await this._streamService.GetStreamInfoAsync("track123", TidalQuality.Lossless);
 
         // Assert
         Assert.NotNull(result);
@@ -42,11 +41,11 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_ValidateStreamAvailability_WithValidStream_ReturnsTrue()
     {
         // Arrange
-        _mockApiClient.SetupStreamInfo("valid_track", new TidalStreamInfo(
-            "valid_track", new[] { "url1" }, ".flac", "audio/flac", false, null));
+        this._mockApiClient.SetupStreamInfo("valid_track", new TidalStreamInfo(
+            "valid_track", ["url1"], ".flac", "audio/flac", false, null));
 
         // Act
-        var result = await _streamService.ValidateStreamAvailabilityAsync("valid_track", TidalQuality.High);
+        bool result = await this._streamService.ValidateStreamAvailabilityAsync("valid_track", TidalQuality.High);
 
         // Assert
         Assert.True(result);
@@ -56,10 +55,10 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_ValidateStreamAvailability_WithInvalidStream_ReturnsFalse()
     {
         // Arrange
-        _mockApiClient.SetupThrowException("invalid_track");
+        this._mockApiClient.SetupThrowException("invalid_track");
 
         // Act
-        var result = await _streamService.ValidateStreamAvailabilityAsync("invalid_track", TidalQuality.High);
+        bool result = await this._streamService.ValidateStreamAvailabilityAsync("invalid_track", TidalQuality.High);
 
         // Assert
         Assert.False(result);
@@ -69,11 +68,11 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_GetAvailableQualities_WithMultipleQualities_ReturnsAll()
     {
         // Arrange
-        _mockApiClient.SetupMultipleQualities("track123",
+        this._mockApiClient.SetupMultipleQualities("track123",
             TidalQuality.High, TidalQuality.Lossless);
 
         // Act
-        var qualities = await _streamService.GetAvailableQualitiesForTrackAsync("track123");
+        List<TidalQuality> qualities = await this._streamService.GetAvailableQualitiesForTrackAsync("track123");
 
         // Assert
         Assert.Contains(TidalQuality.High, qualities);
@@ -84,10 +83,10 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_GetAvailableQualities_WithUnavailableTrack_ReturnsEmpty()
     {
         // Arrange
-        _mockApiClient.SetupThrowExceptionForAllQualities("unavailable_track");
+        this._mockApiClient.SetupThrowExceptionForAllQualities("unavailable_track");
 
         // Act
-        var qualities = await _streamService.GetAvailableQualitiesForTrackAsync("unavailable_track");
+        List<TidalQuality> qualities = await this._streamService.GetAvailableQualitiesForTrackAsync("unavailable_track");
 
         // Assert
         Assert.Empty(qualities);
@@ -97,11 +96,11 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_GetStreamInfoWithManifestParsing_WithValidManifest_ReturnsStreamInfo()
     {
         // Arrange
-        var testManifest = CreateTestDashManifest();
-        var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(testManifest));
+        string testManifest = CreateTestDashManifest();
+        string encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(testManifest));
 
         // Act
-        var result = await _streamService.GetStreamInfoWithManifestParsingAsync(
+        TidalStreamInfo result = await this._streamService.GetStreamInfoWithManifestParsingAsync(
             "track123", TidalQuality.Lossless, encodedManifest, "application/dash+xml");
 
         // Assert
@@ -114,11 +113,11 @@ public class TidalStreamServiceTests
     public async Task TidalStreamService_GetStreamInfoWithManifestParsing_WithCorruptManifest_ThrowsException()
     {
         // Arrange
-        var invalidManifest = "corrupted_manifest_data";
+        string invalidManifest = "corrupted_manifest_data";
 
         // Act & Assert
-        await Assert.ThrowsAsync<FormatException>(() =>
-            _streamService.GetStreamInfoWithManifestParsingAsync(
+        _ = await Assert.ThrowsAsync<FormatException>(() =>
+            this._streamService.GetStreamInfoWithManifestParsingAsync(
                 "track123", TidalQuality.Lossless, invalidManifest, "application/dash+xml"));
     }
 
@@ -138,98 +137,101 @@ public class TidalStreamServiceTests
 // Enhanced mock for comprehensive testing
 public class MockTidalApiClient : ITidalCore
 {
-    private readonly Dictionary<string, TidalStreamInfo> _streamInfoResponses = new();
-    private readonly Dictionary<string, Exception> _exceptionResponses = new();
-    private readonly Dictionary<string, List<TidalQuality>> _qualityResponses = new();
+    private readonly Dictionary<string, TidalStreamInfo> _streamInfoResponses = [];
+    private readonly Dictionary<string, Exception> _exceptionResponses = [];
+    private readonly Dictionary<string, List<TidalQuality>> _qualityResponses = [];
 
     public void SetupStreamInfo(string trackId, TidalStreamInfo streamInfo)
     {
-        _streamInfoResponses[trackId] = streamInfo;
+        this._streamInfoResponses[trackId] = streamInfo;
     }
 
     public void SetupThrowException(string trackId)
     {
-        _exceptionResponses[trackId] = new InvalidOperationException("Stream unavailable");
+        this._exceptionResponses[trackId] = new InvalidOperationException("Stream unavailable");
     }
 
     public void SetupMultipleQualities(string trackId, params TidalQuality[] qualities)
     {
-        foreach (var quality in qualities)
+        foreach (TidalQuality quality in qualities)
         {
-            var key = $"{trackId}_{quality}";
-            _streamInfoResponses[key] = new TidalStreamInfo(
-                trackId, new[] { "url" }, ".flac", "audio/flac", false, null);
+            string key = $"{trackId}_{quality}";
+            this._streamInfoResponses[key] = new TidalStreamInfo(
+                trackId, ["url"], ".flac", "audio/flac", false, null);
         }
     }
 
     public void SetupThrowExceptionForAllQualities(string trackId)
     {
-        foreach (var quality in Enum.GetValues<TidalQuality>())
+        foreach (TidalQuality quality in Enum.GetValues<TidalQuality>())
         {
-            var key = $"{trackId}_{quality}";
-            _exceptionResponses[key] = new InvalidOperationException("Unavailable");
+            string key = $"{trackId}_{quality}";
+            this._exceptionResponses[key] = new InvalidOperationException("Unavailable");
         }
     }
 
     public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
-        var track = new TidalTrackInfo(trackId, "Test Track", new List<string> { "Artist" },
+        TidalTrackInfo track = new(trackId, "Test Track", ["Artist"],
             "album", "Album", 1, 240, TidalQuality.Lossless, true, DateTime.Now);
         return Task.FromResult(track);
     }
 
     public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        var album = new TidalAlbumInfo(albumId, "Test Album", new List<string> { "Artist" },
-            new List<TidalTrackInfo>(), new List<TidalQuality> { TidalQuality.Lossless },
+        TidalAlbumInfo album = new(albumId, "Test Album", ["Artist"],
+            [], [TidalQuality.Lossless],
             DateTime.Now, "cover", true);
         return Task.FromResult(album);
     }
 
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
-        var results = new TidalSearchResults(
-            new List<TidalAlbumInfo>(), new List<TidalTrackInfo>(), 0, false);
+        TidalSearchResults results = new(
+            [], [], 0, false);
         return Task.FromResult(results);
     }
 
     public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
-        var key = $"{trackId}_{quality}";
+        string key = $"{trackId}_{quality}";
 
-        if (_exceptionResponses.ContainsKey(trackId) || _exceptionResponses.ContainsKey(key))
-            throw (_exceptionResponses.ContainsKey(key) ? _exceptionResponses[key] : _exceptionResponses[trackId]);
+        if (this._exceptionResponses.ContainsKey(trackId) || this._exceptionResponses.ContainsKey(key))
+            throw this._exceptionResponses.ContainsKey(key) ? this._exceptionResponses[key] : this._exceptionResponses[trackId];
 
-        if (_streamInfoResponses.ContainsKey(key))
-            return Task.FromResult(_streamInfoResponses[key]);
+        if (this._streamInfoResponses.ContainsKey(key))
+            return Task.FromResult(this._streamInfoResponses[key]);
 
-        if (_streamInfoResponses.ContainsKey(trackId))
-            return Task.FromResult(_streamInfoResponses[trackId]);
+        if (this._streamInfoResponses.ContainsKey(trackId))
+            return Task.FromResult(this._streamInfoResponses[trackId]);
 
-        var defaultStream = new TidalStreamInfo(trackId, new[] { "default" }, ".flac", "audio/flac", false, null);
+        TidalStreamInfo defaultStream = new(trackId, ["default"], ".flac", "audio/flac", false, null);
         return Task.FromResult(defaultStream);
     }
 
     public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        var tracks = new List<TidalTrackInfo>
-        {
-            new(albumId + "_t1", "Track 1", new List<string>{"Artist"}, albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
-        };
+        List<TidalTrackInfo> tracks =
+        [
+            new(albumId + "_t1", "Track 1", ["Artist"], albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
+        ];
         return Task.FromResult(tracks);
     }
 
     public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        var tracks = new List<TidalTrackInfo>
-        {
-            new(albumId + "_t1", "Track 1", new List<string>{"Artist"}, albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
-        };
-        var album = new TidalAlbumInfo(albumId, "Album", new List<string> { "Artist" }, tracks, new List<TidalQuality> { TidalQuality.Lossless }, DateTime.Now, "cover", true);
+        List<TidalTrackInfo> tracks =
+        [
+            new(albumId + "_t1", "Track 1", ["Artist"], albumId, "Album", 1, 200, TidalQuality.Lossless, true, DateTime.Now)
+        ];
+        TidalAlbumInfo album = new(albumId, "Album", ["Artist"], tracks, [TidalQuality.Lossless], DateTime.Now, "cover", true);
         return Task.FromResult(album);
     }
 
-    public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
+    public Task<bool> IsAuthenticatedAsync()
+    {
+        return Task.FromResult(true);
+    }
 }
 
 

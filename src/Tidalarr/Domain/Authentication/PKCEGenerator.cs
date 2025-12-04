@@ -7,18 +7,18 @@ public class PKCEGenerator
 {
     public (string codeVerifier, string codeChallenge) GeneratePair()
     {
-        var codeVerifier = GenerateCodeVerifier(128);
-        var codeChallenge = CreateS256Challenge(codeVerifier);
+        string codeVerifier = GenerateCodeVerifier(128);
+        string codeChallenge = CreateS256Challenge(codeVerifier);
         return (codeVerifier, codeChallenge);
     }
 
     private string GenerateCodeVerifier(int length)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-        var result = new char[length];
+        char[] result = new char[length];
 
-        using var rng = RandomNumberGenerator.Create();
-        var randomBytes = new byte[length];
+        using RandomNumberGenerator rng = RandomNumberGenerator.Create();
+        byte[] randomBytes = new byte[length];
         rng.GetBytes(randomBytes);
 
         for (int i = 0; i < length; i++)
@@ -31,8 +31,8 @@ public class PKCEGenerator
 
     private string CreateS256Challenge(string codeVerifier)
     {
-        using var sha256 = SHA256.Create();
-        var challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
+        using SHA256 sha256 = SHA256.Create();
+        byte[] challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
         return Base64UrlEncode(challengeBytes);
     }
 

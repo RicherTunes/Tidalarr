@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
@@ -10,7 +6,6 @@ using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Core.Mappers;
-using Tidalarr.Domain.Quality;
 using Lidarr.Plugin.Abstractions.Results;
 
 namespace Tidalarr.Integration;
@@ -33,32 +28,32 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider? tokenProvider = null)
         : base(settings, logger!)
     {
-        _searchService = searchService;
-        _apiClient = apiClient;
-        _mapper = new TidalModelMapper();
+        this._searchService = searchService;
+        this._apiClient = apiClient;
+        this._mapper = new TidalModelMapper();
         // Provide an OAuth-enabled HttpClient for base operations (if used)
         if (tokenProvider != null)
         {
-            var loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-            var ologger = loggerFactory.CreateLogger("OAuthDelegatingHandler");
-            var handler = new Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler(tokenProvider, ologger)
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
+            ILogger ologger = loggerFactory.CreateLogger("OAuthDelegatingHandler");
+            Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler handler = new(tokenProvider, ologger)
             {
                 InnerHandler = new HttpClientHandler()
             };
-            _httpClient = new HttpClient(handler)
+            this._httpClient = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromSeconds(100)
             };
         }
         else
         {
-            _httpClient = new HttpClient();
+            this._httpClient = new HttpClient();
         }
     }
 
     protected override async Task<bool> AuthenticateAsync()
     {
-        try { return await _apiClient.IsAuthenticatedAsync(); }
+        try { return await this._apiClient.IsAuthenticatedAsync(); }
         catch (Exception ex) { Logger?.LogError(ex, "Tidal authentication failed"); return false; }
     }
 
@@ -66,17 +61,17 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
-            var results = await _searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
             return results.Albums?
-                .Select(_mapper.ToStreamingAlbum)
+                .Select(this._mapper.ToStreamingAlbum)
                 .Where(a => a is not null)
                 .Select(a => a!)
-                .ToList() ?? new();
+                .ToList() ?? [];
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Failed to search albums for: {Search}", searchTerm);
-            return new();
+            return [];
         }
     }
 
@@ -89,17 +84,17 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
-            var results = await _searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
             return results.Tracks?
-                .Select(_mapper.ToStreamingTrack)
+                .Select(this._mapper.ToStreamingTrack)
                 .Where(t => t is not null)
                 .Select(t => t!)
-                .ToList() ?? new();
+                .ToList() ?? [];
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Failed to search tracks for: {Search}", searchTerm);
-            return new();
+            return [];
         }
     }
 
@@ -112,8 +107,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
-            var tidalAlbum = await _apiClient.GetAlbumAsync(albumId);
-            var mapped = _mapper.ToStreamingAlbum(tidalAlbum);
+            TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumAsync(albumId);
+            StreamingAlbum mapped = this._mapper.ToStreamingAlbum(tidalAlbum);
             if (mapped != null) return mapped;
         }
         catch (Exception ex)
@@ -131,11 +126,11 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     protected override ValidationResult ValidateSettings(TidalIndexerSettings settings)
     {
-        var result = new ValidationResult();
+        ValidationResult result = new();
         if (string.IsNullOrEmpty(settings.TidalMarket))
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("TidalMarket", "Tidal market is required"));
+            result.Errors.Add(new ValidationFailure("TidalMarket", "Tidal market is required"));
         if (string.IsNullOrEmpty(settings.ConfigPath))
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("ConfigPath", "Config path is required"));
+            result.Errors.Add(new ValidationFailure("ConfigPath", "Config path is required"));
         return result;
     }
 
@@ -145,7 +140,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         const string OK = "IX000";     // Settings valid
         const string INVALID_CODE = "IX100"; // Settings invalid
 
-        var validation = Settings.ValidateFluent();
+        ValidationResult validation = Settings.ValidateFluent();
         if (validation.IsValid)
         {
             return PluginOperationResult<Dictionary<string, string>>.Success(new()
@@ -155,11 +150,10 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             });
         }
 
-        var codes = validation.Errors
+        string[] codes = [.. validation.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
             .Select(e => e.ErrorCode)
-            .Distinct()
-            .ToArray();
+            .Distinct()];
 
         return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
             PluginErrorCode.ValidationFailed,
@@ -179,7 +173,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         const string OK = "IX000";       // Initialization OK
         const string AUTHFAIL = "IX200";  // Authentication failed
 
-        var settingsResult = ValidateSettingsWithDiagnostics();
+        PluginOperationResult<Dictionary<string, string>> settingsResult = ValidateSettingsWithDiagnostics();
         if (!settingsResult.IsSuccess)
         {
             return settingsResult;
@@ -187,10 +181,9 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
         try
         {
-            var authed = await _apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
-            if (!authed)
-            {
-                return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
+            bool authed = await this._apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
+            return !authed
+                ? PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(
                     PluginErrorCode.Unauthorized,
                     "Authentication failed",
                     null,
@@ -198,13 +191,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                     {
                         ["id"] = AUTHFAIL,
                         ["service"] = ServiceName
-                    }));
-            }
-            return PluginOperationResult<Dictionary<string, string>>.Success(new()
-            {
-                ["id"] = OK,
-                ["service"] = ServiceName
-            });
+                    }))
+                : PluginOperationResult<Dictionary<string, string>>.Success(new()
+                {
+                    ["id"] = OK,
+                    ["service"] = ServiceName
+                });
         }
         catch (Exception ex)
         {
@@ -224,18 +216,21 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
-            var results = await _searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless);
-            return _mapper.ToStreamingSearchResults(results);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless);
+            return this._mapper.ToStreamingSearchResults(results);
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Enhanced search failed for: {Query}", query);
-            return new();
+            return [];
         }
     }
 
     // Inject OAuth-enabled client into base when it performs HTTP
-    protected override HttpClient GetHttpClient() => _httpClient;
+    protected override HttpClient GetHttpClient()
+    {
+        return this._httpClient;
+    }
 }
 
 

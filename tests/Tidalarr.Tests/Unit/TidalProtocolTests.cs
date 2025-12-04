@@ -1,6 +1,3 @@
-using Tidalarr;
-using Xunit;
-
 namespace Tidalarr.Tests.Unit;
 
 /// <summary>
@@ -23,7 +20,7 @@ public class TidalProtocolTests
     public void TidalProtocol_IsValidUrl_WithVariousInputs_ReturnsExpected(string? url, bool expected)
     {
         // Act
-        var result = TidalProtocol.IsValidUrl(url!);
+        bool result = TidalProtocol.IsValidUrl(url!);
 
         // Assert
         Assert.Equal(expected, result);
@@ -37,7 +34,7 @@ public class TidalProtocolTests
     public void TidalProtocol_ParseUrl_WithValidUrls_ReturnsCorrectTypeAndId(string url, string expectedType, string expectedId)
     {
         // Act
-        var (type, id) = TidalProtocol.ParseUrl(url);
+        (string type, string id) = TidalProtocol.ParseUrl(url);
 
         // Assert
         Assert.Equal(expectedType, type);
@@ -53,14 +50,14 @@ public class TidalProtocolTests
     public void TidalProtocol_ParseUrl_WithInvalidUrls_ThrowsArgumentException(string invalidUrl)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => TidalProtocol.ParseUrl(invalidUrl));
+        _ = Assert.Throws<ArgumentException>(() => TidalProtocol.ParseUrl(invalidUrl));
     }
 
     [Fact]
     public void TidalProtocol_BuildAlbumUrl_WithValidId_ReturnsCorrectUrl()
     {
         // Act
-        var url = TidalProtocol.BuildAlbumUrl("album123");
+        string url = TidalProtocol.BuildAlbumUrl("album123");
 
         // Assert
         Assert.Equal("tidal://album/album123", url);
@@ -71,7 +68,7 @@ public class TidalProtocolTests
     public void TidalProtocol_BuildTrackUrl_WithValidId_ReturnsCorrectUrl()
     {
         // Act
-        var url = TidalProtocol.BuildTrackUrl("track456");
+        string url = TidalProtocol.BuildTrackUrl("track456");
 
         // Assert
         Assert.Equal("tidal://track/track456", url);
@@ -92,15 +89,15 @@ public class TidalProtocolTests
     public void TidalProtocol_RoundTrip_BuildThenParse_ReturnsOriginalValues()
     {
         // Arrange
-        var albumId = "test_album_123";
-        var trackId = "test_track_456";
+        string albumId = "test_album_123";
+        string trackId = "test_track_456";
 
         // Act - Build URLs then parse them back
-        var albumUrl = TidalProtocol.BuildAlbumUrl(albumId);
-        var trackUrl = TidalProtocol.BuildTrackUrl(trackId);
+        string albumUrl = TidalProtocol.BuildAlbumUrl(albumId);
+        string trackUrl = TidalProtocol.BuildTrackUrl(trackId);
 
-        var (albumType, parsedAlbumId) = TidalProtocol.ParseUrl(albumUrl);
-        var (trackType, parsedTrackId) = TidalProtocol.ParseUrl(trackUrl);
+        (string albumType, string parsedAlbumId) = TidalProtocol.ParseUrl(albumUrl);
+        (string trackType, string parsedTrackId) = TidalProtocol.ParseUrl(trackUrl);
 
         // Assert
         Assert.Equal("album", albumType);
@@ -116,7 +113,7 @@ public class TidalProtocolTests
     public void TidalProtocol_BuildAlbumUrl_WithInvalidId_HandlesGracefully(string? invalidId)
     {
         // Act
-        var url = TidalProtocol.BuildAlbumUrl(invalidId!);
+        string url = TidalProtocol.BuildAlbumUrl(invalidId!);
 
         // Assert - Should still build URL but may not be useful
         Assert.StartsWith("tidal://album/", url);
@@ -129,7 +126,7 @@ public class TidalProtocolTests
     public void TidalProtocol_BuildTrackUrl_WithInvalidId_HandlesGracefully(string? invalidId)
     {
         // Act
-        var url = TidalProtocol.BuildTrackUrl(invalidId!);
+        string url = TidalProtocol.BuildTrackUrl(invalidId!);
 
         // Assert - Should still build URL but may not be useful
         Assert.StartsWith("tidal://track/", url);

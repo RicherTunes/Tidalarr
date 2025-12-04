@@ -1,5 +1,3 @@
-using System;
-
 namespace Tidalarr.Integration.Annotations;
 
 internal enum FieldType
@@ -12,11 +10,9 @@ internal enum FieldType
 }
 
 [AttributeUsage(AttributeTargets.Property)]
-internal sealed class FieldDefinitionAttribute : Attribute
+internal sealed class FieldDefinitionAttribute(int order) : Attribute
 {
-    public FieldDefinitionAttribute(int order) { Order = order; }
-    public int Order { get; }
-    public string Label { get; set; } = string.Empty;
+    public int Order { get; } = order; public string Label { get; set; } = string.Empty;
     public FieldType Type { get; set; } = FieldType.Textbox;
     public string? Unit { get; set; }
     public bool Advanced { get; set; }

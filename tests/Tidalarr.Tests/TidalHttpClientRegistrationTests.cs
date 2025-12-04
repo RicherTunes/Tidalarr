@@ -1,6 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using System.Linq;
-using Xunit;
 using Tidalarr.Integration;
 
 namespace Tidalarr.Tests;
@@ -10,7 +8,7 @@ public class TidalHttpClientRegistrationTests
     [Fact]
     public void IHttpClientFactory_IsRegistered_ByModule()
     {
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // DI contains the HttpClient factory registration

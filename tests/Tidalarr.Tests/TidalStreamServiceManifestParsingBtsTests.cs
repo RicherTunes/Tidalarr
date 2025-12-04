@@ -2,7 +2,6 @@ using System.Text;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -11,14 +10,14 @@ public class TidalStreamServiceManifestParsingBtsTests
     [Fact]
     public async Task GetStreamInfoWithManifestParsingAsync_BTS_ReturnsParsedInfo()
     {
-        var parser = new TidalManifestParser();
-        var service = new Tidalarr.Domain.Streaming.TidalStreamService(new TestsCommonCore(), parser);
-        var btsJson = "{" +
+        TidalManifestParser parser = new();
+        TidalStreamService service = new(new TestsCommonCore(), parser);
+        string btsJson = "{" +
                       "\"urls\":[\"https://u1\",\"https://u2\"]," +
                       "\"codecs\":\"flac\",\"mimeType\":\"audio/flac\",\"encryptionType\":\"NONE\"}";
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(btsJson));
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(btsJson));
 
-        var info = await service.GetStreamInfoWithManifestParsingAsync("t1", TidalQuality.Lossless, encoded, "application/vnd.tidal.bts");
+        TidalStreamInfo info = await service.GetStreamInfoWithManifestParsingAsync("t1", TidalQuality.Lossless, encoded, "application/vnd.tidal.bts");
         Assert.Equal("t1", info.TrackId);
         Assert.Equal(".flac", info.FileExtension);
         Assert.True(info.ChunkUrls.Length >= 2);
@@ -26,23 +25,23 @@ public class TidalStreamServiceManifestParsingBtsTests
     [Fact]
     public async Task GetParsedManifestAsync_UsesManifestTokenWhenPlaybackSecurityTokenMissing()
     {
-        var token = Convert.ToBase64String(new byte[] { 9, 8, 7, 6 });
-        var manifestJson = "{" +
+        string token = Convert.ToBase64String(new byte[] { 9, 8, 7, 6 });
+        string manifestJson = "{" +
                            "\"urls\":[\"https://secure/u1\",\"https://secure/u2\"]," +
                            "\"codecs\":\"mp4a.40.2\"," +
                            "\"mimeType\":\"audio/mp4\"," +
                            "\"encryptionType\":\"AES_CTR\"," +
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        var playback = new TidalPlaybackInfoDto(
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
+        TidalPlaybackInfoDto playback = new(
             manifest: encoded,
             manifestMimeType: "application/vnd.tidal.bts",
             encryptionType: "AES_CTR",
             securityToken: null);
 
-        var service = new Tidalarr.Domain.Streaming.TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
-        var manifest = await service.GetParsedManifestAsync("track-token", TidalQuality.Lossless);
+        TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
+        TidalManifest manifest = await service.GetParsedManifestAsync("track-token", TidalQuality.Lossless);
 
         Assert.True(manifest.IsEncrypted);
         Assert.Equal(token, manifest.SecurityToken);
@@ -51,72 +50,110 @@ public class TidalStreamServiceManifestParsingBtsTests
     [Fact]
     public async Task GetStreamInfoParsedAsync_UsesManifestTokenWhenPlaybackSecurityTokenMissing()
     {
-        var token = Convert.ToBase64String(new byte[] { 4, 5, 6, 7 });
-        var manifestJson = "{" +
+        string token = Convert.ToBase64String(new byte[] { 4, 5, 6, 7 });
+        string manifestJson = "{" +
                            "\"urls\":[\"https://secure/x1\",\"https://secure/x2\"]," +
                            "\"codecs\":\"mp4a.40.2\"," +
                            "\"mimeType\":\"audio/mp4\"," +
                            "\"encryptionType\":\"AES_CTR\"," +
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        var playback = new TidalPlaybackInfoDto(
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
+        TidalPlaybackInfoDto playback = new(
             manifest: encoded,
             manifestMimeType: "application/vnd.tidal.bts",
             encryptionType: "AES_CTR",
             securityToken: null);
 
-        var service = new Tidalarr.Domain.Streaming.TidalStreamService(new ManifestTokenCoreStub(playback), new TidalManifestParser());
-        var info = await service.GetStreamInfoParsedAsync("track-info-token", TidalQuality.Lossless);
+        TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
+        TidalStreamInfo info = await service.GetStreamInfoParsedAsync("track-info-token", TidalQuality.Lossless);
 
         Assert.True(info.IsEncrypted);
         Assert.Equal(token, info.SecurityToken);
         Assert.Equal(".m4a", info.FileExtension);
     }
-    private class ManifestTokenCoreStub : ITidalCore
+    private class ManifestTokenCoreStub(TidalPlaybackInfoDto playback) : ITidalCore
     {
-        private readonly TidalPlaybackInfoDto _playback;
+        private readonly TidalPlaybackInfoDto _playback = playback;
         private readonly TestsCommonCore _inner = new();
 
-        public ManifestTokenCoreStub(TidalPlaybackInfoDto playback)
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
         {
-            _playback = playback;
+            return this._inner.GetTrackAsync(trackId, cancellationToken);
         }
 
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
-            => _inner.GetTrackAsync(trackId, cancellationToken);
-
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
-            => _inner.GetAlbumAsync(albumId, cancellationToken);
+        {
+            return this._inner.GetAlbumAsync(albumId, cancellationToken);
+        }
 
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
-            => _inner.GetAlbumTracksAsync(albumId, cancellationToken);
+        {
+            return this._inner.GetAlbumTracksAsync(albumId, cancellationToken);
+        }
 
         public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
-            => _inner.GetAlbumWithTracksAsync(albumId, cancellationToken);
+        {
+            return this._inner.GetAlbumWithTracksAsync(albumId, cancellationToken);
+        }
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
-            => _inner.SearchAsync(query, limit, cancellationToken);
+        {
+            return this._inner.SearchAsync(query, limit, cancellationToken);
+        }
 
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
-            => _inner.GetStreamInfoAsync(trackId, quality, cancellationToken);
+        {
+            return this._inner.GetStreamInfoAsync(trackId, quality, cancellationToken);
+        }
 
         public Task<bool> IsAuthenticatedAsync()
-            => _inner.IsAuthenticatedAsync();
+        {
+            return this._inner.IsAuthenticatedAsync();
+        }
 
         public Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
-            => Task.FromResult(_playback);
+        {
+            return Task.FromResult(this._playback);
+        }
     }
 
-    private class TestsCommonCore : Tidalarr.Core.Interfaces.ITidalCore
+    private class TestsCommonCore : ITidalCore
     {
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
-        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.UtcNow, "", true));
-        public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new List<TidalTrackInfo>());
-        public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default) => GetAlbumAsync(albumId, cancellationToken);
-        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
-        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default) => Task.FromResult(new TidalStreamInfo(trackId, Array.Empty<string>(), ".flac", "audio/flac", false, null));
-        public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
+        }
+
+        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.UtcNow, "", true));
+        }
+
+        public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new List<TidalTrackInfo>());
+        }
+
+        public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return GetAlbumAsync(albumId, cancellationToken);
+        }
+
+        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+        }
+
+        public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalStreamInfo(trackId, [], ".flac", "audio/flac", false, null));
+        }
+
+        public Task<bool> IsAuthenticatedAsync()
+        {
+            return Task.FromResult(true);
+        }
     }
 }
 

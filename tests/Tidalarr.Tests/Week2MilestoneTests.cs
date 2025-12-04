@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -15,28 +14,28 @@ public class Week2MilestoneTests
     public async Task SilverMilestone_DownloadSingleTrack_WorksEndToEnd()
     {
         // Arrange
-        var indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = System.IO.Path.GetTempPath()
+            ConfigPath = Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = System.IO.Path.GetTempPath(),
+            DownloadPath = Path.GetTempPath(),
             IncludeMqa = true
         };
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton(indexerSettings);
-        services.AddSingleton(downloadSettings);
+        ServiceCollection services = new();
+        _ = services.AddSingleton(indexerSettings);
+        _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
-        var sp = services.BuildServiceProvider();
-        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
+        ServiceProvider sp = services.BuildServiceProvider();
+        TidalDownloadClient downloadClient = sp.GetRequiredService<TidalDownloadClient>();
 
         // Act - This will use mocked services for testing
         // In real usage, this would download from Tidal API
-        var result = await downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless);
+        _ = await downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless);
 
         // Assert - For now, just verify the service can be called
         // TODO: With real API, this would verify actual download capability
@@ -47,24 +46,24 @@ public class Week2MilestoneTests
     public void SilverMilestone_SearchAndDownload_IntegrationWorks()
     {
         // Arrange
-        var indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = System.IO.Path.GetTempPath()
+            ConfigPath = Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = System.IO.Path.GetTempPath()
+            DownloadPath = Path.GetTempPath()
         };
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton(indexerSettings);
-        services.AddSingleton(downloadSettings);
+        ServiceCollection services = new();
+        _ = services.AddSingleton(indexerSettings);
+        _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
-        var sp = services.BuildServiceProvider();
-        var indexer = sp.GetRequiredService<TidalIndexer>();
-        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
+        ServiceProvider sp = services.BuildServiceProvider();
+        TidalIndexer indexer = sp.GetRequiredService<TidalIndexer>();
+        TidalDownloadClient downloadClient = sp.GetRequiredService<TidalDownloadClient>();
 
         // This test validates the integration pattern works
         // With real authentication, this would:
@@ -85,29 +84,29 @@ public class Week2MilestoneTests
         // Verify complete component integration chain
 
         // 1. Settings validation
-        var indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new()
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
-            ConfigPath = System.IO.Path.GetTempPath()
+            ConfigPath = Path.GetTempPath()
         };
         Assert.True(indexerSettings.IsValid(out _));
 
-        var downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = System.IO.Path.GetTempPath()
+            DownloadPath = Path.GetTempPath()
         };
         Assert.True(downloadSettings.IsValid(out _));
 
         // 2/3. Instantiate via DI
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton(indexerSettings);
-        services.AddSingleton(downloadSettings);
+        ServiceCollection services = new();
+        _ = services.AddSingleton(indexerSettings);
+        _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
-        var sp = services.BuildServiceProvider();
-        var indexer = sp.GetRequiredService<TidalIndexer>();
-        var downloadClient = sp.GetRequiredService<TidalDownloadClient>();
+        ServiceProvider sp = services.BuildServiceProvider();
+        TidalIndexer indexer = sp.GetRequiredService<TidalIndexer>();
+        TidalDownloadClient downloadClient = sp.GetRequiredService<TidalDownloadClient>();
         Assert.NotNull(indexer);
         Assert.NotNull(downloadClient);
 

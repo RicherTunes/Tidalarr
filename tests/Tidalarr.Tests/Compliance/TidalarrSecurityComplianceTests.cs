@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Compliance;
 
@@ -15,19 +10,19 @@ namespace Tidalarr.Tests.Compliance;
 /// </summary>
 [Trait("Category", "Compliance")]
 [Trait("Category", "Security")]
-public class TidalarrSecurityComplianceTests : IDisposable
+public partial class TidalarrSecurityComplianceTests : IDisposable
 {
     private readonly Assembly _pluginAssembly;
     private readonly string? _sourceCodePath;
 
     public TidalarrSecurityComplianceTests()
     {
-        _pluginAssembly = typeof(TidalarrPlugin).Assembly;
+        this._pluginAssembly = typeof(TidalarrPlugin).Assembly;
 
         // Navigate from test output to source directory
-        var basePath = AppContext.BaseDirectory;
-        var srcPath = Path.Combine(basePath, "..", "..", "..", "..", "..", "src", "Tidalarr");
-        _sourceCodePath = Directory.Exists(srcPath) ? Path.GetFullPath(srcPath) : null;
+        string basePath = AppContext.BaseDirectory;
+        string srcPath = Path.Combine(basePath, "..", "..", "..", "..", "..", "src", "Tidalarr");
+        this._sourceCodePath = Directory.Exists(srcPath) ? Path.GetFullPath(srcPath) : null;
     }
 
     #region Credential Handling Tests
@@ -35,37 +30,37 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Credentials_NoHardcodedSecrets()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return; // Skip if source code not available
 
-        var credentialPatterns = new[]
-        {
+        string[] credentialPatterns =
+        [
             @"password\s*=\s*""[^""]{8,}""",
             @"apiKey\s*=\s*""[^""]{8,}""",
             @"secret\s*=\s*""[^""]{8,}""",
             @"clientSecret\s*=\s*""[^""]{8,}"""
-        };
+        ];
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var issues = new List<string>();
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
-            var fileName = Path.GetFileName(file);
+            string content = File.ReadAllText(file);
+            string fileName = Path.GetFileName(file);
 
             // Skip test files
             if (fileName.Contains("Test", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            foreach (var pattern in credentialPatterns)
+            foreach (string? pattern in credentialPatterns)
             {
-                var regex = new Regex(pattern, RegexOptions.IgnoreCase);
-                var match = regex.Match(content);
+                Regex regex = new(pattern, RegexOptions.IgnoreCase);
+                Match match = regex.Match(content);
                 if (match.Success)
                 {
                     // Check if it's a placeholder
-                    var value = match.Value;
+                    string value = match.Value;
                     if (!value.Contains("{") && !value.Contains("$") && !value.Contains("<"))
                     {
                         issues.Add($"Potential hardcoded credential in {fileName}");
@@ -80,16 +75,16 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Credentials_TokensStoredSecurely()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var tokenStorageTypes = allTypes.Where(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        List<Type> tokenStorageTypes = [.. allTypes.Where(t =>
             t.Name.Contains("TokenStore", StringComparison.OrdinalIgnoreCase) ||
-            t.Name.Contains("TokenStorage", StringComparison.OrdinalIgnoreCase)).ToList();
+            t.Name.Contains("TokenStorage", StringComparison.OrdinalIgnoreCase))];
 
         // Verify token storage types have some protection
-        foreach (var storageType in tokenStorageTypes)
+        foreach (Type? storageType in tokenStorageTypes)
         {
-            var methods = storageType.GetMethods();
-            var hasProtection = methods.Any(m =>
+            MethodInfo[] methods = storageType.GetMethods();
+            bool hasProtection = methods.Any(m =>
                 m.Name.Contains("Encrypt", StringComparison.OrdinalIgnoreCase) ||
                 m.Name.Contains("Protect", StringComparison.OrdinalIgnoreCase) ||
                 m.Name.Contains("Secure", StringComparison.OrdinalIgnoreCase));
@@ -107,26 +102,26 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Network_UsesHttpsForExternalCommunication()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var httpPattern = new Regex(@"""http://[^""]*""", RegexOptions.IgnoreCase);
-        var issues = new List<string>();
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        Regex httpPattern = MyRegex();
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
-            var fileName = Path.GetFileName(file);
+            string content = File.ReadAllText(file);
+            string fileName = Path.GetFileName(file);
 
             // Skip test files
             if (fileName.Contains("Test", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var matches = httpPattern.Matches(content);
+            MatchCollection matches = httpPattern.Matches(content);
             foreach (Match match in matches)
             {
-                var url = match.Value;
+                string url = match.Value;
                 // Allow localhost
                 if (!url.Contains("localhost") && !url.Contains("127.0.0.1"))
                 {
@@ -141,23 +136,23 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Network_NoCertificateValidationBypass()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var unsafePatterns = new[]
-        {
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] unsafePatterns =
+        [
             "ServerCertificateValidationCallback",
             "ServerCertificateCustomValidationCallback"
-        };
-        var issues = new List<string>();
+        ];
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
-            var fileName = Path.GetFileName(file);
+            string content = File.ReadAllText(file);
+            string fileName = Path.GetFileName(file);
 
-            foreach (var pattern in unsafePatterns)
+            foreach (string? pattern in unsafePatterns)
             {
                 if (content.Contains(pattern))
                 {
@@ -180,17 +175,16 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void InputValidation_NoSqlInjectionVulnerabilities()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var sqlPattern = new Regex(@"(""[^""]*\+\s*\w+[^""]*""|string\.Format\([^)]*SQL|new\s+SqlCommand\([^)]*\+)",
-            RegexOptions.IgnoreCase);
-        var issues = new List<string>();
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        Regex sqlPattern = MyRegex1();
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
+            string content = File.ReadAllText(file);
             if (sqlPattern.IsMatch(content))
             {
                 issues.Add($"Potential SQL injection vulnerability in {Path.GetFileName(file)}");
@@ -203,17 +197,17 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void InputValidation_PathValidation()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var pathPattern = new Regex(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        Regex pathPattern = new(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
             RegexOptions.IgnoreCase);
-        var issues = new List<string>();
+        _ = new List<string>();
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
+            string content = File.ReadAllText(file);
 
             if (pathPattern.IsMatch(content))
             {
@@ -238,28 +232,28 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Logging_NoSensitiveDataInLogs()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var logPatterns = new[]
-        {
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] logPatterns =
+        [
             @"\.Log.*password",
             @"\.Log.*apiKey",
             @"\.Log.*secret",
             @"\.Log.*token",
             @"\.Log.*credential"
-        };
-        var issues = new List<string>();
+        ];
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
-            var fileName = Path.GetFileName(file);
+            string content = File.ReadAllText(file);
+            string fileName = Path.GetFileName(file);
 
-            foreach (var pattern in logPatterns)
+            foreach (string? pattern in logPatterns)
             {
-                var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                Regex regex = new(pattern, RegexOptions.IgnoreCase);
                 if (regex.IsMatch(content))
                 {
                     issues.Add($"Potential sensitive data logging in {fileName}");
@@ -278,19 +272,19 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Tidal_NoApiKeysInUrls()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var csFiles = Directory.GetFiles(_sourceCodePath, "*.cs", SearchOption.AllDirectories);
-        var issues = new List<string>();
+        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        List<string> issues = [];
 
-        foreach (var file in csFiles)
+        foreach (string file in csFiles)
         {
-            var content = File.ReadAllText(file);
-            var fileName = Path.GetFileName(file);
+            string content = File.ReadAllText(file);
+            string fileName = Path.GetFileName(file);
 
             // Check for API keys in URLs (should be in headers instead)
-            var hasApiKeyInUrl = content.Contains("?apikey=", StringComparison.OrdinalIgnoreCase) ||
+            bool hasApiKeyInUrl = content.Contains("?apikey=", StringComparison.OrdinalIgnoreCase) ||
                                  content.Contains("&apikey=", StringComparison.OrdinalIgnoreCase) ||
                                  content.Contains("?api_key=", StringComparison.OrdinalIgnoreCase);
 
@@ -306,17 +300,17 @@ public class TidalarrSecurityComplianceTests : IDisposable
     [Fact]
     public void Tidal_UsesHttpsForApi()
     {
-        if (_sourceCodePath == null)
+        if (this._sourceCodePath == null)
             return;
 
-        var constantsFile = Path.Combine(_sourceCodePath, "Core", "Constants", "TidalConstants.cs");
+        string constantsFile = Path.Combine(this._sourceCodePath, "Core", "Constants", "TidalConstants.cs");
         if (!File.Exists(constantsFile))
             return;
 
-        var content = File.ReadAllText(constantsFile);
+        string content = File.ReadAllText(constantsFile);
 
         // Check that Tidal API endpoints use HTTPS
-        var httpMatches = Regex.Matches(content, @"""http://[^""]*tidal[^""]*""", RegexOptions.IgnoreCase);
+        MatchCollection httpMatches = Regex.Matches(content, @"""http://[^""]*tidal[^""]*""", RegexOptions.IgnoreCase);
         Assert.Empty(httpMatches);
     }
 
@@ -326,4 +320,9 @@ public class TidalarrSecurityComplianceTests : IDisposable
     {
         // Cleanup if needed
     }
+
+    [GeneratedRegex(@"""http://[^""]*""", RegexOptions.IgnoreCase, "en-CA")]
+    private static partial Regex MyRegex();
+    [GeneratedRegex(@"(""[^""]*\+\s*\w+[^""]*""|string\.Format\([^)]*SQL|new\s+SqlCommand\([^)]*\+)", RegexOptions.IgnoreCase, "en-CA")]
+    private static partial Regex MyRegex1();
 }
