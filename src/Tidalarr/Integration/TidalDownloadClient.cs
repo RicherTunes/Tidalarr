@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
@@ -14,47 +8,34 @@ using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Core.Mappers;
-using Tidalarr.Domain.Api;
-using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
-using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration;
 
-public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClientSettings>
+public class TidalDownloadClient(
+    TidalStreamService streamService,
+    TidalChunkDownloader chunkDownloader,
+    ITidalCore apiClient,
+    TidalQualityDetector qualityDetector,
+    TidalDownloadClientSettings settings,
+    ILogger? logger = null) : BaseStreamingDownloadClient<TidalDownloadClientSettings>(settings, logger!)
 {
-    private readonly TidalStreamService _streamService;
-    private readonly TidalChunkDownloader _chunkDownloader;
-    private readonly ITidalCore _apiClient;
-    private readonly TidalQualityDetector _qualityDetector;
-    private readonly TidalModelMapper _mapper;
+    private readonly TidalStreamService _streamService = streamService;
+    private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader;
+    private readonly ITidalCore _apiClient = apiClient;
+    private readonly TidalQualityDetector _qualityDetector = qualityDetector;
+    private readonly TidalModelMapper _mapper = new();
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
-
-    public TidalDownloadClient(
-        TidalStreamService streamService,
-        TidalChunkDownloader chunkDownloader,
-        ITidalCore apiClient,
-        TidalQualityDetector qualityDetector,
-        TidalDownloadClientSettings settings,
-        Microsoft.Extensions.Logging.ILogger? logger = null)
-        : base(settings, logger!)
-    {
-        _streamService = streamService;
-        _chunkDownloader = chunkDownloader;
-        _apiClient = apiClient;
-        _qualityDetector = qualityDetector;
-        _mapper = new TidalModelMapper();
-    }
 
     // Implement required abstract methods from BaseStreamingDownloadClient
     protected override async Task<bool> AuthenticateAsync()
     {
         try
         {
-            return await _apiClient.IsAuthenticatedAsync();
+            return await this._apiClient.IsAuthenticatedAsync();
         }
         catch (Exception ex)
         {
@@ -65,13 +46,13 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
     protected override async Task<StreamingAlbum> GetAlbumAsync(string albumId)
     {
-        var tidalAlbum = await _apiClient.GetAlbumWithTracksAsync(albumId);
-        var streamingAlbum = _mapper.ToStreamingAlbum(tidalAlbum)!;
+        TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumWithTracksAsync(albumId);
+        StreamingAlbum streamingAlbum = this._mapper.ToStreamingAlbum(tidalAlbum)!;
 
         // Ensure tracks are populated in the streaming album
         if (tidalAlbum.Tracks?.Any() == true)
         {
-            var streamingTracks = _mapper.ToStreamingTracks(tidalAlbum);
+            _ = this._mapper.ToStreamingTracks(tidalAlbum);
             // The mapper should handle track-to-album relationships
         }
 
@@ -80,29 +61,29 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
     protected override async Task<StreamingTrack> GetTrackAsync(string trackId)
     {
-        var tidalTrack = await _apiClient.GetTrackAsync(trackId);
-        return _mapper.ToStreamingTrack(tidalTrack)!;
+        TidalTrackInfo tidalTrack = await this._apiClient.GetTrackAsync(trackId);
+        return this._mapper.ToStreamingTrack(tidalTrack)!;
     }
 
     protected override async Task<string> GetStreamUrlAsync(string trackId, string quality)
     {
-        var tidalQuality = ParseQualityFromString(quality);
-        var streamInfo = await _streamService.GetStreamInfoAsync(trackId, tidalQuality);
+        TidalQuality tidalQuality = ParseQualityFromString(quality);
+        TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality);
         return streamInfo.ChunkUrls?.FirstOrDefault() ?? string.Empty;
     }
 
     protected override ValidationResult ValidateDownloadSettings(TidalDownloadClientSettings settings)
     {
-        var result = new ValidationResult();
+        ValidationResult result = new();
 
         if (!Enum.IsDefined(typeof(TidalQuality), settings.PreferredQuality))
         {
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("PreferredQuality", "Preferred quality selection is invalid"));
+            result.Errors.Add(new ValidationFailure("PreferredQuality", "Preferred quality selection is invalid"));
         }
 
         if (string.IsNullOrEmpty(settings.DownloadPath))
         {
-            result.Errors.Add(new FluentValidation.Results.ValidationFailure("DownloadPath", "Download path is required"));
+            result.Errors.Add(new ValidationFailure("DownloadPath", "Download path is required"));
         }
 
         return result;
@@ -110,13 +91,13 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
     protected override string GenerateFileName(StreamingTrack track, StreamingAlbum album)
     {
-        var trackNumber = track.TrackNumber ?? 0;
-        var baseTitle = (track.Title ?? "Unknown Track").Normalize(System.Text.NormalizationForm.FormC);
-        var baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(System.Text.NormalizationForm.FormC);
-        var title = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseTitle);
-        var artist = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(baseArtist);
-        var tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
-        var extension = Settings.ExtractFlac ? "flac" : "m4a";
+        int trackNumber = track.TrackNumber ?? 0;
+        string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
+        string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
+        string title = FileSystemUtilities.SanitizeFileName(baseTitle);
+        string artist = FileSystemUtilities.SanitizeFileName(baseArtist);
+        string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
+        string extension = Settings.ExtractFlac ? "flac" : "m4a";
         return $"{tn} - {artist} - {title}.{extension}";
     }
 
@@ -132,38 +113,38 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
         try
         {
             // Step 1: Get track metadata
-            var track = await GetTrackAsync(trackId);
-            var quality = preferredQuality ?? Settings.PreferredQuality;
+            StreamingTrack track = await GetTrackAsync(trackId);
+            TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
 
             // Step 2: Prefer parsed manifest for accurate chunks and codec within M4A
-            var manifest = await _streamService.GetParsedManifestAsync(trackId, quality);
+            TidalManifest manifest = await this._streamService.GetParsedManifestAsync(trackId, quality);
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
-            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={(manifest.SecurityToken?.Length ?? 0)} codec={manifest.Codec}");
+            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={manifest.SecurityToken?.Length ?? 0} codec={manifest.Codec}");
 
             // Step 4: Download and assemble chunks
-            var dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
-            Directory.CreateDirectory(dir);
+            string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
+            _ = Directory.CreateDirectory(dir);
 
-            var progress = new Progress<ChunkDownloadProgress>(p =>
+            Progress<ChunkDownloadProgress> progress = new(p =>
             {
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
+            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
 
             // Step 5: Save assembled audio with correct extension
-            var tempPath = outputPath + manifest.FileExtension;
-            await using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+            string tempPath = outputPath + manifest.FileExtension;
+            await using FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write);
             audioStream.Position = 0;
             await audioStream.CopyToAsync(fileStream, cancellationToken);
 
             // Step 6: Process audio format (extract FLAC from M4A if needed)
-            var finalPath = tempPath;
+            string finalPath = tempPath;
             if (Settings.ExtractFlac && manifest.Codec == "FLAC")
             {
-                var extractedPath = await AudioFormatHandler.ProcessAudioFileAsync(
+                string extractedPath = await AudioFormatHandler.ProcessAudioFileAsync(
                     tempPath, manifest.Codec, extractFlac: true, keepOriginal: false);
                 finalPath = extractedPath;
             }
@@ -183,7 +164,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
                 TrackId = trackId,
                 OutputPath = finalPath,
                 Track = track,
-                Quality = _mapper.ToStreamingQuality(quality),
+                Quality = this._mapper.ToStreamingQuality(quality),
                 FileSize = new FileInfo(finalPath).Length,
                 OriginalFormat = manifest.FileExtension,
                 ExtractedFormat = Path.GetExtension(finalPath),
@@ -205,10 +186,10 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
     private async Task<JsonElement> GetStreamManifestDataAsync(string trackId, TidalQuality quality)
     {
-        var streamInfo = await _apiClient.GetStreamInfoAsync(trackId, quality);
+        TidalStreamInfo streamInfo = await this._apiClient.GetStreamInfoAsync(trackId, quality);
 
         // Create JsonElement from stream info for StreamManifest constructor
-        var manifestJson = JsonSerializer.SerializeToElement(new
+        JsonElement manifestJson = JsonSerializer.SerializeToElement(new
         {
             manifestMimeType = streamInfo.MimeType,
             manifest = "placeholder", // streamInfo doesn't have raw manifest - will be handled differently
@@ -229,24 +210,24 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
     {
         try
         {
-            var track = await GetTrackAsync(trackId);
-            var quality = preferredQuality ?? Settings.PreferredQuality;
-            var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
+            StreamingTrack track = await GetTrackAsync(trackId);
+            TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
 
-            var dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
-            Directory.CreateDirectory(dir2);
+            string dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
+            _ = Directory.CreateDirectory(dir2);
 
             // Write to temp .partial for atomicity
-            var tempPath = outputPath + ".partial";
+            string tempPath = outputPath + ".partial";
             if (File.Exists(tempPath))
             {
                 try { File.Delete(tempPath); } catch { /* ignore */ }
             }
 
-            var progress = new Progress<int>();
-            using var audioStream = await _chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            Progress<int> progress = new();
+            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
 
-            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
                 await audioStream.CopyToAsync(fileStream, cancellationToken);
                 await fileStream.FlushAsync(cancellationToken);
@@ -273,7 +254,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
                 TrackId = trackId,
                 OutputPath = outputPath,
                 Track = track,
-                Quality = _mapper.ToStreamingQuality(quality),
+                Quality = this._mapper.ToStreamingQuality(quality),
                 FileSize = new FileInfo(outputPath).Length
             };
         }
@@ -293,10 +274,10 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
     {
         try
         {
-            var ext = (fileExtension ?? string.Empty).ToLowerInvariant();
-            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            string ext = (fileExtension ?? string.Empty).ToLowerInvariant();
+            using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             Span<byte> header = stackalloc byte[12];
-            var read = fs.Read(header);
+            int read = fs.Read(header);
             if (read < 4) return; // not enough to validate
 
             if (ext.Contains("flac"))
@@ -310,7 +291,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
             else if (ext.Contains("m4a") || ext.Contains("mp4"))
             {
                 // MP4 variants typically include 'ftyp' box early
-                var s = System.Text.Encoding.ASCII.GetString(header.ToArray());
+                string s = Encoding.ASCII.GetString(header.ToArray());
                 if (!s.Contains("ftyp"))
                 {
                     throw new InvalidDataException("Invalid MP4/M4A header signature");
@@ -328,8 +309,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
     {
         try
         {
-            var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
-            return await _chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
+            return await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
         }
         catch
         {
@@ -346,11 +327,11 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
         try
         {
-            var streamInfo = await _streamService.GetStreamInfoAsync(trackId, quality);
-            var ok = await _chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
+            bool ok = await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
             if (!ok)
             {
-                var metaFail = new Dictionary<string, string>
+                Dictionary<string, string> metaFail = new()
                 {
                     ["id"] = CHUNK_UNAVAILABLE,
                     ["trackId"] = trackId,
@@ -375,7 +356,7 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
         }
         catch (Exception ex)
         {
-            var metaErr = new Dictionary<string, string>
+            Dictionary<string, string> metaErr = new()
             {
                 ["id"] = STREAM_ERROR,
                 ["trackId"] = trackId,
@@ -406,20 +387,20 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
     // Legacy support methods
     public async Task<TidalDownloadResult> DownloadTrackAsync(string trackId, TidalQuality? quality = null)
     {
-        var track = await _apiClient.GetTrackAsync(trackId);
-        var preferredQuality = quality ?? Settings.PreferredQuality;
-        var outputPath = GetTempFilePath(track, ".flac");
+        TidalTrackInfo track = await this._apiClient.GetTrackAsync(trackId);
+        TidalQuality preferredQuality = quality ?? Settings.PreferredQuality;
+        string outputPath = GetTempFilePath(track, ".flac");
 
-        var result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);
+        StreamingDownloadResult result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);
 
         return new TidalDownloadResult
         {
             TrackId = trackId,
             Title = track.Title,
-            Artist = string.Join(", ", track.Artists ?? new List<string>()),
+            Artist = string.Join(", ", track.Artists ?? []),
             Quality = preferredQuality,
             FileExtension = ".flac",
-            AudioData = result.Success ? File.ReadAllBytes(outputPath) : Array.Empty<byte>(),
+            AudioData = result.Success ? File.ReadAllBytes(outputPath) : [],
             FilePath = outputPath,
             Success = result.Success,
             ErrorMessage = result.ErrorMessage
@@ -428,8 +409,8 @@ public class TidalDownloadClient : BaseStreamingDownloadClient<TidalDownloadClie
 
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
-        var safeName = $"{string.Join(", ", track.Artists ?? new List<string>())} - {track.Title}";
-        safeName = Lidarr.Plugin.Common.Utilities.FileSystemUtilities.SanitizeFileName(safeName.Normalize(System.Text.NormalizationForm.FormC));
+        string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
+        safeName = FileSystemUtilities.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }
@@ -444,7 +425,7 @@ public class TidalDownloadResult
     public string Artist { get; set; } = string.Empty;
     public TidalQuality Quality { get; set; }
     public string FileExtension { get; set; } = string.Empty;
-    public byte[] AudioData { get; set; } = Array.Empty<byte>();
+    public byte[] AudioData { get; set; } = [];
     public string FilePath { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;

@@ -1,11 +1,7 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Integration;
 using Lidarr.Plugin.Abstractions.Results;
-using Xunit;
 using Lidarr.Plugin.Abstractions.Contracts;
 
 namespace Tidalarr.Tests.Unit;
@@ -22,17 +18,17 @@ public class SettingsDiagnosticsTests
     [Fact]
     public async Task ApplySettingsWithDiagnostics_Invalid_ReturnsCFG100_WithCodes()
     {
-        var plugin = new TidalarrPlugin();
+        TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new TestPluginContext(), CancellationToken.None);
 
-        var settings = new Dictionary<string, object?>
+        Dictionary<string, object?> settings = new()
         {
             ["ConfigPath"] = "",
             ["RedirectUrl"] = "",
             ["DownloadPath"] = ""
         };
 
-        var result = plugin.ApplySettingsWithDiagnostics(settings);
+        PluginOperationResult<Dictionary<string, string>> result = plugin.ApplySettingsWithDiagnostics(settings);
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(PluginErrorCode.ValidationFailed, result.Error!.Code);
@@ -43,17 +39,17 @@ public class SettingsDiagnosticsTests
     [Fact]
     public async Task ApplySettingsWithDiagnostics_Valid_ReturnsCFG000()
     {
-        var plugin = new TidalarrPlugin();
+        TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new TestPluginContext(), CancellationToken.None);
 
-        var settings = new Dictionary<string, object?>
+        Dictionary<string, object?> settings = new()
         {
-            ["ConfigPath"] = System.IO.Path.GetTempPath(),
+            ["ConfigPath"] = Path.GetTempPath(),
             ["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state",
-            ["DownloadPath"] = System.IO.Path.GetTempPath()
+            ["DownloadPath"] = Path.GetTempPath()
         };
 
-        var result = plugin.ApplySettingsWithDiagnostics(settings);
+        PluginOperationResult<Dictionary<string, string>> result = plugin.ApplySettingsWithDiagnostics(settings);
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal("CFG000", result.Value!["id"]);

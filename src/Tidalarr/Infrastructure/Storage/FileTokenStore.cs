@@ -18,7 +18,7 @@ public class FileTokenStore : ITokenStorage
 
     public FileTokenStore(string? storagePath = null)
     {
-        _storagePath = storagePath ?? GetDefaultStoragePath();
+        this._storagePath = storagePath ?? GetDefaultStoragePath();
         EnsureStorageDirectoryExists();
     }
 
@@ -26,8 +26,8 @@ public class FileTokenStore : ITokenStorage
     {
         try
         {
-            var json = JsonSerializer.Serialize(tokens, JsonOptions);
-            await File.WriteAllTextAsync(_storagePath, json);
+            string json = JsonSerializer.Serialize(tokens, JsonOptions);
+            await File.WriteAllTextAsync(this._storagePath, json);
         }
         catch (Exception ex)
         {
@@ -39,14 +39,11 @@ public class FileTokenStore : ITokenStorage
     {
         try
         {
-            if (!File.Exists(_storagePath))
+            if (!File.Exists(this._storagePath))
                 return null;
 
-            var json = await File.ReadAllTextAsync(_storagePath);
-            if (string.IsNullOrWhiteSpace(json))
-                return null;
-
-            return JsonSerializer.Deserialize<TidalTokens>(json, JsonOptions);
+            string json = await File.ReadAllTextAsync(this._storagePath);
+            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<TidalTokens>(json, JsonOptions);
         }
         catch
         {
@@ -58,8 +55,8 @@ public class FileTokenStore : ITokenStorage
     {
         try
         {
-            if (File.Exists(_storagePath))
-                File.Delete(_storagePath);
+            if (File.Exists(this._storagePath))
+                File.Delete(this._storagePath);
         }
         catch
         {
@@ -70,17 +67,17 @@ public class FileTokenStore : ITokenStorage
 
     private static string GetDefaultStoragePath()
     {
-        var userDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var tidalPath = Path.Combine(userDataPath, "Tidalarr");
+        string userDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string tidalPath = Path.Combine(userDataPath, "Tidalarr");
         return Path.Combine(tidalPath, "tidal_tokens.json");
     }
 
     private void EnsureStorageDirectoryExists()
     {
-        var directory = Path.GetDirectoryName(_storagePath);
+        string? directory = Path.GetDirectoryName(this._storagePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
     }
 }

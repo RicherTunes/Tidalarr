@@ -1,8 +1,5 @@
-using System.IO;
-using System.Linq;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -12,8 +9,8 @@ public class TidalSettingsTests
     public void TidalSettings_DefaultValues_AreCorrect()
     {
         // Arrange & Act
-        var indexer = new TidalIndexerSettings();
-        var download = new TidalDownloadClientSettings();
+        TidalIndexerSettings indexer = new();
+        TidalDownloadClientSettings download = new();
 
         // Assert
         Assert.Equal("US", indexer.TidalMarket);
@@ -31,14 +28,14 @@ public class TidalSettingsTests
     public void ValidateRedirectUrl_ProducesExpectedDiagnostics(string redirectUrl, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
-        var settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             RedirectUrl = redirectUrl,
             ConfigPath = Path.GetTempPath()
         };
 
         // Act
-        var validation = settings.ValidateFluent();
+        FluentValidation.Results.ValidationResult validation = settings.ValidateFluent();
 
         // Assert
         Assert.Equal(expectedValid, validation.IsValid);
@@ -52,12 +49,12 @@ public class TidalSettingsTests
     public void TidalSettings_InheritsFromBaseStreamingSettings()
     {
         // Arrange & Act
-        var indexer = new TidalIndexerSettings();
-        var download = new TidalDownloadClientSettings();
+        TidalIndexerSettings indexer = new();
+        TidalDownloadClientSettings download = new();
 
         // Assert - Verify inheritance from shared library
-        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(indexer);
-        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(download);
+        _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(indexer);
+        _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(download);
 
         // Verify key fields
         Assert.True(indexer.EnableCache);
@@ -74,7 +71,7 @@ public class TidalSettingsTests
     public void ValidateMarket_VariousMarkets_ValidatesCorrectly(string market, bool expectedValid, string? expectedErrorCode)
     {
         // Arrange
-        var settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new()
         {
             TidalMarket = market,
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
@@ -82,7 +79,7 @@ public class TidalSettingsTests
         };
 
         // Act
-        var validation = settings.ValidateFluent();
+        FluentValidation.Results.ValidationResult validation = settings.ValidateFluent();
 
         // Assert
         Assert.Equal(expectedValid, validation.IsValid);

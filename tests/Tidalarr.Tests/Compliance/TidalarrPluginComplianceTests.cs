@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Manifest;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Compliance;
 
@@ -23,17 +18,17 @@ public class TidalarrPluginComplianceTests : IDisposable
 
     public TidalarrPluginComplianceTests()
     {
-        _pluginAssembly = typeof(TidalarrPlugin).Assembly;
+        this._pluginAssembly = typeof(TidalarrPlugin).Assembly;
 
-        var manifestPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "plugin.json");
+        string manifestPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "plugin.json");
         if (File.Exists(manifestPath))
         {
-            _pluginManifest = PluginManifest.Load(manifestPath);
+            this._pluginManifest = PluginManifest.Load(manifestPath);
         }
         else
         {
             // Fallback to minimal manifest
-            _pluginManifest = new PluginManifest
+            this._pluginManifest = new PluginManifest
             {
                 Id = "tidalarr",
                 Name = "Tidalarr",
@@ -48,34 +43,34 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Manifest_HasRequiredId()
     {
-        Assert.False(string.IsNullOrWhiteSpace(_pluginManifest.Id));
-        Assert.Equal("tidalarr", _pluginManifest.Id);
+        Assert.False(string.IsNullOrWhiteSpace(this._pluginManifest.Id));
+        Assert.Equal("tidalarr", this._pluginManifest.Id);
     }
 
     [Fact]
     public void Manifest_HasRequiredName()
     {
-        Assert.False(string.IsNullOrWhiteSpace(_pluginManifest.Name));
-        Assert.Equal("Tidalarr", _pluginManifest.Name);
+        Assert.False(string.IsNullOrWhiteSpace(this._pluginManifest.Name));
+        Assert.Equal("Tidalarr", this._pluginManifest.Name);
     }
 
     [Fact]
     public void Manifest_HasRequiredVersion()
     {
-        Assert.False(string.IsNullOrWhiteSpace(_pluginManifest.Version));
+        Assert.False(string.IsNullOrWhiteSpace(this._pluginManifest.Version));
     }
 
     [Fact]
     public void Manifest_HasRequiredApiVersion()
     {
-        Assert.False(string.IsNullOrWhiteSpace(_pluginManifest.ApiVersion));
+        Assert.False(string.IsNullOrWhiteSpace(this._pluginManifest.ApiVersion));
     }
 
     [Fact]
     public void Manifest_VersionIsValidSemVer()
     {
-        Assert.True(Version.TryParse(_pluginManifest.Version, out _),
-            $"Version '{_pluginManifest.Version}' is not valid semver");
+        Assert.True(Version.TryParse(this._pluginManifest.Version, out _),
+            $"Version '{this._pluginManifest.Version}' is not valid semver");
     }
 
     #endregion
@@ -85,19 +80,17 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Assembly_LoadsWithoutErrors()
     {
-        var types = _pluginAssembly.GetTypes();
+        Type[] types = this._pluginAssembly.GetTypes();
         Assert.NotEmpty(types);
     }
 
     [Fact]
     public void Assembly_CommonLibraryTypesAreInternalized()
     {
-        var publicTypes = _pluginAssembly.GetExportedTypes();
+        Type[] publicTypes = this._pluginAssembly.GetExportedTypes();
 
         // Check for exposed Common library types that should be internalized
-        var exposedCommonTypes = publicTypes
-            .Where(t => t.Namespace?.StartsWith("Lidarr.Plugin.Common", StringComparison.Ordinal) == true)
-            .ToList();
+        List<Type> exposedCommonTypes = [.. publicTypes.Where(t => t.Namespace?.StartsWith("Lidarr.Plugin.Common", StringComparison.Ordinal) == true)];
 
         Assert.Empty(exposedCommonTypes);
     }
@@ -105,9 +98,7 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Assembly_ImplementsIPlugin()
     {
-        var pluginTypes = _pluginAssembly.GetTypes()
-            .Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)
-            .ToList();
+        List<Type> pluginTypes = [.. this._pluginAssembly.GetTypes().Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)];
 
         Assert.NotEmpty(pluginTypes);
     }
@@ -115,7 +106,7 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Assembly_HasPluginEntryPoint()
     {
-        var pluginType = typeof(TidalarrPlugin);
+        Type pluginType = typeof(TidalarrPlugin);
         Assert.NotNull(pluginType);
         Assert.True(typeof(IPlugin).IsAssignableFrom(pluginType));
     }
@@ -123,22 +114,22 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Assembly_PluginIsInstantiable()
     {
-        var plugin = Activator.CreateInstance(typeof(TidalarrPlugin));
+        object? plugin = Activator.CreateInstance(typeof(TidalarrPlugin));
         Assert.NotNull(plugin);
-        Assert.IsAssignableFrom<IPlugin>(plugin);
+        _ = Assert.IsAssignableFrom<IPlugin>(plugin);
     }
 
     [Fact]
     public void Assembly_PluginHasSettingsProvider()
     {
-        var plugin = (IPlugin)Activator.CreateInstance(typeof(TidalarrPlugin))!;
+        IPlugin plugin = (IPlugin)Activator.CreateInstance(typeof(TidalarrPlugin))!;
         Assert.NotNull(plugin.SettingsProvider);
     }
 
     [Fact]
     public void Assembly_PluginHasManifest()
     {
-        var plugin = (IPlugin)Activator.CreateInstance(typeof(TidalarrPlugin))!;
+        IPlugin plugin = (IPlugin)Activator.CreateInstance(typeof(TidalarrPlugin))!;
         Assert.NotNull(plugin.Manifest);
     }
 
@@ -149,8 +140,8 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Security_NoHardcodedCredentials()
     {
-        var suspiciousPatterns = new[]
-        {
+        string[] suspiciousPatterns =
+        [
             "password=",
             "apikey=",
             "api_key=",
@@ -158,28 +149,28 @@ public class TidalarrPluginComplianceTests : IDisposable
             "token=",
             "bearer ",
             "basic "
-        };
+        ];
 
-        var allTypes = _pluginAssembly.GetTypes();
-        var foundCredentials = new List<string>();
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        List<string> foundCredentials = [];
 
-        foreach (var type in allTypes)
+        foreach (Type type in allTypes)
         {
-            var fields = type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-            foreach (var field in fields.Where(f => f.FieldType == typeof(string)))
+            FieldInfo[] fields = type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            foreach (FieldInfo? field in fields.Where(f => f.FieldType == typeof(string)))
             {
                 try
                 {
-                    var value = field.GetValue(null) as string;
+                    string? value = field.GetValue(null) as string;
                     if (!string.IsNullOrEmpty(value))
                     {
-                        foreach (var pattern in suspiciousPatterns)
+                        foreach (string? pattern in suspiciousPatterns)
                         {
                             if (value.Contains(pattern, StringComparison.OrdinalIgnoreCase) &&
                                 value.Length > pattern.Length + 10)
                             {
-                                var afterPattern = value.Substring(
-                                    value.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) + pattern.Length);
+                                string afterPattern = value[
+                                    (value.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) + pattern.Length)..];
                                 if (!afterPattern.StartsWith("{") &&
                                     !afterPattern.StartsWith("$") &&
                                     !afterPattern.StartsWith("<"))
@@ -207,21 +198,18 @@ public class TidalarrPluginComplianceTests : IDisposable
     [Fact]
     public void Namespace_HasCorrectRootNamespace()
     {
-        var namespaces = _pluginAssembly.GetTypes()
+        List<string?> namespaces = [.. this._pluginAssembly.GetTypes()
             .Select(t => t.Namespace)
             .Where(n => !string.IsNullOrEmpty(n))
-            .Distinct()
-            .ToList();
+            .Distinct()];
 
-        Assert.True(namespaces.Any(n => n!.StartsWith("Tidalarr", StringComparison.Ordinal)));
+        Assert.Contains(namespaces, n => n!.StartsWith("Tidalarr", StringComparison.Ordinal));
     }
 
     [Fact]
     public void Namespace_HasIntegrationNamespace()
     {
-        var integrationTypes = _pluginAssembly.GetTypes()
-            .Where(t => t.Namespace?.Contains("Integration", StringComparison.Ordinal) == true)
-            .ToList();
+        List<Type> integrationTypes = [.. this._pluginAssembly.GetTypes().Where(t => t.Namespace?.Contains("Integration", StringComparison.Ordinal) == true)];
 
         Assert.NotEmpty(integrationTypes);
     }

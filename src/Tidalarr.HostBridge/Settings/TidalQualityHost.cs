@@ -1,5 +1,3 @@
-using NzbDrone.Core.Annotations;
-
 namespace Tidalarr.HostBridge.Settings;
 
 public enum TidalQualityHost

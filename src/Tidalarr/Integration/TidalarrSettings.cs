@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
@@ -66,7 +63,7 @@ public class TidalarrSettings : BaseStreamingSettings
 
     public override bool IsValid(out string errorMessage)
     {
-        var validation = Validator.Validate(this);
+        ValidationResult validation = Validator.Validate(this);
         errorMessage = validation.IsValid ? string.Empty : validation.Errors.First().ErrorMessage;
         return validation.IsValid;
     }
@@ -78,56 +75,51 @@ public class TidalarrSettings : BaseStreamingSettings
 
     private static bool IsSupportedMarket(string? market)
     {
-        if (string.IsNullOrWhiteSpace(market))
-        {
-            return false;
-        }
-
-        return SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase);
+        return !string.IsNullOrWhiteSpace(market) && SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static readonly string[] SupportedMarkets = { "US", "UK", "DE", "FR", "CA", "AU", "JP" };
+    private static readonly string[] SupportedMarkets = ["US", "UK", "DE", "FR", "CA", "AU", "JP"];
 
     private sealed class TidalarrSettingsValidator : AbstractValidator<TidalarrSettings>
     {
         public TidalarrSettingsValidator()
         {
-            RuleFor(x => x.ConfigPath)
+            _ = RuleFor(x => x.ConfigPath)
                 .NotEmpty().WithMessage("Config path is required").WithErrorCode(TidalarrValidationCodes.ConfigPathRequired)
                 .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Config path is invalid").WithErrorCode(TidalarrValidationCodes.ConfigPathInvalid);
 
-            RuleFor(x => x.RedirectUrl)
+            _ = RuleFor(x => x.RedirectUrl)
                 .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication").WithErrorCode(TidalarrValidationCodes.RedirectRequired)
                 .Must(BeValidHttpUri).WithMessage("Redirect URL must be an absolute HTTP/HTTPS URL").WithErrorCode(TidalarrValidationCodes.RedirectInvalidUri)
-                .Must(url => Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Host.EndsWith("tidal.com", StringComparison.OrdinalIgnoreCase))
+                .Must(url => Uri.TryCreate(url, UriKind.Absolute, out Uri? parsed) && parsed.Host.EndsWith("tidal.com", StringComparison.OrdinalIgnoreCase))
                 .WithMessage("Redirect URL must be under the tidal.com domain").WithErrorCode(TidalarrValidationCodes.RedirectWrongDomain);
 
-            RuleFor(x => x.TidalMarket)
+            _ = RuleFor(x => x.TidalMarket)
                 .Must(IsSupportedMarket)
                 .WithMessage("Unsupported market '{PropertyValue}'. Supported values: US, UK, DE, FR, CA, AU, JP")
                 .WithErrorCode(TidalarrValidationCodes.MarketUnsupported);
 
-            RuleFor(x => x.EarlyReleaseLimit)
+            _ = RuleFor(x => x.EarlyReleaseLimit)
                 .InclusiveBetween(0, 365)
                 .WithMessage("Early release limit must be between 0 and 365 days")
                 .WithErrorCode(TidalarrValidationCodes.EarlyReleaseRange)
                 .When(x => x.EarlyReleaseLimit.HasValue);
 
-            RuleFor(x => x.CacheDuration)
+            _ = RuleFor(x => x.CacheDuration)
                 .InclusiveBetween(0, 1440)
                 .WithMessage("Cache duration must be between 0 and 1440 minutes")
                 .WithErrorCode(TidalarrValidationCodes.CacheDurationRange);
 
-            RuleFor(x => x.DownloadPath)
+            _ = RuleFor(x => x.DownloadPath)
                 .NotEmpty().WithMessage("Download path is required").WithErrorCode(TidalarrValidationCodes.DownloadPathRequired)
                 .Must(PathValidationExtensions.IsReasonablePath).WithMessage("Download path is invalid").WithErrorCode(TidalarrValidationCodes.DownloadPathInvalid);
 
-            RuleFor(x => x.DownloadDelay)
+            _ = RuleFor(x => x.DownloadDelay)
                 .InclusiveBetween(0, 60000)
                 .WithMessage("Chunk delay must be between 0 and 60000 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayRange);
 
-            RuleFor(x => x.DownloadDelayMin)
+            _ = RuleFor(x => x.DownloadDelayMin)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage("Minimum delay must be greater than or equal to 0 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange)
@@ -135,7 +127,7 @@ public class TidalarrSettings : BaseStreamingSettings
                 .WithMessage("Minimum delay must be less than or equal to maximum delay")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange);
 
-            RuleFor(x => x.DownloadDelayMax)
+            _ = RuleFor(x => x.DownloadDelayMax)
                 .GreaterThanOrEqualTo(x => x.DownloadDelayMin)
                 .WithMessage("Maximum delay must be greater than or equal to minimum delay")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange)
@@ -143,7 +135,7 @@ public class TidalarrSettings : BaseStreamingSettings
                 .WithMessage("Maximum delay must be between min delay and 60000 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange);
 
-            RuleFor(x => x.PreferredQuality)
+            _ = RuleFor(x => x.PreferredQuality)
                 .Must(quality => Enum.IsDefined(typeof(TidalQuality), quality))
                 .WithMessage("Preferred quality selection is invalid")
                 .WithErrorCode(TidalarrValidationCodes.PreferredQualityInvalid);
@@ -151,7 +143,7 @@ public class TidalarrSettings : BaseStreamingSettings
 
         private static bool BeValidHttpUri(string redirect)
         {
-            return Uri.TryCreate(redirect, UriKind.Absolute, out var uri) &&
+            return Uri.TryCreate(redirect, UriKind.Absolute, out Uri? uri) &&
                    (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
     }

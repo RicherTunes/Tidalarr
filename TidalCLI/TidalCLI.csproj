@@ -12,6 +12,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Allow unused code in CLI test/mock implementations -->
+    <NoWarn>$(NoWarn);IDE0052;IDE0060</NoWarn>
     <!-- CLI project always needs CLI framework -->
     <IncludeCLIFramework>true</IncludeCLIFramework>
   </PropertyGroup>

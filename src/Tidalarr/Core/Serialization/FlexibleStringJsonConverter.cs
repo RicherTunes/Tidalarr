@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -16,10 +15,19 @@ public sealed class FlexibleStringJsonConverter : JsonConverter<string>
         return reader.TokenType switch
         {
             JsonTokenType.String => reader.GetString() ?? string.Empty,
-            JsonTokenType.Number => reader.TryGetInt64(out var value)
+            JsonTokenType.Number => reader.TryGetInt64(out long value)
                 ? value.ToString(CultureInfo.InvariantCulture)
                 : reader.GetDouble().ToString(CultureInfo.InvariantCulture),
             JsonTokenType.Null => string.Empty,
+            JsonTokenType.None => throw new NotImplementedException(),
+            JsonTokenType.StartObject => throw new NotImplementedException(),
+            JsonTokenType.EndObject => throw new NotImplementedException(),
+            JsonTokenType.StartArray => throw new NotImplementedException(),
+            JsonTokenType.EndArray => throw new NotImplementedException(),
+            JsonTokenType.PropertyName => throw new NotImplementedException(),
+            JsonTokenType.Comment => throw new NotImplementedException(),
+            JsonTokenType.True => throw new NotImplementedException(),
+            JsonTokenType.False => throw new NotImplementedException(),
             _ => throw new JsonException($"Unexpected token {reader.TokenType} when parsing a string value.")
         };
     }

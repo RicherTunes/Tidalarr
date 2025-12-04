@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Integration;
-using Xunit;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests;
@@ -18,7 +17,7 @@ public class ArchitectValidationTests
         // ARCHITECT ISSUE 1: No manual dependency construction
 
         // ✅ FIXED: Proper DI registration through TidalModule
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // Verify all services are properly registered
@@ -35,14 +34,14 @@ public class ArchitectValidationTests
     {
         // ARCHITECT ISSUE 2: Proper HttpClient factory usage
 
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // ✅ FIXED: HttpClient factory registration
         Assert.Contains(services, s => s.ServiceType == typeof(IHttpClientFactory));
 
         // ✅ FIXED: Named clients for different endpoints
-        var httpClientRegistrations = services.Where(s =>
+        IEnumerable<ServiceDescriptor> httpClientRegistrations = services.Where(s =>
             s.ServiceType.IsGenericType &&
             s.ServiceType.GetGenericTypeDefinition() == typeof(IHttpClientFactory));
 
@@ -58,7 +57,7 @@ public class ArchitectValidationTests
         // ✅ FIXED: StreamingApiRequestBuilder includes retry logic
         // ✅ FIXED: ExecuteWithRetryAsync method integration
 
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // Verify resilience components are available
@@ -78,19 +77,19 @@ public class ArchitectValidationTests
         // - 50MB threshold for memory vs disk strategy
         // - FilePath property in TidalDownloadResult
 
-        var settings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings settings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = System.IO.Path.GetTempPath()
+            DownloadPath = Path.GetTempPath()
         };
 
         // Verify download client can be created with proper DI
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
-        services.AddSingleton(settings);
+        _ = services.AddSingleton(settings);
 
-        var provider = services.BuildServiceProvider();
-        var downloadClient = provider.GetRequiredService<TidalDownloadClient>();
+        ServiceProvider provider = services.BuildServiceProvider();
+        TidalDownloadClient downloadClient = provider.GetRequiredService<TidalDownloadClient>();
         Assert.NotNull(downloadClient);
 
         Console.WriteLine("✅ ARCHITECT VALIDATION 4: Stream-to-Disk IMPLEMENTED");
@@ -101,12 +100,12 @@ public class ArchitectValidationTests
     {
         // ARCHITECT IMPROVEMENT: Proper service registration
 
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
         // ✅ FIXED: Verify service lifetimes
-        var singletonServices = services.Where(s => s.Lifetime == ServiceLifetime.Singleton);
-        var scopedServices = services.Where(s => s.Lifetime == ServiceLifetime.Scoped);
+        IEnumerable<ServiceDescriptor> singletonServices = services.Where(s => s.Lifetime == ServiceLifetime.Singleton);
+        IEnumerable<ServiceDescriptor> scopedServices = services.Where(s => s.Lifetime == ServiceLifetime.Scoped);
 
         Assert.NotEmpty(singletonServices); // PKCEGenerator, ITokenStorage
         Assert.NotEmpty(scopedServices);    // API clients, business logic
@@ -119,10 +118,10 @@ public class ArchitectValidationTests
     {
         // Validate optimal shared library usage
 
-        var idxSettings = new TidalIndexerSettings { RedirectUrl = "https://tidal.com/test", ConfigPath = System.IO.Path.GetTempPath() };
+        TidalIndexerSettings idxSettings = new() { RedirectUrl = "https://tidal.com/test", ConfigPath = Path.GetTempPath() };
 
         // ✅ FIXED: Inherits from BaseStreamingSettings
-        Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
+        _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
 
         // ✅ FIXED: API client uses StreamingApiRequestBuilder
         // ✅ FIXED: Uses ExecuteWithRetryAsync
@@ -136,7 +135,7 @@ public class ArchitectValidationTests
     {
         // Final production readiness validation
 
-        var issues = new Dictionary<string, bool>
+        Dictionary<string, bool> issues = new()
         {
             ["DI Anti-Pattern"] = true,           // ✅ Fixed with proper service registration
             ["HttpClient Misuse"] = true,         // ✅ Fixed with IHttpClientFactory  
@@ -147,13 +146,13 @@ public class ArchitectValidationTests
             ["Shared Library Usage"] = true       // ✅ Optimal integration
         };
 
-        var unresolved = issues.Where(kvp => !kvp.Value).ToList();
+        List<KeyValuePair<string, bool>> unresolved = [.. issues.Where(kvp => !kvp.Value)];
         Assert.Empty(unresolved);
 
         Console.WriteLine("🏆 ARCHITECT VALIDATION: ALL CRITICAL ISSUES RESOLVED!");
         Console.WriteLine("🚀 PRODUCTION READINESS: ENTERPRISE-GRADE ACHIEVED");
 
-        foreach (var issue in issues)
+        foreach (KeyValuePair<string, bool> issue in issues)
         {
             Console.WriteLine($"   ✅ {issue.Key}: RESOLVED");
         }

@@ -1,6 +1,5 @@
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -10,7 +9,7 @@ public class TidalQualityDetectorTests
 
     public TidalQualityDetectorTests()
     {
-        _detector = new TidalQualityDetector();
+        this._detector = new TidalQualityDetector();
     }
 
     [Theory]
@@ -22,7 +21,7 @@ public class TidalQualityDetectorTests
     public void DetectQualityFromString_ValidInput_ReturnsCorrectQuality(string qualityString, TidalQuality expected)
     {
         // Act
-        var result = _detector.DetectQualityFromString(qualityString);
+        TidalQuality result = this._detector.DetectQualityFromString(qualityString);
 
         // Assert
         Assert.Equal(expected, result);
@@ -32,10 +31,10 @@ public class TidalQualityDetectorTests
     public void DetectAvailableQualities_WithHiResTag_ReturnsAllQualities()
     {
         // Arrange
-        var tags = new[] { "HIRES_LOSSLESS" };
+        string[] tags = ["HIRES_LOSSLESS"];
 
         // Act
-        var qualities = _detector.DetectAvailableQualities(tags);
+        List<TidalQuality> qualities = this._detector.DetectAvailableQualities(tags);
 
         // Assert
         Assert.Contains(TidalQuality.HiRes, qualities);
@@ -48,10 +47,10 @@ public class TidalQualityDetectorTests
     public void DetectAvailableQualities_WithLosslessTag_ReturnsLosslessAndBelow()
     {
         // Arrange
-        var tags = new[] { "LOSSLESS" };
+        string[] tags = ["LOSSLESS"];
 
         // Act
-        var qualities = _detector.DetectAvailableQualities(tags);
+        List<TidalQuality> qualities = this._detector.DetectAvailableQualities(tags);
 
         // Assert
         Assert.Contains(TidalQuality.Lossless, qualities);
@@ -64,10 +63,10 @@ public class TidalQualityDetectorTests
     public void DetectAvailableQualities_NoSpecialTags_ReturnsStandardQualities()
     {
         // Arrange
-        var tags = new[] { "SOME_OTHER_TAG" };
+        string[] tags = ["SOME_OTHER_TAG"];
 
         // Act
-        var qualities = _detector.DetectAvailableQualities(tags);
+        List<TidalQuality> qualities = this._detector.DetectAvailableQualities(tags);
 
         // Assert
         Assert.Contains(TidalQuality.High, qualities);
@@ -80,11 +79,11 @@ public class TidalQualityDetectorTests
     public void SelectBestQuality_UserPrefersLossless_SelectsBestAvailable()
     {
         // Arrange
-        var availableQualities = new[] { TidalQuality.High, TidalQuality.Lossless };
-        var userPreference = TidalQuality.HiRes; // User wants HiRes but not available
+        TidalQuality[] availableQualities = [TidalQuality.High, TidalQuality.Lossless];
+        TidalQuality userPreference = TidalQuality.HiRes; // User wants HiRes but not available
 
         // Act
-        var selected = _detector.SelectBestQuality(availableQualities, userPreference);
+        TidalQuality selected = this._detector.SelectBestQuality(availableQualities, userPreference);
 
         // Assert
         Assert.Equal(TidalQuality.Lossless, selected); // Best available
@@ -94,11 +93,11 @@ public class TidalQualityDetectorTests
     public void SelectBestQuality_UserPrefersLow_RespectsUserChoice()
     {
         // Arrange
-        var availableQualities = new[] { TidalQuality.High, TidalQuality.Lossless, TidalQuality.Low };
-        var userPreference = TidalQuality.Low;
+        TidalQuality[] availableQualities = [TidalQuality.High, TidalQuality.Lossless, TidalQuality.Low];
+        TidalQuality userPreference = TidalQuality.Low;
 
         // Act
-        var selected = _detector.SelectBestQuality(availableQualities, userPreference);
+        TidalQuality selected = this._detector.SelectBestQuality(availableQualities, userPreference);
 
         // Assert
         Assert.Equal(TidalQuality.Low, selected); // Respect user choice
@@ -112,7 +111,7 @@ public class TidalQualityDetectorTests
     public void DetectHighestAvailableQuality_FromTags_ReturnsExpected(string[] tags, TidalQuality expected)
     {
         // Act
-        var result = _detector.DetectHighestAvailableQuality(tags);
+        TidalQuality result = this._detector.DetectHighestAvailableQuality(tags);
 
         // Assert
         Assert.Equal(expected, result);

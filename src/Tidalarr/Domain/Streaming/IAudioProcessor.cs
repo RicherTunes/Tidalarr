@@ -12,7 +12,7 @@ public class SystemAudioProcessor : IAudioProcessor
 {
     public async Task<(int exitCode, string stdout, string stderr)> RunFfmpegAsync(string arguments, CancellationToken ct = default)
     {
-        var psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = "ffmpeg",
             Arguments = arguments,
@@ -21,17 +21,17 @@ public class SystemAudioProcessor : IAudioProcessor
             RedirectStandardError = true,
             CreateNoWindow = true
         };
-        using var p = Process.Start(psi);
+        using Process? p = Process.Start(psi);
         if (p == null) return (-1, string.Empty, "failed to start ffmpeg");
-        var stdOutTask = p.StandardOutput.ReadToEndAsync();
-        var stdErrTask = p.StandardError.ReadToEndAsync();
+        Task<string> stdOutTask = p.StandardOutput.ReadToEndAsync();
+        Task<string> stdErrTask = p.StandardError.ReadToEndAsync();
         await p.WaitForExitAsync(ct);
         return (p.ExitCode, await stdOutTask, await stdErrTask);
     }
 
     public (int exitCode, string stdout, string stderr) RunFfprobe(string arguments)
     {
-        var psi = new ProcessStartInfo
+        ProcessStartInfo psi = new()
         {
             FileName = "ffprobe",
             Arguments = arguments,
@@ -40,11 +40,11 @@ public class SystemAudioProcessor : IAudioProcessor
             RedirectStandardError = true,
             CreateNoWindow = true
         };
-        using var p = Process.Start(psi);
+        using Process? p = Process.Start(psi);
         if (p == null) return (-1, string.Empty, "failed to start ffprobe");
         p.WaitForExit();
-        var stdout = p.StandardOutput.ReadToEnd();
-        var stderr = p.StandardError.ReadToEnd();
+        string stdout = p.StandardOutput.ReadToEnd();
+        string stderr = p.StandardError.ReadToEnd();
         return (p.ExitCode, stdout, stderr);
     }
 }

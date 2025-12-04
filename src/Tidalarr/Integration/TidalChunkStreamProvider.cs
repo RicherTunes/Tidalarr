@@ -1,7 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Core.Mappers;
@@ -14,27 +10,20 @@ namespace Tidalarr.Integration
     /// Bridges Tidal's chunked streaming to the shared download orchestrator by
     /// assembling a contiguous audio stream from DASH chunks.
     /// </summary>
-    public class TidalChunkStreamProvider : IAudioStreamProvider
+    public class TidalChunkStreamProvider(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, TidalModelMapper mapper) : IAudioStreamProvider
     {
-        private readonly TidalStreamService _streamService;
-        private readonly TidalChunkDownloader _chunkDownloader;
-        private readonly TidalModelMapper _mapper;
-
-        public TidalChunkStreamProvider(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, TidalModelMapper mapper)
-        {
-            _streamService = streamService ?? throw new ArgumentNullException(nameof(streamService));
-            _chunkDownloader = chunkDownloader ?? throw new ArgumentNullException(nameof(chunkDownloader));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-        }
+        private readonly TidalStreamService _streamService = streamService ?? throw new ArgumentNullException(nameof(streamService));
+        private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader ?? throw new ArgumentNullException(nameof(chunkDownloader));
+        private readonly TidalModelMapper _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
 
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
-            var tidalQuality = quality != null ? _mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
+            TidalQuality tidalQuality = quality != null ? this._mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
 
             TidalManifest? manifest = null;
             try
             {
-                manifest = await _streamService.GetParsedManifestAsync(trackId, tidalQuality).ConfigureAwait(false);
+                manifest = await this._streamService.GetParsedManifestAsync(trackId, tidalQuality).ConfigureAwait(false);
             }
             catch
             {
@@ -43,7 +32,7 @@ namespace Tidalarr.Integration
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
-                var assembled = await _chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
+                MemoryStream assembled = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
                 assembled.Position = 0;
                 return new AudioStreamResult
                 {
@@ -53,8 +42,8 @@ namespace Tidalarr.Integration
                 };
             }
 
-            var info = await _streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
-            var ms = await _chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
+            TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
             return new AudioStreamResult
             {
                 Stream = ms,

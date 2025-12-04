@@ -1,5 +1,4 @@
 using Tidalarr.Core.Models;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -15,7 +14,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WhenExpiresAtInPast_ReturnsTrue()
     {
         // Arrange
-        var expiredTokens = new TidalTokens(
+        TidalTokens expiredTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddMinutes(-10), // 10 minutes ago
             "session", "US", "123");
@@ -28,7 +27,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WithFiveMinuteBuffer_ReturnsTrue()
     {
         // Arrange - Token expires in 3 minutes (within 5 minute buffer)
-        var almostExpiredTokens = new TidalTokens(
+        TidalTokens almostExpiredTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddMinutes(3), // 3 minutes from now
             "session", "US", "123");
@@ -41,7 +40,7 @@ public class TidalModelsTests
     public void TidalTokens_IsExpired_WithValidToken_ReturnsFalse()
     {
         // Arrange - Token expires in 1 hour
-        var validTokens = new TidalTokens(
+        TidalTokens validTokens = new(
             "access", "refresh", "Bearer",
             DateTime.UtcNow.AddHours(1),
             "session", "US", "123");
@@ -54,16 +53,16 @@ public class TidalModelsTests
     public void TidalTokens_Constructor_AllProperties_AreSetCorrectly()
     {
         // Arrange
-        var accessToken = "test_access";
-        var refreshToken = "test_refresh";
-        var tokenType = "Bearer";
-        var expiresAt = DateTime.UtcNow.AddHours(1);
-        var sessionId = "session123";
-        var countryCode = "US";
-        var userId = "user456";
+        string accessToken = "test_access";
+        string refreshToken = "test_refresh";
+        string tokenType = "Bearer";
+        DateTime expiresAt = DateTime.UtcNow.AddHours(1);
+        string sessionId = "session123";
+        string countryCode = "US";
+        string userId = "user456";
 
         // Act
-        var tokens = new TidalTokens(accessToken, refreshToken, tokenType, expiresAt, sessionId, countryCode, userId);
+        TidalTokens tokens = new(accessToken, refreshToken, tokenType, expiresAt, sessionId, countryCode, userId);
 
         // Assert
         Assert.Equal(accessToken, tokens.AccessToken);
@@ -83,7 +82,7 @@ public class TidalModelsTests
     public void TidalAuthUrl_Constructor_SetsAllProperties()
     {
         // Arrange & Act
-        var authUrl = new TidalAuthUrl("https://test.url", "verifier123", "state456", string.Empty);
+        TidalAuthUrl authUrl = new("https://test.url", "verifier123", "state456", string.Empty);
 
         // Assert
         Assert.Equal("https://test.url", authUrl.AuthorizationUrl);
@@ -100,7 +99,7 @@ public class TidalModelsTests
     public void TidalCredentials_Constructor_SetsRedirectUrl()
     {
         // Arrange & Act
-        var credentials = new TidalCredentials("https://tidal.com/callback");
+        TidalCredentials credentials = new("https://tidal.com/callback");
 
         // Assert
         Assert.Equal("https://tidal.com/callback", credentials.RedirectUrl);
@@ -114,11 +113,11 @@ public class TidalModelsTests
     public void TidalTrackInfo_Constructor_WithValidData_SetsAllProperties()
     {
         // Arrange
-        var artists = new List<string> { "Artist1", "Artist2" };
-        var releaseDate = new DateTime(2023, 5, 15);
+        List<string> artists = ["Artist1", "Artist2"];
+        DateTime releaseDate = new(2023, 5, 15);
 
         // Act
-        var track = new TidalTrackInfo(
+        TidalTrackInfo track = new(
             "track123", "Test Track", artists, "album456", "Test Album",
             3, 240, TidalQuality.Lossless, true, releaseDate);
 
@@ -143,13 +142,13 @@ public class TidalModelsTests
     public void TidalAlbumInfo_Constructor_WithValidData_SetsAllProperties()
     {
         // Arrange
-        var artists = new List<string> { "Artist" };
-        var tracks = new List<TidalTrackInfo>();
-        var qualities = new List<TidalQuality> { TidalQuality.Lossless };
-        var releaseDate = new DateTime(2023, 1, 1);
+        List<string> artists = ["Artist"];
+        List<TidalTrackInfo> tracks = [];
+        List<TidalQuality> qualities = [TidalQuality.Lossless];
+        DateTime releaseDate = new(2023, 1, 1);
 
         // Act
-        var album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             "album123", "Test Album", artists, tracks, qualities,
             releaseDate, "cover123", true);
 
@@ -172,11 +171,11 @@ public class TidalModelsTests
     public void TidalSearchResults_Constructor_WithValidData_SetsCorrectly()
     {
         // Arrange
-        var albums = new List<TidalAlbumInfo>();
-        var tracks = new List<TidalTrackInfo>();
+        List<TidalAlbumInfo> albums = [];
+        List<TidalTrackInfo> tracks = [];
 
         // Act
-        var results = new TidalSearchResults(albums, tracks, 10, true);
+        TidalSearchResults results = new(albums, tracks, 10, true);
 
         // Assert
         Assert.Equal(albums, results.Albums);
@@ -193,7 +192,7 @@ public class TidalModelsTests
     public void TidalCallbackResult_Success_CreatesSuccessResult()
     {
         // Act
-        var result = TidalCallbackResult.Success("auth_code", "state123");
+        TidalCallbackResult result = TidalCallbackResult.Success("auth_code", "state123");
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -206,7 +205,7 @@ public class TidalModelsTests
     public void TidalCallbackResult_Failure_CreatesFailureWithMessage()
     {
         // Act
-        var result = TidalCallbackResult.Failure("OAuth error occurred");
+        TidalCallbackResult result = TidalCallbackResult.Failure("OAuth error occurred");
 
         // Assert
         Assert.False(result.IsSuccess);
@@ -223,10 +222,10 @@ public class TidalModelsTests
     public void TidalStreamInfo_Constructor_SetsAllProperties()
     {
         // Arrange
-        var chunkUrls = new[] { "url1", "url2" };
+        string[] chunkUrls = ["url1", "url2"];
 
         // Act
-        var streamInfo = new TidalStreamInfo(
+        TidalStreamInfo streamInfo = new(
             "track123", chunkUrls, ".flac", "audio/flac", true, "token");
 
         // Assert
@@ -246,10 +245,10 @@ public class TidalModelsTests
     public void TidalManifest_Constructor_SetsAllProperties()
     {
         // Arrange
-        var chunkUrls = new[] { "chunk1", "chunk2" };
+        string[] chunkUrls = ["chunk1", "chunk2"];
 
         // Act
-        var manifest = new TidalManifest(
+        TidalManifest manifest = new(
             chunkUrls, "flac", "audio/flac", ".flac", 44100, false, null, null);
 
         // Assert
@@ -286,8 +285,8 @@ public class TidalModelsTests
     public void TidalTokens_EqualityComparison_WithSameValues_AreEqual()
     {
         // Arrange
-        var tokens1 = new TidalTokens("access", "refresh", "Bearer", DateTime.UtcNow, "session", "US", "123");
-        var tokens2 = new TidalTokens("access", "refresh", "Bearer", tokens1.ExpiresAt, "session", "US", "123");
+        TidalTokens tokens1 = new("access", "refresh", "Bearer", DateTime.UtcNow, "session", "US", "123");
+        TidalTokens tokens2 = new("access", "refresh", "Bearer", tokens1.ExpiresAt, "session", "US", "123");
 
         // Act & Assert
         Assert.Equal(tokens1, tokens2);
@@ -299,8 +298,8 @@ public class TidalModelsTests
     public void TidalCallbackResult_EqualityComparison_WithDifferentValues_AreNotEqual()
     {
         // Arrange
-        var result1 = TidalCallbackResult.Success("code1", "state1");
-        var result2 = TidalCallbackResult.Success("code2", "state1");
+        TidalCallbackResult result1 = TidalCallbackResult.Success("code1", "state1");
+        TidalCallbackResult result2 = TidalCallbackResult.Success("code2", "state1");
 
         // Act & Assert
         Assert.NotEqual(result1, result2);

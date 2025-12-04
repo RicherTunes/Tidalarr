@@ -1,6 +1,5 @@
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -9,14 +8,14 @@ public class FileTokenStoreLockTests
     [Fact]
     public async Task SaveTokens_WhenFileLocked_ThrowsInvalidOperation()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"tidalarr_lock_{Guid.NewGuid():N}.json");
+        string path = Path.Combine(Path.GetTempPath(), $"tidalarr_lock_{Guid.NewGuid():N}.json");
         await File.WriteAllTextAsync(path, "{}");
 
-        await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
-        var storage = new FileTokenStore(path);
-        var tokens = new TidalTokens("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        await using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.None);
+        FileTokenStore storage = new(path);
+        TidalTokens tokens = new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveTokensAsync(tokens));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => storage.SaveTokensAsync(tokens));
 
         fs.Dispose();
         try { File.Delete(path); } catch { }
