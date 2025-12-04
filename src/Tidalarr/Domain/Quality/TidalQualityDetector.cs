@@ -18,11 +18,12 @@ public class TidalQualityDetector
 
     public List<TidalQuality> DetectAvailableQualities(string[] tags)
     {
-        var qualities = new List<TidalQuality>();
-
-        // Always add basic qualities
-        qualities.Add(TidalQuality.Low);
-        qualities.Add(TidalQuality.High);
+        List<TidalQuality> qualities =
+        [
+            // Always add basic qualities
+            TidalQuality.Low,
+            TidalQuality.High,
+        ];
 
         // Check for lossless availability
         if (tags.Contains("LOSSLESS") || tags.Contains("HIRES_LOSSLESS"))
@@ -36,12 +37,12 @@ public class TidalQualityDetector
             qualities.Add(TidalQuality.HiRes);
         }
 
-        return qualities.Distinct().OrderBy(q => (int)q).ToList();
+        return [.. qualities.Distinct().OrderBy(q => (int)q)];
     }
 
     public TidalQuality SelectBestQuality(IEnumerable<TidalQuality> availableQualities, TidalQuality userPreference)
     {
-        var available = availableQualities.ToList();
+        List<TidalQuality> available = availableQualities.ToList();
 
         if (!available.Any())
             return TidalQuality.High; // Fallback
@@ -51,7 +52,7 @@ public class TidalQualityDetector
             return userPreference;
 
         // Find the highest quality that's not higher than user preference
-        var suitableQualities = available.Where(q => q <= userPreference).ToList();
+        List<TidalQuality> suitableQualities = available.Where(q => q <= userPreference).ToList();
         if (suitableQualities.Any())
             return suitableQualities.Max();
 
@@ -61,13 +62,13 @@ public class TidalQualityDetector
 
     public TidalQuality DetectHighestAvailableQuality(string[] tags)
     {
-        var availableQualities = DetectAvailableQualities(tags);
+        List<TidalQuality> availableQualities = DetectAvailableQualities(tags);
         return availableQualities.Any() ? availableQualities.Max() : TidalQuality.High;
     }
 
     public bool IsQualityAvailable(TidalQuality quality, string[] tags)
     {
-        var availableQualities = DetectAvailableQualities(tags);
+        List<TidalQuality> availableQualities = DetectAvailableQualities(tags);
         return availableQualities.Contains(quality);
     }
 

@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Manifest;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +13,7 @@ public sealed class TidalarrPlugin : IPlugin
     private TidalarrSettings _settings = new();
 
     // Non-public Services property for the test harness (accessed via reflection)
-    private IServiceProvider Services => _serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
+    private IServiceProvider Services => this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
 
     public PluginManifest Manifest
     {
@@ -27,8 +21,8 @@ public sealed class TidalarrPlugin : IPlugin
         {
             try
             {
-                var baseDir = AppContext.BaseDirectory;
-                var manifestPath = Path.Combine(baseDir, "plugin.json");
+                string baseDir = AppContext.BaseDirectory;
+                string manifestPath = Path.Combine(baseDir, "plugin.json");
                 return PluginManifest.Load(manifestPath);
             }
             catch
@@ -55,7 +49,7 @@ public sealed class TidalarrPlugin : IPlugin
 
     public async ValueTask InitializeAsync(IPluginContext context, CancellationToken cancellationToken = default)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        this._context = context ?? throw new ArgumentNullException(nameof(context));
         // Build initial service provider using default settings to keep the plugin usable before Apply() is called
         RebuildServiceProvider();
         await ValueTask.CompletedTask;
@@ -67,8 +61,8 @@ public sealed class TidalarrPlugin : IPlugin
         const string OK = "CFG000";
         const string INVALID = "CFG100";
 
-        var typed = MapToSettings(settings);
-        var validation = typed.ValidateFluent();
+        TidalarrSettings typed = MapToSettings(settings);
+        FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
         if (validation.IsValid)
         {
             return PluginOperationResult<Dictionary<string, string>>.Success(new()
@@ -78,12 +72,12 @@ public sealed class TidalarrPlugin : IPlugin
             });
         }
 
-        var codes = validation.Errors
+        string[] codes = validation.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
             .Select(e => e.ErrorCode)
             .Distinct()
             .ToArray();
-        var meta = new Dictionary<string, string>
+        Dictionary<string, string> meta = new Dictionary<string, string>
         {
             ["id"] = INVALID,
             ["errors"] = string.Join(",", codes)
@@ -94,10 +88,10 @@ public sealed class TidalarrPlugin : IPlugin
     public PluginOperationResult<Dictionary<string, string>> ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
-        var check = ValidateSettingsWithDiagnostics(settings);
+        PluginOperationResult<Dictionary<string, string>> check = ValidateSettingsWithDiagnostics(settings);
         if (!check.IsSuccess) return check;
 
-        _settings = MapToSettings(settings);
+        this._settings = MapToSettings(settings);
         RebuildServiceProvider();
         return PluginOperationResult<Dictionary<string, string>>.Success(new()
         {
@@ -108,69 +102,61 @@ public sealed class TidalarrPlugin : IPlugin
 
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
     {
-        var scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        var adapter = new TidalIndexerAdapter(scope);
+        IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        TidalIndexerAdapter adapter = new TidalIndexerAdapter(scope);
         return ValueTask.FromResult<IIndexer?>(adapter);
     }
 
     public ValueTask<IDownloadClient?> CreateDownloadClientAsync(CancellationToken cancellationToken = default)
     {
-        var scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        var adapter = new TidalDownloadClientAdapter(scope);
+        IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        TidalDownloadClientAdapter adapter = new TidalDownloadClientAdapter(scope);
         return ValueTask.FromResult<IDownloadClient?>(adapter);
-    }
-
-    // Private helper for tests to open a scope (invoked via reflection in PluginSmokeTests)
-    private IServiceScope CreateScope()
-    {
-        return Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
     }
 
     private void RebuildServiceProvider()
     {
-        _serviceProvider?.Dispose();
-        var module = new TidalModule();
-        _serviceProvider = module.BuildServiceProvider(_settings);
+        this._serviceProvider?.Dispose();
+        TidalModule module = new TidalModule();
+        this._serviceProvider = module.BuildServiceProvider(this._settings);
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_serviceProvider is IAsyncDisposable asyncDisposable)
+        if (this._serviceProvider is IAsyncDisposable asyncDisposable)
         {
             await asyncDisposable.DisposeAsync().ConfigureAwait(false);
         }
         else
         {
-            _serviceProvider?.Dispose();
+            this._serviceProvider?.Dispose();
         }
-        _serviceProvider = null;
+        this._serviceProvider = null;
     }
 
     private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
     {
-        var s = new TidalarrSettings();
-        if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out var cp) && cp is string cpStr) s.ConfigPath = cpStr;
-        if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out var ru) && ru is string ruStr) s.RedirectUrl = ruStr;
-        if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out var dp) && dp is string dpStr) s.DownloadPath = dpStr;
-        if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out var pq))
+        TidalarrSettings s = new TidalarrSettings();
+        if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out object? cp) && cp is string cpStr) s.ConfigPath = cpStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out object? ru) && ru is string ruStr) s.RedirectUrl = ruStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out object? dp) && dp is string dpStr) s.DownloadPath = dpStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out object? pq))
         {
-            if (pq is string pqStr && Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(pqStr, ignoreCase: true, out var parsedEnum))
+            if (pq is string pqStr && Enum.TryParse<Core.Models.TidalQuality>(pqStr, ignoreCase: true, out Core.Models.TidalQuality parsedEnum))
             {
                 s.PreferredQuality = parsedEnum;
             }
-            else if (pq is int pqInt && Enum.IsDefined(typeof(Tidalarr.Core.Models.TidalQuality), pqInt))
+            else if (pq is int pqInt && Enum.IsDefined(typeof(Core.Models.TidalQuality), pqInt))
             {
-                s.PreferredQuality = (Tidalarr.Core.Models.TidalQuality)pqInt;
+                s.PreferredQuality = (Core.Models.TidalQuality)pqInt;
             }
         }
         return s;
     }
 
-    private sealed class TidalarrSettingsProvider : ISettingsProvider
+    private sealed class TidalarrSettingsProvider(TidalarrPlugin plugin) : ISettingsProvider
     {
-        private readonly TidalarrPlugin _plugin;
-
-        public TidalarrSettingsProvider(TidalarrPlugin plugin) => _plugin = plugin;
+        private readonly TidalarrPlugin _plugin = plugin;
 
         public IReadOnlyCollection<SettingDefinition> Describe()
         {
@@ -225,22 +211,22 @@ public sealed class TidalarrPlugin : IPlugin
 
         public PluginValidationResult Validate(IDictionary<string, object?> settings)
         {
-            var typed = MapToSettings(settings);
-            var validation = typed.ValidateFluent();
+            TidalarrSettings typed = MapToSettings(settings);
+            FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
             return validation.ToPluginValidationResult();
         }
 
         public PluginValidationResult Apply(IDictionary<string, object?> settings)
         {
-            var typed = MapToSettings(settings);
-            var validation = typed.ValidateFluent();
+            TidalarrSettings typed = MapToSettings(settings);
+            FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
             if (!validation.IsValid)
             {
                 return validation.ToPluginValidationResult();
             }
 
-            _plugin._settings = typed;
-            _plugin.RebuildServiceProvider();
+            this._plugin._settings = typed;
+            this._plugin.RebuildServiceProvider();
             return PluginValidationResult.Success();
         }
 

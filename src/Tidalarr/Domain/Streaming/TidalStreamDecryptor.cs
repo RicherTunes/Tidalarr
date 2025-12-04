@@ -1,8 +1,4 @@
-using System;
-using System.IO;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Tidalarr.Domain.Streaming;
 
@@ -18,7 +14,7 @@ public static class TidalStreamDecryptor
     {
         if (cipher.IsEmpty)
         {
-            return Array.Empty<byte>();
+            return [];
         }
 
         if (string.IsNullOrWhiteSpace(securityToken))
@@ -26,13 +22,13 @@ public static class TidalStreamDecryptor
             throw new ArgumentException("Security token is required for decryption.", nameof(securityToken));
         }
 
-        var (key, counterSeed) = DeriveKeyAndCounter(securityToken);
+        (byte[] key, byte[] counterSeed) = DeriveKeyAndCounter(securityToken);
         return DecryptCtr(cipher, key, counterSeed);
     }
 
     public static MemoryStream DecryptToStream(ReadOnlySpan<byte> cipher, string securityToken)
     {
-        var decrypted = Decrypt(cipher, securityToken);
+        byte[] decrypted = Decrypt(cipher, securityToken);
         return new MemoryStream(decrypted, writable: false);
     }
 
@@ -48,47 +44,47 @@ public static class TidalStreamDecryptor
             throw new ArgumentException("Security token is required for decryption.", nameof(securityToken));
         }
 
-        stream.Seek(0, SeekOrigin.Begin);
-        using var buffer = new MemoryStream();
+        _ = stream.Seek(0, SeekOrigin.Begin);
+        using MemoryStream buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-        var decrypted = Decrypt(buffer.ToArray(), securityToken);
+        byte[] decrypted = Decrypt(buffer.ToArray(), securityToken);
 
-        stream.Seek(0, SeekOrigin.Begin);
+        _ = stream.Seek(0, SeekOrigin.Begin);
         stream.SetLength(0);
         await stream.WriteAsync(decrypted, 0, decrypted.Length, cancellationToken).ConfigureAwait(false);
-        stream.Seek(0, SeekOrigin.Begin);
+        _ = stream.Seek(0, SeekOrigin.Begin);
     }
 
     private static (byte[] Key, byte[] CounterSeed) DeriveKeyAndCounter(string securityToken)
     {
-        var tokenBytes = Convert.FromBase64String(securityToken);
+        byte[] tokenBytes = Convert.FromBase64String(securityToken);
         if (tokenBytes.Length < 24)
         {
             throw new InvalidOperationException("Security token is malformed.");
         }
 
-        var iv = new byte[16];
+        byte[] iv = new byte[16];
         Buffer.BlockCopy(tokenBytes, 0, iv, 0, iv.Length);
-        var encrypted = new byte[tokenBytes.Length - iv.Length];
+        byte[] encrypted = new byte[tokenBytes.Length - iv.Length];
         Buffer.BlockCopy(tokenBytes, iv.Length, encrypted, 0, encrypted.Length);
 
-        using var aes = Aes.Create();
+        using Aes aes = Aes.Create();
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;
         aes.Key = MasterKey;
         aes.IV = iv;
 
-        using var decryptor = aes.CreateDecryptor();
-        var decrypted = decryptor.TransformFinalBlock(encrypted, 0, encrypted.Length);
+        using ICryptoTransform decryptor = aes.CreateDecryptor();
+        byte[] decrypted = decryptor.TransformFinalBlock(encrypted, 0, encrypted.Length);
         if (decrypted.Length < 24)
         {
             throw new InvalidOperationException("Security token payload is incomplete.");
         }
 
-        var key = new byte[16];
+        byte[] key = new byte[16];
         Buffer.BlockCopy(decrypted, 0, key, 0, key.Length);
 
-        var counter = new byte[16];
+        byte[] counter = new byte[16];
         if (decrypted.Length >= 32)
         {
             Buffer.BlockCopy(decrypted, 16, counter, 0, counter.Length);
@@ -104,24 +100,24 @@ public static class TidalStreamDecryptor
 
     private static byte[] DecryptCtr(ReadOnlySpan<byte> cipher, byte[] key, byte[] counterSeed)
     {
-        using var aes = Aes.Create();
+        using Aes aes = Aes.Create();
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
         aes.Key = key;
 
-        using var encryptor = aes.CreateEncryptor();
-        var counter = new byte[16];
+        using ICryptoTransform encryptor = aes.CreateEncryptor();
+        byte[] counter = new byte[16];
         Buffer.BlockCopy(counterSeed, 0, counter, 0, Math.Min(counterSeed.Length, counter.Length));
 
-        var output = new byte[cipher.Length];
-        var keystream = new byte[16];
+        byte[] output = new byte[cipher.Length];
+        byte[] keystream = new byte[16];
 
-        var offset = 0;
+        int offset = 0;
         while (offset < cipher.Length)
         {
-            encryptor.TransformBlock(counter, 0, counter.Length, keystream, 0);
-            var blockSize = Math.Min(keystream.Length, cipher.Length - offset);
-            for (var i = 0; i < blockSize; i++)
+            _ = encryptor.TransformBlock(counter, 0, counter.Length, keystream, 0);
+            int blockSize = Math.Min(keystream.Length, cipher.Length - offset);
+            for (int i = 0; i < blockSize; i++)
             {
                 output[offset + i] = (byte)(cipher[offset + i] ^ keystream[i]);
             }
@@ -135,7 +131,7 @@ public static class TidalStreamDecryptor
 
     private static void IncrementCounter(byte[] counter)
     {
-        for (var i = counter.Length - 1; i >= 0; i--)
+        for (int i = counter.Length - 1; i >= 0; i--)
         {
             if (++counter[i] != 0)
             {

@@ -4,7 +4,6 @@ using System.Text;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Api;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -13,7 +12,7 @@ public class TidalApiClientMappingTests
     [Fact]
     public async Task GetTrackAsync_UnknownAudioQuality_MapsToHigh()
     {
-        var dto = new TidalTrackDto(
+        TidalTrackDto dto = new TidalTrackDto(
             id: "t1",
             title: "T",
             artist: new("A", "a1"),
@@ -22,32 +21,51 @@ public class TidalApiClientMappingTests
             duration: 10,
             streamReady: true,
             audioQuality: "UNKNOWN");
-        var http = new HttpClient(new Handler(JsonSerializer.Serialize(dto)));
-        var client = new TidalApiClient(http, new Auth());
-        var track = await client.GetTrackAsync("t1");
+        HttpClient http = new HttpClient(new Handler(JsonSerializer.Serialize(dto)));
+        TidalApiClient client = new TidalApiClient(http, new Auth());
+        TidalTrackInfo track = await client.GetTrackAsync("t1");
         Assert.Equal(TidalQuality.High, track.Quality);
     }
 
     private class Auth : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
-        public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
-        public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
-        public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
-        private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync()
+        {
+            return Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
+        }
+
+        public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
+        {
+            return Task.FromResult(Default());
+        }
+
+        public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+        {
+            return Task.FromResult(Default());
+        }
+
+        public Task<TidalTokens> GetValidTokensAsync()
+        {
+            return Task.FromResult(Default());
+        }
+
+        private static TidalTokens Default()
+        {
+            return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        }
     }
 
-    private class Handler : HttpMessageHandler
+    private class Handler(string body, HttpStatusCode code = HttpStatusCode.OK) : HttpMessageHandler
     {
-        private readonly string _body;
-        private readonly HttpStatusCode _code;
-        public Handler(string body, HttpStatusCode code = HttpStatusCode.OK) { _body = body; _code = code; }
+        private readonly string _body = body;
+        private readonly HttpStatusCode _code = code;
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var msg = new HttpResponseMessage(_code)
+            HttpResponseMessage msg = new HttpResponseMessage(this._code)
             {
-                Content = new StringContent(_body, Encoding.UTF8, "application/json")
+                Content = new StringContent(this._body, Encoding.UTF8, "application/json")
             };
             return Task.FromResult(msg);
         }

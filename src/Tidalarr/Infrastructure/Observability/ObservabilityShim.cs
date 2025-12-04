@@ -1,5 +1,3 @@
-using System;
-using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 
@@ -14,11 +12,11 @@ internal static class ObservabilityShim
         if (!IsEnabled || logger == null) return NoopDisposable.Instance;
         try
         {
-            var extType = Type.GetType("Lidarr.Plugin.Common.Observability.LoggerExtensions, Lidarr.Plugin.Common");
+            Type? extType = Type.GetType("Lidarr.Plugin.Common.Observability.LoggerExtensions, Lidarr.Plugin.Common");
             if (extType == null) return NoopDisposable.Instance;
-            var method = extType.GetMethod("LogApiCallStarted", BindingFlags.Public | BindingFlags.Static);
+            MethodInfo? method = extType.GetMethod("LogApiCallStarted", BindingFlags.Public | BindingFlags.Static);
             if (method == null) return NoopDisposable.Instance;
-            var disp = method.Invoke(null, new object?[] { logger, service, endpoint, correlationId }) as IDisposable;
+            IDisposable? disp = method.Invoke(null, [logger, service, endpoint, correlationId]) as IDisposable;
             return disp ?? NoopDisposable.Instance;
         }
         catch
@@ -32,11 +30,11 @@ internal static class ObservabilityShim
         if (!IsEnabled || logger == null) return;
         try
         {
-            var extType = Type.GetType("Lidarr.Plugin.Common.Observability.LoggerExtensions, Lidarr.Plugin.Common");
+            Type? extType = Type.GetType("Lidarr.Plugin.Common.Observability.LoggerExtensions, Lidarr.Plugin.Common");
             if (extType == null) return;
-            var method = extType.GetMethod("LogApiCallCompleted", BindingFlags.Public | BindingFlags.Static);
+            MethodInfo? method = extType.GetMethod("LogApiCallCompleted", BindingFlags.Public | BindingFlags.Static);
             if (method == null) return;
-            method.Invoke(null, new object?[] { logger, service, endpoint, statusCode, success, duration });
+            _ = method.Invoke(null, [logger, service, endpoint, statusCode, success, duration]);
         }
         catch
         {

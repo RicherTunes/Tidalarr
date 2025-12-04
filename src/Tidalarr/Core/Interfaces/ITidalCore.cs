@@ -15,6 +15,8 @@ public interface ITidalCore
     // New scalable surface: raw playback info fetch with manifest and mime
     // Default implementation throws to avoid breaking existing stubs; concrete clients should override.
     Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Playback-info is not supported by this ITidalCore implementation");
+    {
+        throw new NotSupportedException("Playback-info is not supported by this ITidalCore implementation");
+    }
 }
 

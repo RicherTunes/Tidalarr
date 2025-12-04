@@ -12,12 +12,16 @@ public record TidalCallbackResult(
     /// <summary>
     /// Creates a successful callback result.
     /// </summary>
-    public static TidalCallbackResult Success(string authCode, string state) =>
-        new(true, authCode, state, string.Empty);
+    public static TidalCallbackResult Success(string authCode, string state)
+    {
+        return new(true, authCode, state, string.Empty);
+    }
 
     /// <summary>
     /// Creates a failed callback result with an error message.
     /// </summary>
-    public static TidalCallbackResult Failure(string errorMessage) =>
-        new(false, string.Empty, string.Empty, errorMessage);
+    public static TidalCallbackResult Failure(string errorMessage)
+    {
+        return new(false, string.Empty, string.Empty, errorMessage);
+    }
 }

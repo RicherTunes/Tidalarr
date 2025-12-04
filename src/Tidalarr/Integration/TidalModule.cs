@@ -1,8 +1,6 @@
-using System.Net.Http;
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Lidarr.Plugin.Common.Interfaces;
-using Lidarr.Plugin.Common.Services.Caching;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
 using Lidarr.Plugin.Common.Services.Registration;
@@ -43,10 +41,10 @@ public class TidalModule : StreamingPluginModule
     protected override void ConfigureServices(IServiceCollection services)
     {
         RegisterSharedLibraryServices(services);
-        services.AddTransient<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
+        _ = services.AddTransient<ContentDecodingSnifferHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
-        services.AddHttpClient<TidalApiClient>(client =>
+        _ = services.AddHttpClient<TidalApiClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
@@ -55,16 +53,16 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler(sp =>
         {
-            var tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
-            var loggerFactory = sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
-            var logger = loggerFactory?.CreateLogger("OAuthDelegatingHandler") ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-            return new Lidarr.Plugin.Common.Services.Http.OAuthDelegatingHandler(tokenProvider, logger);
+            IStreamingTokenProvider tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
+            Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
+            Microsoft.Extensions.Logging.ILogger logger = loggerFactory?.CreateLogger("OAuthDelegatingHandler") ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            return new OAuthDelegatingHandler(tokenProvider, logger);
         });
 
-        services.AddHttpClient<TidalOAuthService>(client =>
+        _ = services.AddHttpClient<TidalOAuthService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);
         })
@@ -72,41 +70,42 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
         // Core services
         // PKCEGenerator is created internally by TidalOAuthService; no DI registration needed here.
-        services.AddSingleton<ITokenStorage, FileTokenStore>();
-        services.AddScoped<ITidalAuth, TidalOAuthService>();
-        services.AddSingleton<IStreamingAuthManager, Tidalarr.Domain.Authentication.TidalStreamingAuthManager>();
+        _ = services.AddSingleton<ITokenStorage, FileTokenStore>();
+        _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
+        _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
         // Token manager + provider
-        services.AddSingleton<IStreamingTokenAuthenticationService<TidalTokens, TidalCredentials>>(sp => new TidalAuthTokenAuthAdapter(sp.GetRequiredService<ITidalAuth>()));
-        services.AddSingleton<StreamingTokenManager<TidalTokens, TidalCredentials>>();
-        services.AddSingleton<IStreamingTokenProvider, ManagedTokenProvider>();
-        services.AddScoped<ITidalCore, TidalApiClient>();
+        _ = services.AddSingleton<IStreamingTokenAuthenticationService<TidalTokens, TidalCredentials>>(sp => new TidalAuthTokenAuthAdapter(sp.GetRequiredService<ITidalAuth>()));
+        _ = services.AddSingleton<StreamingTokenManager<TidalTokens, TidalCredentials>>();
+        _ = services.AddSingleton<IStreamingTokenProvider, ManagedTokenProvider>();
+        _ = services.AddScoped<ITidalCore, TidalApiClient>();
 
         // Shared-integrations
-        services.AddSingleton<TidalModelMapper>();
-        services.AddSingleton<TidalResponseCache>();
-        services.AddSingleton<TidalRateLimiter>();
-        services.AddSingleton<PerformanceMonitor>();
+        _ = services.AddSingleton<TidalModelMapper>();
+        _ = services.AddSingleton<TidalResponseCache>();
+        _ = services.AddSingleton<TidalRateLimiter>();
+        _ = services.AddSingleton<PerformanceMonitor>();
 
         // Domain services
-        services.AddScoped<TidalQualityDetector>();
-        services.AddScoped<TidalManifestParser>();
-        services.AddScoped<TidalStreamService>();
-        services.AddScoped<TidalChunkStreamProvider>();
-        services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        _ = services.AddScoped<TidalQualityDetector>();
+        _ = services.AddScoped<TidalManifestParser>();
+        _ = services.AddScoped<TidalStreamService>();
+        _ = services.AddScoped<TidalChunkStreamProvider>();
+        _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
 
         // Application services
-        services.AddScoped<TidalSearchService>();
+        _ = services.AddScoped<TidalSearchService>();
 
         // Back-compat: Map aggregated settings to distinct runtime settings if callers only registered TidalarrSettings
-        services.TryAddSingleton<TidalIndexerSettings>(sp =>
+        services.TryAddSingleton(sp =>
         {
-            var s = sp.GetService<TidalarrSettings>();
-            if (s is null) return new TidalIndexerSettings();
-            return new TidalIndexerSettings
+            TidalarrSettings? s = sp.GetService<TidalarrSettings>();
+            return s is null
+                ? new TidalIndexerSettings()
+                : new TidalIndexerSettings
             {
                 BaseUrl = s.BaseUrl,
                 ConfigPath = s.ConfigPath,
@@ -118,11 +117,12 @@ public class TidalModule : StreamingPluginModule
             };
         });
 
-        services.TryAddSingleton<TidalDownloadClientSettings>(sp =>
+        services.TryAddSingleton(sp =>
         {
-            var s = sp.GetService<TidalarrSettings>();
-            if (s is null) return new TidalDownloadClientSettings();
-            return new TidalDownloadClientSettings
+            TidalarrSettings? s = sp.GetService<TidalarrSettings>();
+            return s is null
+                ? new TidalDownloadClientSettings()
+                : new TidalDownloadClientSettings
             {
                 BaseUrl = s.BaseUrl,
                 PreferredQuality = s.PreferredQuality,
@@ -139,11 +139,11 @@ public class TidalModule : StreamingPluginModule
         });
 
         // Integration endpoints
-        services.AddScoped<TidalIndexer>();
-        services.AddScoped<TidalDownloadClient>();
+        _ = services.AddScoped<TidalIndexer>();
+        _ = services.AddScoped<TidalDownloadClient>();
 
         // Orchestrator HttpClient (used only for direct-URL fallback; chunk path uses TidalChunkDownloader)
-        services.AddHttpClient("TidalOrchestrator", client =>
+        _ = services.AddHttpClient("TidalOrchestrator", client =>
         {
             client.Timeout = TimeSpan.FromMinutes(10);
             client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
@@ -152,9 +152,9 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
-        services.AddHttpClient<TidalChunkDownloader>(client =>
+        _ = services.AddHttpClient<TidalChunkDownloader>(client =>
         {
             client.Timeout = TimeSpan.FromMinutes(5);
         })
@@ -162,7 +162,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
-        .AddHttpMessageHandler<Lidarr.Plugin.Common.Services.Http.ContentDecodingSnifferHandler>();
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
     }
 
@@ -170,10 +170,10 @@ public class TidalModule : StreamingPluginModule
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
-        services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
-        services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
-        services.AddSingleton<PerformanceMonitor>();
-        services.AddSingleton<NetworkResilienceService>();
+        _ = services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
+        _ = services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
+        _ = services.AddSingleton<PerformanceMonitor>();
+        _ = services.AddSingleton<NetworkResilienceService>();
     }
 
     protected override void RegisterCoreServices()
@@ -183,48 +183,55 @@ public class TidalModule : StreamingPluginModule
 
     public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
     {
-        var module = new TidalModule();
-        var provider = module.BuildServiceProvider(settings);
+        TidalModule module = new TidalModule();
+        ServiceProvider provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalIndexer>();
     }
 
     public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadClientSettings settings)
     {
-        var module = new TidalModule();
-        var provider = module.BuildServiceProvider(settings);
+        TidalModule module = new TidalModule();
+        ServiceProvider provider = module.BuildServiceProvider(settings);
         return provider.GetRequiredService<TidalDownloadClient>();
     }
 
-    public static bool ValidateConfiguration(TidalIndexerSettings settings) => settings.IsValid(out _);
-    public static bool ValidateConfiguration(TidalDownloadClientSettings settings) => settings.IsValid(out _);
+    public static bool ValidateConfiguration(TidalIndexerSettings settings)
+    {
+        return settings.IsValid(out _);
+    }
+
+    public static bool ValidateConfiguration(TidalDownloadClientSettings settings)
+    {
+        return settings.IsValid(out _);
+    }
 
     // Convenience factory to produce a shared orchestrator wired to Tidal services
     public static SimpleDownloadOrchestrator CreateOrchestrator(IServiceProvider serviceProvider)
     {
-        var httpFactory = serviceProvider.GetRequiredService<System.Net.Http.IHttpClientFactory>();
-        var httpClient = httpFactory.CreateClient("TidalOrchestrator");
+        IHttpClientFactory httpFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+        HttpClient httpClient = httpFactory.CreateClient("TidalOrchestrator");
 
-        var api = serviceProvider.GetRequiredService<ITidalCore>();
-        var mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
-        var streamService = serviceProvider.GetRequiredService<TidalStreamService>();
-        var chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
+        ITidalCore api = serviceProvider.GetRequiredService<ITidalCore>();
+        TidalModelMapper mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
+        TidalStreamService streamService = serviceProvider.GetRequiredService<TidalStreamService>();
+        TidalChunkStreamProvider chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
 
         // Delegates for orchestrator
-        Func<string, Task<StreamingAlbum>> getAlbum = async id => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
-        Func<string, Task<StreamingTrack>> getTrack = async id => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
-        Func<string, Task<IReadOnlyList<string>>> getTrackIds = async id =>
+        async Task<StreamingAlbum> getAlbum(string id) => mapper.ToStreamingAlbum(await api.GetAlbumWithTracksAsync(id));
+        async Task<StreamingTrack> getTrack(string id) => mapper.ToStreamingTrack(await api.GetTrackAsync(id));
+        async Task<IReadOnlyList<string>> getTrackIds(string id)
         {
-            var a = await api.GetAlbumWithTracksAsync(id);
-            return (IReadOnlyList<string>)(a.Tracks?.Select(t => t.Id).ToList() ?? new List<string>());
-        };
-        Func<string, StreamingQuality?, Task<(string Url, string Extension)>> getStream = async (id, q) =>
+            TidalAlbumInfo a = await api.GetAlbumWithTracksAsync(id);
+            return a.Tracks?.Select(t => t.Id).ToList() ?? [];
+        }
+        async Task<(string Url, string Extension)> getStream(string id, StreamingQuality? q)
         {
-            var tidalQ = mapper.FromStreamingQuality(q ?? new StreamingQuality { Bitrate = 320 });
-            var info = await api.GetStreamInfoAsync(id, tidalQ);
-            var url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
-            var ext = info.FileExtension?.TrimStart('.') ?? "m4a";
+            TidalQuality tidalQ = mapper.FromStreamingQuality(q ?? new StreamingQuality { Bitrate = 320 });
+            TidalStreamInfo info = await api.GetStreamInfoAsync(id, tidalQ);
+            string url = info.ChunkUrls?.FirstOrDefault() ?? string.Empty;
+            string ext = info.FileExtension?.TrimStart('.') ?? "m4a";
             return (url, ext);
-        };
+        }
 
         return new SimpleDownloadOrchestrator(
             serviceName: ModuleName,

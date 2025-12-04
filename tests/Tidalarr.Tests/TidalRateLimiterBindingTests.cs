@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Lidarr.Plugin.Common.Services.Performance;
 using Tidalarr.Integration;
 using Tidalarr.Infrastructure.Performance;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -11,13 +10,13 @@ public class TidalRateLimiterBindingTests
     [Fact]
     public void IUniversalAdaptiveRateLimiter_ResolvesTo_TidalRateLimiter()
     {
-        var services = new ServiceCollection();
+        ServiceCollection services = new ServiceCollection();
         TidalModule.RegisterServices(services);
-        var sp = services.BuildServiceProvider();
+        ServiceProvider sp = services.BuildServiceProvider();
 
-        var limiter = sp.GetService<IUniversalAdaptiveRateLimiter>();
+        IUniversalAdaptiveRateLimiter? limiter = sp.GetService<IUniversalAdaptiveRateLimiter>();
         Assert.NotNull(limiter);
-        Assert.IsType<TidalRateLimiter>(limiter);
+        _ = Assert.IsType<TidalRateLimiter>(limiter);
     }
 }
 

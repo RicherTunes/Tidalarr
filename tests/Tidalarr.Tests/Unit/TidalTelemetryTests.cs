@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Telemetry;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -16,25 +15,25 @@ public class TidalTelemetryTests
 
     public TidalTelemetryTests()
     {
-        _mockLogger = new MockLogger<TidalTelemetry>();
-        _telemetry = new TidalTelemetry(_mockLogger);
+        this._mockLogger = new MockLogger<TidalTelemetry>();
+        this._telemetry = new TidalTelemetry(this._mockLogger);
     }
 
     [Fact]
     public void TidalTelemetry_Constructor_WithNullLogger_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new TidalTelemetry(null!));
+        _ = Assert.Throws<ArgumentNullException>(() => new TidalTelemetry(null!));
     }
 
     [Fact]
     public void TidalTelemetry_TrackDownloadStarted_LogsCorrectly()
     {
         // Act
-        _telemetry.TrackDownloadStarted("track123", TidalQuality.Lossless);
+        this._telemetry.TrackDownloadStarted("track123", TidalQuality.Lossless);
 
         // Assert
-        var logEntry = Assert.Single(_mockLogger.LogEntries);
+        MockLogEntry logEntry = Assert.Single(this._mockLogger.LogEntries);
         Assert.Equal(LogLevel.Information, logEntry.LogLevel);
         Assert.Contains("track123", logEntry.Message);
         Assert.Contains("Lossless", logEntry.Message);
@@ -45,10 +44,10 @@ public class TidalTelemetryTests
     public void TidalTelemetry_TrackDownloadCompleted_LogsWithMetrics()
     {
         // Act
-        _telemetry.TrackDownloadCompleted("track456", TidalQuality.HiRes, TimeSpan.FromSeconds(30), 50_000_000);
+        this._telemetry.TrackDownloadCompleted("track456", TidalQuality.HiRes, TimeSpan.FromSeconds(30), 50_000_000);
 
         // Assert
-        var logEntry = Assert.Single(_mockLogger.LogEntries);
+        MockLogEntry logEntry = Assert.Single(this._mockLogger.LogEntries);
         Assert.Equal(LogLevel.Information, logEntry.LogLevel);
         Assert.Contains("track456", logEntry.Message);
         Assert.Contains("HiRes", logEntry.Message);
@@ -60,13 +59,13 @@ public class TidalTelemetryTests
     public void TidalTelemetry_TrackDownloadFailed_LogsException()
     {
         // Arrange
-        var testException = new InvalidOperationException("Download failed");
+        InvalidOperationException testException = new InvalidOperationException("Download failed");
 
         // Act
-        _telemetry.TrackDownloadFailed("track789", TidalQuality.High, testException);
+        this._telemetry.TrackDownloadFailed("track789", TidalQuality.High, testException);
 
         // Assert
-        var logEntry = Assert.Single(_mockLogger.LogEntries);
+        MockLogEntry logEntry = Assert.Single(this._mockLogger.LogEntries);
         Assert.Equal(LogLevel.Error, logEntry.LogLevel);
         Assert.Contains("track789", logEntry.Message);
         Assert.Contains("High", logEntry.Message);
@@ -77,10 +76,10 @@ public class TidalTelemetryTests
     public void TidalTelemetry_TrackApiCall_LogsWithLatency()
     {
         // Act
-        _telemetry.TrackApiCall("search", 200, TimeSpan.FromMilliseconds(500));
+        this._telemetry.TrackApiCall("search", 200, TimeSpan.FromMilliseconds(500));
 
         // Assert
-        var logEntry = Assert.Single(_mockLogger.LogEntries);
+        MockLogEntry logEntry = Assert.Single(this._mockLogger.LogEntries);
         Assert.Equal(LogLevel.Debug, logEntry.LogLevel);
         Assert.Contains("search", logEntry.Message);
         Assert.Contains("200", logEntry.Message);
@@ -94,10 +93,10 @@ public class TidalTelemetryTests
     public void TidalTelemetry_TrackAuthentication_LogsSuccessAndFailure(bool success, string? errorMessage)
     {
         // Act
-        _telemetry.TrackAuthentication(success, errorMessage);
+        this._telemetry.TrackAuthentication(success, errorMessage);
 
         // Assert
-        var logEntry = Assert.Single(_mockLogger.LogEntries);
+        MockLogEntry logEntry = Assert.Single(this._mockLogger.LogEntries);
 
         if (success)
         {
@@ -119,11 +118,11 @@ public class TidalTelemetryTests
     public void TidalTelemetry_StartActivity_ReturnsDisposableActivity()
     {
         // Act
-        var activity = _telemetry.StartActivity("test-operation");
+        IDisposable activity = this._telemetry.StartActivity("test-operation");
 
         // Assert
         Assert.NotNull(activity);
-        Assert.IsAssignableFrom<IDisposable>(activity);
+        _ = Assert.IsAssignableFrom<IDisposable>(activity);
 
         // Should not throw when disposed
         activity.Dispose();
@@ -133,20 +132,20 @@ public class TidalTelemetryTests
     public void TidalTelemetry_CircuitBreakerEvents_LogCorrectly()
     {
         // Test circuit breaker opened
-        var testException = new TimeoutException("Service timeout");
-        _telemetry.CircuitBreakerOpened("TidalAPI", testException);
+        TimeoutException testException = new TimeoutException("Service timeout");
+        this._telemetry.CircuitBreakerOpened("TidalAPI", testException);
 
-        Assert.Single(_mockLogger.LogEntries);
-        var openedEntry = _mockLogger.LogEntries.First();
+        _ = Assert.Single(this._mockLogger.LogEntries);
+        MockLogEntry openedEntry = this._mockLogger.LogEntries.First();
         Assert.Equal(LogLevel.Warning, openedEntry.LogLevel);
         Assert.Contains("Circuit breaker OPENED", openedEntry.Message);
 
         // Clear and test circuit breaker closed
-        _mockLogger.LogEntries.Clear();
-        _telemetry.CircuitBreakerClosed("TidalAPI");
+        this._mockLogger.LogEntries.Clear();
+        this._telemetry.CircuitBreakerClosed("TidalAPI");
 
-        Assert.Single(_mockLogger.LogEntries);
-        var closedEntry = _mockLogger.LogEntries.First();
+        _ = Assert.Single(this._mockLogger.LogEntries);
+        MockLogEntry closedEntry = this._mockLogger.LogEntries.First();
         Assert.Equal(LogLevel.Information, closedEntry.LogLevel);
         Assert.Contains("Circuit breaker CLOSED", closedEntry.Message);
     }
@@ -154,7 +153,7 @@ public class TidalTelemetryTests
 
 public class MockLogger<T> : ILogger<T>
 {
-    public List<MockLogEntry> LogEntries { get; } = new();
+    public List<MockLogEntry> LogEntries { get; } = [];
 
     private sealed class NoopDisposable : IDisposable
     {
@@ -164,9 +163,15 @@ public class MockLogger<T> : ILogger<T>
     }
 
 
-    IDisposable ILogger.BeginScope<TState>(TState state) => NoopDisposable.Instance;
+    IDisposable ILogger.BeginScope<TState>(TState state)
+    {
+        return NoopDisposable.Instance;
+    }
 
-    bool ILogger.IsEnabled(LogLevel logLevel) => true;
+    bool ILogger.IsEnabled(LogLevel logLevel)
+    {
+        return true;
+    }
 
     void ILogger.Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {

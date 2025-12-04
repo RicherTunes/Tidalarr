@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Core.Models;
 
@@ -11,14 +8,14 @@ public class TidalModelMapper
     public StreamingTrack ToStreamingTrack(TidalTrackInfo track)
     {
         // Create a non-null StreamingTrack even if inputs are sparse
-        var artistName = string.Join(", ", track.Artists ?? new List<string>());
-        var streaming = new StreamingTrack
+        string artistName = string.Join(", ", track.Artists ?? []);
+        StreamingTrack streaming = new StreamingTrack
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = (track.Artists?.FirstOrDefault() ?? string.Empty),
+                Id = track.Artists?.FirstOrDefault() ?? string.Empty,
                 Name = artistName
             },
             Album = new StreamingAlbum
@@ -36,8 +33,8 @@ public class TidalModelMapper
             Duration = TimeSpan.FromSeconds(track.Duration),
             IsExplicit = false,
             Isrc = string.Empty,
-            FeaturedArtists = new List<StreamingArtist>(),
-            AvailableQualities = new List<StreamingQuality> { ToStreamingQuality(track.Quality) },
+            FeaturedArtists = [],
+            AvailableQualities = [ToStreamingQuality(track.Quality)],
             PreviewUrl = string.Empty,
             Popularity = 0,
             Metadata = new Dictionary<string, object>
@@ -57,8 +54,8 @@ public class TidalModelMapper
 
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
-        var artistName = string.Join(", ", album.Artists ?? new List<string>());
-        var streaming = new StreamingAlbum
+        string artistName = string.Join(", ", album.Artists ?? []);
+        StreamingAlbum streaming = new StreamingAlbum
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,
@@ -67,15 +64,15 @@ public class TidalModelMapper
                 Id = album.Artists?.FirstOrDefault() ?? string.Empty,
                 Name = artistName
             },
-            AdditionalArtists = new List<StreamingArtist>(),
+            AdditionalArtists = [],
             ReleaseDate = album.ReleaseDate,
             Type = StreamingAlbumType.Album,
             TrackCount = album.Tracks?.Count ?? 0,
             Duration = TimeSpan.Zero,
-            Genres = new List<string>(),
+            Genres = [],
             Label = string.Empty,
             Upc = string.Empty,
-            AvailableQualities = (album.AvailableQualities ?? new List<TidalQuality>()).Select(ToStreamingQuality).ToList(),
+            AvailableQualities = [.. (album.AvailableQualities ?? []).Select(ToStreamingQuality)],
             CoverArtUrls = new Dictionary<string, string>
             {
                 ["small"] = album.CoverArtId ?? string.Empty,
@@ -104,17 +101,19 @@ public class TidalModelMapper
     }
 
     public StreamingArtist ToStreamingArtist(string artistId, string artistName, Dictionary<string, object>? metadata = null)
-        => new()
+    {
+        return new()
         {
             Id = artistId ?? string.Empty,
             Name = artistName ?? string.Empty,
             Biography = string.Empty,
-            Genres = new List<string>(),
+            Genres = [],
             Country = string.Empty,
-            ImageUrls = new Dictionary<string, string>(),
-            ExternalUrls = new Dictionary<string, string>(),
-            Metadata = metadata ?? new Dictionary<string, object>()
+            ImageUrls = [],
+            ExternalUrls = [],
+            Metadata = metadata ?? []
         };
+    }
 
     public StreamingQuality ToStreamingQuality(TidalQuality quality)
     {
@@ -131,7 +130,7 @@ public class TidalModelMapper
 
     public TidalQuality FromStreamingQuality(StreamingQuality quality)
     {
-        var tier = quality.GetTier();
+        StreamingQualityTier tier = quality.GetTier();
         return tier switch
         {
             StreamingQualityTier.Low => TidalQuality.Low,
@@ -145,18 +144,18 @@ public class TidalModelMapper
 
     public List<StreamingTrack> ToStreamingTracks(TidalAlbumInfo album)
     {
-        var streamingAlbum = ToStreamingAlbum(album);
-        return (album.Tracks ?? new List<TidalTrackInfo>()).Select(track =>
+        StreamingAlbum streamingAlbum = ToStreamingAlbum(album);
+        return [.. (album.Tracks ?? []).Select(track =>
         {
-            var streamingTrack = ToStreamingTrack(track);
+            StreamingTrack streamingTrack = ToStreamingTrack(track);
             streamingTrack.Album = streamingAlbum;
             return streamingTrack;
-        }).ToList();
+        })];
     }
 
     public List<StreamingSearchResult> ToStreamingSearchResults(TidalSearchResults searchResults)
     {
-        var results = new List<StreamingSearchResult>();
+        List<StreamingSearchResult> results = [];
 
         if (searchResults?.Albums != null)
         {
@@ -164,7 +163,7 @@ public class TidalModelMapper
             {
                 Id = album.Id ?? string.Empty,
                 Title = album.Title ?? string.Empty,
-                Artist = string.Join(", ", album.Artists ?? new List<string>()),
+                Artist = string.Join(", ", album.Artists ?? []),
                 Album = album.Title ?? string.Empty,
                 Type = StreamingSearchType.Album,
                 ReleaseDate = album.ReleaseDate,
@@ -187,7 +186,7 @@ public class TidalModelMapper
             {
                 Id = track.Id ?? string.Empty,
                 Title = track.Title ?? string.Empty,
-                Artist = string.Join(", ", track.Artists ?? new List<string>()),
+                Artist = string.Join(", ", track.Artists ?? []),
                 Album = track.AlbumTitle ?? string.Empty,
                 Type = StreamingSearchType.Track,
                 ReleaseDate = track.ReleaseDate,

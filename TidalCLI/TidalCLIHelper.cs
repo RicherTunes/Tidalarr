@@ -1,14 +1,8 @@
-using System;
-using System.IO;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
-using System.Threading.Tasks;
 using TidalQuality = Tidalarr.Core.Models.TidalQuality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
-using Tidalarr.Domain.Quality;
 using Tidalarr.Core.Models;
 
 namespace TidalCLI;
@@ -20,7 +14,7 @@ public static class TidalCLIHelper
 {
     private static HttpClient CreateHttpClient()
     {
-        var handler = new HttpClientHandler
+        HttpClientHandler handler = new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
@@ -29,52 +23,52 @@ public static class TidalCLIHelper
 
     public static async Task<string> TestRealDownloadWorkflowAsync(string trackId, TidalTokenInfo tokens)
     {
-        using var httpClient = CreateHttpClient();
+        using HttpClient httpClient = CreateHttpClient();
         httpClient.DefaultRequestHeaders.Add("Authorization", $"{tokens.TokenType} {tokens.AccessToken}");
 
-        var sessionId = string.IsNullOrEmpty(tokens.SessionId) ? tokens.UserId : tokens.SessionId;
+        string sessionId = string.IsNullOrEmpty(tokens.SessionId) ? tokens.UserId : tokens.SessionId;
 
         try
         {
             Console.WriteLine("\n?? Step 1: Getting track information...");
-            var trackInfoUrl = $"https://api.tidal.com/v1/tracks/{trackId}?sessionId={sessionId}&countryCode={tokens.CountryCode}";
+            string trackInfoUrl = $"https://api.tidal.com/v1/tracks/{trackId}?sessionId={sessionId}&countryCode={tokens.CountryCode}";
 
-            var trackInfoResponse = await httpClient.GetAsync(trackInfoUrl);
-            var trackInfoContent = await trackInfoResponse.Content.ReadAsStringAsync();
+            HttpResponseMessage trackInfoResponse = await httpClient.GetAsync(trackInfoUrl);
+            string trackInfoContent = await trackInfoResponse.Content.ReadAsStringAsync();
 
             if (!trackInfoResponse.IsSuccessStatusCode)
             {
                 return $"? Failed to get track info: {trackInfoResponse.StatusCode}\nResponse: {trackInfoContent}";
             }
 
-            var trackInfo = JsonSerializer.Deserialize<JsonElement>(trackInfoContent);
-            var title = trackInfo.GetProperty("title").GetString();
-            var artist = trackInfo.GetProperty("artist").GetProperty("name").GetString();
-            var duration = trackInfo.GetProperty("duration").GetInt32();
-            var quality = trackInfo.TryGetProperty("audioQuality", out var q) ? q.GetString() : "LOSSLESS";
+            JsonElement trackInfo = JsonSerializer.Deserialize<JsonElement>(trackInfoContent);
+            string? title = trackInfo.GetProperty("title").GetString();
+            string? artist = trackInfo.GetProperty("artist").GetProperty("name").GetString();
+            int duration = trackInfo.GetProperty("duration").GetInt32();
+            string? quality = trackInfo.TryGetProperty("audioQuality", out JsonElement q) ? q.GetString() : "LOSSLESS";
 
             Console.WriteLine($"? Track: {title} by {artist}");
             Console.WriteLine($"   Duration: {TimeSpan.FromSeconds(duration):mm\\:ss}");
             Console.WriteLine($"   Quality: {quality}");
 
             Console.WriteLine("\n?? Step 2: Getting stream manifest...");
-            var streamUrl = $"https://api.tidal.com/v1/tracks/{trackId}/playbackinfopostpaywall?audioquality={quality}&playbackmode=STREAM&assetpresentation=FULL&sessionId={sessionId}&countryCode={tokens.CountryCode}";
+            string streamUrl = $"https://api.tidal.com/v1/tracks/{trackId}/playbackinfopostpaywall?audioquality={quality}&playbackmode=STREAM&assetpresentation=FULL&sessionId={sessionId}&countryCode={tokens.CountryCode}";
 
-            var streamResponse = await httpClient.GetAsync(streamUrl);
-            var streamContent = await streamResponse.Content.ReadAsStringAsync();
+            HttpResponseMessage streamResponse = await httpClient.GetAsync(streamUrl);
+            string streamContent = await streamResponse.Content.ReadAsStringAsync();
 
             if (!streamResponse.IsSuccessStatusCode)
             {
                 return $"? Failed to get stream manifest: {streamResponse.StatusCode}\nResponse: {streamContent}";
             }
 
-            var streamInfo = JsonSerializer.Deserialize<JsonElement>(streamContent);
-            var encryptionType = streamInfo.TryGetProperty("encryptionType", out var encProp) ? encProp.GetString() ?? "NONE" : "NONE";
-            var securityToken = streamInfo.TryGetProperty("securityToken", out var tokenProp) ? tokenProp.GetString() : null;
-            var isEncrypted = !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(securityToken);
+            JsonElement streamInfo = JsonSerializer.Deserialize<JsonElement>(streamContent);
+            string encryptionType = streamInfo.TryGetProperty("encryptionType", out JsonElement encProp) ? encProp.GetString() ?? "NONE" : "NONE";
+            string? securityToken = streamInfo.TryGetProperty("securityToken", out JsonElement tokenProp) ? tokenProp.GetString() : null;
+            bool isEncrypted = !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(securityToken);
 
             Console.WriteLine("\n?? Step 3: Parsing DASH manifest using plugin...");
-            var manifest = new StreamManifest(streamInfo);
+            StreamManifest manifest = new StreamManifest(streamInfo);
             Console.WriteLine("? Manifest parsed successfully!");
             Console.WriteLine($"   Format: {manifest.FileExtension} container");
             Console.WriteLine($"   Codec: {manifest.Codecs}");
@@ -85,9 +79,9 @@ public static class TidalCLIHelper
                 return "? No chunks found in manifest";
             }
             Console.WriteLine("\n?? Step 4: Downloading using plugin's chunk downloader...");
-            var chunkDownloader = new TidalChunkDownloader(httpClient);
-            var mime = manifest.MimeType == ManifestMimeType.BTS ? "application/vnd.tidal.bts" : "application/dash+xml";
-            var streamInfoModel = new Tidalarr.Core.Models.TidalStreamInfo(
+            TidalChunkDownloader chunkDownloader = new TidalChunkDownloader(httpClient);
+            string mime = manifest.MimeType == ManifestMimeType.BTS ? "application/vnd.tidal.bts" : "application/dash+xml";
+            TidalStreamInfo streamInfoModel = new TidalStreamInfo(
                 trackId,
                 manifest.ChunkUrls,
                 manifest.FileExtension,
@@ -95,23 +89,23 @@ public static class TidalCLIHelper
                 isEncrypted,
                 securityToken);
 
-            using var audioStream = await chunkDownloader.DownloadAndAssembleAsync(streamInfoModel, progress: null);
+            using Stream audioStream = await chunkDownloader.DownloadAndAssembleAsync(streamInfoModel, progress: null);
 
             Console.WriteLine("\n?? Step 5: Saving assembled audio file...");
-            var fileName = $"{artist} - {title}";
-            foreach (var c in Path.GetInvalidFileNameChars().Concat(new[] { ':', '?', '*', '<', '>', '|' }))
+            string fileName = $"{artist} - {title}";
+            foreach (char c in Path.GetInvalidFileNameChars().Concat(new[] { ':', '?', '*', '<', '>', '|' }))
             {
                 fileName = fileName.Replace(c, '_');
             }
-            var outputPath = Path.Combine(Path.GetTempPath(), $"tidalarr_{fileName}{manifest.FileExtension}");
+            string outputPath = Path.Combine(Path.GetTempPath(), $"tidalarr_{fileName}{manifest.FileExtension}");
 
-            await using (var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+            await using (FileStream fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
             {
                 audioStream.Position = 0;
                 await audioStream.CopyToAsync(fileStream);
             }
 
-            var fileSize = new FileInfo(outputPath).Length;
+            long fileSize = new FileInfo(outputPath).Length;
             Console.WriteLine($"? Audio file saved: {outputPath}");
             Console.WriteLine($"   Size: {fileSize / 1024 / 1024:F2} MB");
 
@@ -120,7 +114,7 @@ public static class TidalCLIHelper
                 Console.WriteLine("\n?? Step 6: Processing FLAC extraction using plugin...");
                 if (AudioFormatHandler.IsFFmpegAvailable())
                 {
-                    var processedPath = await AudioFormatHandler.ProcessAudioFileAsync(
+                    string processedPath = await AudioFormatHandler.ProcessAudioFileAsync(
                         outputPath, manifest.Codecs, extractFlac: true, keepOriginal: false);
                     if (!string.Equals(processedPath, outputPath, StringComparison.OrdinalIgnoreCase))
                     {

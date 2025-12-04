@@ -1,9 +1,6 @@
-using System.IO;
-using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -16,7 +13,7 @@ public class EndToEndIntegrationTests
     [Fact]
     public void EndToEnd_SearchAndDownloadFlow_WorksWithMocks()
     {
-        var indexerSettings = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings = new TidalIndexerSettings
         {
             TidalMarket = "US",
             RedirectUrl = "https://tidal.com/android/login/auth?code=test_auth_code&state=test_state",
@@ -24,7 +21,7 @@ public class EndToEndIntegrationTests
             CacheDuration = 15,
             ConfigPath = Path.GetTempPath()
         };
-        var downloadSettings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
             DownloadPath = Path.GetTempPath(),
@@ -34,9 +31,9 @@ public class EndToEndIntegrationTests
         Assert.True(indexerSettings.ValidateFluent().IsValid);
         Assert.True(downloadSettings.ValidateFluent().IsValid);
 
-        var serviceProvider = CreateServiceProvider(indexerSettings, downloadSettings);
-        var indexer = serviceProvider.GetRequiredService<TidalIndexer>();
-        var downloadClient = serviceProvider.GetRequiredService<TidalDownloadClient>();
+        IServiceProvider serviceProvider = CreateServiceProvider(indexerSettings, downloadSettings);
+        TidalIndexer indexer = serviceProvider.GetRequiredService<TidalIndexer>();
+        TidalDownloadClient downloadClient = serviceProvider.GetRequiredService<TidalDownloadClient>();
 
         Assert.NotNull(indexer);
         Assert.NotNull(downloadClient);
@@ -51,7 +48,7 @@ public class EndToEndIntegrationTests
     [Fact]
     public void EndToEnd_AllComponentsIntegrate_NoMissingDependencies()
     {
-        var indexerSettings2 = new TidalIndexerSettings
+        TidalIndexerSettings indexerSettings2 = new TidalIndexerSettings
         {
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
             ConfigPath = Path.GetTempPath()
@@ -59,15 +56,15 @@ public class EndToEndIntegrationTests
 
         try
         {
-            var services = new ServiceCollection();
-            services.AddSingleton(indexerSettings2);
-            services.AddSingleton(new TidalDownloadClientSettings
+            ServiceCollection services = new ServiceCollection();
+            _ = services.AddSingleton(indexerSettings2);
+            _ = services.AddSingleton(new TidalDownloadClientSettings
             {
                 PreferredQuality = TidalQuality.Lossless,
                 DownloadPath = Path.GetTempPath()
             });
             TidalModule.RegisterServices(services);
-            var provider = services.BuildServiceProvider();
+            ServiceProvider provider = services.BuildServiceProvider();
             _ = provider.GetRequiredService<TidalIndexer>();
             _ = provider.GetRequiredService<TidalDownloadClient>();
 
@@ -86,15 +83,15 @@ public class EndToEndIntegrationTests
     [InlineData("INVALID", TidalQuality.Lossless, false, TidalarrValidationCodes.MarketUnsupported)]
     public void EndToEnd_VariousConfigurations_ValidateCorrectly(string market, TidalQuality quality, bool shouldBeValid, string? expectedErrorCode)
     {
-        var settings = new TidalIndexerSettings
+        TidalIndexerSettings settings = new TidalIndexerSettings
         {
             TidalMarket = market,
             RedirectUrl = "https://tidal.com/android/login/auth?code=test&state=test",
             ConfigPath = Path.GetTempPath()
         };
 
-        var validation = settings.ValidateFluent();
-        var downloadSettings = new TidalDownloadClientSettings
+        FluentValidation.Results.ValidationResult validation = settings.ValidateFluent();
+        TidalDownloadClientSettings downloadSettings = new TidalDownloadClientSettings
         {
             PreferredQuality = quality,
             DownloadPath = Path.GetTempPath()
@@ -110,9 +107,9 @@ public class EndToEndIntegrationTests
 
     private static IServiceProvider CreateServiceProvider(TidalIndexerSettings indexerSettings, TidalDownloadClientSettings downloadSettings)
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(indexerSettings);
-        services.AddSingleton(downloadSettings);
+        ServiceCollection services = new ServiceCollection();
+        _ = services.AddSingleton(indexerSettings);
+        _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
         return services.BuildServiceProvider();
     }

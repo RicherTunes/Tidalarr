@@ -1,4 +1,3 @@
-using System.Linq;
 using FluentValidation.Results;
 using Lidarr.Plugin.Abstractions.Contracts;
 
@@ -18,7 +17,7 @@ internal static class ValidationExtensions
             return PluginValidationResult.Success();
         }
 
-        var errors = result.Errors
+        string[] errors = result.Errors
             .Where(e => !string.IsNullOrWhiteSpace(e.ErrorMessage))
             .Select(e => e.ErrorMessage)
             .ToArray();

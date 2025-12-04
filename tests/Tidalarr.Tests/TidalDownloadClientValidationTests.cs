@@ -5,7 +5,6 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -13,46 +12,76 @@ public class TidalDownloadClientValidationTests
 {
     private class CoreStub : ITidalCore
     {
-        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.MinValue));
-        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.MinValue, "", true));
-        public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default) => Task.FromResult(new List<TidalTrackInfo>());
-        public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default) => GetAlbumAsync(albumId, cancellationToken);
-        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default) => Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+        public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.MinValue));
+        }
+
+        public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.MinValue, "", true));
+        }
+
+        public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new List<TidalTrackInfo>());
+        }
+
+        public Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
+        {
+            return GetAlbumAsync(albumId, cancellationToken);
+        }
+
+        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+        }
+
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
-            => Task.FromResult(new TidalStreamInfo(trackId, new[] { "https://chunk" }, ".flac", "audio/flac", false, null));
-        public Task<bool> IsAuthenticatedAsync() => Task.FromResult(true);
+        {
+            return Task.FromResult(new TidalStreamInfo(trackId, ["https://chunk"], ".flac", "audio/flac", false, null));
+        }
+
+        public Task<bool> IsAuthenticatedAsync()
+        {
+            return Task.FromResult(true);
+        }
     }
 
     private class OkHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("ok")) });
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("ok")) });
+        }
     }
     private class FailHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway));
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway));
+        }
     }
 
     [Fact]
     public async Task ValidateDownloadAsync_Success_WhenChunkAccessible()
     {
-        var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
-        var downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
-        var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
-        var ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
+        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
+        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new OkHandler()));
+        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        bool ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
         Assert.True(ok);
     }
 
     [Fact]
     public async Task ValidateDownloadAsync_False_WhenChunkInaccessible()
     {
-        var streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
-        var downloader = new TidalChunkDownloader(new HttpClient(new FailHandler()));
-        var settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
-        var client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Tidalarr.Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
-        var ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
+        TidalStreamService streamSvc = new TidalStreamService(new CoreStub(), new TidalManifestParser());
+        TidalChunkDownloader downloader = new TidalChunkDownloader(new HttpClient(new FailHandler()));
+        TidalDownloadClientSettings settings = new TidalDownloadClientSettings { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
+        TidalDownloadClient client = new TidalDownloadClient(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
+        bool ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
         Assert.False(ok);
     }
 }

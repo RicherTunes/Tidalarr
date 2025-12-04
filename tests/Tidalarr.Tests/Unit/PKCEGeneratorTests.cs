@@ -1,6 +1,5 @@
 using System.Text;
 using Tidalarr.Domain.Authentication;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -14,16 +13,16 @@ public class PKCEGeneratorTests
 
     public PKCEGeneratorTests()
     {
-        _generator = new PKCEGenerator();
+        this._generator = new PKCEGenerator();
     }
 
     [Fact]
     public void PKCEGenerator_GeneratePair_MultipleCalls_ProducesDifferentResults()
     {
         // Act
-        var (verifier1, challenge1) = _generator.GeneratePair();
-        var (verifier2, challenge2) = _generator.GeneratePair();
-        var (verifier3, challenge3) = _generator.GeneratePair();
+        (string verifier1, string challenge1) = this._generator.GeneratePair();
+        (string verifier2, string challenge2) = this._generator.GeneratePair();
+        (string verifier3, string challenge3) = this._generator.GeneratePair();
 
         // Assert - All should be unique
         Assert.NotEqual(verifier1, verifier2);
@@ -39,7 +38,7 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_GeneratePair_CodeVerifier_MeetsRFC7636Requirements()
     {
         // Act
-        var (verifier, _) = _generator.GeneratePair();
+        (string verifier, string _) = this._generator.GeneratePair();
 
         // Assert RFC 7636 requirements
         Assert.Equal(128, verifier.Length); // Should be 128 characters
@@ -48,7 +47,7 @@ public class PKCEGeneratorTests
         Assert.Matches(@"^[A-Za-z0-9.~_-]+$", verifier);
 
         // Should have good entropy (not all same character)
-        var uniqueChars = verifier.Distinct().Count();
+        int uniqueChars = verifier.Distinct().Count();
         Assert.True(uniqueChars > 20, "Code verifier should have good entropy");
     }
 
@@ -56,7 +55,7 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_GeneratePair_CodeChallenge_IsValidBase64Url()
     {
         // Act
-        var (_, challenge) = _generator.GeneratePair();
+        (string _, string challenge) = this._generator.GeneratePair();
 
         // Assert Base64URL requirements
         Assert.False(challenge.Contains('+'), "Base64URL should not contain +");
@@ -74,13 +73,13 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_GeneratePair_CodeChallenge_IsSha256OfVerifier()
     {
         // Act
-        var (verifier, challenge) = _generator.GeneratePair();
+        (string verifier, string challenge) = this._generator.GeneratePair();
 
         // Assert - Manually verify SHA256 relationship
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var verifierBytes = Encoding.UTF8.GetBytes(verifier);
-        var expectedHash = sha256.ComputeHash(verifierBytes);
-        var expectedChallenge = Base64UrlEncode(expectedHash);
+        using System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create();
+        byte[] verifierBytes = Encoding.UTF8.GetBytes(verifier);
+        byte[] expectedHash = sha256.ComputeHash(verifierBytes);
+        string expectedChallenge = Base64UrlEncode(expectedHash);
 
         Assert.Equal(expectedChallenge, challenge);
     }
@@ -93,7 +92,7 @@ public class PKCEGeneratorTests
     {
         // This tests the private method through reflection or by testing its behavior
         // For now, we test that our standard 128-char generation works
-        var (verifier, _) = _generator.GeneratePair();
+        (string verifier, string _) = this._generator.GeneratePair();
 
         if (length == 128) // Our standard length
         {
@@ -105,8 +104,8 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_Base64UrlEncode_WithKnownInput_ReturnsExpectedOutput()
     {
         // Test the Base64URL encoding logic
-        var (_, challenge1) = _generator.GeneratePair();
-        var (_, challenge2) = _generator.GeneratePair();
+        (string _, string challenge1) = this._generator.GeneratePair();
+        (string _, string challenge2) = this._generator.GeneratePair();
 
         // Both should be valid Base64URL
         Assert.DoesNotContain('+', challenge1);
@@ -122,23 +121,23 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_GeneratePair_Entropy_IsHighQuality()
     {
         // Generate multiple verifiers and check entropy
-        var verifiers = new List<string>();
+        List<string> verifiers = [];
         for (int i = 0; i < 10; i++)
         {
-            var (verifier, _) = _generator.GeneratePair();
+            (string verifier, string _) = this._generator.GeneratePair();
             verifiers.Add(verifier);
         }
 
         // All should be unique
-        var uniqueVerifiers = verifiers.Distinct().ToList();
+        List<string> uniqueVerifiers = verifiers.Distinct().ToList();
         Assert.Equal(verifiers.Count, uniqueVerifiers.Count);
 
         // Each should have good character distribution
-        foreach (var verifier in verifiers)
+        foreach (string verifier in verifiers)
         {
-            var charFrequency = verifier.GroupBy(c => c).ToDictionary(g => g.Key, g => g.Count());
-            var maxFrequency = charFrequency.Values.Max();
-            var minFrequency = charFrequency.Values.Min();
+            Dictionary<char, int> charFrequency = verifier.GroupBy(c => c).ToDictionary(g => g.Key, g => g.Count());
+            int maxFrequency = charFrequency.Values.Max();
+            int minFrequency = charFrequency.Values.Min();
 
             // No character should appear too frequently (entropy check)
             Assert.True(maxFrequency - minFrequency < verifier.Length / 10,
@@ -150,12 +149,12 @@ public class PKCEGeneratorTests
     public void PKCEGenerator_GeneratePair_Performance_IsReasonable()
     {
         // Test that generation is fast enough for production use
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         // Generate 100 pairs
         for (int i = 0; i < 100; i++)
         {
-            _generator.GeneratePair();
+            _ = this._generator.GeneratePair();
         }
 
         stopwatch.Stop();

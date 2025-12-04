@@ -1,19 +1,20 @@
-using System;
 using System.Text;
 using System.Text.Json;
 using Tidalarr.Domain.Streaming;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
 public class TidalStreamManifestParsingTests
 {
-    private static string Base64(string s) => Convert.ToBase64String(Encoding.UTF8.GetBytes(s));
+    private static string Base64(string s)
+    {
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(s));
+    }
 
     [Fact]
     public void StreamManifest_MPD_ParsesChunkUrlsAndCodec()
     {
-        var xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+        string xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <MPD xmlns=""urn:mpeg:dash:schema:mpd:2011"">
   <Period>
     <AdaptationSet>
@@ -28,14 +29,14 @@ public class TidalStreamManifestParsingTests
   </Period>
 </MPD>";
 
-        var json = JsonSerializer.SerializeToElement(new
+        JsonElement json = JsonSerializer.SerializeToElement(new
         {
             manifestMimeType = "application/dash+xml",
             manifest = Base64(xml),
             keyId = "kid-123"
         });
 
-        var sm = new StreamManifest(json);
+        StreamManifest sm = new StreamManifest(json);
         Assert.Equal(ManifestMimeType.MPD, sm.MimeType);
         Assert.Equal("FLAC", sm.Codecs);
         Assert.Equal(".m4a", sm.FileExtension);
@@ -48,30 +49,30 @@ public class TidalStreamManifestParsingTests
     [Fact]
     public void StreamManifest_BTS_UsesDirectUrl()
     {
-        var json = JsonSerializer.SerializeToElement(new
+        JsonElement json = JsonSerializer.SerializeToElement(new
         {
             manifestMimeType = "application/vnd.tidal.bts",
             manifest = "https://audio.tidal.com/file.m4a"
         });
 
-        var sm = new StreamManifest(json);
+        StreamManifest sm = new StreamManifest(json);
         Assert.Equal(ManifestMimeType.BTS, sm.MimeType);
         Assert.Equal("MP4A", sm.Codecs); // default
         Assert.Equal(".m4a", sm.FileExtension);
-        Assert.Single(sm.ChunkUrls);
+        _ = Assert.Single(sm.ChunkUrls);
         Assert.Equal("https://audio.tidal.com/file.m4a", sm.ChunkUrls[0]);
     }
 
     [Fact]
     public void StreamManifest_InvalidBase64_MPD_ProducesEmptyChunks_NoThrow()
     {
-        var json = JsonSerializer.SerializeToElement(new
+        JsonElement json = JsonSerializer.SerializeToElement(new
         {
             manifestMimeType = "application/dash+xml",
             manifest = "not-base64"
         });
 
-        var sm = new StreamManifest(json);
+        StreamManifest sm = new StreamManifest(json);
         Assert.Empty(sm.ChunkUrls);
     }
 }

@@ -1,11 +1,6 @@
 using Tidalarr.Integration;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
 using System.Web;
 using TidalQuality = Tidalarr.Core.Models.TidalQuality;
 
@@ -16,21 +11,21 @@ public class PKCEGenerator
     public (string codeVerifier, string codeChallenge) GenerateChallenge()
     {
         // Generate random 32-byte code verifier
-        var randomBytes = new byte[32];
-        using (var rng = RandomNumberGenerator.Create())
+        byte[] randomBytes = new byte[32];
+        using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(randomBytes);
         }
 
-        var codeVerifier = Convert.ToBase64String(randomBytes)
+        string codeVerifier = Convert.ToBase64String(randomBytes)
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
 
         // Create SHA256 hash of code verifier for challenge
-        using var sha256 = SHA256.Create();
-        var challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
-        var codeChallenge = Convert.ToBase64String(challengeBytes)
+        using SHA256 sha256 = SHA256.Create();
+        byte[] challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
+        string codeChallenge = Convert.ToBase64String(challengeBytes)
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
@@ -54,27 +49,21 @@ public class TidalCallbackResult
     public string ErrorMessage { get; set; } = string.Empty;
 }
 
-public class TidalOAuthService
+public class TidalOAuthService(HttpClient httpClient, PKCEGenerator pkceGenerator)
 {
-    private readonly HttpClient _httpClient;
-    private readonly PKCEGenerator _pkceGenerator;
-
-    public TidalOAuthService(HttpClient httpClient, PKCEGenerator pkceGenerator)
-    {
-        _httpClient = httpClient;
-        _pkceGenerator = pkceGenerator;
-    }
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly PKCEGenerator _pkceGenerator = pkceGenerator;
 
     public Task<TidalOAuthUrl> GenerateAuthUrlAsync()
     {
-        var (codeVerifier, codeChallenge) = _pkceGenerator.GenerateChallenge();
-        var state = Guid.NewGuid().ToString("N");
+        (string codeVerifier, string codeChallenge) = this._pkceGenerator.GenerateChallenge();
+        string state = Guid.NewGuid().ToString("N");
 
-        var clientId = "6BDSRdpK9hqEBTgU";
-        var redirectUri = "https://tidal.com/android/login/auth";
-        var clientUniqueKey = Guid.NewGuid().ToString("N");
+        string clientId = "6BDSRdpK9hqEBTgU";
+        string redirectUri = "https://tidal.com/android/login/auth";
+        string clientUniqueKey = Guid.NewGuid().ToString("N");
 
-        var authUrl = "https://login.tidal.com/authorize?" +
+        string authUrl = "https://login.tidal.com/authorize?" +
             $"client_id={clientId}&" +
             $"response_type=code&" +
             $"redirect_uri={Uri.EscapeDataString(redirectUri)}&" +
@@ -96,8 +85,8 @@ public class TidalOAuthService
     {
         try
         {
-            var uri = new Uri(callbackUrl);
-            var query = HttpUtility.ParseQueryString(uri.Query);
+            Uri uri = new Uri(callbackUrl);
+            System.Collections.Specialized.NameValueCollection query = HttpUtility.ParseQueryString(uri.Query);
 
             if (query["error"] != null)
             {
@@ -108,19 +97,16 @@ public class TidalOAuthService
                 };
             }
 
-            var code = query["code"];
+            string? code = query["code"];
             string? state = query["state"];
 
-            if (string.IsNullOrEmpty(code))
-            {
-                return new TidalCallbackResult
+            return string.IsNullOrEmpty(code)
+                ? new TidalCallbackResult
                 {
                     IsSuccess = false,
                     ErrorMessage = "No authorization code found"
-                };
-            }
-
-            return new TidalCallbackResult
+                }
+                : new TidalCallbackResult
             {
                 IsSuccess = true,
                 AuthCode = code,

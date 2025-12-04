@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Tidalarr.Integration;
 
 public sealed class PackagingMetadata
@@ -10,5 +8,5 @@ public sealed class PackagingMetadata
     public string Framework { get; set; } = string.Empty;
     public string Configuration { get; set; } = string.Empty;
     public string Version { get; set; } = string.Empty;
-    public IReadOnlyCollection<string> Assemblies { get; set; } = new List<string>();
+    public IReadOnlyCollection<string> Assemblies { get; set; } = [];
 }

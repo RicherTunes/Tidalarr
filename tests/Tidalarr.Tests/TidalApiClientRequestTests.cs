@@ -1,12 +1,9 @@
-using System;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Api;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -15,7 +12,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetTrackAsync_BuildsExpectedEndpointAndQuery()
     {
-        var capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto(
+        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(new TidalTrackDto(
             id: "t1",
             title: "T",
             artist: new("A", "a1"),
@@ -24,8 +21,8 @@ public class TidalApiClientRequestTests
             duration: 10,
             streamReady: true,
             audioQuality: "LOSSLESS")));
-        var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
-        var _ = await client.GetTrackAsync("t1");
+        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalTrackInfo _ = await client.GetTrackAsync("t1");
         Assert.Contains("/tracks/t1", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("countryCode=US", capture.LastRequest?.RequestUri?.Query);
         Assert.Contains("sessionId=sess", capture.LastRequest?.RequestUri?.Query);
@@ -34,10 +31,10 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumAsync_BuildsExpectedEndpointAndQuery()
     {
-        var dto = new TidalAlbumDto("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
-        var capture = new CaptureHandler(JsonSerializer.Serialize(dto));
-        var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
-        var _ = await client.GetAlbumAsync("al1");
+        TidalAlbumDto dto = new TidalAlbumDto("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c");
+        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(dto));
+        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalAlbumInfo _ = await client.GetAlbumAsync("al1");
         Assert.Contains("/albums/al1", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("countryCode=US", capture.LastRequest?.RequestUri?.Query);
     }
@@ -45,10 +42,10 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumTracksAsync_BuildsExpectedEndpointAndQuery()
     {
-        var payload = new TidalAlbumTracksDto(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
-        var capture = new CaptureHandler(JsonSerializer.Serialize(payload));
-        var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
-        var _ = await client.GetAlbumTracksAsync("al1");
+        TidalAlbumTracksDto payload = new TidalAlbumTracksDto(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
+        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(payload));
+        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        List<TidalTrackInfo> _ = await client.GetAlbumTracksAsync("al1");
         Assert.Contains("/albums/al1/tracks", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("limit=1000", capture.LastRequest?.RequestUri?.Query);
     }
@@ -56,10 +53,10 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task SearchAsync_BuildsExpectedEndpointAndQuery()
     {
-        var payload = new TidalSearchResponseDto(new(new()), new(new()));
-        var capture = new CaptureHandler(JsonSerializer.Serialize(payload));
-        var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
-        var _ = await client.SearchAsync("abc");
+        TidalSearchResponseDto payload = new TidalSearchResponseDto(new(new()), new(new()));
+        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(payload));
+        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalSearchResults _ = await client.SearchAsync("abc");
         Assert.Contains("/search", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("query=abc", capture.LastRequest?.RequestUri?.Query);
         Assert.Contains("types=albums%2Ctracks", capture.LastRequest?.RequestUri?.Query);
@@ -68,10 +65,10 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetStreamInfoAsync_BuildsExpectedEndpoint_AndParams()
     {
-        var dto = new TidalPlaybackInfoDto(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
-        var capture = new CaptureHandler(JsonSerializer.Serialize(dto));
-        var client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
-        var _ = await client.GetStreamInfoAsync("t1", TidalQuality.Lossless);
+        TidalPlaybackInfoDto dto = new TidalPlaybackInfoDto(Convert.ToBase64String(Encoding.UTF8.GetBytes("<MPD/>")), "application/dash+xml", "NONE", null);
+        CaptureHandler capture = new CaptureHandler(JsonSerializer.Serialize(dto));
+        TidalApiClient client = new TidalApiClient(new HttpClient(capture), new RequestAuth());
+        TidalStreamInfo _ = await client.GetStreamInfoAsync("t1", TidalQuality.Lossless);
         Assert.Contains("/tracks/t1/playbackinfopostpaywall", capture.LastRequest?.RequestUri?.AbsoluteUri);
         Assert.Contains("audioquality=LOSSLESS", capture.LastRequest?.RequestUri?.Query);
         Assert.Contains("playbackmode=STREAM", capture.LastRequest?.RequestUri?.Query);
@@ -81,29 +78,44 @@ public class TidalApiClientRequestTests
     private class RequestAuth : ITidalAuth
     {
         public bool IsAuthenticated => true;
-        public Task<TidalAuthUrl> GenerateAuthUrlAsync() => Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
-        public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier) => Task.FromResult(Default());
-        public Task<TidalTokens> RefreshTokensAsync(string refreshToken) => Task.FromResult(Default());
-        public Task<TidalTokens> GetValidTokensAsync() => Task.FromResult(Default());
-        private static TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        public Task<TidalAuthUrl> GenerateAuthUrlAsync()
+        {
+            return Task.FromResult(new TidalAuthUrl("", "", "", string.Empty));
+        }
+
+        public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
+        {
+            return Task.FromResult(Default());
+        }
+
+        public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+        {
+            return Task.FromResult(Default());
+        }
+
+        public Task<TidalTokens> GetValidTokensAsync()
+        {
+            return Task.FromResult(Default());
+        }
+
+        private static TidalTokens Default()
+        {
+            return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        }
     }
 
-    private class CaptureHandler : HttpMessageHandler
+    private class CaptureHandler(string response, HttpStatusCode code = HttpStatusCode.OK) : HttpMessageHandler
     {
-        private readonly string _response;
-        private readonly HttpStatusCode _code;
+        private readonly string _response = response;
+        private readonly HttpStatusCode _code = code;
         public HttpRequestMessage? LastRequest { get; private set; }
-        public CaptureHandler(string response, HttpStatusCode code = HttpStatusCode.OK)
-        {
-            _response = response;
-            _code = code;
-        }
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
-            var msg = new HttpResponseMessage(_code)
+            HttpResponseMessage msg = new HttpResponseMessage(this._code)
             {
-                Content = new StringContent(_response, Encoding.UTF8, "application/json")
+                Content = new StringContent(this._response, Encoding.UTF8, "application/json")
             };
             return Task.FromResult(msg);
         }

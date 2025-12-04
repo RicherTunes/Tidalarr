@@ -1,6 +1,5 @@
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Models;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -24,9 +23,9 @@ public class TidalConstantsTests
     [Fact]
     public void TidalConstants_QualityParameters_ContainAllQualities()
     {
-        var allQualities = Enum.GetValues<TidalQuality>();
+        TidalQuality[] allQualities = Enum.GetValues<TidalQuality>();
 
-        foreach (var quality in allQualities)
+        foreach (TidalQuality quality in allQualities)
         {
             Assert.True(TidalConstants.QualityParameters.ContainsKey(quality));
             Assert.NotEmpty(TidalConstants.QualityParameters[quality]);

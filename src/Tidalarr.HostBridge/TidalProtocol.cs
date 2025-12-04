@@ -1,6 +1,3 @@
-using System;
-using NzbDrone.Core.Indexers;
-
 namespace Tidalarr;
 
 // Host-facing protocol type kept in a dedicated bridge assembly to avoid pulling host dependencies into the core plugin package.
@@ -22,24 +19,19 @@ public class TidalProtocol : IDownloadProtocol
             throw new ArgumentException($"Invalid Tidal URL: {url}");
         }
 
-        var parts = url.Substring(Scheme.Length + 3).Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 2)
-        {
-            throw new ArgumentException($"Invalid Tidal URL format: {url}");
-        }
-
-        return (parts[0], parts[1]);
+        string[] parts = url[(Scheme.Length + 3)..].Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length != 2 ? throw new ArgumentException($"Invalid Tidal URL format: {url}") : ((string Type, string Id))(parts[0], parts[1]);
     }
 
     public static string BuildAlbumUrl(string albumId)
     {
-        var safe = albumId ?? string.Empty;
+        string safe = albumId ?? string.Empty;
         return $"{Scheme}://album/{safe}";
     }
 
     public static string BuildTrackUrl(string trackId)
     {
-        var safe = trackId ?? string.Empty;
+        string safe = trackId ?? string.Empty;
         return $"{Scheme}://track/{safe}";
     }
 }
