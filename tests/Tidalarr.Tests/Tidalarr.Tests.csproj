@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Allow unused code and runtime regex in test fixtures -->
+    <NoWarn>$(NoWarn);IDE0052;IDE0060;SYSLIB1045</NoWarn>
     <!-- Suppress analyzer warnings from Common library submodule -->
     <!-- RS0025: PublicAPI duplicate entries in submodule - not our concern -->
     <NoWarn>$(NoWarn);RS0025</NoWarn>
