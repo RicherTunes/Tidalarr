@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Interfaces;
 using TagLib;
 using Tidalarr.Core.Models;
@@ -26,7 +20,7 @@ internal static class CliMetadataWriter
             return;
         }
 
-        var trackLookup = album.Tracks.ToDictionary(t => t.Id, StringComparer.Ordinal);
+        Dictionary<string, TidalTrackInfo> trackLookup = album.Tracks.ToDictionary(t => t.Id, StringComparer.Ordinal);
         coverArtFetcher ??= DownloadCoverArtAsync;
 
         byte[]? coverArtBytes = null;
@@ -35,14 +29,14 @@ internal static class CliMetadataWriter
             coverArtBytes = await SafeFetchCoverAsync(coverArtFetcher, album.CoverArtId).ConfigureAwait(false);
         }
 
-        foreach (var trackResult in downloadResult.TrackResults)
+        foreach (TrackDownloadResult trackResult in downloadResult.TrackResults)
         {
             if (!trackResult.Success || string.IsNullOrWhiteSpace(trackResult.FilePath))
             {
                 continue;
             }
 
-            if (!trackLookup.TryGetValue(trackResult.TrackId, out var trackInfo))
+            if (!trackLookup.TryGetValue(trackResult.TrackId, out TidalTrackInfo? trackInfo))
             {
                 Console.WriteLine($"⚠️ Skipping metadata tagging for {Path.GetFileName(trackResult.FilePath)}: track metadata not found");
                 continue;
@@ -66,13 +60,13 @@ internal static class CliMetadataWriter
             return string.Empty;
         }
 
-        var normalized = coverArtId.Replace("-", "/", StringComparison.Ordinal);
+        string normalized = coverArtId.Replace("-", "/", StringComparison.Ordinal);
         return $"https://resources.tidal.com/images/{normalized}/{size}x{size}.jpg";
     }
 
     internal static async Task<byte[]?> DownloadCoverArtAsync(string coverArtId)
     {
-        var url = BuildCoverArtUrl(coverArtId);
+        string url = BuildCoverArtUrl(coverArtId);
         if (string.IsNullOrEmpty(url))
         {
             return null;
@@ -80,13 +74,8 @@ internal static class CliMetadataWriter
 
         try
         {
-            using var response = await CoverArtClient.GetAsync(url).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            using HttpResponseMessage response = await CoverArtClient.GetAsync(url).ConfigureAwait(false);
+            return !response.IsSuccessStatusCode ? null : await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
         catch
         {
@@ -108,12 +97,12 @@ internal static class CliMetadataWriter
 
     private static void ApplyTags(string filePath, TidalAlbumInfo album, TidalTrackInfo track, byte[]? coverArtBytes)
     {
-        using var tagFile = TagLib.File.Create(filePath);
+        using TagLib.File tagFile = TagLib.File.Create(filePath);
 
         tagFile.Tag.Title = track.Title;
         tagFile.Tag.Album = album.Title;
-        tagFile.Tag.Performers = track.Artists?.ToArray() ?? Array.Empty<string>();
-        tagFile.Tag.AlbumArtists = album.Artists?.ToArray() ?? Array.Empty<string>();
+        tagFile.Tag.Performers = track.Artists?.ToArray() ?? [];
+        tagFile.Tag.AlbumArtists = album.Artists?.ToArray() ?? [];
         if (track.TrackNumber > 0)
         {
             tagFile.Tag.Track = (uint)track.TrackNumber;
@@ -126,7 +115,7 @@ internal static class CliMetadataWriter
 
         if (coverArtBytes?.Length > 0)
         {
-            var picture = new Picture(new ByteVector(coverArtBytes))
+            Picture picture = new([.. coverArtBytes])
             {
                 MimeType = "image/jpeg",
                 Type = PictureType.FrontCover,
@@ -135,10 +124,10 @@ internal static class CliMetadataWriter
 
             if (tagFile.GetTag(TagTypes.Apple, create: true) is TagLib.Mpeg4.AppleTag appleTag)
             {
-                appleTag.Pictures = new IPicture[] { picture };
+                appleTag.Pictures = [picture];
             }
 
-            tagFile.Tag.Pictures = new IPicture[] { picture };
+            tagFile.Tag.Pictures = [picture];
         }
 
         tagFile.Save();
@@ -151,12 +140,12 @@ internal static class CliMetadataWriter
 
     private static HttpClient CreateCoverArtClient()
     {
-        var handler = new HttpClientHandler
+        HttpClientHandler handler = new()
         {
             AutomaticDecompression = System.Net.DecompressionMethods.All
         };
 
-        var client = new HttpClient(handler, disposeHandler: true);
+        HttpClient client = new(handler, disposeHandler: true);
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Tidalarr CLI Metadata/1.0");
         return client;
     }

@@ -1,8 +1,3 @@
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Threading.Tasks;
-
 namespace Tidalarr.Domain.Streaming;
 
 public static class AudioFormatHandler
@@ -21,9 +16,9 @@ public static class AudioFormatHandler
             {
                 // Extract FLAC from M4A container
                 Console.WriteLine("🎵 Extracting FLAC from M4A container...");
-                var flacPath = Path.ChangeExtension(inputPath, "flac");
+                string flacPath = Path.ChangeExtension(inputPath, "flac");
 
-                var success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio, keepOriginal);
+                bool success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio, keepOriginal);
                 if (success)
                 {
                     if (!keepOriginal && File.Exists(inputPath))
@@ -52,20 +47,20 @@ public static class AudioFormatHandler
     {
         try
         {
-            var ffmpegArgs = $"-i \"{inputPath}\" -c copy \"{outputPath}\"";
-            var (exitCode, _, stderr) = await audio.RunFfmpegAsync(ffmpegArgs);
-            var success = exitCode == 0 && File.Exists(outputPath);
+            string ffmpegArgs = $"-i \"{inputPath}\" -c copy \"{outputPath}\"";
+            (int exitCode, string _, string stderr) = await audio.RunFfmpegAsync(ffmpegArgs);
+            bool success = exitCode == 0 && File.Exists(outputPath);
             if (!success)
             {
                 Console.WriteLine($"⚠️ FFmpeg error: {stderr}");
-                return keepOriginal ? false : TryCopyFallback(inputPath, outputPath);
+                return !keepOriginal && TryCopyFallback(inputPath, outputPath);
             }
             return true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️ FFmpeg extraction failed: {ex.Message}");
-            return keepOriginal ? false : TryCopyFallback(inputPath, outputPath);
+            return !keepOriginal && TryCopyFallback(inputPath, outputPath);
         }
     }
 
@@ -89,11 +84,11 @@ public static class AudioFormatHandler
         try
         {
             // Use ffprobe to detect codecs
-            var ap = new SystemAudioProcessor();
-            var (exitCode, stdout, _) = ap.RunFfprobe($"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"");
+            SystemAudioProcessor ap = new();
+            (int exitCode, string stdout, string _) = ap.RunFfprobe($"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"");
             if (exitCode == 0)
             {
-                var codec = stdout.Trim();
+                string codec = stdout.Trim();
                 return codec.ToLowerInvariant() switch
                 {
                     "flac" => "FLAC",
@@ -114,8 +109,8 @@ public static class AudioFormatHandler
     {
         try
         {
-            var ap = new SystemAudioProcessor();
-            var (exitCode, _, _) = ap.RunFfprobe("-version");
+            SystemAudioProcessor ap = new();
+            (int exitCode, string _, string _) = ap.RunFfprobe("-version");
             return exitCode == 0;
         }
         catch

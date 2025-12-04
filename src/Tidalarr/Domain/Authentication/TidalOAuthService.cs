@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -14,127 +13,126 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
-    private readonly HttpClient _httpClient;
-    private readonly ITokenStorage _tokenStorage;
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore();
     private TidalTokens? _currentTokens;
-
-    public TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null)
-        : base(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator())
-    {
-        _httpClient = httpClient;
-        _tokenStorage = tokenStorage ?? new FileTokenStore();
-    }
 
     // Backward-compatible overload used by existing tests/clients that passed a local PKCE generator
     public TidalOAuthService(HttpClient httpClient, PKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
         : this(httpClient, tokenStorage) { }
 
-    public bool IsAuthenticated => _currentTokens != null && !_currentTokens.IsExpired;
+    public bool IsAuthenticated => this._currentTokens != null && !this._currentTokens.IsExpired;
 
     public Task<TidalAuthUrl> GenerateAuthUrlAsync()
     {
-        var (codeVerifier, codeChallenge) = _pkceGenerator.GeneratePair();
-        var state = GenerateSecureState();
-        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
-        var authUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey);
+        (string codeVerifier, string codeChallenge) = this._pkceGenerator.GeneratePair();
+        string state = GenerateSecureState();
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        string authUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey);
         return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state, clientUniqueKey));
     }
 
     protected override async Task<TidalTokens> PerformAuthenticationAsync(TidalCredentials credentials)
     {
-        var tokens = await GetValidTokensAsync();
-        if (tokens == null)
-            throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.");
-        return tokens;
+        TidalTokens tokens = await GetValidTokensAsync();
+        return tokens ?? throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.");
     }
 
     protected override Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
     {
-        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
         return Task.FromResult(BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey));
     }
 
     protected override Task<TidalTokens> ExchangeCodeForTokensInternalAsync(string authorizationCode, string codeVerifier, string redirectUri)
-        => ExchangeCodeAsync(authorizationCode, codeVerifier);
+    {
+        return ExchangeCodeAsync(authorizationCode, codeVerifier);
+    }
 
     protected override Task<TidalTokens> RefreshTokensInternalAsync(string refreshToken)
-        => RefreshTokensAsync(refreshToken);
+    {
+        return RefreshTokensAsync(refreshToken);
+    }
 
     protected override Task RevokeTokensInternalAsync(TidalTokens session)
-        => LogoutAsync();
+    {
+        return LogoutAsync();
+    }
 
     protected override string ExtractRefreshToken(TidalTokens session)
-        => session?.RefreshToken ?? string.Empty;
+    {
+        return session?.RefreshToken ?? string.Empty;
+    }
 
     protected override async Task CacheSessionAsync(TidalTokens session)
     {
-        _currentTokens = session;
-        await _tokenStorage.SaveTokensAsync(session);
+        this._currentTokens = session;
+        await this._tokenStorage.SaveTokensAsync(session);
     }
 
     protected override async Task ClearCachedSessionAsync()
     {
-        _currentTokens = null;
-        await _tokenStorage.DeleteTokensAsync();
+        this._currentTokens = null;
+        await this._tokenStorage.DeleteTokensAsync();
     }
 
     public async Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
     {
-        Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
-        Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
+        _ = Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
+        _ = Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
 
-        var codeChallenge = _pkceGenerator.CreateS256Challenge(codeVerifier);
-        var clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        string codeChallenge = this._pkceGenerator.CreateS256Challenge(codeVerifier);
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
 
-        var request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
-        var (success, response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => _httpClient.SendAsync(request));
+        HttpRequestMessage request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
+        (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request));
 
         if (!success || response == null)
             throw new InvalidOperationException("Failed to exchange authorization code");
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
+            string errorContent = await response.Content.ReadAsStringAsync();
             throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {errorContent}");
         }
 
-        var content = await response.Content.ReadAsStringAsync();
-        var tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
+        string content = await response.Content.ReadAsStringAsync();
+        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
         if (tokenData == null)
             throw new InvalidOperationException("Failed to parse token response");
 
-        _currentTokens = MapToTidalTokens(tokenData);
-        await _tokenStorage.SaveTokensAsync(_currentTokens);
-        return _currentTokens;
+        this._currentTokens = MapToTidalTokens(tokenData);
+        await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+        return this._currentTokens;
     }
 
     public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
     {
-        var request = BuildTokenRefreshRequest(refreshToken);
-        var response = await _httpClient.SendAsync(request);
+        HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
+        HttpResponseMessage response = await this._httpClient.SendAsync(request);
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
+            string errorContent = await response.Content.ReadAsStringAsync();
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {errorContent}");
         }
 
-        var content = await response.Content.ReadAsStringAsync();
-        var tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
+        string content = await response.Content.ReadAsStringAsync();
+        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
         if (tokenData == null)
             throw new InvalidOperationException("Failed to parse refresh token response");
 
-        _currentTokens = MapToTidalTokens(tokenData);
-        await _tokenStorage.SaveTokensAsync(_currentTokens);
-        return _currentTokens;
+        this._currentTokens = MapToTidalTokens(tokenData);
+        await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+        return this._currentTokens;
     }
 
     public async Task LogoutAsync()
     {
-        _currentTokens = null;
-        await _tokenStorage.DeleteTokensAsync();
+        this._currentTokens = null;
+        await this._tokenStorage.DeleteTokensAsync();
     }
 
     public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
@@ -144,27 +142,26 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
             if (string.IsNullOrEmpty(callbackUrl))
                 return TidalCallbackResult.Failure("Callback URL is empty");
 
-            if (!Uri.TryCreate(callbackUrl, UriKind.Absolute, out var uri))
+            if (!Uri.TryCreate(callbackUrl, UriKind.Absolute, out Uri? uri))
                 return TidalCallbackResult.Failure("Invalid URL format");
 
             if (!uri.Host.Equals("tidal.com", StringComparison.OrdinalIgnoreCase))
                 return TidalCallbackResult.Failure("Invalid callback domain");
 
-            var queryParams = HttpUtility.ParseQueryString(uri.Query);
+            System.Collections.Specialized.NameValueCollection queryParams = HttpUtility.ParseQueryString(uri.Query);
 
-            var error = queryParams.Get("error");
+            string? error = queryParams.Get("error");
             if (!string.IsNullOrEmpty(error))
                 return TidalCallbackResult.Failure($"OAuth error: {error}");
 
-            var authCode = queryParams.Get("code");
+            string? authCode = queryParams.Get("code");
             if (string.IsNullOrEmpty(authCode))
                 return TidalCallbackResult.Failure("Authorization code not found in callback URL");
 
-            var state = queryParams.Get("state");
-            if (string.IsNullOrEmpty(state))
-                return TidalCallbackResult.Failure("State parameter not found in callback URL");
-
-            return TidalCallbackResult.Success(authCode, state);
+            string? state = queryParams.Get("state");
+            return string.IsNullOrEmpty(state)
+                ? TidalCallbackResult.Failure("State parameter not found in callback URL")
+                : TidalCallbackResult.Success(authCode, state);
         }
         catch (Exception ex)
         {
@@ -174,7 +171,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
 
     private string BuildAuthorizationUrl(string codeChallenge, string state, string clientUniqueKey)
     {
-        var parameters = new Dictionary<string, string>
+        Dictionary<string, string> parameters = new()
         {
             ["response_type"] = "code",
             ["redirect_uri"] = TidalConstants.REDIRECT_URI,
@@ -188,15 +185,15 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
             ["state"] = state
         };
 
-        var queryString = string.Join("&", parameters.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+        string queryString = string.Join("&", parameters.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
         return $"{TidalConstants.LOGIN_BASE}?{queryString}";
     }
 
     private HttpRequestMessage BuildTokenExchangeRequest(string authCode, string codeVerifier, string clientUniqueKey)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, TidalConstants.AUTH_BASE);
-        var formData = new FormUrlEncodedContent(new[]
-        {
+        HttpRequestMessage request = new(HttpMethod.Post, TidalConstants.AUTH_BASE);
+        FormUrlEncodedContent formData = new(
+        [
             new KeyValuePair<string, string>("code", authCode),
             new KeyValuePair<string, string>("client_id", TidalConstants.CLIENT_ID_PKCE),
             new KeyValuePair<string, string>("grant_type", "authorization_code"),
@@ -205,29 +202,29 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
             new KeyValuePair<string, string>("code_verifier", codeVerifier),
             new KeyValuePair<string, string>("client_unique_key", clientUniqueKey),
             new KeyValuePair<string, string>("client_secret", TidalConstants.CLIENT_SECRET_PKCE)
-        });
+        ]);
         request.Content = formData;
         return request;
     }
 
     private HttpRequestMessage BuildTokenRefreshRequest(string refreshToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, TidalConstants.AUTH_BASE);
-        var formData = new FormUrlEncodedContent(new[]
-        {
+        HttpRequestMessage request = new(HttpMethod.Post, TidalConstants.AUTH_BASE);
+        FormUrlEncodedContent formData = new(
+        [
             new KeyValuePair<string, string>("grant_type", "refresh_token"),
             new KeyValuePair<string, string>("refresh_token", refreshToken),
             new KeyValuePair<string, string>("client_id", TidalConstants.CLIENT_ID_PKCE),
             new KeyValuePair<string, string>("client_secret", TidalConstants.CLIENT_SECRET_PKCE)
-        });
+        ]);
         request.Content = formData;
         return request;
     }
 
     protected override string GenerateSecureState()
     {
-        using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[32];
+        using RandomNumberGenerator rng = RandomNumberGenerator.Create();
+        byte[] bytes = new byte[32];
         rng.GetBytes(bytes);
         return Convert.ToBase64String(bytes).Replace("/", "_").Replace("+", "-").Replace("=", "");
     }
@@ -235,39 +232,41 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
 
     private static string GenerateClientUniqueKey(string codeChallenge)
     {
-        using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeChallenge));
-        var truncated = new byte[16];
+        using SHA256 sha256 = SHA256.Create();
+        byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeChallenge));
+        byte[] truncated = new byte[16];
         Array.Copy(hash, truncated, truncated.Length);
         return Convert.ToHexString(truncated).ToLowerInvariant();
     }
 
     private static TidalTokens MapToTidalTokens(TidalTokenResponse response)
-        => new(
-            AccessToken: response.access_token,
-            RefreshToken: response.refresh_token,
-            TokenType: response.token_type,
-            ExpiresAt: DateTime.UtcNow.AddSeconds(response.expires_in),
-            SessionId: response.user?.sessionId ?? string.Empty,
-            CountryCode: response.user?.countryCode ?? "US",
-            UserId: response.user?.userId.ToString() ?? string.Empty);
+    {
+        return new(
+                AccessToken: response.access_token,
+                RefreshToken: response.refresh_token,
+                TokenType: response.token_type,
+                ExpiresAt: DateTime.UtcNow.AddSeconds(response.expires_in),
+                SessionId: response.user?.sessionId ?? string.Empty,
+                CountryCode: response.user?.countryCode ?? "US",
+                UserId: response.user?.userId.ToString() ?? string.Empty);
+    }
 
     public async Task<TidalTokens> GetValidTokensAsync()
     {
-        if (_currentTokens != null && !_currentTokens.IsExpired)
-            return _currentTokens;
+        if (this._currentTokens != null && !this._currentTokens.IsExpired)
+            return this._currentTokens;
 
-        var stored = await _tokenStorage.LoadTokensAsync();
+        TidalTokens? stored = await this._tokenStorage.LoadTokensAsync();
         if (stored != null && !stored.IsExpired)
         {
-            _currentTokens = stored;
-            return _currentTokens;
+            this._currentTokens = stored;
+            return this._currentTokens;
         }
 
         if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
         {
-            var refreshed = await RefreshTokensAsync(stored.RefreshToken);
-            _currentTokens = refreshed;
+            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
+            this._currentTokens = refreshed;
             return refreshed;
         }
 
@@ -279,7 +278,7 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     {
         try
         {
-            var tokens = await GetValidTokensAsync();
+            TidalTokens tokens = await GetValidTokensAsync();
             return tokens.AccessToken;
         }
         catch
@@ -292,9 +291,9 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     {
         try
         {
-            var stored = _currentTokens ?? await _tokenStorage.LoadTokensAsync();
+            TidalTokens? stored = this._currentTokens ?? await this._tokenStorage.LoadTokensAsync();
             if (stored == null || string.IsNullOrEmpty(stored.RefreshToken)) return string.Empty;
-            var refreshed = await RefreshTokensAsync(stored.RefreshToken);
+            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
             return refreshed.AccessToken;
         }
         catch
@@ -306,21 +305,19 @@ public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens
     public Task<bool> ValidateTokenAsync(string token)
     {
         if (string.IsNullOrEmpty(token)) return Task.FromResult(false);
-        var valid = _currentTokens != null && !_currentTokens.IsExpired && _currentTokens.AccessToken == token;
+        bool valid = this._currentTokens != null && !this._currentTokens.IsExpired && this._currentTokens.AccessToken == token;
         return Task.FromResult(valid);
     }
 
     public DateTime? GetTokenExpiration(string token)
     {
-        if (_currentTokens != null && _currentTokens.AccessToken == token)
-            return _currentTokens.ExpiresAt;
-        return null;
+        return this._currentTokens != null && this._currentTokens.AccessToken == token ? this._currentTokens.ExpiresAt : null;
     }
 
     public void ClearAuthenticationCache()
     {
-        _currentTokens = null;
-        try { _ = _tokenStorage.DeleteTokensAsync(); } catch { /* ignore */ }
+        this._currentTokens = null;
+        try { _ = this._tokenStorage.DeleteTokensAsync(); } catch { /* ignore */ }
     }
 
     public new bool SupportsRefresh => true;

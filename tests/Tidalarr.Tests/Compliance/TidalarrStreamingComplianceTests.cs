@@ -1,9 +1,6 @@
-using System;
-using System.Linq;
 using System.Reflection;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Compliance;
 
@@ -22,10 +19,10 @@ public class TidalarrStreamingComplianceTests : IDisposable
 
     public TidalarrStreamingComplianceTests()
     {
-        _pluginAssembly = typeof(TidalarrPlugin).Assembly;
-        _authServiceType = typeof(TidalOAuthService);
-        _indexerType = typeof(TidalIndexer);
-        _downloadClientType = typeof(TidalDownloadClient);
+        this._pluginAssembly = typeof(TidalarrPlugin).Assembly;
+        this._authServiceType = typeof(TidalOAuthService);
+        this._indexerType = typeof(TidalIndexer);
+        this._downloadClientType = typeof(TidalDownloadClient);
     }
 
     #region Authentication Tests
@@ -33,14 +30,14 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Authentication_ServiceExists()
     {
-        Assert.NotNull(_authServiceType);
+        Assert.NotNull(this._authServiceType);
     }
 
     [Fact]
     public void Authentication_HasAuthenticateMethod()
     {
-        var methods = _authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasAuthenticate = methods.Any(m =>
+        MethodInfo[] methods = this._authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasAuthenticate = methods.Any(m =>
             m.Name.Contains("Authenticate", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("Login", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("StartAuth", StringComparison.OrdinalIgnoreCase));
@@ -51,8 +48,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Authentication_HasRefreshMethod()
     {
-        var methods = _authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasRefresh = methods.Any(m =>
+        MethodInfo[] methods = this._authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasRefresh = methods.Any(m =>
             m.Name.Contains("Refresh", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasRefresh, "Authentication service should have a token Refresh method");
@@ -61,8 +58,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Authentication_HasValidationMethod()
     {
-        var methods = _authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasValidate = methods.Any(m =>
+        MethodInfo[] methods = this._authServiceType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasValidate = methods.Any(m =>
             m.Name.Contains("Validate", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("IsAuthenticated", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("Check", StringComparison.OrdinalIgnoreCase));
@@ -77,14 +74,14 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Indexer_Exists()
     {
-        Assert.NotNull(_indexerType);
+        Assert.NotNull(this._indexerType);
     }
 
     [Fact]
     public void Indexer_HasSearchMethod()
     {
-        var methods = _indexerType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasSearch = methods.Any(m =>
+        MethodInfo[] methods = this._indexerType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasSearch = methods.Any(m =>
             m.Name.Contains("Search", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("Fetch", StringComparison.OrdinalIgnoreCase));
 
@@ -94,8 +91,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Indexer_HasAsyncMethods()
     {
-        var methods = _indexerType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var asyncMethods = methods.Where(m =>
+        MethodInfo[] methods = this._indexerType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        IEnumerable<MethodInfo> asyncMethods = methods.Where(m =>
             m.ReturnType.IsGenericType &&
             (m.ReturnType.GetGenericTypeDefinition().Name.Contains("Task") ||
              m.ReturnType.GetGenericTypeDefinition().Name.Contains("ValueTask")));
@@ -110,14 +107,14 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void DownloadClient_Exists()
     {
-        Assert.NotNull(_downloadClientType);
+        Assert.NotNull(this._downloadClientType);
     }
 
     [Fact]
     public void DownloadClient_HasDownloadMethod()
     {
-        var methods = _downloadClientType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasDownload = methods.Any(m =>
+        MethodInfo[] methods = this._downloadClientType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasDownload = methods.Any(m =>
             m.Name.Contains("Download", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasDownload, "Download client must implement a Download method");
@@ -126,8 +123,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void DownloadClient_HasStatusMethod()
     {
-        var methods = _downloadClientType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-        var hasStatus = methods.Any(m =>
+        MethodInfo[] methods = this._downloadClientType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        bool hasStatus = methods.Any(m =>
             m.Name.Contains("Status", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("GetItems", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("Queue", StringComparison.OrdinalIgnoreCase));
@@ -142,8 +139,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Infrastructure_ImplementsRateLimiting()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasRateLimiter = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasRateLimiter = allTypes.Any(t =>
             t.Name.Contains("RateLimiter", StringComparison.OrdinalIgnoreCase) ||
             t.Name.Contains("Throttle", StringComparison.OrdinalIgnoreCase));
 
@@ -153,8 +150,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Infrastructure_ImplementsCaching()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasCaching = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasCaching = allTypes.Any(t =>
             t.Name.Contains("Cache", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasCaching, "Tidal plugin should implement response caching");
@@ -163,11 +160,11 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Infrastructure_HasExceptionTypes()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var exceptionTypes = allTypes.Where(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        List<Type> exceptionTypes = [.. allTypes.Where(t =>
             typeof(Exception).IsAssignableFrom(t) &&
             !t.IsAbstract &&
-            t != typeof(Exception)).ToList();
+            t != typeof(Exception))];
 
         Assert.NotEmpty(exceptionTypes);
     }
@@ -175,8 +172,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Infrastructure_HasApiClient()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasApiClient = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasApiClient = allTypes.Any(t =>
             t.Name.Contains("ApiClient", StringComparison.OrdinalIgnoreCase) ||
             t.Name.Contains("TidalClient", StringComparison.OrdinalIgnoreCase));
 
@@ -190,8 +187,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Tidal_HasQualitySupport()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasQuality = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasQuality = allTypes.Any(t =>
             t.Name.Contains("Quality", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasQuality, "Tidal plugin should support audio quality selection");
@@ -200,8 +197,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Tidal_HasStreamManifestSupport()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasManifest = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasManifest = allTypes.Any(t =>
             t.Name.Contains("Manifest", StringComparison.OrdinalIgnoreCase) ||
             t.Name.Contains("Stream", StringComparison.OrdinalIgnoreCase));
 
@@ -211,8 +208,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Tidal_HasChunkDownloadSupport()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasChunk = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasChunk = allTypes.Any(t =>
             t.Name.Contains("Chunk", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasChunk, "Tidal plugin should support chunk downloading");
@@ -221,8 +218,8 @@ public class TidalarrStreamingComplianceTests : IDisposable
     [Fact]
     public void Tidal_HasPKCESupport()
     {
-        var allTypes = _pluginAssembly.GetTypes();
-        var hasPkce = allTypes.Any(t =>
+        Type[] allTypes = this._pluginAssembly.GetTypes();
+        bool hasPkce = allTypes.Any(t =>
             t.Name.Contains("PKCE", StringComparison.OrdinalIgnoreCase));
 
         Assert.True(hasPkce, "Tidal plugin should support OAuth PKCE");

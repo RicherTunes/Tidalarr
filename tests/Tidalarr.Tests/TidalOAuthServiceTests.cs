@@ -4,7 +4,6 @@ using System.Text.Json;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Infrastructure.Storage;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -14,12 +13,12 @@ public class TidalOAuthServiceTests
     public async Task GenerateAuthUrl_ReturnsValidTidalOAuthUrl()
     {
         // Arrange
-        var httpClient = new HttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act
-        var authUrl = await oauthService.GenerateAuthUrlAsync();
+        TidalAuthUrl authUrl = await oauthService.GenerateAuthUrlAsync();
 
         // Assert
         Assert.NotNull(authUrl);
@@ -41,10 +40,10 @@ public class TidalOAuthServiceTests
     public void PKCEGenerator_GeneratesValidChallengePair()
     {
         // Arrange
-        var generator = new PKCEGenerator();
+        PKCEGenerator generator = new();
 
         // Act
-        var (verifier, challenge) = generator.GeneratePair();
+        (string verifier, string challenge) = generator.GeneratePair();
 
         // Assert
         Assert.Equal(128, verifier.Length);
@@ -57,9 +56,9 @@ public class TidalOAuthServiceTests
     public void TidalOAuthService_NotAuthenticatedInitially()
     {
         // Arrange
-        var httpClient = new HttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Assert
         Assert.False(oauthService.IsAuthenticated);
@@ -71,12 +70,12 @@ public class TidalOAuthServiceTests
     public void ParseCallbackUrl_ValidUrl_ExtractsCodeAndState(string callbackUrl)
     {
         // Arrange
-        var httpClient = new HttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act
-        var result = oauthService.ParseCallbackUrl(callbackUrl);
+        TidalCallbackResult result = oauthService.ParseCallbackUrl(callbackUrl);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -92,12 +91,12 @@ public class TidalOAuthServiceTests
     public void ParseCallbackUrl_InvalidUrl_ReturnsFailure(string callbackUrl)
     {
         // Arrange
-        var httpClient = new HttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act
-        var result = oauthService.ParseCallbackUrl(callbackUrl);
+        TidalCallbackResult result = oauthService.ParseCallbackUrl(callbackUrl);
 
         // Assert
         Assert.False(result.IsSuccess);
@@ -124,14 +123,13 @@ public class TidalOAuthServiceTests
     public async Task GetValidTokensAsync_NotAuthenticated_ThrowsException()
     {
         // Arrange
-        var httpClient = new HttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var mockTokenStorage = new MockTokenStorage(); // Returns null (no stored tokens)
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, mockTokenStorage);
+        HttpClient httpClient = new();
+        PKCEGenerator pkceGenerator = new();
+        MockTokenStorage mockTokenStorage = new(); // Returns null (no stored tokens)
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, mockTokenStorage);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            oauthService.GetValidTokensAsync());
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(oauthService.GetValidTokensAsync);
     }
 
     [Fact]
@@ -146,12 +144,12 @@ public class TidalOAuthServiceTests
             user: new TidalUserResponse("session123", "US", 12345)
         );
 
-        var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act
-        var tokens = await oauthService.ExchangeCodeAsync("test_auth_code", "test_verifier");
+        TidalTokens tokens = await oauthService.ExchangeCodeAsync("test_auth_code", "test_verifier");
 
         // Assert
         Assert.NotNull(tokens);
@@ -176,12 +174,12 @@ public class TidalOAuthServiceTests
             user: new TidalUserResponse("session456", "US", 12345)
         );
 
-        var httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act
-        var tokens = await oauthService.RefreshTokensAsync("old_refresh_token");
+        TidalTokens tokens = await oauthService.RefreshTokensAsync("old_refresh_token");
 
         // Assert
         Assert.NotNull(tokens);
@@ -193,39 +191,33 @@ public class TidalOAuthServiceTests
     public async Task ExchangeCodeAsync_ApiError_ThrowsException()
     {
         // Arrange
-        var httpClient = CreateMockHttpClient("", HttpStatusCode.BadRequest);
-        var pkceGenerator = new PKCEGenerator();
-        var oauthService = new TidalOAuthService(httpClient, pkceGenerator, new MockTokenStorage());
+        HttpClient httpClient = CreateMockHttpClient("", HttpStatusCode.BadRequest);
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
 
         // Act & Assert
-        await Assert.ThrowsAsync<HttpRequestException>(() =>
+        _ = await Assert.ThrowsAsync<HttpRequestException>(() =>
             oauthService.ExchangeCodeAsync("invalid_code", "test_verifier"));
     }
 
     private static HttpClient CreateMockHttpClient(string jsonResponse, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
-        var mockHandler = new MockHttpMessageHandler(jsonResponse, statusCode);
+        MockHttpMessageHandler mockHandler = new(jsonResponse, statusCode);
         return new HttpClient(mockHandler);
     }
 }
 
-public class MockHttpMessageHandler : HttpMessageHandler
+public class MockHttpMessageHandler(string response, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
 {
-    private readonly string _response;
-    private readonly HttpStatusCode _statusCode;
-
-    public MockHttpMessageHandler(string response, HttpStatusCode statusCode = HttpStatusCode.OK)
-    {
-        _response = response;
-        _statusCode = statusCode;
-    }
+    private readonly string _response = response;
+    private readonly HttpStatusCode _statusCode = statusCode;
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var response = new HttpResponseMessage(_statusCode);
-        if (!string.IsNullOrEmpty(_response))
+        HttpResponseMessage response = new(this._statusCode);
+        if (!string.IsNullOrEmpty(this._response))
         {
-            response.Content = new StringContent(_response, Encoding.UTF8, "application/json");
+            response.Content = new StringContent(this._response, Encoding.UTF8, "application/json");
         }
         return Task.FromResult(response);
     }
@@ -237,18 +229,18 @@ public class MockTokenStorage : ITokenStorage
 
     public Task SaveTokensAsync(TidalTokens tokens)
     {
-        _tokens = tokens;
+        this._tokens = tokens;
         return Task.CompletedTask;
     }
 
     public Task<TidalTokens?> LoadTokensAsync()
     {
-        return Task.FromResult(_tokens);
+        return Task.FromResult(this._tokens);
     }
 
     public Task DeleteTokensAsync()
     {
-        _tokens = null;
+        this._tokens = null;
         return Task.CompletedTask;
     }
 }

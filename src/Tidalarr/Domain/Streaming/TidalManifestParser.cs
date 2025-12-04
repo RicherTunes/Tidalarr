@@ -11,8 +11,8 @@ public class TidalManifestParser
     {
         try
         {
-            var bytes = Convert.FromBase64String(encodedManifest);
-            var decoded = Encoding.UTF8.GetString(bytes);
+            byte[] bytes = Convert.FromBase64String(encodedManifest);
+            string decoded = Encoding.UTF8.GetString(bytes);
             return mimeType switch
             {
                 "application/dash+xml" => ParseDashManifest(decoded),
@@ -28,15 +28,15 @@ public class TidalManifestParser
 
     private TidalManifest ParseDashManifest(string xmlContent)
     {
-        var doc = XDocument.Parse(xmlContent);
-        var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
-        var adaptationSet = doc.Descendants(ns + "AdaptationSet").FirstOrDefault()
+        XDocument doc = XDocument.Parse(xmlContent);
+        XNamespace ns = doc.Root?.Name.Namespace ?? XNamespace.None;
+        XElement adaptationSet = doc.Descendants(ns + "AdaptationSet").FirstOrDefault()
             ?? throw new InvalidOperationException("No AdaptationSet found in DASH manifest");
 
-        var codec = adaptationSet.Attribute("codecs")?.Value ?? "unknown";
-        var sampleRate = int.TryParse(adaptationSet.Attribute("audioSamplingRate")?.Value, out var rate) ? rate : 44100;
-        var chunkUrls = ExtractChunkUrlsFromDash(adaptationSet, ns);
-        var fileExt = DetermineFileExtension(codec, chunkUrls.FirstOrDefault() ?? string.Empty);
+        string codec = adaptationSet.Attribute("codecs")?.Value ?? "unknown";
+        int sampleRate = int.TryParse(adaptationSet.Attribute("audioSamplingRate")?.Value, out int rate) ? rate : 44100;
+        string[] chunkUrls = ExtractChunkUrlsFromDash(adaptationSet, ns);
+        string fileExt = DetermineFileExtension(codec, chunkUrls.FirstOrDefault() ?? string.Empty);
 
         return new TidalManifest(
             ChunkUrls: chunkUrls,
@@ -51,33 +51,32 @@ public class TidalManifestParser
 
     private TidalManifest ParseBtsManifest(string jsonContent)
     {
-        using var doc = JsonDocument.Parse(jsonContent);
-        var root = doc.RootElement;
+        using JsonDocument doc = JsonDocument.Parse(jsonContent);
+        JsonElement root = doc.RootElement;
 
-        if (!root.TryGetProperty("urls", out var urlsElement) || urlsElement.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty("urls", out JsonElement urlsElement) || urlsElement.ValueKind != JsonValueKind.Array)
         {
             throw new InvalidOperationException("No URLs found in BTS manifest");
         }
 
-        var urls = urlsElement
+        string[] urls = [.. urlsElement
             .EnumerateArray()
             .Select(e => e.GetString() ?? string.Empty)
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToArray();
+            .Where(s => !string.IsNullOrEmpty(s))];
 
         if (urls.Length == 0)
         {
             throw new InvalidOperationException("No URLs found in BTS manifest");
         }
 
-        var codec = root.TryGetProperty("codecs", out var c) ? c.GetString() ?? "unknown" : "unknown";
-        var mimeType = root.TryGetProperty("mimeType", out var m) ? m.GetString() ?? "audio/unknown" : "audio/unknown";
-        var encType = root.TryGetProperty("encryptionType", out var e2) ? e2.GetString() ?? "NONE" : "NONE";
-        var keyId = root.TryGetProperty("keyId", out var kidElement) ? kidElement.GetString() : null;
-        var securityToken = ExtractSecurityToken(root);
-        var sampleRate = ExtractSampleRate(root);
-        var fileExt = DetermineFileExtension(codec, urls[0]);
-        var isEncrypted = !string.Equals(encType, "NONE", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(securityToken);
+        string codec = root.TryGetProperty("codecs", out JsonElement c) ? c.GetString() ?? "unknown" : "unknown";
+        string mimeType = root.TryGetProperty("mimeType", out JsonElement m) ? m.GetString() ?? "audio/unknown" : "audio/unknown";
+        string encType = root.TryGetProperty("encryptionType", out JsonElement e2) ? e2.GetString() ?? "NONE" : "NONE";
+        string? keyId = root.TryGetProperty("keyId", out JsonElement kidElement) ? kidElement.GetString() : null;
+        string? securityToken = ExtractSecurityToken(root);
+        int sampleRate = ExtractSampleRate(root);
+        string fileExt = DetermineFileExtension(codec, urls[0]);
+        bool isEncrypted = !string.Equals(encType, "NONE", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(securityToken);
 
         return new TidalManifest(
             ChunkUrls: urls,
@@ -92,27 +91,27 @@ public class TidalManifestParser
 
     private static string? ExtractSecurityToken(JsonElement root)
     {
-        if (root.TryGetProperty("securityToken", out var tokenElement))
+        if (root.TryGetProperty("securityToken", out JsonElement tokenElement))
         {
-            var token = tokenElement.GetString();
+            string? token = tokenElement.GetString();
             if (!string.IsNullOrWhiteSpace(token))
             {
                 return token;
             }
         }
 
-        if (root.TryGetProperty("encryptionKey", out var encryptionKeyElement))
+        if (root.TryGetProperty("encryptionKey", out JsonElement encryptionKeyElement))
         {
-            var token = encryptionKeyElement.GetString();
+            string? token = encryptionKeyElement.GetString();
             if (!string.IsNullOrWhiteSpace(token))
             {
                 return token;
             }
         }
 
-        if (root.TryGetProperty("drmSecurityToken", out var drmTokenElement))
+        if (root.TryGetProperty("drmSecurityToken", out JsonElement drmTokenElement))
         {
-            var token = drmTokenElement.GetString();
+            string? token = drmTokenElement.GetString();
             if (!string.IsNullOrWhiteSpace(token))
             {
                 return token;
@@ -124,14 +123,14 @@ public class TidalManifestParser
 
     private static int ExtractSampleRate(JsonElement root)
     {
-        if (root.TryGetProperty("sampleRate", out var sampleRateElement))
+        if (root.TryGetProperty("sampleRate", out JsonElement sampleRateElement))
         {
-            if (sampleRateElement.ValueKind == JsonValueKind.Number && sampleRateElement.TryGetInt32(out var sr))
+            if (sampleRateElement.ValueKind == JsonValueKind.Number && sampleRateElement.TryGetInt32(out int sr))
             {
                 return sr;
             }
 
-            if (sampleRateElement.ValueKind == JsonValueKind.String && int.TryParse(sampleRateElement.GetString(), out var srFromString))
+            if (sampleRateElement.ValueKind == JsonValueKind.String && int.TryParse(sampleRateElement.GetString(), out int srFromString))
             {
                 return srFromString;
             }
@@ -142,51 +141,50 @@ public class TidalManifestParser
 
     private string[] ExtractChunkUrlsFromDash(XElement adaptationSet, XNamespace ns)
     {
-        var representation = adaptationSet.Descendants(ns + "Representation").FirstOrDefault();
-        var representationId = representation?.Attribute("id")?.Value ?? string.Empty;
-        var template = representation?.Element(ns + "SegmentTemplate") ?? adaptationSet.Descendants(ns + "SegmentTemplate").FirstOrDefault();
-        var mediaTemplate = template?.Attribute("media")?.Value;
+        XElement? representation = adaptationSet.Descendants(ns + "Representation").FirstOrDefault();
+        string representationId = representation?.Attribute("id")?.Value ?? string.Empty;
+        XElement? template = representation?.Element(ns + "SegmentTemplate") ?? adaptationSet.Descendants(ns + "SegmentTemplate").FirstOrDefault();
+        string? mediaTemplate = template?.Attribute("media")?.Value;
         if (string.IsNullOrEmpty(mediaTemplate))
         {
-            var mediaTemplates = adaptationSet.Descendants(ns + "SegmentTemplate")
+            string[] mediaTemplates = [.. adaptationSet.Descendants(ns + "SegmentTemplate")
                 .Select(st => st.Attribute("media")?.Value)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Select(s => s!)
-                .ToArray();
-            return mediaTemplates.Any() ? mediaTemplates : Array.Empty<string>();
+                .Select(s => s!)];
+            return mediaTemplates.Any() ? mediaTemplates : [];
         }
 
-        var urls = new List<string>();
+        List<string> urls = [];
 
-        var initializationTemplate = template?.Attribute("initialization")?.Value;
+        string? initializationTemplate = template?.Attribute("initialization")?.Value;
         if (!string.IsNullOrEmpty(initializationTemplate))
         {
-            var initUrl = initializationTemplate
+            string initUrl = initializationTemplate
                 .Replace("$RepresentationID$", representationId)
                 .Replace("$Number$", "0")
                 .Replace("$Number%06d$", "000000");
             urls.Add(initUrl);
         }
 
-        var timeline = template?.Element(ns + "SegmentTimeline") ?? adaptationSet.Descendants(ns + "SegmentTimeline").FirstOrDefault();
+        XElement? timeline = template?.Element(ns + "SegmentTimeline") ?? adaptationSet.Descendants(ns + "SegmentTimeline").FirstOrDefault();
         if (timeline == null)
         {
-            var singleUrl = mediaTemplate
+            string singleUrl = mediaTemplate
                 .Replace("$RepresentationID$", representationId)
                 .Replace("$Number$", "1")
                 .Replace("$Number%06d$", "000001");
             urls.Add(singleUrl);
-            return urls.ToArray();
+            return [.. urls];
         }
 
-        var segments = timeline.Descendants(ns + "S");
-        var number = 1;
-        foreach (var s in segments)
+        IEnumerable<XElement> segments = timeline.Descendants(ns + "S");
+        int number = 1;
+        foreach (XElement s in segments)
         {
-            var repeat = int.TryParse(s.Attribute("r")?.Value, out var r) ? r + 1 : 1;
+            int repeat = int.TryParse(s.Attribute("r")?.Value, out int r) ? r + 1 : 1;
             for (int i = 0; i < repeat; i++)
             {
-                var url = mediaTemplate
+                string url = mediaTemplate
                     .Replace("$Number$", number.ToString())
                     .Replace("$Number%06d$", number.ToString("D6"))
                     .Replace("$RepresentationID$", representationId);
@@ -195,7 +193,7 @@ public class TidalManifestParser
             }
         }
 
-        return urls.ToArray();
+        return [.. urls];
     }
 
     private string DetermineFileExtension(string codec, string sampleUrl)

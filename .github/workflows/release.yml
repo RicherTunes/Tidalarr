@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for keyless signing with Cosign
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -108,6 +109,30 @@ jobs:
         echo "Release package created"
         ls -la *.zip
 
+    - name: Generate SBOM (SPDX JSON)
+      uses: anchore/sbom-action@v0
+      with:
+        path: .
+        format: spdx-json
+        output-file: sbom.spdx.json
+
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Sign ZIP with Cosign (keyless)
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      run: |
+        cosign version
+        cosign sign-blob \
+          --yes \
+          --output-signature ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip.sig \
+          ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip
+
+    - name: Generate SHA256 checksum
+      run: |
+        sha256sum ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip > ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip.sha256
+
     - name: Generate release notes
       run: |
         echo "Generating release notes..."
@@ -120,7 +145,12 @@ jobs:
         echo "" >> release-notes.md
         echo "### Compatibility" >> release-notes.md
         echo "- Lidarr: ${{ env.MINIMUM_LIDARR_VERSION }}+ (plugins branch)" >> release-notes.md
-        echo "- .NET: 6.0" >> release-notes.md
+        echo "- .NET: 8.0" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "### Security" >> release-notes.md
+        echo "- SHA256 checksum provided for integrity verification" >> release-notes.md
+        echo "- Cosign signature for artifact authenticity" >> release-notes.md
+        echo "- SBOM (Software Bill of Materials) included" >> release-notes.md
         echo "" >> release-notes.md
         echo "### Changes" >> release-notes.md
         echo "See [commit history](https://github.com/${{ github.repository }}/commits/v$RELEASE_VERSION) for detailed changes." >> release-notes.md
@@ -130,6 +160,10 @@ jobs:
       with:
         name: ${{ env.PLUGIN_NAME }} v${{ env.RELEASE_VERSION }}
         body_path: release-notes.md
-        files: ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip
+        files: |
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip.sha256
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip.sig
+          sbom.spdx.json
         draft: false
         prerelease: false

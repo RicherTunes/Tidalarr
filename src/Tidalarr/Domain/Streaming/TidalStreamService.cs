@@ -1,29 +1,22 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Domain.Streaming;
 
-public class TidalStreamService
+public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manifestParser)
 {
-    private readonly ITidalCore _apiClient;
-    private readonly TidalManifestParser _manifestParser;
-
-    public TidalStreamService(ITidalCore apiClient, TidalManifestParser manifestParser)
-    {
-        _apiClient = apiClient;
-        _manifestParser = manifestParser;
-    }
+    private readonly ITidalCore _apiClient = apiClient;
+    private readonly TidalManifestParser _manifestParser = manifestParser;
 
     public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality)
-        => _apiClient.GetStreamInfoAsync(trackId, quality);
+    {
+        return this._apiClient.GetStreamInfoAsync(trackId, quality);
+    }
 
     public Task<TidalStreamInfo> GetStreamInfoWithManifestParsingAsync(string trackId, TidalQuality quality, string manifest, string manifestMimeType)
     {
-        var parsed = _manifestParser.ParseManifest(manifest, manifestMimeType);
-        var info = new TidalStreamInfo(
+        TidalManifest parsed = this._manifestParser.ParseManifest(manifest, manifestMimeType);
+        TidalStreamInfo info = new(
             TrackId: trackId,
             ChunkUrls: parsed.ChunkUrls,
             FileExtension: parsed.FileExtension,
@@ -38,15 +31,15 @@ public class TidalStreamService
     {
         try
         {
-            var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
-            var parsed = _manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
-            var encryptionType = playback.encryptionType;
-            var isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
-            var combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
+            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality);
+            TidalManifest parsed = this._manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
+            string? encryptionType = playback.encryptionType;
+            bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
+            string? combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
                 ? playback.securityToken
                 : parsed.SecurityToken;
 
-            var enriched = parsed with
+            TidalManifest enriched = parsed with
             {
                 IsEncrypted = parsed.IsEncrypted || isEncrypted,
                 SecurityToken = combinedSecurityToken
@@ -78,11 +71,11 @@ public class TidalStreamService
     {
         try
         {
-            var playback = await _apiClient.GetPlaybackInfoAsync(trackId, quality);
-            var parsed = _manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
-            var encryptionType = playback.encryptionType;
-            var isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
-            var combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
+            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality);
+            TidalManifest parsed = this._manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
+            string? encryptionType = playback.encryptionType;
+            bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
+            string? combinedSecurityToken = !string.IsNullOrWhiteSpace(playback.securityToken)
                 ? playback.securityToken
                 : parsed.SecurityToken;
 
@@ -95,7 +88,7 @@ public class TidalStreamService
         catch (NotSupportedException)
         {
             // Fallback: build a minimal manifest from legacy stream info
-            var info = await GetStreamInfoAsync(trackId, quality);
+            TidalStreamInfo info = await GetStreamInfoAsync(trackId, quality);
             return new TidalManifest(
                 ChunkUrls: info.ChunkUrls,
                 Codec: "MP4A",
@@ -113,7 +106,7 @@ public class TidalStreamService
     {
         try
         {
-            var streamInfo = await GetStreamInfoAsync(trackId, quality);
+            TidalStreamInfo streamInfo = await GetStreamInfoAsync(trackId, quality);
             return streamInfo.ChunkUrls.Any() && !string.IsNullOrEmpty(streamInfo.FileExtension);
         }
         catch
@@ -124,9 +117,9 @@ public class TidalStreamService
 
     public async Task<List<TidalQuality>> GetAvailableQualitiesForTrackAsync(string trackId)
     {
-        var available = new List<TidalQuality>();
-        var order = new[] { TidalQuality.HiRes, TidalQuality.Lossless, TidalQuality.High, TidalQuality.Low };
-        foreach (var q in order)
+        List<TidalQuality> available = [];
+        TidalQuality[] order = [TidalQuality.HiRes, TidalQuality.Lossless, TidalQuality.High, TidalQuality.Low];
+        foreach (TidalQuality q in order)
         {
             if (await ValidateStreamAvailabilityAsync(trackId, q))
             {

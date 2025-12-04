@@ -6,7 +6,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddTidalarrHostBridgeServices(this IServiceCollection services)
     {
-        services.AddSingleton<Settings.IHostSettingsMapper, Settings.HostSettingsMapper>();
+        _ = services.AddSingleton<Settings.IHostSettingsMapper, Settings.HostSettingsMapper>();
         return services;
     }
 }

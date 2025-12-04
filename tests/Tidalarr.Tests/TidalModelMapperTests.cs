@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
-using Xunit;
 
 namespace Tidalarr.Tests;
 
@@ -14,10 +11,10 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingTrack_MapsCoreFields_AndMetadata()
     {
-        var track = new TidalTrackInfo(
+        TidalTrackInfo track = new(
             Id: "t1",
             Title: "Song",
-            Artists: new List<string> { "Artist A", "Artist B" },
+            Artists: ["Artist A", "Artist B"],
             AlbumId: "al1",
             AlbumTitle: "Album",
             TrackNumber: 3,
@@ -26,7 +23,7 @@ public class TidalModelMapperTests
             IsAvailable: true,
             ReleaseDate: new DateTime(2020, 1, 2));
 
-        var st = _mapper.ToStreamingTrack(track);
+        StreamingTrack st = this._mapper.ToStreamingTrack(track);
         Assert.Equal("t1", st.Id);
         Assert.Equal("Song", st.Title);
         Assert.Equal("Artist A, Artist B", st.Artist.Name);
@@ -41,17 +38,17 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingAlbum_MapsQualities_CoverUrls_AndMetadata()
     {
-        var album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: "al1",
             Title: "Album",
-            Artists: new List<string> { "Artist A" },
-            Tracks: new List<TidalTrackInfo>(),
-            AvailableQualities: new List<TidalQuality> { TidalQuality.High, TidalQuality.HiRes },
+            Artists: ["Artist A"],
+            Tracks: [],
+            AvailableQualities: [TidalQuality.High, TidalQuality.HiRes],
             ReleaseDate: new DateTime(2020, 1, 3),
             CoverArtId: "aa-bb-cc",
             IsAvailable: true);
 
-        var sa = _mapper.ToStreamingAlbum(album);
+        StreamingAlbum sa = this._mapper.ToStreamingAlbum(album);
         Assert.Equal("al1", sa.Id);
         Assert.Contains(sa.AvailableQualities, q => q.Id == "HIGH");
         Assert.Contains(sa.AvailableQualities, q => q.Id == "HI_RES");
@@ -63,19 +60,19 @@ public class TidalModelMapperTests
     [Fact]
     public void ToStreamingSearchResults_CombinesAlbumsAndTracks()
     {
-        var results = new TidalSearchResults(
-            Albums: new List<TidalAlbumInfo>
-            {
-                new("al1","A", new List<string>{"X"}, new(), new(){TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)
-            },
-            Tracks: new List<TidalTrackInfo>
-            {
-                new("t1","T", new List<string>{"X"}, "al1", "A", 1, 100, TidalQuality.High, true, new DateTime(2020,1,1))
-            },
+        TidalSearchResults results = new(
+            Albums:
+            [
+                new("al1","A", ["X"], new(), new(){TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)
+            ],
+            Tracks:
+            [
+                new("t1","T", ["X"], "al1", "A", 1, 100, TidalQuality.High, true, new DateTime(2020,1,1))
+            ],
             TotalCount: 2,
             HasMore: false);
 
-        var sr = _mapper.ToStreamingSearchResults(results);
+        List<StreamingSearchResult> sr = this._mapper.ToStreamingSearchResults(results);
         Assert.Equal(2, sr.Count);
         Assert.Contains(sr, r => r.Type == StreamingSearchType.Album && r.Id == "al1");
         Assert.Contains(sr, r => r.Type == StreamingSearchType.Track && r.Id == "t1");

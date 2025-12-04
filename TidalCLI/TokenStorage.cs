@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.IO.Compression;
-using System.Threading.Tasks;
 
 namespace TidalCLI;
 
@@ -30,7 +25,7 @@ public static class TokenStorage
 {
     private static HttpClient CreateHttpClient()
     {
-        var handler = new HttpClientHandler
+        HttpClientHandler handler = new()
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         };
@@ -50,7 +45,7 @@ public static class TokenStorage
             if (!File.Exists(TokenFilePath))
                 return null;
 
-            var json = await File.ReadAllTextAsync(TokenFilePath);
+            string json = await File.ReadAllTextAsync(TokenFilePath);
             return JsonSerializer.Deserialize<TidalTokenInfo>(json);
         }
         catch (Exception ex)
@@ -64,11 +59,11 @@ public static class TokenStorage
     {
         try
         {
-            var directory = Path.GetDirectoryName(TokenFilePath);
+            string? directory = Path.GetDirectoryName(TokenFilePath);
             if (!Directory.Exists(directory))
-                Directory.CreateDirectory(directory!);
+                _ = Directory.CreateDirectory(directory!);
 
-            var json = JsonSerializer.Serialize(tokenInfo, new JsonSerializerOptions
+            string json = JsonSerializer.Serialize(tokenInfo, new JsonSerializerOptions
             {
                 WriteIndented = true
             });
@@ -103,12 +98,12 @@ public static class TokenStorage
     {
         try
         {
-            using var httpClient = CreateHttpClient();
-            var tokenUrl = "https://auth.tidal.com/v1/oauth2/token";
-            var clientId = "6BDSRdpK9hqEBTgU";
-            var clientSecret = "xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=";
+            using HttpClient httpClient = CreateHttpClient();
+            string tokenUrl = "https://auth.tidal.com/v1/oauth2/token";
+            string clientId = "6BDSRdpK9hqEBTgU";
+            string clientSecret = "xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=";
 
-            var requestData = new Dictionary<string, string>
+            Dictionary<string, string> requestData = new()
             {
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = currentTokens.RefreshToken,
@@ -116,9 +111,9 @@ public static class TokenStorage
                 ["client_secret"] = clientSecret
             };
 
-            var formData = new FormUrlEncodedContent(requestData);
-            var response = await httpClient.PostAsync(tokenUrl, formData);
-            var responseContent = await ReadContentAsStringAsync(response.Content);
+            FormUrlEncodedContent formData = new(requestData);
+            HttpResponseMessage response = await httpClient.PostAsync(tokenUrl, formData);
+            string responseContent = await ReadContentAsStringAsync(response.Content);
 
             if (response.IsSuccessStatusCode)
             {
@@ -139,7 +134,7 @@ public static class TokenStorage
 
     public static async Task<TidalTokenInfo?> GetValidTokensAsync()
     {
-        var tokens = await LoadTokensAsync();
+        TidalTokenInfo? tokens = await LoadTokensAsync();
 
         if (tokens == null)
         {
@@ -154,7 +149,7 @@ public static class TokenStorage
         if (tokens.IsExpired)
         {
             Console.WriteLine("? Tokens are expired, attempting refresh...");
-            var refreshedTokens = await RefreshTokensAsync(tokens);
+            TidalTokenInfo? refreshedTokens = await RefreshTokensAsync(tokens);
 
             if (refreshedTokens != null)
             {
@@ -170,7 +165,7 @@ public static class TokenStorage
         if (tokens.NeedsRefresh)
         {
             Console.WriteLine("?? Tokens expiring soon, refreshing proactively...");
-            var refreshedTokens = await RefreshTokensAsync(tokens);
+            TidalTokenInfo? refreshedTokens = await RefreshTokensAsync(tokens);
 
             if (refreshedTokens != null)
             {
@@ -187,25 +182,25 @@ public static class TokenStorage
 
     public static TidalTokenInfo ParseTokenResponse(string tokenResponse)
     {
-        var tokenData = JsonSerializer.Deserialize<JsonElement>(tokenResponse);
+        JsonElement tokenData = JsonSerializer.Deserialize<JsonElement>(tokenResponse);
 
-        var accessToken = tokenData.GetProperty("access_token").GetString() ?? string.Empty;
-        var refreshToken = tokenData.GetProperty("refresh_token").GetString() ?? string.Empty;
-        var tokenType = tokenData.GetProperty("token_type").GetString() ?? "Bearer";
-        var expiresIn = tokenData.GetProperty("expires_in").GetInt32();
-        var userId = tokenData.TryGetProperty("user_id", out var userIdProp) ? userIdProp.GetInt64().ToString() : string.Empty;
+        string accessToken = tokenData.GetProperty("access_token").GetString() ?? string.Empty;
+        string refreshToken = tokenData.GetProperty("refresh_token").GetString() ?? string.Empty;
+        string tokenType = tokenData.GetProperty("token_type").GetString() ?? "Bearer";
+        int expiresIn = tokenData.GetProperty("expires_in").GetInt32();
+        string userId = tokenData.TryGetProperty("user_id", out JsonElement userIdProp) ? userIdProp.GetInt64().ToString() : string.Empty;
 
-        var sessionId = string.Empty;
-        var countryCode = string.Empty;
-        var email = string.Empty;
+        string sessionId = string.Empty;
+        string countryCode = string.Empty;
+        string email = string.Empty;
 
-        if (tokenData.TryGetProperty("user", out var userInfo) && userInfo.ValueKind == JsonValueKind.Object)
+        if (tokenData.TryGetProperty("user", out JsonElement userInfo) && userInfo.ValueKind == JsonValueKind.Object)
         {
-            if (userInfo.TryGetProperty("sessionId", out var sessionProp))
+            if (userInfo.TryGetProperty("sessionId", out JsonElement sessionProp))
                 sessionId = sessionProp.GetString() ?? string.Empty;
-            if (userInfo.TryGetProperty("countryCode", out var ccProp))
+            if (userInfo.TryGetProperty("countryCode", out JsonElement ccProp))
                 countryCode = ccProp.GetString() ?? string.Empty;
-            if (userInfo.TryGetProperty("email", out var emailProp))
+            if (userInfo.TryGetProperty("email", out JsonElement emailProp))
                 email = emailProp.GetString() ?? string.Empty;
         }
 
@@ -213,17 +208,15 @@ public static class TokenStorage
         {
             try
             {
-                var parts = accessToken.Split('.');
+                string[] parts = accessToken.Split('.');
                 if (parts.Length == 3)
                 {
-                    var payload = parts[1];
-                    payload += new string('=', (4 - payload.Length % 4) % 4);
-                    var payloadBytes = Convert.FromBase64String(payload);
-                    using (var payloadDoc = JsonDocument.Parse(payloadBytes))
-                    {
-                        if (payloadDoc.RootElement.TryGetProperty("sid", out var sidProp))
-                            sessionId = sidProp.GetString() ?? string.Empty;
-                    }
+                    string payload = parts[1];
+                    payload += new string('=', (4 - (payload.Length % 4)) % 4);
+                    byte[] payloadBytes = Convert.FromBase64String(payload);
+                    using JsonDocument payloadDoc = JsonDocument.Parse(payloadBytes);
+                    if (payloadDoc.RootElement.TryGetProperty("sid", out JsonElement sidProp))
+                        sessionId = sidProp.GetString() ?? string.Empty;
                 }
             }
             catch
@@ -248,18 +241,18 @@ public static class TokenStorage
 
     private static async Task<string> ReadContentAsStringAsync(HttpContent content)
     {
-        var bytes = await content.ReadAsByteArrayAsync().ConfigureAwait(false);
+        byte[] bytes = await content.ReadAsByteArrayAsync().ConfigureAwait(false);
 
         if (bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B)
         {
-            using var compressed = new MemoryStream(bytes);
-            using var gzip = new GZipStream(compressed, CompressionMode.Decompress);
-            using var reader = new StreamReader(gzip, Encoding.UTF8);
+            using MemoryStream compressed = new(bytes);
+            using GZipStream gzip = new(compressed, CompressionMode.Decompress);
+            using StreamReader reader = new(gzip, Encoding.UTF8);
             return await reader.ReadToEndAsync().ConfigureAwait(false);
         }
 
         Encoding encoding = Encoding.UTF8;
-        var charset = content.Headers?.ContentType?.CharSet;
+        string? charset = content.Headers?.ContentType?.CharSet;
         if (!string.IsNullOrWhiteSpace(charset))
         {
             try

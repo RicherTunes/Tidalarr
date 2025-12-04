@@ -1,0 +1,18 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Explicit text files with LF
+*.cs text eol=lf
+*.csproj text eol=lf
+*.sln text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# Binary files
+*.dll binary
+*.exe binary
+*.zip binary
+*.nupkg binary

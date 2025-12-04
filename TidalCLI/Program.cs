@@ -1,13 +1,7 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using Lidarr.Plugin.Common.Utilities;
-using Tidalarr.Domain.Streaming;
-using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
-using Tidalarr.Domain.Quality;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
@@ -45,7 +39,7 @@ public class Program
     {
         "TrackId","Quality","DownloadPath"
     };
-    static async Task Main(string[] args)
+    private static async Task Main(string[] args)
     {
         args = NormalizeArgs(args);
         Console.WriteLine("🎵 Tidalarr CLI - Tidal Plugin Test Bed");
@@ -77,7 +71,7 @@ public class Program
             args = NormalizeArgs(args);
             if (args.Length == 0)
             {
-                await ProcessCommand(new[] { "test-oauth" });
+                await ProcessCommand(["test-oauth"]);
             }
             else
             {
@@ -92,7 +86,7 @@ public class Program
         }
     }
 
-    static async Task ShowMainMenu()
+    private static async Task ShowMainMenu()
     {
         while (true)
         {
@@ -114,7 +108,7 @@ public class Program
             Console.WriteLine("X. exit             - Exit application");
 
             Console.Write("\nEnter command number or name: ");
-            var input = Console.ReadLine()?.Trim().ToLower();
+            string? input = Console.ReadLine()?.Trim().ToLower();
 
             switch (input)
             {
@@ -135,20 +129,20 @@ public class Program
                     break;
                 case "6" or "auth-complete":
                     Console.Write("Enter full callback URL: ");
-                    var cb = Console.ReadLine();
+                    string? cb = Console.ReadLine();
                     if (!string.IsNullOrWhiteSpace(cb)) await AuthComplete(cb!);
                     break;
                 case "7" or "search":
                     Console.Write("Enter search query: ");
-                    var q = Console.ReadLine();
+                    string? q = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(q)) q = "Bohemian Rhapsody Queen";
                     await SearchViaPlugin(q!);
                     break;
                 case "8" or "download-track":
                     Console.Write("Enter track ID: ");
-                    var tid = Console.ReadLine();
+                    string? tid = Console.ReadLine();
                     Console.Write("Enter output directory: ");
-                    var od = Console.ReadLine();
+                    string? od = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(tid) || string.IsNullOrWhiteSpace(od))
                     {
                         Console.WriteLine("Provide both a track ID and an output directory (e.g. C:/Music/Imports).");
@@ -160,9 +154,9 @@ public class Program
                     break;
                 case "9" or "download-album":
                     Console.Write("Enter album ID: ");
-                    var aid = Console.ReadLine();
+                    string? aid = Console.ReadLine();
                     Console.Write("Enter output directory: ");
-                    var od2 = Console.ReadLine();
+                    string? od2 = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(aid) || string.IsNullOrWhiteSpace(od2))
                     {
                         Console.WriteLine("Provide both an album ID and an output directory (e.g. C:/Music/Albums).");
@@ -197,9 +191,9 @@ public class Program
         }
     }
 
-    static async Task ProcessCommand(string[] args)
+    private static async Task ProcessCommand(string[] args)
     {
-        var command = args[0].ToLower();
+        string command = args[0].ToLower();
 
         switch (command)
         {
@@ -230,15 +224,15 @@ public class Program
                         break;
                     }
 
-                    var kv = ParseKeyValueArgs(args.Skip(1));
-                    var unknown = kv.Keys.Where(k => !SearchAllowedKeys.Contains(k)).ToArray();
+                    Dictionary<string, string> kv = ParseKeyValueArgs(args.Skip(1));
+                    string[] unknown = [.. kv.Keys.Where(k => !SearchAllowedKeys.Contains(k))];
                     if (unknown.Length > 0)
                     {
                         Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", SearchAllowedKeys)}");
                         Console.WriteLine("Usage: search <query>  OR  search Query=<query>");
                         break;
                     }
-                    if (!kv.TryGetValue("Query", out var query) || string.IsNullOrWhiteSpace(query))
+                    if (!kv.TryGetValue("Query", out string? query) || string.IsNullOrWhiteSpace(query))
                     {
                         Console.WriteLine("Usage: search <query>  OR  search Query=<query>");
                         break;
@@ -255,25 +249,25 @@ public class Program
                         break;
                     }
 
-                    var kv = ParseKeyValueArgs(args.Skip(1));
-                    var unknown = kv.Keys.Where(k => !DownloadTrackAllowedKeys.Contains(k)).ToArray();
+                    Dictionary<string, string> kv = ParseKeyValueArgs(args.Skip(1));
+                    string[] unknown = [.. kv.Keys.Where(k => !DownloadTrackAllowedKeys.Contains(k))];
                     if (unknown.Length > 0)
                     {
                         Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", DownloadTrackAllowedKeys)}");
                         Console.WriteLine("Usage: download-track <trackId> <outputDir>  OR  download-track TrackId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
                         break;
                     }
-                    if (!kv.TryGetValue("TrackId", out var trackId) || string.IsNullOrWhiteSpace(trackId)
-                        || !kv.TryGetValue("OutputDir", out var outDir) || string.IsNullOrWhiteSpace(outDir))
+                    if (!kv.TryGetValue("TrackId", out string? trackId) || string.IsNullOrWhiteSpace(trackId)
+                        || !kv.TryGetValue("OutputDir", out string? outDir) || string.IsNullOrWhiteSpace(outDir))
                     {
                         Console.WriteLine("Usage: download-track <trackId> <outputDir>  OR  download-track TrackId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
                         break;
                     }
 
                     TidalQuality? qOverride = null;
-                    if (kv.TryGetValue("Quality", out var rawQ) && !string.IsNullOrWhiteSpace(rawQ))
+                    if (kv.TryGetValue("Quality", out string? rawQ) && !string.IsNullOrWhiteSpace(rawQ))
                     {
-                        if (Enum.TryParse<TidalQuality>(rawQ, true, out var parsed)) qOverride = parsed;
+                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed)) qOverride = parsed;
                         else
                         {
                             Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
@@ -292,24 +286,24 @@ public class Program
                         break;
                     }
 
-                    var kv = ParseKeyValueArgs(args.Skip(1));
-                    var unknown = kv.Keys.Where(k => !DownloadAlbumAllowedKeys.Contains(k)).ToArray();
+                    Dictionary<string, string> kv = ParseKeyValueArgs(args.Skip(1));
+                    string[] unknown = [.. kv.Keys.Where(k => !DownloadAlbumAllowedKeys.Contains(k))];
                     if (unknown.Length > 0)
                     {
                         Console.WriteLine($"Unknown key(s): {string.Join(", ", unknown)}. Allowed: {string.Join(", ", DownloadAlbumAllowedKeys)}");
                         Console.WriteLine("Usage: download-album <albumId> <outputDir>  OR  download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
                         break;
                     }
-                    if (!kv.TryGetValue("AlbumId", out var albumId) || string.IsNullOrWhiteSpace(albumId)
-                        || !kv.TryGetValue("OutputDir", out var outDir) || string.IsNullOrWhiteSpace(outDir))
+                    if (!kv.TryGetValue("AlbumId", out string? albumId) || string.IsNullOrWhiteSpace(albumId)
+                        || !kv.TryGetValue("OutputDir", out string? outDir) || string.IsNullOrWhiteSpace(outDir))
                     {
                         Console.WriteLine("Usage: download-album <albumId> <outputDir>  OR  download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]");
                         break;
                     }
                     TidalQuality? qOverride = null;
-                    if (kv.TryGetValue("Quality", out var rawQ) && !string.IsNullOrWhiteSpace(rawQ))
+                    if (kv.TryGetValue("Quality", out string? rawQ) && !string.IsNullOrWhiteSpace(rawQ))
                     {
-                        if (Enum.TryParse<TidalQuality>(rawQ, true, out var parsed)) qOverride = parsed;
+                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed)) qOverride = parsed;
                         else
                         {
                             Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
@@ -323,13 +317,13 @@ public class Program
                 await RunAllTests();
                 break;
             case "settings-validate":
-                await RunSettingsValidateAsync(args.Skip(1).ToArray());
+                await RunSettingsValidateAsync([.. args.Skip(1)]);
                 break;
             case "indexer-validate":
-                await RunIndexerValidateAsync(args.Skip(1).ToArray());
+                await RunIndexerValidateAsync([.. args.Skip(1)]);
                 break;
             case "download-validate":
-                await RunDownloadValidateAsync(args.Skip(1).ToArray());
+                await RunDownloadValidateAsync([.. args.Skip(1)]);
                 break;
             default:
                 Console.WriteLine($"❌ Unknown command: {command}");
@@ -338,16 +332,16 @@ public class Program
     }
 
     // --- Live OAuth using plugin service ---
-    static string AuthStatePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_auth_state.json");
-    class AuthState { public string CodeVerifier { get; set; } = string.Empty; public string State { get; set; } = string.Empty; }
+    private static string AuthStatePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_auth_state.json");
+    private class AuthState { public string CodeVerifier { get; set; } = string.Empty; public string State { get; set; } = string.Empty; }
 
-    static async Task AuthStart()
+    private static async Task AuthStart()
     {
         Console.WriteLine("\n🔐 Starting OAuth with Tidal via plugin service...");
-        var http = CreateHttpClient();
-        var auth = new Tidalarr.Domain.Authentication.TidalOAuthService(http);
-        var url = await auth.GenerateAuthUrlAsync();
-        Directory.CreateDirectory(Path.GetDirectoryName(AuthStatePath)!);
+        HttpClient http = CreateHttpClient();
+        Tidalarr.Domain.Authentication.TidalOAuthService auth = new(http);
+        TidalAuthUrl url = await auth.GenerateAuthUrlAsync();
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(AuthStatePath)!);
         await File.WriteAllTextAsync(AuthStatePath, JsonSerializer.Serialize(new AuthState { CodeVerifier = url.CodeVerifier, State = url.State }));
         Console.WriteLine("✅ Open this URL in your browser to authenticate:");
         Console.WriteLine(url.AuthorizationUrl);
@@ -355,16 +349,16 @@ public class Program
         Console.WriteLine("\nThen run: tidalcli auth-complete <callbackUrl>");
     }
 
-    static async Task AuthComplete(string callbackUrl)
+    private static async Task AuthComplete(string callbackUrl)
     {
         if (!File.Exists(AuthStatePath)) { Console.WriteLine("❌ Missing auth state. Run 'auth-start' first."); return; }
-        var state = JsonSerializer.Deserialize<AuthState>(await File.ReadAllTextAsync(AuthStatePath)) ?? new AuthState();
-        var http = CreateHttpClient();
-        var auth = new Tidalarr.Domain.Authentication.TidalOAuthService(http);
-        var parsed = auth.ParseCallbackUrl(callbackUrl);
+        AuthState state = JsonSerializer.Deserialize<AuthState>(await File.ReadAllTextAsync(AuthStatePath)) ?? new AuthState();
+        HttpClient http = CreateHttpClient();
+        Tidalarr.Domain.Authentication.TidalOAuthService auth = new(http);
+        Tidalarr.Core.Models.TidalCallbackResult parsed = auth.ParseCallbackUrl(callbackUrl);
         if (!parsed.IsSuccess) { Console.WriteLine($"❌ {parsed.ErrorMessage}"); return; }
         if (!string.Equals(parsed.State, state.State, StringComparison.Ordinal)) { Console.WriteLine("❌ State mismatch"); return; }
-        var tokens = await auth.ExchangeCodeAsync(parsed.AuthCode, state.CodeVerifier);
+        TidalTokens tokens = await auth.ExchangeCodeAsync(parsed.AuthCode, state.CodeVerifier);
 
         await TokenStorage.SaveTokensAsync(new TidalTokenInfo
         {
@@ -385,9 +379,9 @@ public class Program
     private static string[] NormalizeArgs(string[]? args)
     {
         Environment.SetEnvironmentVariable("TIDALARR_HTTP_TRACE", null, EnvironmentVariableTarget.Process);
-        if (args == null) return Array.Empty<string>();
-        var list = new List<string>();
-        foreach (var arg in args)
+        if (args == null) return [];
+        List<string> list = [];
+        foreach (string arg in args)
         {
             if (string.Equals(arg, "--trace-http", StringComparison.OrdinalIgnoreCase))
             {
@@ -396,43 +390,43 @@ public class Program
             }
             list.Add(arg);
         }
-        return list.ToArray();
+        return [.. list];
     }
 
     private static Dictionary<string, string> ParseKeyValueArgs(IEnumerable<string> args)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var a in args)
+        Dictionary<string, string> map = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string a in args)
         {
             if (string.IsNullOrWhiteSpace(a)) continue;
-            var idx = a.IndexOf('=');
+            int idx = a.IndexOf('=');
             if (idx <= 0) continue;
-            var k = a.Substring(0, idx);
-            var v = a.Substring(idx + 1);
+            string k = a[..idx];
+            string v = a[(idx + 1)..];
             map[k] = v;
         }
         return map;
     }
 
     // --- Orchestrator downloads ---
-    static async Task DownloadTrack(string trackId, string outputDir, TidalQuality? overrideQuality)
+    private static async Task DownloadTrack(string trackId, string outputDir, TidalQuality? overrideQuality)
     {
-        var cfg = CliConfig.Load();
-        var resolvedOutputDir = Path.GetFullPath(string.IsNullOrWhiteSpace(outputDir) ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads")) : outputDir);
-        Directory.CreateDirectory(resolvedOutputDir);
+        CliConfig cfg = CliConfig.Load();
+        string resolvedOutputDir = Path.GetFullPath(string.IsNullOrWhiteSpace(outputDir) ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads")) : outputDir);
+        _ = Directory.CreateDirectory(resolvedOutputDir);
         Console.WriteLine($"📁 Output directory: {resolvedOutputDir}");
-        var orchestrator = await CreateOrchestratorForCliAsync();
+        Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator orchestrator = await CreateOrchestratorForCliAsync();
         // The above creates a new provider; better approach is DI bootstrap if needed.
-        var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
+        Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress> progress = new(p =>
         {
             Console.Write($"\r⬇️  {p.PercentComplete,6:0.0}% | {p.BytesPerSecond / 1024 / 1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
         });
         try
         {
-            var tempPath = Path.Combine(resolvedOutputDir, trackId + ".flac");
-            var selectedQuality = overrideQuality ?? cfg.PreferredQuality;
-            var q = MakeQualityFromConfig(selectedQuality);
-            var result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
+            string tempPath = Path.Combine(resolvedOutputDir, trackId + ".flac");
+            TidalQuality selectedQuality = overrideQuality ?? cfg.PreferredQuality;
+            Lidarr.Plugin.Abstractions.Models.StreamingQuality q = MakeQualityFromConfig(selectedQuality);
+            Lidarr.Plugin.Common.Interfaces.TrackDownloadResult result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
             Console.WriteLine();
             if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize / 1024 / 1024:F2} MB)");
             else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
@@ -445,20 +439,20 @@ public class Program
         }
     }
 
-    static async Task DownloadAlbum(string albumId, string outputDir, TidalQuality? overrideQuality)
+    private static async Task DownloadAlbum(string albumId, string outputDir, TidalQuality? overrideQuality)
     {
-        var cfg = CliConfig.Load();
+        CliConfig cfg = CliConfig.Load();
         outputDir = string.IsNullOrWhiteSpace(outputDir)
             ? (cfg.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "tidalarr-downloads"))
             : outputDir;
-        var resolvedOutputDir = Path.GetFullPath(outputDir);
-        Directory.CreateDirectory(resolvedOutputDir);
+        string resolvedOutputDir = Path.GetFullPath(outputDir);
+        _ = Directory.CreateDirectory(resolvedOutputDir);
 
-        var provider = await BuildPluginServiceProviderAsync();
+        ServiceProvider provider = await BuildPluginServiceProviderAsync();
         try
         {
-            var orchestrator = IntegrationModule.CreateOrchestrator(provider);
-            var api = provider.GetRequiredService<ITidalCore>();
+            Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator orchestrator = IntegrationModule.CreateOrchestrator(provider);
+            ITidalCore api = provider.GetRequiredService<ITidalCore>();
 
             TidalAlbumInfo? albumInfo = null;
             try
@@ -470,11 +464,11 @@ public class Program
                 Console.WriteLine($"⚠️ Unable to fetch album metadata for folder structure: {ex.Message}");
             }
 
-            var albumOutputDir = albumInfo != null
+            string albumOutputDir = albumInfo != null
                 ? BuildAlbumOutputDirectory(resolvedOutputDir, albumInfo)
                 : resolvedOutputDir;
 
-            Directory.CreateDirectory(albumOutputDir);
+            _ = Directory.CreateDirectory(albumOutputDir);
 
             Console.WriteLine($"📁 Output root: {resolvedOutputDir}");
             if (!string.Equals(albumOutputDir, resolvedOutputDir, StringComparison.OrdinalIgnoreCase))
@@ -482,16 +476,16 @@ public class Program
                 Console.WriteLine($"📂 Album folder: {albumOutputDir}");
             }
 
-            var progress = new Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress>(p =>
+            Progress<Lidarr.Plugin.Common.Interfaces.DownloadProgress> progress = new(p =>
             {
                 Console.Write($"\r⬇️  {p.CompletedTracks}/{p.TotalTracks} | {p.PercentComplete,6:0.0}% | {p.BytesPerSecond / 1024 / 1024,4} MB/s | ETA: {p.EstimatedTimeRemaining?.ToString()} | {p.CurrentTrack}     ");
             });
 
             try
             {
-                var selectedQuality = overrideQuality ?? cfg.PreferredQuality;
-                var q = MakeQualityFromConfig(selectedQuality);
-                var result = await orchestrator.DownloadAlbumAsync(albumId, albumOutputDir, q, progress);
+                TidalQuality selectedQuality = overrideQuality ?? cfg.PreferredQuality;
+                Lidarr.Plugin.Abstractions.Models.StreamingQuality q = MakeQualityFromConfig(selectedQuality);
+                Lidarr.Plugin.Common.Interfaces.DownloadResult result = await orchestrator.DownloadAlbumAsync(albumId, albumOutputDir, q, progress);
                 Console.WriteLine();
                 if (result.Success)
                 {
@@ -504,13 +498,13 @@ public class Program
                 }
                 if (result.FilePaths.Count == 0 && (result.TrackResults?.Count > 0))
                 {
-                    var failures = result.TrackResults.Where(t => !t.Success).Take(5).ToList();
+                    List<Lidarr.Plugin.Common.Interfaces.TrackDownloadResult> failures = [.. result.TrackResults.Where(t => !t.Success).Take(5)];
                     if (failures.Count > 0)
                     {
                         Console.WriteLine("⚠️ No tracks were finalized. First few errors:");
-                        foreach (var failure in failures)
+                        foreach (Lidarr.Plugin.Common.Interfaces.TrackDownloadResult? failure in failures)
                         {
-                            var error = string.IsNullOrWhiteSpace(failure.ErrorMessage) ? "(no error message provided)" : failure.ErrorMessage;
+                            string error = string.IsNullOrWhiteSpace(failure.ErrorMessage) ? "(no error message provided)" : failure.ErrorMessage;
                             Console.WriteLine($"   - {failure.TrackId}: {error}");
                         }
                     }
@@ -533,14 +527,14 @@ public class Program
     {
         cliTokens ??= await TokenStorage.GetValidTokensAsync();
 
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         IntegrationModule.RegisterServices(services);
-        var provider = services.BuildServiceProvider();
+        ServiceProvider provider = services.BuildServiceProvider();
 
         if (cliTokens != null)
         {
-            var sessionId = string.IsNullOrEmpty(cliTokens.SessionId) ? cliTokens.UserId : cliTokens.SessionId;
-            var pluginTokens = new TidalTokens(
+            string sessionId = string.IsNullOrEmpty(cliTokens.SessionId) ? cliTokens.UserId : cliTokens.SessionId;
+            TidalTokens pluginTokens = new(
                 cliTokens.AccessToken,
                 cliTokens.RefreshToken,
                 cliTokens.TokenType,
@@ -549,7 +543,7 @@ public class Program
                 cliTokens.CountryCode,
                 cliTokens.UserId);
 
-            var pluginStorage = provider.GetRequiredService<ITokenStorage>();
+            ITokenStorage pluginStorage = provider.GetRequiredService<ITokenStorage>();
             await pluginStorage.SaveTokensAsync(pluginTokens);
         }
 
@@ -558,7 +552,7 @@ public class Program
 
     private static async Task<Lidarr.Plugin.Common.Services.Download.SimpleDownloadOrchestrator> CreateOrchestratorForCliAsync()
     {
-        var provider = await BuildPluginServiceProviderAsync();
+        ServiceProvider provider = await BuildPluginServiceProviderAsync();
         return IntegrationModule.CreateOrchestrator(provider);
     }
 
@@ -576,41 +570,41 @@ public class Program
 
     private static string BuildAlbumOutputDirectory(string rootDirectory, TidalAlbumInfo album)
     {
-        var artistName = album.Artists?.FirstOrDefault();
+        string? artistName = album.Artists?.FirstOrDefault();
         if (string.IsNullOrWhiteSpace(artistName))
         {
             artistName = "Unknown Artist";
         }
 
-        var safeArtist = FileSystemUtilities.SanitizeFileName(artistName);
-        var albumTitle = string.IsNullOrWhiteSpace(album.Title) ? album.Id : album.Title;
-        int? releaseYear = album.ReleaseDate != default ? album.ReleaseDate.Year : (int?)null;
-        var safeAlbum = FileSystemUtilities.CreateAlbumDirectoryName(albumTitle, releaseYear);
+        string safeArtist = FileSystemUtilities.SanitizeFileName(artistName);
+        string albumTitle = string.IsNullOrWhiteSpace(album.Title) ? album.Id : album.Title;
+        int? releaseYear = album.ReleaseDate != default ? album.ReleaseDate.Year : null;
+        string safeAlbum = FileSystemUtilities.CreateAlbumDirectoryName(albumTitle, releaseYear);
 
         return Path.Combine(rootDirectory, safeArtist, safeAlbum);
     }
     private static async Task SearchViaPlugin(string query)
     {
         Console.WriteLine($"\n?? Live search via plugin: '{query}'");
-        var cliTokens = await TokenStorage.GetValidTokensAsync();
+        TidalTokenInfo? cliTokens = await TokenStorage.GetValidTokensAsync();
         if (cliTokens == null)
         {
             Console.WriteLine("? Not authenticated. Use auth-start/auth-complete first.");
             return;
         }
 
-        using var provider = await BuildPluginServiceProviderAsync(cliTokens);
-        using var api = provider.GetRequiredService<Tidalarr.Domain.Api.TidalApiClient>();
+        using ServiceProvider provider = await BuildPluginServiceProviderAsync(cliTokens);
+        using Tidalarr.Domain.Api.TidalApiClient api = provider.GetRequiredService<Tidalarr.Domain.Api.TidalApiClient>();
 
         try
         {
-            var results = await ExecuteSearchWithRetryAsync(api, query);
+            TidalSearchResults results = await ExecuteSearchWithRetryAsync(api, query);
             Console.WriteLine($"? Albums: {results.Albums.Count}, Tracks: {results.Tracks.Count}");
-            foreach (var a in results.Albums.Take(3))
+            foreach (TidalAlbumInfo? a in results.Albums.Take(3))
             {
                 Console.WriteLine($"  ?? {a.Title} - {string.Join(", ", a.Artists)} (id: {a.Id})");
             }
-            foreach (var t in results.Tracks.Take(3))
+            foreach (TidalTrackInfo? t in results.Tracks.Take(3))
             {
                 Console.WriteLine($"  ?? {t.Title} - {string.Join(", ", t.Artists)} (id: {t.Id})");
             }
@@ -637,19 +631,19 @@ public class Program
 
     private static HttpClient CreateHttpClient()
     {
-        var handler = new SocketsHttpHandler
+        SocketsHttpHandler handler = new()
         {
             AutomaticDecompression = DecompressionMethods.All
         };
         return new HttpClient(handler, disposeHandler: true);
     }
     // --- Config management ---
-    class CliConfig
+    private class CliConfig
     {
         public string? OutputDirectory { get; set; }
         public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-        private static string PathCfg => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_config.json");
+        private static string PathCfg => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_config.json");
         public static CliConfig Load()
         {
             try { if (File.Exists(PathCfg)) return JsonSerializer.Deserialize<CliConfig>(File.ReadAllText(PathCfg)) ?? new CliConfig(); }
@@ -660,8 +654,8 @@ public class Program
         {
             try
             {
-                var dir = System.IO.Path.GetDirectoryName(PathCfg);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                string? dir = Path.GetDirectoryName(PathCfg);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) _ = Directory.CreateDirectory(dir);
                 File.WriteAllText(PathCfg, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
                 Console.WriteLine($"✅ Saved config to {PathCfg}");
             }
@@ -669,15 +663,15 @@ public class Program
         }
     }
 
-    static async Task ConfigureDefaults()
+    private static async Task ConfigureDefaults()
     {
-        var cfg = CliConfig.Load();
+        CliConfig cfg = CliConfig.Load();
         Console.Write($"Output directory [{cfg.OutputDirectory ?? "(none)"}]: ");
-        var od = Console.ReadLine();
+        string? od = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(od)) cfg.OutputDirectory = od;
         Console.Write($"Preferred quality (Low|High|Lossless|HiRes) [{cfg.PreferredQuality}]: ");
-        var pq = Console.ReadLine();
-        if (!string.IsNullOrWhiteSpace(pq) && Enum.TryParse<TidalQuality>(pq, true, out var parsedQuality))
+        string? pq = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(pq) && Enum.TryParse(pq, true, out TidalQuality parsedQuality))
         {
             cfg.PreferredQuality = parsedQuality;
         }
@@ -685,29 +679,29 @@ public class Program
         await Task.CompletedTask;
     }
 
-    static void TryOpenBrowser(string url)
+    private static void TryOpenBrowser(string url)
     {
         try
         {
-            var psi = new System.Diagnostics.ProcessStartInfo
+            System.Diagnostics.ProcessStartInfo psi = new()
             {
                 FileName = url,
                 UseShellExecute = true
             };
-            System.Diagnostics.Process.Start(psi);
+            _ = System.Diagnostics.Process.Start(psi);
         }
         catch { /* ignore */ }
     }
 
-    static async Task TestOAuthGeneration()
+    private static async Task TestOAuthGeneration()
     {
         Console.WriteLine("\n🔐 Testing OAuth URL Generation...");
 
-        var httpClient = CreateHttpClient();
-        var pkceGenerator = new PKCEGenerator();
-        var authService = new TidalOAuthService(httpClient, pkceGenerator);
+        HttpClient httpClient = CreateHttpClient();
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService authService = new(httpClient, pkceGenerator);
 
-        var authUrl = await authService.GenerateAuthUrlAsync();
+        TidalOAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
 
         Console.WriteLine($"✅ OAuth URL Generated Successfully!");
         Console.WriteLine($"📏 Code Verifier Length: {authUrl.CodeVerifier.Length}");
@@ -721,15 +715,15 @@ public class Program
         Console.WriteLine($"   Contains S256 method: {authUrl.AuthorizationUrl.Contains("code_challenge_method=S256")}");
     }
 
-    static Task TestCallbackParsing()
+    private static Task TestCallbackParsing()
     {
         Console.WriteLine("\n📞 Testing OAuth Callback Parsing...");
 
-        var authService = new TidalOAuthService(CreateHttpClient(), new PKCEGenerator());
+        TidalOAuthService authService = new(CreateHttpClient(), new PKCEGenerator());
 
         // Test valid callback
-        var validCallback = "https://tidal.com/android/login/auth?code=test_auth_code_12345&state=secure_state_67890";
-        var result = authService.ParseCallbackUrl(validCallback);
+        string validCallback = "https://tidal.com/android/login/auth?code=test_auth_code_12345&state=secure_state_67890";
+        TidalCallbackResult result = authService.ParseCallbackUrl(validCallback);
 
         Console.WriteLine($"✅ Valid Callback Test:");
         Console.WriteLine($"   Success: {result.IsSuccess}");
@@ -737,8 +731,8 @@ public class Program
         Console.WriteLine($"   State: {result.State}");
 
         // Test invalid callback
-        var invalidCallback = "https://tidal.com/android/login/auth?error=access_denied";
-        var errorResult = authService.ParseCallbackUrl(invalidCallback);
+        string invalidCallback = "https://tidal.com/android/login/auth?error=access_denied";
+        TidalCallbackResult errorResult = authService.ParseCallbackUrl(invalidCallback);
 
         Console.WriteLine($"\n❌ Invalid Callback Test:");
         Console.WriteLine($"   Success: {errorResult.IsSuccess}");
@@ -746,15 +740,15 @@ public class Program
         return Task.CompletedTask;
     }
 
-    static Task TestSearchFunctionality()
+    private static Task TestSearchFunctionality()
     {
         Console.WriteLine("\n🔍 Testing Search Functionality...");
 
-        var settings = CreateTestIndexerSettings();
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        TidalarrSettings settings = CreateTestIndexerSettings();
+        ServiceCollection services = new();
         IntegrationModule.RegisterServices(services);
-        var provider = services.BuildServiceProvider();
-        var indexer = TidalMockModule.CreateIndexer(provider, settings);
+        ServiceProvider provider = services.BuildServiceProvider();
+        _ = TidalMockModule.CreateIndexer(provider, settings);
 
         Console.WriteLine($"✅ Search indexer created successfully");
         Console.WriteLine($"📊 Settings validation: {TidalMockModule.ValidateConfiguration(settings)}");
@@ -770,20 +764,20 @@ public class Program
         return Task.CompletedTask;
     }
 
-    static Task TestDownloadWorkflow()
+    private static Task TestDownloadWorkflow()
     {
         Console.WriteLine("\n⬇️  Testing Download Workflow...");
 
-        var settings = CreateTestDownloadSettings();
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        TidalarrSettings settings = CreateTestDownloadSettings();
+        ServiceCollection services = new();
         IntegrationModule.RegisterServices(services);
-        var provider = services.BuildServiceProvider();
-        var downloadClient = TidalMockModule.CreateDownloadClient(provider, settings);
+        ServiceProvider provider = services.BuildServiceProvider();
+        MockDownloadClient downloadClient = TidalMockModule.CreateDownloadClient(provider, settings);
 
         Console.WriteLine($"✅ Download client created successfully");
 
         // Test download validation (mock)
-        var canValidate = downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless).GetAwaiter().GetResult();
+        _ = downloadClient.ValidateDownloadAsync("test-track-123", TidalQuality.Lossless).GetAwaiter().GetResult();
         Console.WriteLine($"📊 Download validation capability: Working");
         return Task.CompletedTask;
 
@@ -793,7 +787,7 @@ public class Program
         // Console.WriteLine($"💿 Quality: {result.Quality}, Format: {result.FileExtension}");
     }
 
-    static async Task RunAllTests()
+    private static async Task RunAllTests()
     {
         Console.WriteLine("\n🧪 Running All Integration Tests...");
         Console.WriteLine("===================================\n");
@@ -840,11 +834,11 @@ public class Program
         };
     }
 
-    static async Task TestRealMusicSearch()
+    private static async Task TestRealMusicSearch()
     {
         Console.WriteLine("\n🔍 Testing Real Music Search...");
 
-        var tokens = await TokenStorage.GetValidTokensAsync();
+        TidalTokenInfo? tokens = await TokenStorage.GetValidTokensAsync();
         if (tokens == null)
         {
             Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
@@ -852,7 +846,7 @@ public class Program
         }
 
         Console.Write("Enter search query (e.g., 'Bohemian Rhapsody Queen'): ");
-        var searchQuery = Console.ReadLine()?.Trim();
+        string? searchQuery = Console.ReadLine()?.Trim();
 
         if (string.IsNullOrEmpty(searchQuery))
         {
@@ -864,27 +858,27 @@ public class Program
         {
             // Test album search
             Console.WriteLine($"\n🎵 Searching for albums: '{searchQuery}'");
-            var albumUrl = $"https://api.tidal.com/v1/search/albums?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
+            string albumUrl = $"https://api.tidal.com/v1/search/albums?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
 
             httpClient.DefaultRequestHeaders.Clear();
             httpClient.DefaultRequestHeaders.Add("Authorization", $"{tokens.TokenType} {tokens.AccessToken}");
 
-            var response = await httpClient.GetAsync(albumUrl);
-            var content = await response.Content.ReadAsStringAsync();
+            HttpResponseMessage response = await httpClient.GetAsync(albumUrl);
+            string content = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {
-                var searchResult = JsonSerializer.Deserialize<JsonElement>(content);
-                var albums = searchResult.GetProperty("items");
+                JsonElement searchResult = JsonSerializer.Deserialize<JsonElement>(content);
+                JsonElement albums = searchResult.GetProperty("items");
 
                 Console.WriteLine($"✅ Found {albums.GetArrayLength()} albums:");
                 int i = 1;
-                foreach (var album in albums.EnumerateArray())
+                foreach (JsonElement album in albums.EnumerateArray())
                 {
-                    var title = album.GetProperty("title").GetString();
-                    var artist = album.GetProperty("artist").GetProperty("name").GetString();
-                    var id = album.GetProperty("id").GetInt64();
-                    var quality = album.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
+                    string? title = album.GetProperty("title").GetString();
+                    string? artist = album.GetProperty("artist").GetProperty("name").GetString();
+                    long id = album.GetProperty("id").GetInt64();
+                    string? quality = album.TryGetProperty("audioQuality", out JsonElement q) ? q.GetString() : "Unknown";
 
                     Console.WriteLine($"   {i}. 📀 {title} by {artist} (ID: {id}, Quality: {quality})");
                     i++;
@@ -899,27 +893,27 @@ public class Program
 
             // Test track search
             Console.WriteLine($"\n🎵 Searching for tracks: '{searchQuery}'");
-            var trackUrl = $"https://api.tidal.com/v1/search/tracks?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
+            string trackUrl = $"https://api.tidal.com/v1/search/tracks?query={Uri.EscapeDataString(searchQuery)}&sessionId={tokens.UserId}&countryCode={tokens.CountryCode}&limit=5";
 
-            var trackResponse = await httpClient.GetAsync(trackUrl);
-            var trackContent = await trackResponse.Content.ReadAsStringAsync();
+            HttpResponseMessage trackResponse = await httpClient.GetAsync(trackUrl);
+            string trackContent = await trackResponse.Content.ReadAsStringAsync();
 
             if (trackResponse.IsSuccessStatusCode)
             {
-                var trackResult = JsonSerializer.Deserialize<JsonElement>(trackContent);
-                var tracks = trackResult.GetProperty("items");
+                JsonElement trackResult = JsonSerializer.Deserialize<JsonElement>(trackContent);
+                JsonElement tracks = trackResult.GetProperty("items");
 
                 Console.WriteLine($"✅ Found {tracks.GetArrayLength()} tracks:");
                 int j = 1;
-                foreach (var track in tracks.EnumerateArray())
+                foreach (JsonElement track in tracks.EnumerateArray())
                 {
-                    var title = track.GetProperty("title").GetString();
-                    var artist = track.GetProperty("artist").GetProperty("name").GetString();
-                    var id = track.GetProperty("id").GetInt64();
-                    var duration = track.GetProperty("duration").GetInt32();
-                    var quality = track.TryGetProperty("audioQuality", out var q) ? q.GetString() : "Unknown";
+                    string? title = track.GetProperty("title").GetString();
+                    string? artist = track.GetProperty("artist").GetProperty("name").GetString();
+                    long id = track.GetProperty("id").GetInt64();
+                    int duration = track.GetProperty("duration").GetInt32();
+                    string? quality = track.TryGetProperty("audioQuality", out JsonElement q) ? q.GetString() : "Unknown";
 
-                    var durationStr = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
+                    string durationStr = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
                     Console.WriteLine($"   {j}. 🎵 {title} by {artist} ({durationStr}) (ID: {id}, Quality: {quality})");
                     j++;
                     if (j > 3) break; // Show first 3 results
@@ -938,11 +932,11 @@ public class Program
         }
     }
 
-    static async Task TestRealDownloadWorkflow()
+    private static async Task TestRealDownloadWorkflow()
     {
         Console.WriteLine("\n⬇️ Testing Real Download Workflow...");
 
-        var tokens = await TokenStorage.GetValidTokensAsync();
+        TidalTokenInfo? tokens = await TokenStorage.GetValidTokensAsync();
         if (tokens == null)
         {
             Console.WriteLine("❌ No valid authentication found. Please authenticate first.");
@@ -950,14 +944,14 @@ public class Program
         }
 
         Console.Write("Enter track ID to test download (or press ENTER for default): ");
-        var trackIdInput = Console.ReadLine()?.Trim();
+        string? trackIdInput = Console.ReadLine()?.Trim();
 
         // Use a track ID from our search results
-        var trackId = string.IsNullOrEmpty(trackIdInput) ? "36737274" : trackIdInput; // Bohemian Rhapsody
+        string trackId = string.IsNullOrEmpty(trackIdInput) ? "36737274" : trackIdInput; // Bohemian Rhapsody
         Console.WriteLine($"Testing download for track ID: {trackId} (Plugin-Based Architecture)");
 
         // Use plugin helper for proper architecture
-        var result = await TidalCLIHelper.TestRealDownloadWorkflowAsync(trackId, tokens);
+        string result = await TidalCLIHelper.TestRealDownloadWorkflowAsync(trackId, tokens);
         Console.WriteLine(result);
 
         /* Old implementation - keeping for reference
@@ -1063,46 +1057,46 @@ public class Program
     {
         Console.WriteLine("\n🔧 Settings Validation (diagnostics)");
         Console.Write("ConfigPath (blank for temp): ");
-        var config = Console.ReadLine();
+        string? config = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
 
         Console.Write("RedirectUrl (blank for sample): ");
-        var redirect = Console.ReadLine();
+        string? redirect = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
 
         Console.Write("DownloadPath (blank for temp): ");
-        var output = Console.ReadLine();
+        string? output = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
 
-        var args = new[] { $"ConfigPath={config}", $"RedirectUrl={redirect}", $"DownloadPath={output}" };
+        string[] args = [$"ConfigPath={config}", $"RedirectUrl={redirect}", $"DownloadPath={output}"];
         await RunSettingsValidateAsync(args);
     }
 
     private static async Task RunSettingsValidateAsync(string[] args)
     {
-        var map = new Dictionary<string, object?>();
-        foreach (var arg in args)
+        Dictionary<string, object?> map = [];
+        foreach (string arg in args)
         {
-            var idx = arg.IndexOf('=');
+            int idx = arg.IndexOf('=');
             if (idx > 0)
             {
-                var key = arg.Substring(0, idx);
-                var val = arg.Substring(idx + 1);
+                string key = arg[..idx];
+                string val = arg[(idx + 1)..];
                 map[key] = val;
             }
         }
         // Unknown key validation
-        var unknown = map.Keys.Select(k => k.ToString()).Where(k => k is not null).Cast<string>().Where(k => !SettingsAllowedKeys.Contains(k)).ToArray();
+        string[] unknown = [.. map.Keys.Select(k => k.ToString()).Where(k => k is not null).Cast<string>().Where(k => !SettingsAllowedKeys.Contains(k))];
         if (unknown.Length > 0)
         {
-            var meta = new Dictionary<string, string>
+            Dictionary<string, string> meta = new()
             {
                 ["id"] = "CFGVAL",
                 ["field"] = "Unknown",
                 ["unknown"] = string.Join(",", unknown)
             };
-            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown settings keys.", null, meta);
-            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Lidarr.Plugin.Abstractions.Results.PluginError err = new(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown settings keys.", null, meta);
+            Lidarr.Plugin.Abstractions.Results.PluginOperationResult op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
             Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
             return;
         }
@@ -1110,9 +1104,9 @@ public class Program
         if (!map.ContainsKey("RedirectUrl")) map["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state";
         if (!map.ContainsKey("DownloadPath")) map["DownloadPath"] = Path.GetTempPath();
 
-        var plugin = new Tidalarr.Integration.TidalarrPlugin();
+        TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
-        var result = plugin.ValidateSettingsWithDiagnostics(map);
+        Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> result = plugin.ValidateSettingsWithDiagnostics(map);
         Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(result));
     }
 
@@ -1120,53 +1114,53 @@ public class Program
     {
         Console.WriteLine("\n📇 Indexer Validation (diagnostics)");
         Console.Write("ConfigPath (blank for temp): ");
-        var config = Console.ReadLine();
+        string? config = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
 
         Console.Write("RedirectUrl (blank for sample): ");
-        var redirect = Console.ReadLine();
+        string? redirect = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
 
         Console.Write("Market (default US): ");
-        var market = Console.ReadLine();
+        string? market = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(market)) market = "US";
 
-        await RunIndexerValidateAsync(new[] { $"ConfigPath={config}", $"RedirectUrl={redirect}", $"TidalMarket={market}" });
+        await RunIndexerValidateAsync([$"ConfigPath={config}", $"RedirectUrl={redirect}", $"TidalMarket={market}"]);
     }
 
     private static async Task RunIndexerValidateAsync(string[] args)
     {
-        var idxSettings = new Tidalarr.Integration.TidalIndexerSettings();
-        foreach (var arg in args)
+        TidalIndexerSettings idxSettings = new();
+        foreach (string arg in args)
         {
-            var i = arg.IndexOf('=');
+            int i = arg.IndexOf('=');
             if (i <= 0) continue;
-            var k = arg[..i];
-            var v = arg[(i + 1)..];
-            if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase)) idxSettings.ConfigPath = v;
-            else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase)) idxSettings.RedirectUrl = v;
-            else if (k.Equals(nameof(Tidalarr.Integration.TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase)) idxSettings.TidalMarket = v;
+            string k = arg[..i];
+            string v = arg[(i + 1)..];
+            if (k.Equals(nameof(TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase)) idxSettings.ConfigPath = v;
+            else if (k.Equals(nameof(TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase)) idxSettings.RedirectUrl = v;
+            else if (k.Equals(nameof(TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase)) idxSettings.TidalMarket = v;
             else
             {
-                var meta = new Dictionary<string, string>
+                Dictionary<string, string> meta = new()
                 {
                     ["id"] = "IXVAL",
                     ["field"] = "Unknown",
                     ["unknown"] = k
                 };
-                var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown indexer key.", null, meta);
-                var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+                Lidarr.Plugin.Abstractions.Results.PluginError err = new(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown indexer key.", null, meta);
+                Lidarr.Plugin.Abstractions.Results.PluginOperationResult op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
                 Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
                 return;
             }
         }
 
-        var services = new ServiceCollection();
-        services.AddSingleton(idxSettings);
-        Tidalarr.Integration.TidalModule.RegisterServices(services);
-        var provider = services.BuildServiceProvider();
-        var indexer = provider.GetRequiredService<Tidalarr.Integration.TidalIndexer>();
-        var res = await indexer.InitializeWithDiagnosticsAsync();
+        ServiceCollection services = new();
+        _ = services.AddSingleton(idxSettings);
+        IntegrationModule.RegisterServices(services);
+        ServiceProvider provider = services.BuildServiceProvider();
+        TidalIndexer indexer = provider.GetRequiredService<TidalIndexer>();
+        Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> res = await indexer.InitializeWithDiagnosticsAsync();
         Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(res));
     }
 
@@ -1174,48 +1168,48 @@ public class Program
     {
         Console.WriteLine("\n⬇️ Download Validation (diagnostics)");
         Console.Write("TrackId: ");
-        var track = Console.ReadLine();
+        string? track = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(track)) track = "test-track";
 
         Console.Write("Preferred Quality (Low|High|Lossless|HiRes, default Lossless): ");
-        var q = Console.ReadLine();
+        string? q = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(q)) q = "Lossless";
 
         Console.Write("DownloadPath (blank for temp): ");
-        var output = Console.ReadLine();
+        string? output = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
 
-        await RunDownloadValidateAsync(new[] { $"TrackId={track}", $"Quality={q}", $"DownloadPath={output}" });
+        await RunDownloadValidateAsync([$"TrackId={track}", $"Quality={q}", $"DownloadPath={output}"]);
     }
 
     private static async Task RunDownloadValidateAsync(string[] args)
     {
         string trackId = "";
-        var quality = Tidalarr.Core.Models.TidalQuality.Lossless;
-        var dlSettings = new Tidalarr.Integration.TidalDownloadClientSettings();
+        TidalQuality quality = TidalQuality.Lossless;
+        TidalDownloadClientSettings dlSettings = new();
         bool qualityProvided = false;
         string? rawQuality = null;
-        var providedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var arg in args)
+        HashSet<string> providedKeys = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string arg in args)
         {
-            var i = arg.IndexOf('=');
+            int i = arg.IndexOf('=');
             if (i <= 0) continue;
-            var k = arg[..i];
-            var v = arg[(i + 1)..];
-            providedKeys.Add(k);
+            string k = arg[..i];
+            string v = arg[(i + 1)..];
+            _ = providedKeys.Add(k);
             if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase)) trackId = v;
-            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityProvided = true; rawQuality = v; if (Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(v, true, out var q)) quality = q; }
-            else if (k.Equals(nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
+            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityProvided = true; rawQuality = v; if (Enum.TryParse(v, true, out TidalQuality q)) quality = q; }
+            else if (k.Equals(nameof(TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
             else
             {
-                var meta = new Dictionary<string, string>
+                Dictionary<string, string> meta = new()
                 {
                     ["id"] = "DLVAL",
                     ["field"] = "Unknown",
                     ["unknown"] = k
                 };
-                var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown download key.", null, meta);
-                var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+                Lidarr.Plugin.Abstractions.Results.PluginError err = new(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Unknown download key.", null, meta);
+                Lidarr.Plugin.Abstractions.Results.PluginOperationResult op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
                 Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
                 return;
             }
@@ -1223,48 +1217,48 @@ public class Program
 
         if (string.IsNullOrWhiteSpace(trackId)) { Console.WriteLine("Provide TrackId="); return; }
         if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath)) dlSettings.DownloadPath = Path.GetTempPath();
-        if (!Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(dlSettings.DownloadPath))
+        if (!PathValidationExtensions.IsReasonablePath(dlSettings.DownloadPath))
         {
-            var meta = new Dictionary<string, string>
+            Dictionary<string, string> meta = new()
             {
                 ["id"] = "DLVAL",
-                ["field"] = nameof(Tidalarr.Integration.TidalDownloadClientSettings.DownloadPath),
+                ["field"] = nameof(TidalDownloadClientSettings.DownloadPath),
                 ["value"] = dlSettings.DownloadPath
             };
-            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid download path.", null, meta);
-            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Lidarr.Plugin.Abstractions.Results.PluginError err = new(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid download path.", null, meta);
+            Lidarr.Plugin.Abstractions.Results.PluginOperationResult op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
             Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
             return;
         }
 
-        if (qualityProvided && rawQuality is not null && !Enum.TryParse<Tidalarr.Core.Models.TidalQuality>(rawQuality, true, out _))
+        if (qualityProvided && rawQuality is not null && !Enum.TryParse<TidalQuality>(rawQuality, true, out _))
         {
-            var meta = new Dictionary<string, string>
+            Dictionary<string, string> meta = new()
             {
                 ["id"] = "DLVAL",
                 ["field"] = "Quality",
                 ["value"] = rawQuality,
                 ["allowed"] = "Low|High|Lossless|HiRes"
             };
-            var err = new Lidarr.Plugin.Abstractions.Results.PluginError(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid quality value.", null, meta);
-            var op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
+            Lidarr.Plugin.Abstractions.Results.PluginError err = new(Lidarr.Plugin.Abstractions.Results.PluginErrorCode.ValidationFailed, "Invalid quality value.", null, meta);
+            Lidarr.Plugin.Abstractions.Results.PluginOperationResult op = Lidarr.Plugin.Abstractions.Results.PluginOperationResult.Failure(err);
             Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
             return;
         }
 
-        var services = new ServiceCollection();
-        services.AddSingleton(dlSettings);
-        Tidalarr.Integration.TidalModule.RegisterServices(services);
-        var provider = services.BuildServiceProvider();
-        var client = provider.GetRequiredService<Tidalarr.Integration.TidalDownloadClient>();
-        var res = await client.ValidateDownloadWithDiagnosticsAsync(trackId, quality);
+        ServiceCollection services = new();
+        _ = services.AddSingleton(dlSettings);
+        IntegrationModule.RegisterServices(services);
+        ServiceProvider provider = services.BuildServiceProvider();
+        TidalDownloadClient client = provider.GetRequiredService<TidalDownloadClient>();
+        Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>> res = await client.ValidateDownloadWithDiagnosticsAsync(trackId, quality);
         Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(res));
     }
 
     private sealed class HarnessContext : Lidarr.Plugin.Abstractions.Contracts.IPluginContext
     {
         public Version HostVersion { get; } = new(2, 14, 2, 4786);
-        public Microsoft.Extensions.Logging.ILoggerFactory LoggerFactory { get; } = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
+        public ILoggerFactory LoggerFactory { get; } = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
         public IServiceProvider? Services { get; } = null;
     }
 }
