@@ -46,7 +46,7 @@ jobs:
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: |
-            6.0.x
+            8.0.x
             9.0.x
           cache: true
           cache-dependency-path: |
@@ -75,7 +75,7 @@ jobs:
         shell: pwsh
         run: |
           # Verify from build output (ILRepack packaging not available in CI)
-          $outputDir = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/bin/Release/net6.0'
+          $outputDir = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/bin/Release/net8.0'
           if (-not (Test-Path $outputDir)) { Write-Error "Build output not found: $outputDir"; exit 1 }
           $dlls = Get-ChildItem $outputDir -Filter *.dll | ForEach-Object { $_.Name }
           $allowed = @('Lidarr.Plugin.Tidalarr.dll','Lidarr.Plugin.Common.dll','Lidarr.Plugin.Abstractions.dll')
@@ -89,9 +89,9 @@ jobs:
         with:
           name: plugin-build
           path: |
-            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Tidalarr.dll
-            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Tidalarr.pdb
-            src/Tidalarr/bin/Release/net6.0/Lidarr.Plugin.Common.dll
+            src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll
+            src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.pdb
+            src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Common.dll
             plugin.json
 
 
