@@ -60,12 +60,14 @@ jobs:
           # Build with net8.0 to match Lidarr plugins branch runtime
           # Confirmed via Tubifarry (working plugin) and PluginService.cs:77 (looks for net8.0.zip)
           dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net8.0
+          # NOTE: PluginPackagingDisable must be FALSE (default) to enable ILRepack.
+          # ILRepack merges Lidarr.Plugin.Common.dll and other dependencies INTO
+          # the main plugin DLL, making it self-contained and loadable by Lidarr.
           dotnet build src/Tidalarr/Tidalarr.csproj \
             --configuration Release \
             --no-restore \
             -p:TargetFramework=net8.0 \
             -p:UsePluginsBranch=true \
-            -p:PluginPackagingDisable=true \
             -p:RunAnalyzersDuringBuild=false \
             -p:EnableNETAnalyzers=false \
             -p:TreatWarningsAsErrors=false
