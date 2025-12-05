@@ -49,24 +49,24 @@ jobs:
         run: |
           docker pull ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
           docker create --name lidarr-extract ghcr.io/hotio/lidarr:${{ env.LIDARR_DOCKER_VERSION }}
-          # Lidarr plugins branch uses .NET 8.0 runtime (confirmed via Tubifarry and PluginService.cs)
-          mkdir -p ext/Lidarr/_output/net8.0
-          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net8.0/
+          # CRITICAL: Lidarr plugins branch v2.x runs on .NET 6.0, not .NET 8.0!
+          # Using net8.0 causes "System.Runtime 8.0.0.0 not found" errors.
+          mkdir -p ext/Lidarr/_output/net6.0
+          docker cp lidarr-extract:/app/bin/. ext/Lidarr/_output/net6.0/
           docker rm lidarr-extract
-          ls -la ext/Lidarr/_output/net8.0/ | head -20
+          ls -la ext/Lidarr/_output/net6.0/ | head -20
 
       - name: Build Plugin
         run: |
-          # Build with net8.0 to match Lidarr plugins branch runtime
-          # Confirmed via Tubifarry (working plugin) and PluginService.cs:77 (looks for net8.0.zip)
-          dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net8.0
+          # Build for net6.0 to match Lidarr plugins branch v2.x runtime
+          dotnet restore src/Tidalarr/Tidalarr.csproj -p:TargetFramework=net6.0
           # NOTE: PluginPackagingDisable must be FALSE (default) to enable ILRepack.
           # ILRepack merges Lidarr.Plugin.Common.dll and other dependencies INTO
           # the main plugin DLL, making it self-contained and loadable by Lidarr.
           dotnet build src/Tidalarr/Tidalarr.csproj \
             --configuration Release \
             --no-restore \
-            -p:TargetFramework=net8.0 \
+            -p:TargetFramework=net6.0 \
             -p:UsePluginsBranch=true \
             -p:RunAnalyzersDuringBuild=false \
             -p:EnableNETAnalyzers=false \
