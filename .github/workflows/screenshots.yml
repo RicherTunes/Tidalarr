@@ -89,8 +89,8 @@ jobs:
           BIN_DIR=$(dirname "$DLL_PATH")
           echo "Found plugin in: $BIN_DIR"
 
-          # Copy plugin DLL and its dependencies (Common, Abstractions)
-          # Exclude Lidarr framework DLLs (already in container) and system DLLs
+          # Copy plugin DLL and ALL dependencies
+          # Only exclude Lidarr framework DLLs and NzbDrone DLLs (already in container)
           for dll in "$BIN_DIR"/*.dll; do
             filename=$(basename "$dll")
             # Skip Lidarr framework DLLs and NzbDrone DLLs (provided by container)
@@ -100,11 +100,6 @@ jobs:
             fi
             if [[ "$filename" == NzbDrone.*.dll ]]; then
               echo "Skipping framework DLL: $filename"
-              continue
-            fi
-            # Skip common system DLLs already in container
-            if [[ "$filename" == Microsoft.*.dll || "$filename" == System.*.dll ]]; then
-              echo "Skipping system DLL: $filename"
               continue
             fi
             echo "Copying: $filename"
