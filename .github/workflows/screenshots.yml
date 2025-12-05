@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           mkdir -p plugin-dist
 
-          # Find the built DLL
+          # Find the built DLL and its directory
           DLL_PATH=$(find . -name 'Lidarr.Plugin.Tidalarr.dll' -path '*/bin/*' | head -1)
           if [ -z "$DLL_PATH" ]; then
             echo "Could not find built Tidalarr DLL" >&2
@@ -86,9 +86,33 @@ jobs:
             exit 1
           fi
 
-          cp "$DLL_PATH" plugin-dist/
+          BIN_DIR=$(dirname "$DLL_PATH")
+          echo "Found plugin in: $BIN_DIR"
+
+          # Copy plugin DLL and its dependencies (Common, Abstractions)
+          # Exclude Lidarr framework DLLs (already in container) and system DLLs
+          for dll in "$BIN_DIR"/*.dll; do
+            filename=$(basename "$dll")
+            # Skip Lidarr framework DLLs and NzbDrone DLLs (provided by container)
+            if [[ "$filename" == Lidarr.*.dll && "$filename" != Lidarr.Plugin.* ]]; then
+              echo "Skipping framework DLL: $filename"
+              continue
+            fi
+            if [[ "$filename" == NzbDrone.*.dll ]]; then
+              echo "Skipping framework DLL: $filename"
+              continue
+            fi
+            # Skip common system DLLs already in container
+            if [[ "$filename" == Microsoft.*.dll || "$filename" == System.*.dll ]]; then
+              echo "Skipping system DLL: $filename"
+              continue
+            fi
+            echo "Copying: $filename"
+            cp "$dll" plugin-dist/
+          done
+
           cp plugin.json plugin-dist/ 2>/dev/null || echo "No plugin.json in root"
-          echo "Staged plugin from: $DLL_PATH"
+          echo "=== Staged plugin files ==="
           ls -la plugin-dist
 
       - name: Start Lidarr with plugin mounted
