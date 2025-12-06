@@ -203,9 +203,10 @@ jobs:
       - name: Fetch centralized screenshot utility
         run: |
           # Get the latest centralized screenshot utility from Common library
+          # Using fix/snap-modal-detection branch for protocol activation feature
           mkdir -p .screenshot-tools
-          curl -fsSL https://raw.githubusercontent.com/RicherTunes/Lidarr.Plugin.Common/main/scripts/snapshots/snap.mjs -o .screenshot-tools/snap.mjs
-          echo "Downloaded centralized screenshot utility"
+          curl -fsSL https://raw.githubusercontent.com/RicherTunes/Lidarr.Plugin.Common/fix/snap-modal-detection/scripts/snapshots/snap.mjs -o .screenshot-tools/snap.mjs
+          echo "Downloaded centralized screenshot utility (with protocol activation)"
 
       - name: Capture Screenshots
         env:
