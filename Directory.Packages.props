@@ -52,6 +52,7 @@
        ═══════════════════════════════════════════════════════════════════════════ -->
   <ItemGroup Label="Build Tools">
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+    <PackageVersion Include="ILRepack.Lib.MSBuild.Task" Version="2.0.34.2" />
   </ItemGroup>
 
 </Project>

@@ -28,6 +28,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
     <PackageReference Include="NLog" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <!-- ILRepack: ExcludeAssets="build" prevents the package's built-in target from running.
+         GeneratePathProperty="true" creates $(PkgILRepack_Lib_MSBuild_Task) for PluginPackaging.targets. -->
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" PrivateAssets="all" ExcludeAssets="build" GeneratePathProperty="true" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\plugin.json">
@@ -35,4 +38,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- Import shared plugin packaging targets from Lidarr.Plugin.Common -->
+  <Import Project="..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets" Condition="Exists('..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets')" />
 </Project>
