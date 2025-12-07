@@ -3,7 +3,7 @@
   "name": "Tidalarr",
   "version": "1.0.1",
   "apiVersion": "1.x",
-  "commonVersion": "1.3.0",
+  "commonVersion": "1.4.0",
   "minHostVersion": "2.14.2.4786",
   "minimumVersion": "2.14.2.4786",
   "entryAssembly": "Lidarr.Plugin.Tidalarr.dll",
