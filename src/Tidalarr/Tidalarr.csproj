@@ -5,6 +5,8 @@
     <!-- Version managed by Directory.Build.props from VERSION file -->
     <!-- Suppress unused parameter warnings for interface implementations and future-proofed parameters -->
     <NoWarn>$(NoWarn);IDE0052;IDE0060</NoWarn>
+    <!-- Disable NuGet package's built-in ILRepack target - we use PluginPackaging.targets instead -->
+    <ILRepackEnabled>false</ILRepackEnabled>
   </PropertyGroup>
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
@@ -27,6 +29,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
     <PackageReference Include="NLog" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <!-- ILRepack: ExcludeAssets="build" prevents the NuGet package's automatic ILRepack target from running.
+         GeneratePathProperty="true" gives us $(PkgILRepack_Lib_MSBuild_Task) to import just the task DLL.
+         Our PluginPackaging.targets uses the ILRepack task directly for the RepackPlugin target. -->
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" PrivateAssets="all" ExcludeAssets="build" GeneratePathProperty="true" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\plugin.json">
@@ -34,4 +40,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- Explicitly import the ILRepack task since ExcludeAssets="build" blocks the automatic import.
+       This makes the task available to PluginPackaging.targets while preventing the NuGet package's
+       automatic target from running (which fails during CodeQL because Lidarr assemblies aren't available). -->
+  <UsingTask TaskName="ILRepack" AssemblyFile="$(PkgILRepack_Lib_MSBuild_Task)\build\ILRepack.Lib.MSBuild.Task.dll" />
+
+  <!-- Import shared plugin packaging targets from Lidarr.Plugin.Common -->
+  <Import Project="..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets" Condition="Exists('..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets')" />
 </Project>
