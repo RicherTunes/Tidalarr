@@ -1,24 +1,32 @@
-<Project Sdk="Microsoft.NET.Sdk" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Lidarr.Plugin.Tidalarr</AssemblyName>
     <!-- Version managed by Directory.Build.props from VERSION file -->
     <!-- Suppress unused parameter warnings for interface implementations and future-proofed parameters -->
     <NoWarn>$(NoWarn);IDE0052;IDE0060</NoWarn>
+    <!-- Output to bin/ root like other plugins for consistent ILRepack behavior -->
+    <OutputPath>bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
+
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
     <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' ">true</UseInRepoCommon>
   </PropertyGroup>
+
   <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' ">
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
   </ItemGroup>
+
   <ItemGroup Condition=" '$(UseInRepoCommon)' != 'true' ">
     <!-- Use centralized versions from Directory.Packages.props -->
     <PackageReference Include="Lidarr.Plugin.Abstractions" />
     <PackageReference Include="Lidarr.Plugin.Common" />
   </ItemGroup>
+
   <!-- Dependencies use centralized versions from Directory.Packages.props -->
   <ItemGroup>
     <PackageReference Include="FluentValidation" />
@@ -27,11 +35,25 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
     <PackageReference Include="NLog" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <!-- ILRepack for merging dependencies into single plugin DLL.
+         ExcludeAssets="build" prevents NuGet's automatic target; we use PluginPackaging.targets instead.
+         GeneratePathProperty="true" provides $(PkgILRepack_Lib_MSBuild_Task) for the task import. -->
+    <PackageReference Include="ILRepack.Lib.MSBuild.Task" PrivateAssets="all" ExcludeAssets="build" GeneratePathProperty="true" />
   </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\plugin.json">
       <Link>plugin.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- ILRepack: Import task definition from NuGet package -->
+  <UsingTask TaskName="ILRepack"
+             AssemblyFile="$(PkgILRepack_Lib_MSBuild_Task)\build\ILRepack.Lib.MSBuild.Task.dll"
+             Condition="'$(PkgILRepack_Lib_MSBuild_Task)' != ''" />
+
+  <!-- Import shared plugin packaging targets from Lidarr.Plugin.Common for ILRepack merging -->
+  <Import Project="..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets"
+          Condition="Exists('..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets')" />
 </Project>
