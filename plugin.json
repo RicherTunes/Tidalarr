@@ -1,35 +1,15 @@
 {
   "id": "tidalarr",
+  "apiVersion": "1.x",
   "name": "Tidalarr",
   "version": "1.0.1",
-  "apiVersion": "1.x",
-  "commonVersion": "1.4.0",
-  "minHostVersion": "2.14.2.4786",
-  "minimumVersion": "2.14.2.4786",
-  "entryAssembly": "Lidarr.Plugin.Tidalarr.dll",
-  "description": "Tidal integration for Lidarr - Search and download music from Tidal",
   "author": "RicherTunes",
+  "description": "Tidal integration for Lidarr - Search and download high-quality music from Tidal with OAuth 2.0 PKCE authentication",
   "homepage": "https://github.com/RicherTunes/Tidalarr",
   "license": "MIT",
-  "capabilities": [
-    "Search",
-    "Download",
-    "OAuth"
-  ],
-  "requiredSettings": [
-    "ConfigPath",
-    "RedirectUrl",
-    "DownloadPath"
-  ],
-  "protocols": [
-    "Tidalarr.TidalProtocol"
-  ],
-  "features": [
-    "OAuth 2.0 PKCE Authentication",
-    "High Quality Audio (Lossless, Hi-Res)",
-    "Smart Quality Detection",
-    "Sequential Chunk Downloading",
-    "Manifest Parsing (DASH/BTS)",
-    "Error Recovery"
-  ]
+  "tags": ["music", "tidal", "hi-res", "lossless", "oauth"],
+  "minimumLidarrVersion": "3.0.0.4855",
+  "targetFramework": "net8.0",
+  "main": "Lidarr.Plugin.Tidalarr.dll",
+  "rootNamespace": "Lidarr.Plugin.Tidalarr"
 }

@@ -31,7 +31,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         string buildConfiguration = Environment.GetEnvironmentVariable("TIDALARR_TEST_CONFIGURATION") ?? "Debug";
-        string targetFramework = Environment.GetEnvironmentVariable("TIDALARR_TEST_TFM") ?? "net6.0";
+        string targetFramework = Environment.GetEnvironmentVariable("TIDALARR_TEST_TFM") ?? "net8.0";
         string solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         string sourceDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin", buildConfiguration, targetFramework);
 
@@ -41,7 +41,7 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
             return;
         }
 
-        string hostFallbackDirectory = Path.Combine(solutionRoot, "ext", "Lidarr", "_output", "net6.0");
+        string hostFallbackDirectory = Path.Combine(solutionRoot, "ext", "Lidarr", "_output", "net8.0");
         this.hostAssemblyDirectory = Directory.Exists(hostFallbackDirectory) ? hostFallbackDirectory : sourceDirectory;
 
         string pluginAssemblyName = "Lidarr.Plugin.Tidalarr.dll";

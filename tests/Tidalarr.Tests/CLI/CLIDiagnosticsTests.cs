@@ -163,7 +163,7 @@ public class CLIDiagnosticsTests
         string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net9.0", "TidalCLI.dll");
 
         // Ensure host shim assemblies are present for settings types that reference NzbDrone.*
-        string hostOutput = Path.Combine(RepoRoot, "ext", "Lidarr", "_output", "net6.0");
+        string hostOutput = Path.Combine(RepoRoot, "ext", "Lidarr", "_output", "net8.0");
         if (Directory.Exists(hostOutput))
         {
             foreach (string? dll in new[] { "Lidarr.Core.dll", "Lidarr.Common.dll" })

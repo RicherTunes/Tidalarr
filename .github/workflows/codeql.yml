@@ -71,9 +71,8 @@ jobs:
 
       - name: Build
         run: |
-          # Build main plugin with plugins branch assemblies
+          # Build main plugin for Lidarr 3.x (.NET 8)
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release \
-            -p:UsePluginsBranch=true \
             -p:RunAnalyzersDuringBuild=false \
             -p:EnableNETAnalyzers=false \
             -p:TreatWarningsAsErrors=false
