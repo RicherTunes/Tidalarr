@@ -63,7 +63,7 @@ public class TidalModelMapperTests
         TidalSearchResults results = new(
             Albums:
             [
-                new("al1","A", ["X"], new(), new(){TidalQuality.Lossless}, new DateTime(2020,1,1), "aa", true)
+                new("al1", "A", ["X"], Array.Empty<TidalTrackInfo>(), new[] { TidalQuality.Lossless }, new DateTime(2020, 1, 1), "aa", true)
             ],
             Tracks:
             [
@@ -78,7 +78,6 @@ public class TidalModelMapperTests
         Assert.Contains(sr, r => r.Type == StreamingSearchType.Track && r.Id == "t1");
     }
 }
-
 
 
 

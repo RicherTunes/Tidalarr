@@ -3,6 +3,7 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
+using Lidarr.Plugin.Common.Services.Authentication;
 
 namespace Tidalarr.Tests;
 

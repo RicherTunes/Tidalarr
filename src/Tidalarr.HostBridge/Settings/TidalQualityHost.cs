@@ -1,3 +1,5 @@
+using NzbDrone.Core.Annotations;
+
 namespace Tidalarr.HostBridge.Settings;
 
 public enum TidalQualityHost
@@ -11,4 +13,3 @@ public enum TidalQualityHost
     [FieldOption(Label = "Hi-Res (FLAC 24-bit)")]
     HiRes
 }
-
