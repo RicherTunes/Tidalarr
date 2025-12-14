@@ -7,6 +7,14 @@ public class TidalArtistDto
 {
     public string? id { get; set; }
     public string? name { get; set; }
+
+    public TidalArtistDto() { }
+
+    public TidalArtistDto(string? name, string? id)
+    {
+        this.name = name;
+        this.id = id;
+    }
 }
 
 /// <summary>
@@ -23,6 +31,21 @@ public class TidalAlbumDto
     public string? cover { get; set; }
     public bool streamReady { get; set; }
     public int numberOfTracks { get; set; }
+
+    public TidalAlbumDto() { }
+
+    public TidalAlbumDto(string id, string title, TidalArtistDto? artist, string? releaseDate, int numberOfTracks, int duration, bool streamReady, string? cover, string? audioQuality = null)
+    {
+        this.id = id;
+        this.title = title;
+        this.artist = artist;
+        this.releaseDate = releaseDate;
+        this.numberOfTracks = numberOfTracks;
+        // duration parameter accepted for test compatibility but not stored (album DTO doesn't track duration)
+        this.streamReady = streamReady;
+        this.cover = cover;
+        this.audioQuality = audioQuality;
+    }
 }
 
 /// <summary>
@@ -40,6 +63,20 @@ public class TidalTrackDto
     public string? audioQuality { get; set; }
     public bool streamReady { get; set; }
     public string? isrc { get; set; }
+
+    public TidalTrackDto() { }
+
+    public TidalTrackDto(string id, string title, TidalArtistDto? artist, TidalAlbumDto? album, int trackNumber, int duration, bool streamReady, string? audioQuality)
+    {
+        this.id = id;
+        this.title = title;
+        this.artist = artist;
+        this.album = album;
+        this.trackNumber = trackNumber;
+        this.duration = duration;
+        this.streamReady = streamReady;
+        this.audioQuality = audioQuality;
+    }
 }
 
 /// <summary>
@@ -51,6 +88,32 @@ public class TidalPagedItemsDto<T>
     public int totalNumberOfItems { get; set; }
     public int limit { get; set; }
     public int offset { get; set; }
+
+    public TidalPagedItemsDto() { }
+
+    public TidalPagedItemsDto(List<T>? items)
+    {
+        this.items = items;
+        this.totalNumberOfItems = items?.Count ?? 0;
+    }
+}
+
+/// <summary>
+/// Type alias for album paged response (for test compatibility).
+/// </summary>
+public class TidalAlbumsResponseDto : TidalPagedItemsDto<TidalAlbumDto>
+{
+    public TidalAlbumsResponseDto() : base() { }
+    public TidalAlbumsResponseDto(List<TidalAlbumDto>? items) : base(items) { }
+}
+
+/// <summary>
+/// Type alias for track paged response (for test compatibility).
+/// </summary>
+public class TidalTracksResponseDto : TidalPagedItemsDto<TidalTrackDto>
+{
+    public TidalTracksResponseDto() : base() { }
+    public TidalTracksResponseDto(List<TidalTrackDto>? items) : base(items) { }
 }
 
 /// <summary>
@@ -61,6 +124,14 @@ public class TidalSearchResponseDto
     public TidalPagedItemsDto<TidalAlbumDto>? albums { get; set; }
     public TidalPagedItemsDto<TidalTrackDto>? tracks { get; set; }
     public TidalPagedItemsDto<TidalArtistDto>? artists { get; set; }
+
+    public TidalSearchResponseDto() { }
+
+    public TidalSearchResponseDto(TidalPagedItemsDto<TidalAlbumDto>? albums, TidalPagedItemsDto<TidalTrackDto>? tracks)
+    {
+        this.albums = albums;
+        this.tracks = tracks;
+    }
 }
 
 /// <summary>
@@ -80,6 +151,16 @@ public class TidalPlaybackInfoDto
     public int? albumReplayGain { get; set; }
     public int? trackPeakAmplitude { get; set; }
     public int? trackReplayGain { get; set; }
+
+    public TidalPlaybackInfoDto() { }
+
+    public TidalPlaybackInfoDto(string? manifest, string? manifestMimeType, string? encryptionType, string? securityToken)
+    {
+        this.manifest = manifest;
+        this.manifestMimeType = manifestMimeType;
+        this.encryptionType = encryptionType;
+        this.securityToken = securityToken;
+    }
 }
 
 /// <summary>
@@ -91,6 +172,14 @@ public class TidalAlbumTracksDto
     public int totalNumberOfItems { get; set; }
     public int limit { get; set; }
     public int offset { get; set; }
+
+    public TidalAlbumTracksDto() { }
+
+    public TidalAlbumTracksDto(List<TidalTrackDto>? items, int totalNumberOfItems)
+    {
+        this.items = items;
+        this.totalNumberOfItems = totalNumberOfItems;
+    }
 }
 
 /// <summary>

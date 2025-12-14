@@ -13,7 +13,7 @@ public class TidalOAuthServiceTokenLifecycleTests
     {
         TidalTokens expired = new("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
         MemoryTokenStorage storage = new(expired);
-        var refreshResponse = new TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new("sess2", "US", 123));
+        var refreshResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new Tidalarr.Domain.Authentication.TidalUserResponse("sess2", "US", 123));
         HttpClient http = new(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
         TidalOAuthService svc = new(http, storage);
@@ -56,7 +56,6 @@ internal class FixedResponseHandler(string content, HttpStatusCode code = HttpSt
         return Task.FromResult(new HttpResponseMessage(this._code) { Content = new StringContent(this._content, System.Text.Encoding.UTF8, "application/json") });
     }
 }
-
 
 
 

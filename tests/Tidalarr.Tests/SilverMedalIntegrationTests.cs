@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
+using Lidarr.Plugin.Common.Services.Authentication;
 
 namespace Tidalarr.Tests;
 

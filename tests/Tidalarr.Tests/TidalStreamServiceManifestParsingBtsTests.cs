@@ -34,11 +34,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        TidalPlaybackInfoDto playback = new(
-            manifest: encoded,
-            manifestMimeType: "application/vnd.tidal.bts",
-            encryptionType: "AES_CTR",
-            securityToken: null);
+        TidalPlaybackInfoDto playback = new()
+        {
+            manifest = encoded,
+            manifestMimeType = "application/vnd.tidal.bts",
+            encryptionType = "AES_CTR",
+            securityToken = null
+        };
 
         TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         TidalManifest manifest = await service.GetParsedManifestAsync("track-token", TidalQuality.Lossless);
@@ -59,11 +61,13 @@ public class TidalStreamServiceManifestParsingBtsTests
                            "\"encryptionKey\":\"" + token + "\"" +
                            "}";
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(manifestJson));
-        TidalPlaybackInfoDto playback = new(
-            manifest: encoded,
-            manifestMimeType: "application/vnd.tidal.bts",
-            encryptionType: "AES_CTR",
-            securityToken: null);
+        TidalPlaybackInfoDto playback = new()
+        {
+            manifest = encoded,
+            manifestMimeType = "application/vnd.tidal.bts",
+            encryptionType = "AES_CTR",
+            securityToken = null
+        };
 
         TidalStreamService service = new(new ManifestTokenCoreStub(playback), new TidalManifestParser());
         TidalStreamInfo info = await service.GetStreamInfoParsedAsync("track-info-token", TidalQuality.Lossless);
@@ -122,12 +126,12 @@ public class TidalStreamServiceManifestParsingBtsTests
     {
         public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalTrackInfo(trackId, "", new(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
+            return Task.FromResult(new TidalTrackInfo(trackId, "", Array.Empty<string>(), "", "", 0, 0, TidalQuality.High, true, DateTime.UtcNow));
         }
 
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalAlbumInfo("", "", new(), new(), new(), DateTime.UtcNow, "", true));
+            return Task.FromResult(new TidalAlbumInfo("", "", Array.Empty<string>(), Array.Empty<TidalTrackInfo>(), Array.Empty<TidalQuality>(), DateTime.UtcNow, "", true));
         }
 
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
@@ -142,7 +146,7 @@ public class TidalStreamServiceManifestParsingBtsTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalSearchResults(new(), new(), 0, false));
+            return Task.FromResult(new TidalSearchResults(Array.Empty<TidalAlbumInfo>(), Array.Empty<TidalTrackInfo>(), 0, false));
         }
 
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
@@ -156,7 +160,6 @@ public class TidalStreamServiceManifestParsingBtsTests
         }
     }
 }
-
 
 
 
