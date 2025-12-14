@@ -1,3 +1,8 @@
+using FluentValidation.Results;
+using NzbDrone.Core.Annotations;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.ThingiProvider;
+
 namespace Tidalarr.HostBridge.Settings;
 
 // Host-only wrapper that carries NzbDrone UI annotations and maps to core settings
@@ -27,7 +32,7 @@ public class TidalarrHostSettings : IIndexerSettings, IProviderConfig
     {
         // Delegate to core validator to shape a host result
         Integration.TidalarrSettings core = ToCore();
-        FluentValidation.Results.ValidationResult fluent = core.ValidateFluent();
+        ValidationResult fluent = core.ValidateFluent();
         return new NzbDrone.Core.Validation.NzbDroneValidationResult(fluent);
     }
 

@@ -19,8 +19,8 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore();
     private TidalTokens? _currentTokens;
 
-    // Backward-compatible overload used by existing tests/clients that passed a local PKCE generator
-    public TidalOAuthService(HttpClient httpClient, PKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
+    // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
+    public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
         : this(httpClient, tokenStorage) { }
 
     public bool IsAuthenticated => this._currentTokens != null && !this._currentTokens.IsExpired;
