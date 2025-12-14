@@ -1,0 +1,359 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using FluentValidation.Results;
+using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Authentication;
+using Microsoft.Extensions.DependencyInjection;
+using NLog;
+using NzbDrone.Common.Http;
+using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Indexers;
+using NzbDrone.Core.IndexerSearch.Definitions;
+using NzbDrone.Core.Parser;
+using NzbDrone.Core.Parser.Model;
+using Tidalarr.Application.Services;
+using Tidalarr.Core.Interfaces;
+using Tidalarr.Core.Models;
+
+namespace Tidalarr.Integration.LidarrNative;
+
+/// <summary>
+/// Lidarr-native indexer extending HttpIndexerBase for plugin discovery.
+/// Uses TidalModule services internally for actual search functionality.
+/// </summary>
+public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
+{
+    public override string Name => "Tidalarr";
+    public override string Protocol => nameof(TidalarrDownloadProtocol);
+    public override bool SupportsRss => false;
+    public override bool SupportsSearch => true;
+    public override int PageSize => 100;
+
+    private new readonly Logger _logger;
+    private IServiceProvider _serviceProvider;
+    private bool _servicesInitialized;
+
+    public TidalLidarrIndexer(
+        IHttpClient httpClient,
+        IIndexerStatusService indexerStatusService,
+        IConfigService configService,
+        IParsingService parsingService,
+        Logger logger)
+        : base(httpClient, indexerStatusService, configService, parsingService, logger)
+    {
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Initialize Tidal services from TidalModule when first needed.
+    /// </summary>
+    private void EnsureServicesInitialized()
+    {
+        if (_servicesInitialized) return;
+
+        try
+        {
+            var services = new ServiceCollection();
+
+            // Register settings from Lidarr configuration
+            var indexerSettings = new TidalIndexerSettings
+            {
+                ConfigPath = Settings.ConfigPath,
+                RedirectUrl = Settings.RedirectUrl,
+                TidalMarket = Settings.TidalMarket,
+                EarlyReleaseLimit = Settings.EarlyReleaseLimit,
+                EnableCache = Settings.EnableCache,
+                CacheDuration = Settings.CacheDuration
+            };
+            services.AddSingleton(indexerSettings);
+            services.AddSingleton(new TidalarrSettings
+            {
+                ConfigPath = Settings.ConfigPath,
+                RedirectUrl = Settings.RedirectUrl,
+                TidalMarket = Settings.TidalMarket
+            });
+
+            // Register all Tidal services
+            TidalModule.RegisterServices(services);
+
+            _serviceProvider = services.BuildServiceProvider();
+            _servicesInitialized = true;
+            _logger.Debug("Tidal services initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to initialize Tidal services");
+            throw;
+        }
+    }
+
+    public override IIndexerRequestGenerator GetRequestGenerator()
+    {
+        // We use a special request generator that encodes the search query
+        // The actual search happens in the parser using our services
+        return new TidalLidarrRequestGenerator(Settings, _logger);
+    }
+
+    public override IParseIndexerResponse GetParser()
+    {
+        EnsureServicesInitialized();
+        return new TidalLidarrParser(Settings, _serviceProvider, _logger);
+    }
+
+    protected override async Task Test(List<ValidationFailure> failures)
+    {
+        try
+        {
+            _logger.Info("Testing Tidalarr indexer connection...");
+
+            // Basic settings validation
+            if (string.IsNullOrWhiteSpace(Settings.ConfigPath))
+            {
+                failures.Add(new ValidationFailure("ConfigPath", "Config path is required"));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(Settings.RedirectUrl))
+            {
+                failures.Add(new ValidationFailure("RedirectUrl", "OAuth redirect URL is required"));
+                return;
+            }
+
+            // Initialize services and test authentication
+            EnsureServicesInitialized();
+
+            // Ensure valid session (will throw if not authenticated)
+            var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
+            if (authManager != null)
+            {
+                try
+                {
+                    await authManager.EnsureValidSessionAsync();
+                    _logger.Debug("Tidal authentication session is valid");
+                }
+                catch (Exception authEx)
+                {
+                    _logger.Warn(authEx, "Tidal authentication not configured or invalid");
+                    failures.Add(new ValidationFailure("Authentication",
+                        "Not authenticated with Tidal. Please complete the OAuth flow using the redirect URL."));
+                    return;
+                }
+            }
+
+            // Test a simple search
+            var searchService = _serviceProvider.GetService<TidalSearchService>();
+            if (searchService != null)
+            {
+                var testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless);
+                _logger.Info($"Test search completed. Found {testResults.Albums?.Count ?? 0} albums.");
+            }
+
+            _logger.Info("Tidalarr indexer test completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Tidalarr indexer test failed");
+            failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
+        }
+    }
+}
+
+/// <summary>
+/// Request generator for Tidal API searches.
+/// Generates placeholder requests - actual search happens in parser.
+/// </summary>
+public class TidalLidarrRequestGenerator : IIndexerRequestGenerator
+{
+    private readonly TidalLidarrIndexerSettings _settings;
+    private readonly Logger _logger;
+
+    public TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Logger logger)
+    {
+        _settings = settings;
+        _logger = logger;
+    }
+
+    public IndexerPageableRequestChain GetRecentRequests()
+    {
+        var chain = new IndexerPageableRequestChain();
+        // Tidal doesn't have a traditional RSS feed
+        return chain;
+    }
+
+    public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
+    {
+        var chain = new IndexerPageableRequestChain();
+
+        var searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            chain.Add(GetSearchRequests(searchTerm));
+        }
+
+        return chain;
+    }
+
+    public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
+    {
+        var chain = new IndexerPageableRequestChain();
+
+        if (!string.IsNullOrWhiteSpace(searchCriteria.ArtistQuery))
+        {
+            chain.Add(GetSearchRequests(searchCriteria.ArtistQuery));
+        }
+
+        return chain;
+    }
+
+    private IEnumerable<IndexerRequest> GetSearchRequests(string searchTerm)
+    {
+        _logger.Debug($"Generating Tidal search request for: {searchTerm}");
+
+        // Create a placeholder URL that encodes the search query
+        // The actual search is performed by the parser using TidalSearchService
+        var encodedQuery = Uri.EscapeDataString(searchTerm);
+        var requestUrl = $"tidal://search?query={encodedQuery}";
+
+        var request = new HttpRequest(requestUrl);
+        request.Headers.Accept = "application/json";
+
+        yield return new IndexerRequest(request);
+    }
+}
+
+/// <summary>
+/// Parser for Tidal search results.
+/// Uses TidalSearchService to perform actual searches and converts results to Lidarr format.
+/// </summary>
+public class TidalLidarrParser : IParseIndexerResponse
+{
+    private readonly TidalLidarrIndexerSettings _settings;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly Logger _logger;
+
+    public TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger)
+    {
+        _settings = settings;
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+    }
+
+    public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
+    {
+        var releases = new List<ReleaseInfo>();
+
+        try
+        {
+            // Extract search query from the placeholder URL
+            var requestUrl = indexerResponse.Request?.Url?.ToString() ?? "";
+            if (!requestUrl.StartsWith("tidal://search"))
+            {
+                _logger.Warn("Unexpected request URL format: {0}", requestUrl);
+                return releases;
+            }
+
+            var uri = new Uri(requestUrl);
+            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var searchQuery = queryParams["query"];
+
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                _logger.Warn("No search query found in request");
+                return releases;
+            }
+
+            // Perform actual search using TidalSearchService
+            var searchService = _serviceProvider.GetService<TidalSearchService>();
+            if (searchService == null)
+            {
+                _logger.Error("TidalSearchService not available");
+                return releases;
+            }
+
+            // Execute search synchronously (we're in a sync context)
+            var searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
+            var searchResults = searchTask.GetAwaiter().GetResult();
+
+            if (searchResults.Albums == null || searchResults.Albums.Count == 0)
+            {
+                _logger.Debug("No albums found for query: {0}", searchQuery);
+                return releases;
+            }
+
+            // Convert Tidal albums to Lidarr ReleaseInfo
+            foreach (var album in searchResults.Albums)
+            {
+                try
+                {
+                    var release = ConvertToReleaseInfo(album);
+                    if (release != null)
+                    {
+                        releases.Add(release);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Failed to convert album: {0}", album.Title);
+                }
+            }
+
+            _logger.Debug("Parsed {0} releases from Tidal search", releases.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to parse Tidal search response");
+        }
+
+        return releases;
+    }
+
+    private ReleaseInfo ConvertToReleaseInfo(TidalAlbumInfo album)
+    {
+        if (album == null) return null;
+
+        var artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
+        var albumTitle = album.Title ?? "Unknown Album";
+        var releaseDate = album.ReleaseDate;
+
+        // Determine quality from available qualities
+        var bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
+        var quality = DetermineQualityString(bestQuality);
+
+        return new ReleaseInfo
+        {
+            Guid = $"tidal:album:{album.Id}",
+            Title = $"{artistName} - {albumTitle} [{quality}]",
+            Artist = artistName,
+            Album = albumTitle,
+            PublishDate = releaseDate,
+            DownloadUrl = $"tidal://album/{album.Id}",
+            InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
+            Size = EstimateAlbumSize(album, bestQuality)
+        };
+    }
+
+    private string DetermineQualityString(TidalQuality quality)
+    {
+        return quality switch
+        {
+            TidalQuality.HiRes => "Hi-Res FLAC 24bit",
+            TidalQuality.Lossless => "FLAC 16bit",
+            TidalQuality.High => "AAC 320kbps",
+            _ => "AAC 96kbps"
+        };
+    }
+
+    private long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
+    {
+        // Estimate size based on track count and quality
+        // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps
+        var trackCount = album.Tracks?.Count ?? 12; // Default to 12 tracks
+        var avgTrackDurationSeconds = 240; // 4 minutes average
+        var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
+        var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
+
+        return (long)(totalDurationSeconds * bitrateKbps * 125); // Convert to bytes
+    }
+}

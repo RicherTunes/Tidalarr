@@ -27,14 +27,53 @@
     <PackageReference Include="Lidarr.Plugin.Common" />
   </ItemGroup>
 
+  <!-- Lidarr 3.x assemblies for plugin base classes (HttpIndexerBase, DownloadClientBase) -->
+  <PropertyGroup>
+    <LidarrAssembliesPath>..\..\ext\Lidarr\_output\net8.0</LidarrAssembliesPath>
+    <!-- Fallback paths for different assembly sources -->
+    <LidarrAssembliesPath Condition="!Exists('$(LidarrAssembliesPath)\Lidarr.dll') and Exists('..\..\ext\Lidarr-docker\_output\net8.0\Lidarr.dll')">..\..\ext\Lidarr-docker\_output\net8.0</LidarrAssembliesPath>
+  </PropertyGroup>
+
+  <!-- Lidarr assembly references - Private=false prevents copying to output (provided by host) -->
+  <ItemGroup>
+    <Reference Include="Lidarr">
+      <HintPath>$(LidarrAssembliesPath)\Lidarr.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lidarr.Core">
+      <HintPath>$(LidarrAssembliesPath)\Lidarr.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lidarr.Common">
+      <HintPath>$(LidarrAssembliesPath)\Lidarr.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lidarr.Http">
+      <HintPath>$(LidarrAssembliesPath)\Lidarr.Http.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- FluentValidation: Use Lidarr's copy to avoid AssemblyLoadContext conflicts -->
+    <Reference Include="FluentValidation" Condition="Exists('$(LidarrAssembliesPath)\FluentValidation.dll')">
+      <HintPath>$(LidarrAssembliesPath)\FluentValidation.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- NLog: Use Lidarr's copy to avoid AssemblyVersion conflicts -->
+    <Reference Include="NLog" Condition="Exists('$(LidarrAssembliesPath)\NLog.dll')">
+      <HintPath>$(LidarrAssembliesPath)\NLog.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
   <!-- Dependencies use centralized versions from Directory.Packages.props -->
   <ItemGroup>
-    <PackageReference Include="FluentValidation" />
+    <!-- Only use NuGet FluentValidation when Lidarr's copy is unavailable -->
+    <PackageReference Include="FluentValidation" Condition="!Exists('$(LidarrAssembliesPath)\FluentValidation.dll')" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
-    <PackageReference Include="NLog" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <!-- Only use NuGet NLog when Lidarr's copy is unavailable -->
+    <PackageReference Include="NLog" Condition="!Exists('$(LidarrAssembliesPath)\NLog.dll')" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
     <!-- ILRepack for merging dependencies into single plugin DLL.
          ExcludeAssets="build" prevents NuGet's automatic target; we use PluginPackaging.targets instead.
          GeneratePathProperty="true" provides $(PkgILRepack_Lib_MSBuild_Task) for the task import. -->
