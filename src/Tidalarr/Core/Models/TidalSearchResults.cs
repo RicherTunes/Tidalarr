@@ -6,5 +6,6 @@ namespace Tidalarr.Core.Models;
 public record TidalSearchResults(
     IReadOnlyList<TidalAlbumInfo> Albums,
     IReadOnlyList<TidalTrackInfo> Tracks,
+    IReadOnlyList<TidalArtistInfo> Artists,
     int TotalCount,
     bool HasMore);

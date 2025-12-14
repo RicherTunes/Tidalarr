@@ -69,6 +69,7 @@ public class TidalModelMapperTests
             [
                 new("t1","T", ["X"], "al1", "A", 1, 100, TidalQuality.High, true, new DateTime(2020,1,1))
             ],
+            Artists: [],
             TotalCount: 2,
             HasMore: false);
 

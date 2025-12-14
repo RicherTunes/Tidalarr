@@ -175,7 +175,8 @@ public class TidalModelsTests
         List<TidalTrackInfo> tracks = [];
 
         // Act
-        TidalSearchResults results = new(albums, tracks, 10, true);
+        List<TidalArtistInfo> artists = [];
+        TidalSearchResults results = new(albums, tracks, artists, 10, true);
 
         // Assert
         Assert.Equal(albums, results.Albums);
