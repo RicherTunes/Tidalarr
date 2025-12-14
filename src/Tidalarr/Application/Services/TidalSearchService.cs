@@ -47,6 +47,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             return new TidalSearchResults(
                 Albums: [],
                 Tracks: [],
+                Artists: [],
                 TotalCount: 0,
                 HasMore: false
             );
@@ -91,7 +92,8 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         return new TidalSearchResults(
             Albums: enhancedAlbums,
             Tracks: enhancedTracks,
-            TotalCount: enhancedAlbums.Count + enhancedTracks.Count,
+            Artists: searchResults.Artists,
+            TotalCount: enhancedAlbums.Count + enhancedTracks.Count + searchResults.Artists.Count,
             HasMore: searchResults.HasMore
         );
     }
@@ -124,6 +126,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             ? new TidalSearchResults(
                 Albums: [],
                 Tracks: [],
+                Artists: [],
                 TotalCount: 0,
                 HasMore: false
             )
@@ -132,17 +135,25 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
                 TidalSearchType.Album => new TidalSearchResults(
                     Albums: allResults.Albums,
                     Tracks: [],
+                    Artists: [],
                     TotalCount: allResults.Albums.Count,
                     HasMore: false
                 ),
                 TidalSearchType.Track => new TidalSearchResults(
                     Albums: [],
                     Tracks: allResults.Tracks,
+                    Artists: [],
                     TotalCount: allResults.Tracks.Count,
                     HasMore: false
                 ),
+                TidalSearchType.Artist => new TidalSearchResults(
+                    Albums: [],
+                    Tracks: [],
+                    Artists: allResults.Artists,
+                    TotalCount: allResults.Artists.Count,
+                    HasMore: false
+                ),
                 TidalSearchType.All => allResults,
-                TidalSearchType.Artist => throw new NotImplementedException(),
                 _ => allResults
             };
     }

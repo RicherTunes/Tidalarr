@@ -159,6 +159,7 @@ public class MockTidalApiClient : ITidalCore
                     DateTime.Now, "cover123", true)
             ],
             Tracks: [],
+            Artists: [],
             TotalCount: 1,
             HasMore: false
         );

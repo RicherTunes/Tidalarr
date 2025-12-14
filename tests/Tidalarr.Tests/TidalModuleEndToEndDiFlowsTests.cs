@@ -65,6 +65,7 @@ public class TidalModuleEndToEndDiFlowsTests
         {
             return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo> { new TidalAlbumInfo("al1", "Album", new List<string> { "Artist" }, new List<TidalTrackInfo>(), new List<TidalQuality> { TidalQuality.Lossless }, DateTime.UtcNow.Date, "cover", true) },
                                                                new List<TidalTrackInfo> { new TidalTrackInfo("t1", "Song", new List<string> { "Artist" }, "al1", "Album", 1, 120, TidalQuality.Lossless, true, DateTime.UtcNow) },
+                                                               new List<TidalArtistInfo>(),
                                                                2, false));
         }
 

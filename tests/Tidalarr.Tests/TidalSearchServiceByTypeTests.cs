@@ -33,7 +33,7 @@ public class TidalSearchServiceByTypeTests
         {
             TidalAlbumInfo album = new("al1", "Album", new List<string> { "Artist" }, new List<TidalTrackInfo>(), new List<TidalQuality> { TidalQuality.Lossless }, DateTime.UtcNow, "c", true);
             TidalTrackInfo track = new("t1", "Song", new List<string> { "Artist" }, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow);
-            return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo> { album }, new List<TidalTrackInfo> { track }, 2, false));
+            return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo> { album }, new List<TidalTrackInfo> { track }, new List<TidalArtistInfo>(), 2, false));
         }
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
         {

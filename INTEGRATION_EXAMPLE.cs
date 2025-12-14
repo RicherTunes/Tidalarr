@@ -106,7 +106,7 @@ namespace Tidalarr.Integration.Examples
             return MapAlbumDto(album);
         }
 
-        private TidalSearchResults MapSearchResponse(TidalSearchResponseDto dto) => new TidalSearchResults();
+        private TidalSearchResults MapSearchResponse(TidalSearchResponseDto dto) => new TidalSearchResults([], [], [], 0, false);
         private TidalAlbumInfo MapAlbumDto(TidalAlbumDto dto) => new TidalAlbumInfo();
     }
 
