@@ -14,15 +14,20 @@
        ═══════════════════════════════════════════════════════════════════════════ -->
   <ItemGroup Label="Core Framework">
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="NLog" Version="6.0.3" />
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
+    <!-- NLog 5.3.4 - Must match Lidarr's NLog version (5.x, AssemblyVersion=5.0.0.0)
+         NLog 6.x has AssemblyVersion=6.0.0.0 which conflicts with Lidarr runtime -->
+    <PackageVersion Include="NLog" Version="5.3.4" />
+    <!-- FluentValidation: Must match Lidarr v3.x runtime version (9.x) to avoid assembly conflicts.
+         Plugin uses Lidarr's assembly reference when available, NuGet package as fallback for CLI/test. -->
+    <PackageVersion Include="FluentValidation" Version="9.5.4" />
   </ItemGroup>
 
   <ItemGroup Label="Microsoft Extensions">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
-    <PackageVersion Include="System.Text.Json" Version="9.0.0" />
+    <!-- System.Text.Json 8.x for .NET 8 runtime compatibility -->
+    <PackageVersion Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 
   <ItemGroup Label="Shared Plugin Ecosystem">
