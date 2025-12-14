@@ -322,11 +322,23 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             throw new ArgumentNullException(nameof(dto), "Search response missing album or track collections.");
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
+        List<TidalArtistDto> artistDtos = dto.artists?.items ?? [];
         return new TidalSearchResults(
             Albums: [.. albumDtos.Select(MapToTidalAlbumInfo)],
             Tracks: [.. trackDtos.Select(MapToTidalTrackInfo)],
-            TotalCount: albumDtos.Count + trackDtos.Count,
+            Artists: [.. artistDtos.Select(MapToTidalArtistInfo)],
+            TotalCount: albumDtos.Count + trackDtos.Count + artistDtos.Count,
             HasMore: false);
+    }
+
+    private static TidalArtistInfo MapToTidalArtistInfo(TidalArtistDto dto)
+    {
+        return new TidalArtistInfo(
+            Id: dto.id ?? string.Empty,
+            Name: dto.name ?? string.Empty,
+            PictureId: null,
+            AlbumCount: null,
+            Url: null);
     }
     private static DateTime ParseReleaseDate(string? releaseDate)
     {

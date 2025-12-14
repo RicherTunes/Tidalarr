@@ -36,7 +36,7 @@ public class TidalStreamServiceInvalidDashTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalSearchResults(Array.Empty<TidalAlbumInfo>(), Array.Empty<TidalTrackInfo>(), 0, false));
+            return Task.FromResult(new TidalSearchResults(Array.Empty<TidalAlbumInfo>(), Array.Empty<TidalTrackInfo>(), Array.Empty<TidalArtistInfo>(), 0, false));
         }
 
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)

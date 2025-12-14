@@ -188,7 +188,7 @@ public class MockTidalApiClient : ITidalCore
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
         TidalSearchResults results = new(
-            [], [], 0, false);
+            [], [], [], 0, false);
         return Task.FromResult(results);
     }
 
