@@ -280,7 +280,9 @@ public sealed class TidalarrPluginSmokeTests(TidalarrPluginLoadFixture fixture) 
     [Fact]
     public void PluginLoadsAndProvidesServices()
     {
-        Assert.True(this.fixture.IsReady, this.fixture.SkipReason ?? "Plugin build not available.");
+        // Fail explicitly if plugin isn't built - this catches build/load regressions
+        // rather than silently passing when PluginPackagingDisable is set
+        Assert.True(this.fixture.IsReady, this.fixture.SkipReason ?? "Plugin build not available - test cannot proceed.");
 
         Assert.NotNull(this.fixture.Plugin);
         Assert.NotNull(this.fixture.Services);
