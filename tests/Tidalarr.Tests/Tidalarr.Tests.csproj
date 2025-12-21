@@ -28,14 +28,7 @@
     <ProjectReference Include="..\..\src\Tidalarr\Tidalarr.csproj" />
     <!-- HostBridge requires Lidarr assemblies - excluded in CI with ExcludeHostBridge=true -->
     <ProjectReference Include="..\..\src\Tidalarr.HostBridge\Tidalarr.HostBridge.csproj" Condition="'$(ExcludeHostBridge)' != 'true'" />
-
-    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj">
-      <!-- Disable analyzers on submodule to avoid PublicAPI warnings in CI -->
-      <AdditionalProperties>RunAnalyzersDuringBuild=false;EnableNETAnalyzers=false</AdditionalProperties>
-    </ProjectReference>
-    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj">
-      <AdditionalProperties>RunAnalyzersDuringBuild=false;EnableNETAnalyzers=false</AdditionalProperties>
-    </ProjectReference>
+    <!-- Common and Abstractions come transitively via Tidalarr.csproj - no direct references needed -->
   </ItemGroup>
   <!-- Lidarr assemblies only needed when HostBridge is included -->
   <ItemGroup Condition="'$(ExcludeHostBridge)' != 'true'">
