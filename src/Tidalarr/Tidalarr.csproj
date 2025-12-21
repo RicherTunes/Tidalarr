@@ -11,6 +11,16 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
+  </PropertyGroup>
+
+  <!-- Hostless/CI builds: exclude Lidarr-native wrappers that require Lidarr host assemblies -->
+  <ItemGroup Condition="'$(SkipHostBridge)' == 'true'">
+    <Compile Remove="Integration\\LidarrNative\\**\\*.cs" />
+    <None Remove="Integration\\LidarrNative\\**\\*" />
+  </ItemGroup>
+
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
     <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' ">true</UseInRepoCommon>
@@ -35,7 +45,7 @@
   </PropertyGroup>
 
   <!-- Lidarr assembly references - Private=false prevents copying to output (provided by host) -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(SkipHostBridge)' != 'true'">
     <Reference Include="Lidarr">
       <HintPath>$(LidarrAssembliesPath)\Lidarr.dll</HintPath>
       <Private>false</Private>
