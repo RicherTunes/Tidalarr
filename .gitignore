@@ -138,6 +138,16 @@ $RECYCLE.BIN/
 *~
 .directory
 
+## Local AI/Coding Assistants
+# Claude/OpenCode tooling (local configuration only)
+.claude/
+.opencode/
+opencode.json
+
+# Scratch/temp development files
+scratch/
+temp-*
+
 ## Development Tools
 # JetBrains
 *.iml
@@ -173,6 +183,12 @@ performance-logs/
 
 # Shared library local copies (use project reference instead)
 lidarr-plugin-common-local/
+
+## Local Docker Development
+# Local docker-compose overrides (not the committed one)
+docker-compose.local.yml
+docker-compose.override.yml
+docker-compose.dev.yml
 
 ## CI/CD
 # GitHub Actions artifacts
