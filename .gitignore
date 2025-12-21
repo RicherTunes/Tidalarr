@@ -36,6 +36,18 @@ _MSBuildProjectExtensionPath/
 *~
 .idea/
 
+## Local tooling artifacts (do not commit)
+.claude/
+.opencode/
+opencode.json
+docker-compose.yml
+scripts/deploy-local.ps1
+scripts/deploy-local.sh
+scripts/extract-lidarr-assemblies.sh
+tests/ci.runsettings
+REVIEW_FIXES.md
+scratch/
+
 # User-specific files
 *.rsuser
 *.user
