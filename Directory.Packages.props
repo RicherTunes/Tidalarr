@@ -16,7 +16,7 @@
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <!-- NLog 5.4.0 - Must match Lidarr's NLog version (5.x, AssemblyVersion=5.0.0.0)
          NLog 6.x has AssemblyVersion=6.0.0.0 which conflicts with Lidarr runtime -->
-    <PackageVersion Include="NLog" Version="5.4.0" />
+    <PackageVersion Include="NLog" Version="6.0.7" />
     <!-- FluentValidation: Must match Lidarr v3.x runtime version (9.x) to avoid assembly conflicts.
          Plugin uses Lidarr's assembly reference when available, NuGet package as fallback for CLI/test. -->
     <PackageVersion Include="FluentValidation" Version="9.5.4" />
