@@ -10,7 +10,6 @@ This document captures a known-good plugin package output to support the Phase 1
 ## Expected contents (current)
 
 Required (type identity / runtime deps):
-- `FluentValidation.dll`
 - `Lidarr.Plugin.Abstractions.dll`
 - `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
 - `Microsoft.Extensions.Logging.Abstractions.dll`
@@ -36,4 +35,4 @@ Host-provided assemblies (examples, non-exhaustive):
 
 Cross-boundary risk:
 - `System.Text.Json.dll`
-
+- `FluentValidation.dll` (host-provided; shipping a private copy breaks ValidationFailure type identity)

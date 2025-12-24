@@ -169,16 +169,30 @@ if (-not $NoBuild) {
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 
         try {
-            $pluginAssemblyPath = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net8.0/Lidarr.Plugin.Tidalarr.dll"
-            if (Test-Path $pluginAssemblyPath) {
-                try { Add-Type -Path $pluginAssemblyPath -ErrorAction Stop } catch {}
-            }
-            $metadata = [Tidalarr.Integration.PackagingHelper]::WritePackagingMetadata($packagePath, 'net8.0', $Configuration)
-            Write-Host "Package metadata: $($metadata.MetadataPath)" -ForegroundColor Gray
-            Write-Host "Package hash: $($metadata.HashPath)" -ForegroundColor Gray
-        }
-        catch {
-            Write-Host "Failed to write packaging metadata: $_" -ForegroundColor Yellow
+            $hashPath = "$packagePath.sha256"
+            $metadataPath = "$packagePath.metadata.json"
+
+            $hash = (Get-FileHash -Path $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            Set-Content -Path $hashPath -Value $hash -Encoding UTF8
+
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+            $dlls = $zip.Entries | Where-Object { $_.Name -like '*.dll' } | ForEach-Object { $_.Name }
+            $zip.Dispose()
+
+            $metadata = @{
+                packageName = [System.IO.Path]::GetFileName($packagePath)
+                sha256 = $hash
+                assemblies = $dlls
+                createdAt = (Get-Date -Format 'o')
+            } | ConvertTo-Json -Depth 3
+
+            Set-Content -Path $metadataPath -Value $metadata -Encoding UTF8
+
+            Write-Host "📝 Hash written to: $hashPath" -ForegroundColor Gray
+            Write-Host "📝 Metadata written to: $metadataPath" -ForegroundColor Gray
+        } catch {
+            Write-Host "⚠️ Failed to write packaging metadata: $_" -ForegroundColor Yellow
         }
 
     }
