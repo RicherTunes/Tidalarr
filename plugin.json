@@ -8,7 +8,8 @@
   "homepage": "https://github.com/RicherTunes/Tidalarr",
   "license": "MIT",
   "tags": ["music", "tidal", "hi-res", "lossless", "oauth"],
-  "minimumLidarrVersion": "3.0.0.4855",
+  "minHostVersion": "3.1.1.4884",
+  "commonVersion": "1.5.0",
   "targetFramework": "net8.0",
   "main": "Lidarr.Plugin.Tidalarr.dll",
   "rootNamespace": "Lidarr.Plugin.Tidalarr"
