@@ -7,7 +7,7 @@ Prove that **Tidalarr + Qobuzarr** can co-exist in the same Lidarr Docker instan
 3. **Download** (optional, credential-gated; verifies files appear on disk)
 
 ## Baseline
-- Lidarr Docker tag (plugins branch): `ghcr.io/hotio/lidarr:pr-plugins-2.14.2.4786`
+- Lidarr Docker tag (plugins branch, net8 host): `ghcr.io/hotio/lidarr:pr-plugins-3.1.1.4884`
 - Default gate for CI: **Basic gate only** (no secrets required)
 - Credential-gated: **Medium/Full gates** (require secrets; run via `workflow_dispatch`)
 
@@ -46,19 +46,30 @@ Prove that **Tidalarr + Qobuzarr** can co-exist in the same Lidarr Docker instan
 ## Phase 3 — Full Gate (Credential-Gated Download)
 **Why:** this is the true end-to-end proof, but it requires credentials and careful cleanup.
 
-- [ ] Extend the harness (or create a new `multi-plugin-docker-e2e.ps1`) to:
-  - Configure both indexers + download clients
-  - Trigger a search (album/artist) and assert results are non-empty
-  - Trigger a download and assert files exist in a mounted output dir
+- [ ] Use the common harness grab gate:
+  - `-RunGrabGate` queues a release download via `POST /api/v1/release` and verifies it appears in `/api/v1/queue`
+  - Optional: `-RequireDownloadedFiles` to assert at least one file appears under `/downloads/<plugin>` (slower; best for local)
 
 **Definition of done**
 - A download completes and a file (or folder) is present under the mounted downloads directory.
+
+## Known Blocker: Multi-Plugin Host Bug (Upstream Lidarr)
+If schema loading fails only when *both* plugins are present (but each plugin works alone), this is likely the upstream Lidarr plugin-loader bug (AssemblyLoadContext collected/unloaded too early).
+
+- Track the upstream host fix and bump the Docker tag once a `pr-plugins-*` image includes it.
+- For local validation ahead of a published image, run the common harness with a host override mount (see `lidarr.plugin.common/docs/MULTI_PLUGIN_SMOKE_TEST.md`).
 
 ## Test/CLI Reliability Notes (Tech Debt Guardrails)
 These are the typical failure modes seen during ecosystem work:
 - **Type-identity mismatches** (FluentValidation/NLog/Abstractions): keep “SHIP” assemblies external and verify versions against host.
 - **Host assembly drift**: always verify against the selected Lidarr Docker tag.
 - **CLI divergence**: ensure the CLI projects target the same TFM and reference the same code paths as the plugin (no duplicated business logic).
+
+### CLI Failure Triage (when tests fail)
+When `TidalCLI/` or CLI-driven tests fail, treat it as a compatibility surface:
+1. Confirm the CLI and plugin target the same .NET runtime (net8.0 for the plugins host).
+2. Ensure CLI tests do not implicitly require Lidarr host assemblies unless explicitly marked as integration.
+3. Prefer end-to-end harness validation (Docker + API schema + gated flows) over unit tests that reflect private implementation details.
 
 ## Suggested Follow-ups
 - [ ] Standardize shared test infrastructure in `lidarr.plugin.common` (packaging strict-mode attribute, host-version checks, shared docker harness helpers).
