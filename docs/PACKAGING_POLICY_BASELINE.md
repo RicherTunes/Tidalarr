@@ -10,15 +10,24 @@ This document captures a known-good plugin package output to support the Phase 1
 ## Expected contents (current)
 
 Required (type identity / runtime deps):
-- `FluentValidation.dll`
 - `Lidarr.Plugin.Abstractions.dll`
-- `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
-- `Microsoft.Extensions.Logging.Abstractions.dll`
 
 Required (plugin):
 - `Lidarr.Plugin.Tidalarr.dll`
 
-Kept (may later be merged/removed, but OK today):
+Kept (optional, OK if present):
+- `Lidarr.Plugin.Common.dll`
+
+## Notes (informational)
+
+Host-provided (do NOT ship):
+- `FluentValidation.dll`
+- `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
+- `Microsoft.Extensions.Logging.Abstractions.dll`
+- `Microsoft.Extensions.Http.dll`
+- `NLog.dll`
+
+Merged/internalized (not expected as separate files):
 - `Lidarr.Plugin.Common.dll`
 
 Other files currently present:
@@ -36,4 +45,3 @@ Host-provided assemblies (examples, non-exhaustive):
 
 Cross-boundary risk:
 - `System.Text.Json.dll`
-

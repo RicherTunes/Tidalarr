@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Integration;
 using Tidalarr.Core.Models;
+using Tidalarr.Domain.Api;
 
 namespace Tidalarr.Tests;
 
@@ -30,20 +31,20 @@ public class ArchitectValidationTests
     }
 
     [Fact]
-    public void ArchitectValidation_Issue2_HttpClientFactoryPattern()
+    public void ArchitectValidation_Issue2_HttpClientFactoryPattern()     
     {
         // ARCHITECT ISSUE 2: Proper HttpClient factory usage
 
         ServiceCollection services = new();
         TidalModule.RegisterServices(services);
 
-        // ✅ FIXED: HttpClient factory registration
-        Assert.Contains(services, s => s.ServiceType == typeof(IHttpClientFactory));
+        // Tidalarr merges/internalizes Microsoft.Extensions.Http at build time, so the concrete
+        // IHttpClientFactory type identity in ServiceDescriptors may not match the one referenced
+        // by this test assembly. Validate wiring via type names + typed-client resolution instead.
+        Assert.Contains(services, s => string.Equals(s.ServiceType.Name, "IHttpClientFactory", StringComparison.Ordinal));
 
-        // ✅ FIXED: Named clients for different endpoints
-        IEnumerable<ServiceDescriptor> httpClientRegistrations = services.Where(s =>
-            s.ServiceType.IsGenericType &&
-            s.ServiceType.GetGenericTypeDefinition() == typeof(IHttpClientFactory));
+        ServiceProvider provider = services.BuildServiceProvider();
+        Assert.NotNull(provider.GetService<TidalApiClient>());
 
         Console.WriteLine("✅ ARCHITECT VALIDATION 2: HttpClient Factory IMPLEMENTED");
     }
@@ -120,8 +121,10 @@ public class ArchitectValidationTests
 
         TidalIndexerSettings idxSettings = new() { RedirectUrl = "https://tidal.com/test", ConfigPath = Path.GetTempPath() };
 
-        // ✅ FIXED: Inherits from BaseStreamingSettings
-        _ = Assert.IsAssignableFrom<Lidarr.Plugin.Common.Base.BaseStreamingSettings>(idxSettings);
+        // Avoid cross-ALC/type-identity issues when Common is ILRepack-internalized in the plugin output.
+        Type? baseType = idxSettings.GetType().BaseType;
+        Assert.NotNull(baseType);
+        Assert.Equal("BaseStreamingSettings", baseType!.Name);
 
         // ✅ FIXED: API client uses StreamingApiRequestBuilder
         // ✅ FIXED: Uses ExecuteWithRetryAsync
@@ -163,8 +166,6 @@ public class ArchitectValidationTests
         Console.WriteLine("   📈 Quality: Architect-validated production standards");
     }
 }
-
-
 
 
 

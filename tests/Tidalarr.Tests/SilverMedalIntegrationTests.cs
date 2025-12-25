@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
-using Lidarr.Plugin.Common.Services.Authentication;
 
 namespace Tidalarr.Tests;
 
@@ -51,12 +50,11 @@ public class SilverMedalIntegrationTests
     [Fact]
     public async Task SilverMedal_DownloadWorkflow_AllComponentsIntegrate()
     {
-        TidalIndexerSettings indexerSettings = CreateValidIndexerSettings();
+        TidalIndexerSettings indexerSettings = CreateValidIndexerSettings();    
         TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
 
         HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
+        TidalOAuthService authService = new(httpClient);
 
         TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
         Assert.NotNull(authUrl);
@@ -87,10 +85,10 @@ public class SilverMedalIntegrationTests
         FluentValidation.Results.ValidationResult validation = invalidSettings.ValidateFluent();
         Assert.False(validation.IsValid);
         string[] errorCodes = [.. validation.Errors.Select(e => e.ErrorCode)];
-        Assert.Contains(TidalarrValidationCodes.RedirectRequired, errorCodes);
+        Assert.Contains(TidalarrValidationCodes.RedirectRequired, errorCodes);  
         Assert.Contains(TidalarrValidationCodes.ConfigPathRequired, errorCodes);
 
-        TidalOAuthService authService = new(new HttpClient(), new PKCEGenerator());
+        TidalOAuthService authService = new(new HttpClient());
 
         TidalCallbackResult invalidCallback1 = authService.ParseCallbackUrl("not-a-url");
         Assert.False(invalidCallback1.IsSuccess);
@@ -146,8 +144,7 @@ public class SilverMedalIntegrationTests
     private static async Task<TidalAuthUrl> SimulateOAuthFlow()
     {
         HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
+        TidalOAuthService authService = new(httpClient);
 
         return await authService.GenerateAuthUrlAsync();
     }
