@@ -92,13 +92,19 @@ public class TidalDownloadClient(
     protected override string GenerateFileName(StreamingTrack track, StreamingAlbum album)
     {
         int trackNumber = track.TrackNumber ?? 0;
+        int discNumber = track.DiscNumber.GetValueOrDefault();
+        discNumber = discNumber > 0 ? discNumber : 1;
         string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
         string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
-        string title = FileSystemUtilities.SanitizeFileName(baseTitle);
-        string artist = FileSystemUtilities.SanitizeFileName(baseArtist);
+        string title = FileNameSanitizer.SanitizeFileName(baseTitle);
+        string artist = FileNameSanitizer.SanitizeFileName(baseArtist);
         string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
+
+        string prefix = discNumber > 1
+            ? $"D{discNumber:00}T{tn}"
+            : tn;
         string extension = Settings.ExtractFlac ? "flac" : "m4a";
-        return $"{tn} - {artist} - {title}.{extension}";
+        return $"{prefix} - {artist} - {title}.{extension}";
     }
 
     /// <summary>
@@ -136,9 +142,23 @@ public class TidalDownloadClient(
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
-            await using FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write);
             audioStream.Position = 0;
-            await audioStream.CopyToAsync(fileStream, cancellationToken);
+            byte[] header = new byte[512];
+            int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+            if (read <= 0)
+            {
+                throw new InvalidDataException("Downloaded stream contained no data.");
+            }
+
+            TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), manifest.FileExtension, manifest.MimeType);
+
+            audioStream.Position = 0;
+            await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            {
+                await audioStream.CopyToAsync(fileStream, cancellationToken);
+                await fileStream.FlushAsync(cancellationToken);
+                try { fileStream.Flush(true); } catch { /* best effort */ }
+            }
 
             // Step 6: Process audio format (extract FLAC from M4A if needed)
             string finalPath = tempPath;
@@ -229,13 +249,20 @@ public class TidalDownloadClient(
 
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
+                byte[] header = new byte[512];
+                int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+                if (read <= 0)
+                {
+                    throw new InvalidDataException("Downloaded stream contained no data.");
+                }
+
+                TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), streamInfo.FileExtension, streamInfo.MimeType);
+
+                await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken);
                 await audioStream.CopyToAsync(fileStream, cancellationToken);
                 await fileStream.FlushAsync(cancellationToken);
                 try { fileStream.Flush(true); } catch { /* best effort */ }
             }
-
-            // Optional: quick container signature validation when we can infer type
-            TryValidateSignature(tempPath, streamInfo.FileExtension);
 
             // Atomic move
             try
@@ -267,41 +294,6 @@ public class TidalDownloadClient(
                 TrackId = trackId,
                 ErrorMessage = ex.Message
             };
-        }
-    }
-
-    private void TryValidateSignature(string filePath, string fileExtension)
-    {
-        try
-        {
-            string ext = (fileExtension ?? string.Empty).ToLowerInvariant();
-            using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            Span<byte> header = stackalloc byte[12];
-            int read = fs.Read(header);
-            if (read < 4) return; // not enough to validate
-
-            if (ext.Contains("flac"))
-            {
-                // FLAC starts with fLaC
-                if (!(header[0] == (byte)'f' && header[1] == (byte)'L' && header[2] == (byte)'a' && header[3] == (byte)'C'))
-                {
-                    throw new InvalidDataException("Invalid FLAC header signature");
-                }
-            }
-            else if (ext.Contains("m4a") || ext.Contains("mp4"))
-            {
-                // MP4 variants typically include 'ftyp' box early
-                string s = Encoding.ASCII.GetString(header.ToArray());
-                if (!s.Contains("ftyp"))
-                {
-                    throw new InvalidDataException("Invalid MP4/M4A header signature");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            // Opt-in validation only: log but do not fail hard unless we want strict mode later
-            Logger?.LogWarning(ex, "Signature validation warning for {File}", filePath);
         }
     }
 
@@ -410,7 +402,7 @@ public class TidalDownloadClient(
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
         string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
-        safeName = FileSystemUtilities.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
+        safeName = FileNameSanitizer.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }
@@ -467,7 +459,3 @@ public class StreamingDownloadResult
     public string ErrorMessage { get; set; } = string.Empty;
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 }
-
-
-
-

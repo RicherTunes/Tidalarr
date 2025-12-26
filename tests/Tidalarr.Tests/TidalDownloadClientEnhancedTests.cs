@@ -54,9 +54,10 @@ public class TidalDownloadClientEnhancedTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             // return some bytes for any chunk URL
+            byte[] flacHeader = [(byte)'f', (byte)'L', (byte)'a', (byte)'C', 0x00, 0x00, 0x00, 0x00];
             return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
-                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("audio"))
+                Content = new ByteArrayContent(flacHeader)
             });
         }
     }
@@ -100,7 +101,6 @@ public class TidalDownloadClientEnhancedTests
         if (File.Exists(tmp)) { try { File.Delete(tmp); } catch { } }
     }
 }
-
 
 
 
