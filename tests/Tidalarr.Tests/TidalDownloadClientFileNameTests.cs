@@ -100,8 +100,24 @@ public class TidalDownloadClientFileNameTests
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.StartsWith("03 - ", fileName);
     }
-}
 
+    [Fact]
+    public void GenerateFileName_WithDiscNumberGreaterThanOne_IncludesDiscPrefix()
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new()
+        {
+            Title = "Title",
+            Artist = new StreamingArtist { Name = "Artist" },
+            DiscNumber = 2,
+            TrackNumber = 3
+        };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+        Assert.StartsWith("D02T03 - ", fileName);
+    }
+}
 
 
 
