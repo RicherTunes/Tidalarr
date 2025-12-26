@@ -19,6 +19,7 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
 
     public TidalLidarrDownloadClientSettings()
     {
+        ConfigPath = TidalAuthUrlHelper.GetDefaultConfigPath();
         PreferredQuality = TidalQuality.Lossless;
         IncludeMqa = true;
         ExtractFlac = true;
@@ -86,7 +87,10 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
             .NotEmpty().WithMessage("Config path is required");
 
         RuleFor(x => x.RedirectUrl)
-            .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication");
+            .Must(url => Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) &&
+                         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            .WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
+            .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
         RuleFor(x => x.DownloadPath)
             .NotEmpty().WithMessage("Download path is required");

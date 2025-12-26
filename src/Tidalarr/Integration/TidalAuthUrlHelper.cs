@@ -15,6 +15,28 @@ public static class TidalAuthUrlHelper
     private static readonly TimeSpan MaxPkceAge = TimeSpan.FromHours(1);
     private static readonly object Sync = new();
 
+    public static string GetDefaultConfigPath()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux() && Directory.Exists("/config"))
+                return "/config/tidalarr";
+        }
+        catch
+        {
+        }
+
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (!string.IsNullOrWhiteSpace(appData))
+            return Path.Combine(appData, "Tidalarr");
+
+        string commonAppData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        if (!string.IsNullOrWhiteSpace(commonAppData))
+            return Path.Combine(commonAppData, "Tidalarr");
+
+        return Path.Combine(Path.GetTempPath(), "Tidalarr");
+    }
+
     /// <summary>
     /// Gets the current authorization URL, generating a new one if needed.
     /// The URL and associated PKCE parameters are persisted under ConfigPath for
@@ -25,22 +47,29 @@ public static class TidalAuthUrlHelper
         if (string.IsNullOrWhiteSpace(configPath))
             return string.Empty;
 
-        lock (Sync)
+        try
         {
-            var store = new PkceStateFileStore(configPath);
-            PkceState? existing = store.TryLoad();
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            lock (Sync)
+            {
+                var store = new PkceStateFileStore(configPath);
+                PkceState? existing = store.TryLoad();
+                DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            if (existing is not null &&
-                !existing.IsExpired(MaxPkceAge, now) &&
-                !string.IsNullOrWhiteSpace(existing.AuthorizationUrl) &&
-                !string.IsNullOrWhiteSpace(existing.CodeVerifier) &&
-                !string.IsNullOrWhiteSpace(existing.State))
-                return existing.AuthorizationUrl;
+                if (existing is not null &&
+                    !existing.IsExpired(MaxPkceAge, now) &&
+                    !string.IsNullOrWhiteSpace(existing.AuthorizationUrl) &&
+                    !string.IsNullOrWhiteSpace(existing.CodeVerifier) &&
+                    !string.IsNullOrWhiteSpace(existing.State))
+                    return existing.AuthorizationUrl;
 
-            PkceState created = CreateNewPkceState(now);
-            store.Save(created);
-            return created.AuthorizationUrl;
+                PkceState created = CreateNewPkceState(now);
+                store.Save(created);
+                return created.AuthorizationUrl;
+            }
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 

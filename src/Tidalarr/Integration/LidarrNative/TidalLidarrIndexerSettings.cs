@@ -18,6 +18,7 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     public TidalLidarrIndexerSettings()
     {
         BaseUrl = "https://api.tidal.com";
+        ConfigPath = TidalAuthUrlHelper.GetDefaultConfigPath();
         TidalMarket = "US";
         EarlyReleaseLimit = 14;
         EnableCache = true;
@@ -86,8 +87,8 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
             .NotEmpty().WithMessage("Config path is required");
 
         RuleFor(x => x.RedirectUrl)
-            .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication")
-            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL");
+            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
+            .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
         RuleFor(x => x.TidalMarket)
             .Must(market => SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase))
