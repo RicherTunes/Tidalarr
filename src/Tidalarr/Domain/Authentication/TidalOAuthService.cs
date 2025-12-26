@@ -6,6 +6,7 @@ using Tidalarr.Infrastructure.Storage;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Integration;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Utilities;
@@ -13,15 +14,20 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null, TidalarrSettings? tidalarrSettings = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore();
+    private readonly TidalarrSettings? _settings = tidalarrSettings;
     private TidalTokens? _currentTokens;
+    private static readonly TimeSpan MaxPkceAge = TimeSpan.FromHours(1);
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
-        : this(httpClient, tokenStorage) { }
+        : this(httpClient, tokenStorage, null) { }
+
+    public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage, TidalarrSettings? tidalarrSettings)
+        : this(httpClient, tokenStorage, tidalarrSettings) { }
 
     public bool IsAuthenticated => this._currentTokens != null && !this._currentTokens.IsExpired;
 
@@ -270,6 +276,45 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             return refreshed;
         }
 
+        // If no persisted tokens exist yet but the user has provided a callback RedirectUrl,
+        // attempt a one-time exchange using the persisted PKCE verifier in ConfigPath.
+        if (this._settings is not null &&
+            !string.IsNullOrWhiteSpace(this._settings.ConfigPath) &&
+            !string.IsNullOrWhiteSpace(this._settings.RedirectUrl))
+        {
+            TidalCallbackResult callback = ParseCallbackUrl(this._settings.RedirectUrl);
+            if (callback.IsSuccess)
+            {
+                PkceStateFileStore pkceStore = new(this._settings.ConfigPath);
+                PkceState? pkce = pkceStore.TryLoad();
+
+                if (pkce is null)
+                {
+                    throw new InvalidOperationException("OAuth callback was provided, but the PKCE state file is missing. Open the Auth URL again to generate a new OAuth flow.");
+                }
+
+                if (pkce.IsExpired(MaxPkceAge, DateTimeOffset.UtcNow))
+                {
+                    throw new InvalidOperationException("OAuth callback was provided, but the PKCE state has expired. Open the Auth URL again to generate a new OAuth flow.");
+                }
+
+                if (!string.Equals(pkce.State, callback.State, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("OAuth callback state does not match the persisted PKCE state. Open the Auth URL again to generate a new OAuth flow.");
+                }
+
+                if (string.IsNullOrWhiteSpace(pkce.CodeVerifier))
+                {
+                    throw new InvalidOperationException("OAuth callback was provided, but the PKCE verifier is missing. Open the Auth URL again to generate a new OAuth flow.");
+                }
+
+                TidalTokens exchanged = await ExchangeCodeAsync(callback.AuthCode, pkce.CodeVerifier).ConfigureAwait(false);
+                pkceStore.Delete();
+                this._currentTokens = exchanged;
+                return exchanged;
+            }
+        }
+
         throw new InvalidOperationException("Not authenticated");
     }
 
@@ -335,4 +380,3 @@ public record TidalUserResponse(
     string sessionId,
     string countryCode,
     long userId);
-

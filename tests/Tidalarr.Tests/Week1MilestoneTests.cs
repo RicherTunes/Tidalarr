@@ -18,9 +18,8 @@ public class Week1MilestoneTests
     {
         // Arrange - Complete OAuth flow simulation
         HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
         MockTokenStorage tokenStorage = new();
-        TidalOAuthService oauthService = new(httpClient, pkceGenerator, tokenStorage);
+        TidalOAuthService oauthService = new(httpClient, tokenStorage);
 
         // Step 1: Generate OAuth URL
         TidalAuthUrl authUrl = await oauthService.GenerateAuthUrlAsync();
@@ -231,6 +230,5 @@ public class MockTidalApiClient : ITidalCore
         return Task.FromResult(true);
     }
 }
-
 
 

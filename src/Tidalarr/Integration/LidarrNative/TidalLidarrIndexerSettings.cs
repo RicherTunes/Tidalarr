@@ -5,6 +5,8 @@ using NzbDrone.Core.Validation;
 
 namespace Tidalarr.Integration.LidarrNative;
 
+using Tidalarr.Integration;
+
 /// <summary>
 /// Lidarr-native indexer settings that implement IIndexerSettings for plugin discovery.
 /// Provides UI fields visible in Lidarr's Settings > Indexers > Add > Tidalarr.
@@ -23,6 +25,10 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     }
 
     public string BaseUrl { get; set; }
+
+    [FieldDefinition(0, Label = "Tidal Auth URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Copy this URL and open it in your browser to sign into Tidal. After login, copy the redirect URL and paste it below.")]
+    public string AuthUrl { get => TidalAuthUrlHelper.GetAuthorizationUrl(ConfigPath); set { } }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
         HelpText = "Directory used to persist Tidal authentication tokens.")]

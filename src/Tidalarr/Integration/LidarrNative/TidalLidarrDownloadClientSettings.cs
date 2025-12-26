@@ -7,6 +7,8 @@ using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration.LidarrNative;
 
+using Tidalarr.Integration;
+
 /// <summary>
 /// Lidarr-native download client settings that implement IProviderConfig for plugin discovery.
 /// Provides UI fields visible in Lidarr's Settings > Download Clients > Add > Tidalarr.
@@ -22,6 +24,10 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         ExtractFlac = true;
         DownloadDelay = 1000;
     }
+
+    [FieldDefinition(0, Label = "Tidal Auth URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Copy this URL and open it in your browser to sign into Tidal. After login, copy the redirect URL and paste it below.")]
+    public string AuthUrl { get => TidalAuthUrlHelper.GetAuthorizationUrl(ConfigPath); set { } }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
         HelpText = "Directory used to persist Tidal authentication tokens. Should match the indexer config path.")]

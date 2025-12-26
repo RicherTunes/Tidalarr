@@ -74,7 +74,20 @@ public class TidalModule : StreamingPluginModule
 
         // Core services
         // PKCEGenerator is created internally by TidalOAuthService; no DI registration needed here.
-        _ = services.AddSingleton<ITokenStorage, FileTokenStore>();
+        // FileTokenStore uses ConfigPath from settings for token persistence
+        _ = services.AddSingleton<ITokenStorage>(sp =>
+        {
+            var settings = sp.GetService<TidalarrSettings>();
+            if (!string.IsNullOrEmpty(settings?.ConfigPath))
+            {
+                var tokenPath = Path.Combine(settings.ConfigPath, "tidal_tokens.json");
+                return new FileTokenStore(tokenPath);
+            }
+            // Fallback: keep tests/DI flows working even when ConfigPath isn't available,
+            // but avoid writing under read-only container paths.
+            var fallbackPath = Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json");
+            return new FileTokenStore(fallbackPath);
+        });
         _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
         _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
         // Token manager + provider
@@ -251,7 +264,6 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
-
 
 
 
