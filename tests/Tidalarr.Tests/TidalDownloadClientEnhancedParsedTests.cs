@@ -64,7 +64,8 @@ public class TidalDownloadClientEnhancedParsedTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4, 5]) });
+            byte[] mp4Header = [0x00, 0x00, 0x00, 0x00, (byte)'f', (byte)'t', (byte)'y', (byte)'p', 0x00, 0x00, 0x00, 0x00];
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(mp4Header) });
         }
     }
 
@@ -136,7 +137,6 @@ public class TidalDownloadClientEnhancedParsedTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 }
-
 
 
 
