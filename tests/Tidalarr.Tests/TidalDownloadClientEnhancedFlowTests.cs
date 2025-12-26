@@ -48,11 +48,13 @@ public class TidalDownloadClientEnhancedFlowTests
         }
     }
 
-    private class OkHandler : HttpMessageHandler
+    private class OkHandler(byte[] payload) : HttpMessageHandler
     {
+        private readonly byte[] _payload = payload;
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3, 4]) });
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new ByteArrayContent(_payload) });
         }
     }
 
@@ -64,7 +66,10 @@ public class TidalDownloadClientEnhancedFlowTests
         string tmp = Path.Combine(Path.GetTempPath(), $"tidal_enh_{Guid.NewGuid():N}");
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalStreamService streamSvc = new(new CoreStub(mime, ext), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        byte[] payload = ext == ".flac"
+            ? [(byte)'f', (byte)'L', (byte)'a', (byte)'C', 0x00, 0x00, 0x00, 0x00]
+            : [0x00, 0x00, 0x00, 0x00, (byte)'f', (byte)'t', (byte)'y', (byte)'p', 0x00, 0x00, 0x00, 0x00];
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler(payload)));
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(mime, ext), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", tmp, TidalQuality.Lossless);
@@ -73,7 +78,6 @@ public class TidalDownloadClientEnhancedFlowTests
         try { if (!string.IsNullOrEmpty(res.OutputPath) && File.Exists(res.OutputPath)) File.Delete(res.OutputPath); } catch { }
     }
 }
-
 
 
 
