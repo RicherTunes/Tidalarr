@@ -273,6 +273,7 @@ public sealed class HarnessPluginContext : IPluginContext
     public IServiceProvider? Services { get; }
 }
 
+[Trait("Category", "Packaging")]
 public sealed class TidalarrPluginSmokeTests(TidalarrPluginLoadFixture fixture) : IClassFixture<TidalarrPluginLoadFixture>
 {
     private readonly TidalarrPluginLoadFixture fixture = fixture;
