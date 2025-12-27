@@ -46,6 +46,28 @@ public class TidalChunkDownloaderTests
     }
 
     [Fact]
+    public void ChunkDelayMs_ExceedsMax_IsClampedTo2000()
+    {
+        // Arrange & Act - try to set 10000ms, should be clamped to 2000
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient, chunkDelayMs: 10000);
+
+        // Assert - clamped to max 2000ms
+        Assert.Equal(2000, downloader.ChunkDelayMs);
+    }
+
+    [Fact]
+    public void ChunkDelayMs_Negative_IsClampedToZero()
+    {
+        // Arrange & Act - try to set -100ms, should be clamped to 0
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient, chunkDelayMs: -100);
+
+        // Assert - clamped to min 0ms
+        Assert.Equal(0, downloader.ChunkDelayMs);
+    }
+
+    [Fact]
     public async Task DownloadAndAssemble_ValidUrls_ReturnsAssembledStream()
     {
         // Arrange

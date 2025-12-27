@@ -12,11 +12,13 @@ public class ChunkDownloadProgress
 
 public class TidalChunkDownloader(HttpClient httpClient, int chunkDelayMs = 50)
 {
+    private const int MaxChunkDelayMs = 2000;
+
     private readonly HttpClient _httpClient = httpClient;
-    private readonly int _chunkDelayMs = chunkDelayMs;
+    private readonly int _chunkDelayMs = Math.Clamp(chunkDelayMs, 0, MaxChunkDelayMs);
 
     /// <summary>
-    /// Delay in milliseconds between chunk downloads. Set to 0 to disable.
+    /// Delay in milliseconds between chunk downloads (0-2000ms). Set to 0 to disable.
     /// </summary>
     public int ChunkDelayMs => _chunkDelayMs;
 
@@ -112,6 +114,11 @@ public class TidalChunkDownloader(HttpClient httpClient, int chunkDelayMs = 50)
                 await contentStream.CopyToAsync(fileStream);
 
                 progress?.Report(i + 1);
+
+                if (_chunkDelayMs > 0)
+                {
+                    await Task.Delay(_chunkDelayMs);
+                }
             }
 
             if (streamInfo.IsEncrypted && string.IsNullOrWhiteSpace(streamInfo.SecurityToken))
