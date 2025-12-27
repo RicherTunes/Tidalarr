@@ -62,11 +62,8 @@
       <HintPath>$(LidarrAssembliesPath)\Lidarr.Http.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- FluentValidation: Use Lidarr's copy to avoid AssemblyLoadContext conflicts -->
-    <Reference Include="FluentValidation" Condition="Exists('$(LidarrAssembliesPath)\FluentValidation.dll')">
-      <HintPath>$(LidarrAssembliesPath)\FluentValidation.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <!-- FluentValidation: Must be shipped (not merged) to maintain type identity with host.
+         The packaging cleanup keeps this DLL while removing others. -->
     <!-- NLog: Use Lidarr's copy to avoid AssemblyVersion conflicts -->
     <Reference Include="NLog" Condition="Exists('$(LidarrAssembliesPath)\NLog.dll')">
       <HintPath>$(LidarrAssembliesPath)\NLog.dll</HintPath>
@@ -76,9 +73,10 @@
 
   <!-- Dependencies use centralized versions from Directory.Packages.props -->
   <ItemGroup>
-    <!-- Only use NuGet FluentValidation when Lidarr's copy is unavailable -->
-    <PackageReference Include="FluentValidation" Condition="!Exists('$(LidarrAssembliesPath)\FluentValidation.dll')" />
+    <!-- FluentValidation must be shipped (not merged) to maintain type identity with host -->
+    <PackageReference Include="FluentValidation" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
