@@ -117,6 +117,58 @@ public class TidalDownloadClientFileNameTests
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.StartsWith("D02T03 - ", fileName);
     }
+
+    // ========================================================================
+    // Sanitization Contract Tests (PR #104)
+    // These verify FileSystemUtilities.SanitizeFileName behavior is applied
+    // ========================================================================
+
+    [Fact]
+    public void GenerateFileName_ReservedNameWithTrailingDot_GetsPrefixed()
+    {
+        // Verifies: CON. → _CON (reserved name guard after trailing dot trim)
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = "CON.", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 1 };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+
+        // After sanitization: "CON." → trim trailing "." → "CON" → reserved → "_CON"
+        // Extract the title component (last part before extension)
+        string baseName = Path.GetFileNameWithoutExtension(fileName);
+        string titleComponent = baseName.Split(" - ").Last();
+        Assert.Equal("_CON", titleComponent);
+    }
+
+    [Fact]
+    public void GenerateFileName_TrailingDot_IsTrimmed()
+    {
+        // Verifies: Title. → Title (trailing char trimming)
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = "MyTitle.", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 1 };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+
+        // Extract the title component and verify trailing dot is trimmed
+        string baseName = Path.GetFileNameWithoutExtension(fileName);
+        string titleComponent = baseName.Split(" - ").Last();
+        Assert.Equal("MyTitle", titleComponent);
+    }
+
+    [Fact]
+    public void GenerateFileName_NullTitle_FallsBackToUnknownTrack()
+    {
+        // Verifies: null title → "Unknown Track" (stable fallback, no empty filename)
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = null!, Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 1 };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+
+        Assert.Contains("Unknown Track", fileName);
+        Assert.DoesNotContain(" - .", fileName); // No empty title before extension
+    }
 }
 
 
