@@ -94,10 +94,11 @@ public class TidalDownloadClient(
         int trackNumber = track.TrackNumber ?? 0;
         int discNumber = track.DiscNumber.GetValueOrDefault();
         discNumber = discNumber > 0 ? discNumber : 1;
-        string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
-        string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
-        string title = FileNameSanitizer.SanitizeFileName(baseTitle);
-        string artist = FileNameSanitizer.SanitizeFileName(baseArtist);
+
+        // Use Common's FileSystemUtilities for consistent sanitization with NFC normalization,
+        // reserved name guarding, and trailing char trimming across all plugins
+        string title = FileSystemUtilities.SanitizeFileName(track.Title ?? "Unknown Track");
+        string artist = FileSystemUtilities.SanitizeFileName(track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist");
         string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
 
         string prefix = discNumber > 1
@@ -402,7 +403,8 @@ public class TidalDownloadClient(
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
         string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
-        safeName = FileNameSanitizer.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
+        // Use FileSystemUtilities for consistent sanitization across plugins
+        safeName = FileSystemUtilities.SanitizeFileName(safeName);
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }
