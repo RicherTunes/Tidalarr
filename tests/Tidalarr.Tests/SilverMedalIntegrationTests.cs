@@ -1,14 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tidalarr.Core.Models;
+using Tidalarr.Core.Interfaces;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Integration;
-using Lidarr.Plugin.Common.Services.Authentication;
 
 namespace Tidalarr.Tests;
 
 /// <summary>
 /// Silver Medal Integration Tests
 /// Success Criteria: First successful Tidal download through Tidalarr
+/// Uses DI container to avoid ILRepack type identity issues with direct instantiation.
 /// </summary>
 public class SilverMedalIntegrationTests
 {
@@ -26,17 +27,20 @@ public class SilverMedalIntegrationTests
         TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
         Assert.True(indexerSettings.ValidateFluent().IsValid);
 
-        // STEP 2: OAuth Authentication Simulation
-        TidalAuthUrl authUrl = await SimulateOAuthFlow();
-        Assert.NotNull(authUrl);
-        Assert.Contains("tidal.com", authUrl.AuthorizationUrl);
-
-        // STEP 3: Search Functionality
+        // STEP 2: OAuth Authentication Simulation via DI
         ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
         ServiceProvider provider = services.BuildServiceProvider();
+
+        // Get auth service via DI to avoid ILRepack type identity issues
+        ITidalAuth authService = provider.GetRequiredService<ITidalAuth>();
+        TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
+        Assert.NotNull(authUrl);
+        Assert.Contains("tidal.com", authUrl.AuthorizationUrl);
+
+        // STEP 3: Search Functionality
         TidalIndexer indexer = provider.GetRequiredService<TidalIndexer>();
         Assert.NotNull(indexer);
 
@@ -54,23 +58,24 @@ public class SilverMedalIntegrationTests
         TidalIndexerSettings indexerSettings = CreateValidIndexerSettings();
         TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
 
-        HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
-
-        TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
-        Assert.NotNull(authUrl);
-        Assert.Equal(128, authUrl.CodeVerifier.Length);
-
-        string testCallback = $"https://tidal.com/android/login/auth?code=test_code&state={authUrl.State}";
-        TidalCallbackResult callbackResult = authService.ParseCallbackUrl(testCallback);
-        Assert.True(callbackResult.IsSuccess);
-
+        // Use DI container for proper type resolution
         ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);
         _ = services.AddSingleton(downloadSettings);
         TidalModule.RegisterServices(services);
         ServiceProvider provider = services.BuildServiceProvider();
+
+        ITidalAuth authService = provider.GetRequiredService<ITidalAuth>();
+        TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
+        Assert.NotNull(authUrl);
+        Assert.Equal(128, authUrl.CodeVerifier.Length);
+
+        // Cast to concrete type for callback parsing (ParseCallbackUrl not on interface)
+        TidalOAuthService oauthService = (TidalOAuthService)authService;
+        string testCallback = $"https://tidal.com/android/login/auth?code=test_code&state={authUrl.State}";
+        TidalCallbackResult callbackResult = oauthService.ParseCallbackUrl(testCallback);
+        Assert.True(callbackResult.IsSuccess);
+
         TidalIndexer indexer = provider.GetRequiredService<TidalIndexer>();
         TidalDownloadClient downloadClient = provider.GetRequiredService<TidalDownloadClient>();
 
@@ -90,15 +95,26 @@ public class SilverMedalIntegrationTests
         Assert.Contains(TidalarrValidationCodes.RedirectRequired, errorCodes);
         Assert.Contains(TidalarrValidationCodes.ConfigPathRequired, errorCodes);
 
-        TidalOAuthService authService = new(new HttpClient(), new PKCEGenerator());
+        // Use DI container for proper type resolution
+        TidalIndexerSettings validSettings = CreateValidIndexerSettings();
+        TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
+        ServiceCollection services = new();
+        _ = services.AddSingleton(validSettings);
+        _ = services.AddSingleton(downloadSettings);
+        TidalModule.RegisterServices(services);
+        ServiceProvider provider = services.BuildServiceProvider();
 
-        TidalCallbackResult invalidCallback1 = authService.ParseCallbackUrl("not-a-url");
+        // Cast to concrete type for callback parsing (ParseCallbackUrl not on interface)
+        ITidalAuth authService = provider.GetRequiredService<ITidalAuth>();
+        TidalOAuthService oauthService = (TidalOAuthService)authService;
+
+        TidalCallbackResult invalidCallback1 = oauthService.ParseCallbackUrl("not-a-url");
         Assert.False(invalidCallback1.IsSuccess);
 
-        TidalCallbackResult invalidCallback2 = authService.ParseCallbackUrl("https://wrong-domain.com/auth");
+        TidalCallbackResult invalidCallback2 = oauthService.ParseCallbackUrl("https://wrong-domain.com/auth");
         Assert.False(invalidCallback2.IsSuccess);
 
-        TidalCallbackResult errorCallback = authService.ParseCallbackUrl("https://tidal.com/android/login/auth?error=access_denied");
+        TidalCallbackResult errorCallback = oauthService.ParseCallbackUrl("https://tidal.com/android/login/auth?error=access_denied");
         Assert.False(errorCallback.IsSuccess);
         Assert.Contains("OAuth error: access_denied", errorCallback.ErrorMessage);
 
@@ -141,14 +157,5 @@ public class SilverMedalIntegrationTests
             IncludeMqa = true,
             DownloadPath = Path.GetTempPath()
         };
-    }
-
-    private static async Task<TidalAuthUrl> SimulateOAuthFlow()
-    {
-        HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
-
-        return await authService.GenerateAuthUrlAsync();
     }
 }

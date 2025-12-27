@@ -9,17 +9,13 @@ This document captures a known-good plugin package output to support the Phase 1
 
 ## Expected contents (current)
 
+ILRepack merges most dependencies into the main plugin DLL.
+
 Required (type identity / runtime deps):
-- `FluentValidation.dll`
 - `Lidarr.Plugin.Abstractions.dll`
-- `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
-- `Microsoft.Extensions.Logging.Abstractions.dll`
 
-Required (plugin):
+Required (plugin - includes merged FluentValidation, Common, DI, etc.):
 - `Lidarr.Plugin.Tidalarr.dll`
-
-Kept (may later be merged/removed, but OK today):
-- `Lidarr.Plugin.Common.dll`
 
 Other files currently present:
 - `plugin.json`
@@ -36,4 +32,3 @@ Host-provided assemblies (examples, non-exhaustive):
 
 Cross-boundary risk:
 - `System.Text.Json.dll`
-
