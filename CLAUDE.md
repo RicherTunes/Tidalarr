@@ -11,6 +11,34 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
 - Be aware that this project shares a common library with http://github.com/RicherTunes/Lidarr.Plugin.Common so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
 
+## Plugin Packaging Policy (CRITICAL)
+
+**The plugin package MUST contain these type-identity assemblies:**
+- `Lidarr.Plugin.Tidalarr.dll` - Main plugin (may be merged with Common)
+- `Lidarr.Plugin.Abstractions.dll` - Required for plugin discovery
+- `FluentValidation.dll` - Required for `DownloadClient.Test()` method signature
+- `Microsoft.Extensions.DependencyInjection.Abstractions.dll` - Type identity with host
+- `Microsoft.Extensions.Logging.Abstractions.dll` - Type identity with host
+
+**The plugin package MUST NOT contain these host assemblies:**
+- `Lidarr.Core.dll`, `Lidarr.Common.dll`, `Lidarr.Host.dll`
+- `NzbDrone.*.dll`
+- `System.Text.Json.dll` (cross-boundary type identity risk)
+
+**NEVER use `<Reference>` with `Private=false` for type-identity assemblies:**
+```xml
+<!-- WRONG - Won't be copied to output, can't be packaged -->
+<Reference Include="FluentValidation">
+  <HintPath>$(LidarrAssembliesPath)\FluentValidation.dll</HintPath>
+  <Private>false</Private>
+</Reference>
+
+<!-- CORRECT - Copied to output, will be packaged -->
+<PackageReference Include="FluentValidation" />
+```
+
+**Validation:** Run `./build.ps1 -Package` and verify the zip contains the required DLLs.
+
 ## Build Commands
 
 ### **Development Builds (with CLI tools)**
