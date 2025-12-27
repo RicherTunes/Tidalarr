@@ -13,6 +13,39 @@ public class TidalChunkDownloaderTests
     private static readonly byte[] TokenIv = [.. Enumerable.Range(24, 16).Select(i => (byte)i)];
 
     [Fact]
+    public void ChunkDelayMs_DefaultValue_Is50()
+    {
+        // Arrange & Act
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient);
+
+        // Assert - default delay is 50ms
+        Assert.Equal(50, downloader.ChunkDelayMs);
+    }
+
+    [Fact]
+    public void ChunkDelayMs_SetToZero_DisablesDelay()
+    {
+        // Arrange & Act
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient, chunkDelayMs: 0);
+
+        // Assert - 0 should be stored (disables delay)
+        Assert.Equal(0, downloader.ChunkDelayMs);
+    }
+
+    [Fact]
+    public void ChunkDelayMs_CustomValue_IsRespected()
+    {
+        // Arrange & Act
+        HttpClient httpClient = new();
+        TidalChunkDownloader downloader = new(httpClient, chunkDelayMs: 100);
+
+        // Assert
+        Assert.Equal(100, downloader.ChunkDelayMs);
+    }
+
+    [Fact]
     public async Task DownloadAndAssemble_ValidUrls_ReturnsAssembledStream()
     {
         // Arrange

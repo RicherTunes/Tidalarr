@@ -10,9 +10,15 @@ public class ChunkDownloadProgress
     public double ProgressPercentage => TotalChunks > 0 ? (double)CompletedChunks / TotalChunks * 100 : 0;
 }
 
-public class TidalChunkDownloader(HttpClient httpClient)
+public class TidalChunkDownloader(HttpClient httpClient, int chunkDelayMs = 50)
 {
     private readonly HttpClient _httpClient = httpClient;
+    private readonly int _chunkDelayMs = chunkDelayMs;
+
+    /// <summary>
+    /// Delay in milliseconds between chunk downloads. Set to 0 to disable.
+    /// </summary>
+    public int ChunkDelayMs => _chunkDelayMs;
 
     /// <summary>
     /// Download and assemble chunks from Tidal DASH manifest
@@ -46,7 +52,10 @@ public class TidalChunkDownloader(HttpClient httpClient)
                     CompletedChunks = completedChunks
                 });
 
-                await Task.Delay(50, cancellationToken);
+                if (_chunkDelayMs > 0)
+                {
+                    await Task.Delay(_chunkDelayMs, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
