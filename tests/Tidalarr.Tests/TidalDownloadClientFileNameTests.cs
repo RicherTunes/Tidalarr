@@ -169,6 +169,22 @@ public class TidalDownloadClientFileNameTests
         Assert.Contains("Unknown Track", fileName);
         Assert.DoesNotContain(" - .", fileName); // No empty title before extension
     }
+
+    [Fact]
+    public void GenerateFileName_WhitespaceOnlyTitle_FallsBackToUnknownTrack()
+    {
+        // Verifies: "   " (whitespace) → "Unknown Track" (bad metadata edge case)
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = "   ", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 1 };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+
+        // Whitespace-only titles should not produce empty components
+        string baseName = Path.GetFileNameWithoutExtension(fileName);
+        string titleComponent = baseName.Split(" - ").Last();
+        Assert.False(string.IsNullOrWhiteSpace(titleComponent), "Title component should not be empty or whitespace");
+    }
 }
 
 
