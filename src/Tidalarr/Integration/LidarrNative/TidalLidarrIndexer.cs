@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Web;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
@@ -100,6 +101,228 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     {
         EnsureServicesInitialized();
         return new TidalLidarrParser(Settings, _serviceProvider, _logger);
+    }
+
+    /// <summary>
+    /// Override FetchReleases to bypass HTTP fetching for tidal:// placeholder URLs.
+    /// Performs the actual search using TidalSearchService directly.
+    /// </summary>
+    protected override async Task<IList<ReleaseInfo>> FetchReleases(
+        Func<IIndexerRequestGenerator, IndexerPageableRequestChain> pageableRequestChainSelector,
+        bool isRecent = false)
+    {
+        var releases = new List<ReleaseInfo>();
+
+        try
+        {
+            EnsureServicesInitialized();
+
+            // Get requests from generator (these contain our search queries)
+            var requestGenerator = GetRequestGenerator();
+            var requestChain = pageableRequestChainSelector(requestGenerator);
+
+            // Process each request - extract query and search directly
+            foreach (var tier in requestChain.GetAllTiers())
+            {
+                foreach (var request in tier)
+                {
+                    try
+                    {
+                        var requestUrl = request.HttpRequest?.Url?.ToString() ?? "";
+
+                        // Handle our placeholder tidal:// URLs directly
+                        if (requestUrl.StartsWith("tidal://search"))
+                        {
+                            var searchResults = await PerformDirectSearchAsync(requestUrl);
+                            if (searchResults != null)
+                            {
+                                // Set indexer info on results
+                                var indexerId = Definition?.Id ?? 0;
+                                foreach (var release in searchResults)
+                                {
+                                    release.IndexerId = indexerId;
+                                    release.Indexer = Definition?.Name ?? Name;
+                                }
+                                releases.AddRange(searchResults);
+                            }
+                        }
+                        else
+                        {
+                            _logger.Warn("Unexpected URL format in Tidalarr: {0}", requestUrl);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Error processing search request");
+                    }
+                }
+            }
+
+            _logger.Info("Retrieved {0} releases from Tidal", releases.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to fetch releases from Tidal");
+        }
+
+        return releases;
+    }
+
+    /// <summary>
+    /// Perform direct search using TidalSearchService without HTTP round-trip.
+    /// </summary>
+    private async Task<IList<ReleaseInfo>> PerformDirectSearchAsync(string requestUrl)
+    {
+        var releases = new List<ReleaseInfo>();
+
+        try
+        {
+            // Extract query from tidal://search?query=...
+            var uri = new Uri(requestUrl);
+            var queryParams = HttpUtility.ParseQueryString(uri.Query);
+            var searchQuery = queryParams["query"];
+
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                _logger.Warn("No search query found in request URL: {0}", requestUrl);
+                return releases;
+            }
+
+            _logger.Info("Performing direct Tidal search for: {0}", searchQuery);
+
+            // Get search service and perform search
+            var searchService = _serviceProvider.GetService<TidalSearchService>();
+            if (searchService == null)
+            {
+                _logger.Error("TidalSearchService not available - check service registration");
+                return releases;
+            }
+
+            _logger.Info("TidalSearchService obtained, calling SearchWithQualityDetectionAsync...");
+
+            // Also check ITidalCore directly to test API connectivity
+            var apiClient = _serviceProvider.GetService<ITidalCore>();
+            if (apiClient == null)
+            {
+                _logger.Error("ITidalCore not available - check service registration");
+                return releases;
+            }
+
+            _logger.Info("ITidalCore obtained, checking authentication...");
+            try
+            {
+                bool isAuth = await apiClient.IsAuthenticatedAsync();
+                _logger.Info("Authentication status: {0}", isAuth ? "Authenticated" : "NOT authenticated");
+            }
+            catch (Exception authEx)
+            {
+                _logger.Error(authEx, "Failed to check authentication status");
+            }
+
+            TidalSearchResults searchResults;
+            try
+            {
+                _logger.Info("Calling API SearchAsync directly...");
+                searchResults = await apiClient.SearchAsync(searchQuery);
+                _logger.Info("API SearchAsync completed. Albums: {0}", searchResults?.Albums?.Count ?? 0);
+            }
+            catch (Exception searchEx)
+            {
+                _logger.Error(searchEx, "ITidalCore.SearchAsync failed for: {0}", searchQuery);
+                return releases;
+            }
+
+            if (searchResults == null)
+            {
+                _logger.Warn("Search returned null for query: {0}", searchQuery);
+                return releases;
+            }
+
+            if (searchResults.Albums == null || searchResults.Albums.Count == 0)
+            {
+                _logger.Info("No albums found for query: {0}", searchQuery);
+                return releases;
+            }
+
+            _logger.Info("Found {0} albums for query: {1}", searchResults.Albums.Count, searchQuery);
+
+            // Convert to ReleaseInfo
+            foreach (var album in searchResults.Albums)
+            {
+                try
+                {
+                    var release = ConvertToReleaseInfo(album);
+                    if (release != null)
+                    {
+                        releases.Add(release);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Failed to convert album: {0}", album.Title);
+                }
+            }
+
+            _logger.Debug("Found {0} releases for query: {1}", releases.Count, searchQuery);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to perform direct search: {0}", requestUrl);
+        }
+
+        return releases;
+    }
+
+    /// <summary>
+    /// Convert TidalAlbumInfo to Lidarr ReleaseInfo format.
+    /// </summary>
+    private ReleaseInfo ConvertToReleaseInfo(TidalAlbumInfo album)
+    {
+        if (album == null) return null;
+
+        var artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
+        var albumTitle = album.Title ?? "Unknown Album";
+        var releaseDate = album.ReleaseDate;
+
+        // Determine quality from available qualities
+        var bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
+        var quality = DetermineQualityString(bestQuality);
+
+        return new ReleaseInfo
+        {
+            Guid = $"tidal:album:{album.Id}",
+            Title = $"{artistName} - {albumTitle} [{quality}]",
+            Artist = artistName,
+            Album = albumTitle,
+            PublishDate = releaseDate,
+            DownloadUrl = $"tidal://album/{album.Id}",
+            InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
+            Size = EstimateAlbumSize(album, bestQuality),
+            DownloadProtocol = nameof(TidalarrDownloadProtocol)
+        };
+    }
+
+    private string DetermineQualityString(TidalQuality quality)
+    {
+        return quality switch
+        {
+            TidalQuality.HiRes => "Hi-Res FLAC 24bit",
+            TidalQuality.Lossless => "FLAC 16bit",
+            TidalQuality.High => "AAC 320kbps",
+            _ => "AAC 96kbps"
+        };
+    }
+
+    private long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
+    {
+        // Estimate size based on track count and quality
+        // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps
+        var trackCount = (album.Tracks?.Count ?? 0) > 0 ? album.Tracks!.Count : 12;
+        var avgTrackDurationSeconds = 240;
+        var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
+        var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
+
+        return (long)(totalDurationSeconds * bitrateKbps * 125);
     }
 
     protected override async Task Test(List<ValidationFailure> failures)
@@ -330,7 +553,8 @@ public class TidalLidarrParser : IParseIndexerResponse
             PublishDate = releaseDate,
             DownloadUrl = $"tidal://album/{album.Id}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
-            Size = EstimateAlbumSize(album, bestQuality)
+            Size = EstimateAlbumSize(album, bestQuality),
+            DownloadProtocol = nameof(TidalarrDownloadProtocol)
         };
     }
 
@@ -349,7 +573,7 @@ public class TidalLidarrParser : IParseIndexerResponse
     {
         // Estimate size based on track count and quality
         // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps
-        var trackCount = album.Tracks?.Count ?? 12; // Default to 12 tracks
+        var trackCount = (album.Tracks?.Count ?? 0) > 0 ? album.Tracks!.Count : 12; // Default to 12 tracks
         var avgTrackDurationSeconds = 240; // 4 minutes average
         var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
         var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;

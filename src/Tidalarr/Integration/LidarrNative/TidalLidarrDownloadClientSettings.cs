@@ -7,8 +7,6 @@ using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration.LidarrNative;
 
-using Tidalarr.Integration;
-
 /// <summary>
 /// Lidarr-native download client settings that implement IProviderConfig for plugin discovery.
 /// Provides UI fields visible in Lidarr's Settings > Download Clients > Add > Tidalarr.
@@ -19,42 +17,37 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
 
     public TidalLidarrDownloadClientSettings()
     {
-        ConfigPath = TidalAuthUrlHelper.GetDefaultConfigPath();
+        ConfigPath = Integration.TidalAuthUrlHelper.GetDefaultConfigPath();
         PreferredQuality = TidalQuality.Lossless;
         IncludeMqa = true;
         ExtractFlac = true;
         DownloadDelay = 1000;
     }
 
-    [FieldDefinition(0, Label = "Tidal Auth URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Copy this URL and open it in your browser to sign into Tidal. After login, copy the redirect URL and paste it below.")]
-    public string AuthUrl { get => TidalAuthUrlHelper.GetAuthorizationUrl(ConfigPath); set { } }
-
-    [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Should match the indexer config path.")]
+    [FieldDefinition(0, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
+        HelpText = "Must match the Tidalarr indexer config path. Tokens are shared - complete OAuth in the indexer first.")]
     public string ConfigPath { get; set; } = string.Empty;
 
-    [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "OAuth redirect URL captured after completing the Tidal login flow. Should match the indexer redirect URL.")]
+    // RedirectUrl kept for internal use but not exposed in UI - tokens come from indexer
     public string RedirectUrl { get; set; } = string.Empty;
 
-    [FieldDefinition(3, Label = "Download Path", Type = FieldType.Path, Section = "Download",
+    [FieldDefinition(1, Label = "Download Path", Type = FieldType.Path, Section = "Download",
         HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(4, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
+    [FieldDefinition(2, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
         HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-    [FieldDefinition(5, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(3, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Allow Master (MQA) releases when available.")]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(6, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(4, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Convert M4A containers to FLAC when possible.")]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(7, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
+    [FieldDefinition(5, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
         HelpText = "Delay between chunk requests used for throttling. Range: 0-60000, Default: 1000")]
     public int DownloadDelay { get; set; } = 1000;
 

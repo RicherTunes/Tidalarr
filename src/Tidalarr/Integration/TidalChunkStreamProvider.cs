@@ -6,10 +6,6 @@ using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Integration
 {
-    /// <summary>
-    /// Bridges Tidal's chunked streaming to the shared download orchestrator by
-    /// assembling a contiguous audio stream from DASH chunks.
-    /// </summary>
     public class TidalChunkStreamProvider(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, TidalModelMapper mapper) : IAudioStreamProvider
     {
         private readonly TidalStreamService _streamService = streamService ?? throw new ArgumentNullException(nameof(streamService));
@@ -18,22 +14,29 @@ namespace Tidalarr.Integration
 
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
+            Console.WriteLine("[TidalChunkStreamProvider] GetStreamAsync for track: " + trackId);
             TidalQuality tidalQuality = quality != null ? this._mapper.FromStreamingQuality(quality) : TidalQuality.Lossless;
 
             TidalManifest? manifest = null;
             try
             {
+                Console.WriteLine("[TidalChunkStreamProvider] Fetching manifest...");
                 manifest = await this._streamService.GetParsedManifestAsync(trackId, tidalQuality).ConfigureAwait(false);
+                int chunkCount = manifest?.ChunkUrls?.Length ?? 0;
+                Console.WriteLine("[TidalChunkStreamProvider] Manifest: chunks=" + chunkCount);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore and fall back to legacy stream info path
+                Console.WriteLine("[TidalChunkStreamProvider] Manifest FAILED: " + ex.Message);
             }
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
+                int chunks = manifest.ChunkUrls.Length;
+                Console.WriteLine("[TidalChunkStreamProvider] Downloading " + chunks + " chunks...");
                 MemoryStream assembled = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
                 assembled.Position = 0;
+                Console.WriteLine("[TidalChunkStreamProvider] Assembled: " + assembled.Length + " bytes");
                 return new AudioStreamResult
                 {
                     Stream = assembled,
@@ -42,8 +45,13 @@ namespace Tidalarr.Integration
                 };
             }
 
+            Console.WriteLine("[TidalChunkStreamProvider] Fallback to legacy stream info...");
             TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            int legacyChunks = info.ChunkUrls?.Length ?? 0;
+            Console.WriteLine("[TidalChunkStreamProvider] Legacy: chunks=" + legacyChunks);
             Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
+            long size = (ms as MemoryStream)?.Length ?? -1;
+            Console.WriteLine("[TidalChunkStreamProvider] Legacy assembled: " + size + " bytes");
             return new AudioStreamResult
             {
                 Stream = ms,
@@ -51,7 +59,5 @@ namespace Tidalarr.Integration
                 SuggestedExtension = info.FileExtension?.TrimStart('.') ?? "m4a"
             };
         }
-
     }
 }
-

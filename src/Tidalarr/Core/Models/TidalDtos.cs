@@ -1,10 +1,37 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Tidalarr.Core.Models;
+
+/// <summary>
+/// JSON converter that handles both string and number values, converting to string.
+/// Tidal API returns IDs as numbers but we want to work with strings.
+/// </summary>
+public class JsonStringOrNumberConverter : JsonConverter<string>
+{
+    public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return reader.TokenType switch
+        {
+            JsonTokenType.String => reader.GetString(),
+            JsonTokenType.Number => reader.GetInt64().ToString(),
+            JsonTokenType.Null => null,
+            _ => throw new JsonException($"Cannot convert token type {reader.TokenType} to string")
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value);
+    }
+}
 
 /// <summary>
 /// DTO for Tidal artist from API response.
 /// </summary>
 public class TidalArtistDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string? id { get; set; }
     public string? name { get; set; }
 
@@ -22,6 +49,7 @@ public class TidalArtistDto
 /// </summary>
 public class TidalAlbumDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string id { get; set; } = string.Empty;
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
@@ -53,6 +81,7 @@ public class TidalAlbumDto
 /// </summary>
 public class TidalTrackDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string id { get; set; } = string.Empty;
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
@@ -139,6 +168,7 @@ public class TidalSearchResponseDto
 /// </summary>
 public class TidalPlaybackInfoDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string? trackId { get; set; }
     public string? assetPresentation { get; set; }
     public string? audioQuality { get; set; }
@@ -147,10 +177,10 @@ public class TidalPlaybackInfoDto
     public string? manifest { get; set; }
     public string? encryptionType { get; set; }
     public string? securityToken { get; set; }
-    public int? albumPeakAmplitude { get; set; }
-    public int? albumReplayGain { get; set; }
-    public int? trackPeakAmplitude { get; set; }
-    public int? trackReplayGain { get; set; }
+    public double? albumPeakAmplitude { get; set; }
+    public double? albumReplayGain { get; set; }
+    public double? trackPeakAmplitude { get; set; }
+    public double? trackReplayGain { get; set; }
 
     public TidalPlaybackInfoDto() { }
 
@@ -191,6 +221,7 @@ public class TidalTokenResponse
     public string refresh_token { get; set; } = string.Empty;
     public string token_type { get; set; } = string.Empty;
     public int expires_in { get; set; }
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string? user_id { get; set; }
     public string? countryCode { get; set; }
 }

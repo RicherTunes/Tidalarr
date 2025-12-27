@@ -291,8 +291,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
     {
-        if (dto.artist == null)
-            throw new InvalidOperationException("Album response missing primary artist.");
+        // Removed: some albums only have artists array, not artist field
+            // Removed throw for missing artist
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
             artistNames.Add(dto.artist!.name!);

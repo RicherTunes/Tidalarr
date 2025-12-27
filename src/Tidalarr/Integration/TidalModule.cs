@@ -242,6 +242,23 @@ public class TidalModule : StreamingPluginModule
 
         async Task<IReadOnlyList<string>> getTrackIds(string id)
         {
+            Console.WriteLine($"[TidalOrchestrator] getTrackIds called for album: {id}");
+            try
+            {
+                TidalAlbumInfo a = await api.GetAlbumWithTracksAsync(id);
+                var trackIds = a.Tracks?.Select(t => t.Id).ToList() ?? new List<string>();
+                Console.WriteLine($"[TidalOrchestrator] getTrackIds returned {trackIds.Count} tracks for album {id}");
+                return trackIds;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TidalOrchestrator] getTrackIds EXCEPTION: {ex.Message}");
+                throw;
+            }
+        }
+
+        async Task<IReadOnlyList<string>> getTrackIds_UNUSED(string id)
+        {
             TidalAlbumInfo a = await api.GetAlbumWithTracksAsync(id);
             return a.Tracks?.Select(t => t.Id).ToList() ?? [];
         }

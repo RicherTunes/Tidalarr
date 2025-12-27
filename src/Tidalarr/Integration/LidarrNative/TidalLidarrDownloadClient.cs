@@ -135,7 +135,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
             {
                 try
                 {
-                    _logger.Debug("Starting async download for album {0}", albumId);
+                    _logger.Info("Starting async download for album {0} to path: {1}", albumId, outputPath);
 
                     // Create progress reporter to update download item
                     var progressReporter = new Progress<DownloadProgress>(p =>
@@ -146,6 +146,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                         }
                     });
 
+                    _logger.Info("Calling orchestrator.DownloadAlbumAsync...");
                     var result = await _orchestrator.DownloadAlbumAsync(
                         albumId,
                         outputPath,
