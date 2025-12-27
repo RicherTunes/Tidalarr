@@ -8,12 +8,18 @@ internal sealed partial record PackagingPolicyBaseline(
     IReadOnlyCollection<string> ForbiddenAssemblies)
 {
     // ILRepack merges most dependencies into Lidarr.Plugin.Tidalarr.dll
-    // Only Lidarr.Plugin.Abstractions.dll is kept separate (as runtime dependency)
+    // Type-identity assemblies are kept separate for host compatibility:
+    // - Lidarr.Plugin.Abstractions.dll: Required for plugin discovery
+    // - FluentValidation.dll: Required for DownloadClient.Test() method signature
+    // - Microsoft.Extensions.*.Abstractions.dll: Required for DI/logging type identity
     public static PackagingPolicyBaseline Default { get; } = new(
         RequiredAssemblies: new[]
         {
+            "Lidarr.Plugin.Tidalarr.dll",
             "Lidarr.Plugin.Abstractions.dll",
-            "Lidarr.Plugin.Tidalarr.dll"
+            "FluentValidation.dll",
+            "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+            "Microsoft.Extensions.Logging.Abstractions.dll"
         },
         OptionalAssemblies: Array.Empty<string>(),
         ForbiddenAssemblies: new[]
