@@ -263,6 +263,7 @@ cd TidalCLI && dotnet run -- --help
 
 # Shared library update
 git submodule update --remote ext/Lidarr.Plugin.Common
+pwsh ./scripts/sync-ext-common-sha.ps1  # Sync SHA tracking file
 ```
 
 This architecture ensures Tidalarr remains developer-friendly while providing production-ready, scalable deployments suitable for enterprise environments and external adoption.
