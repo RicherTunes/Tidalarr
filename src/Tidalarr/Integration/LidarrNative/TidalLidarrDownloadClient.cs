@@ -94,7 +94,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         }
     }
 
-    public override async Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
+    public override Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
     {
         try
         {
@@ -172,12 +172,12 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
             });
 
             _logger.Debug("Tidal download started with ID: {0}", downloadId);
-            return downloadId;
+            return Task.FromResult(downloadId);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to start Tidal download");
-            throw;
+            return Task.FromException<string>(ex);
         }
     }
 
