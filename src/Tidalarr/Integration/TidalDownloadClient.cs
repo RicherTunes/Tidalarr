@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using FluentValidation.Results;
@@ -19,13 +20,18 @@ public class TidalDownloadClient(
     ITidalCore apiClient,
     TidalQualityDetector qualityDetector,
     TidalDownloadClientSettings settings,
-    ILogger? logger = null) : BaseStreamingDownloadClient<TidalDownloadClientSettings>(settings, logger!)
+    ILogger? logger = null,
+    IAudioFormatHandler? audioFormatHandler = null) : BaseStreamingDownloadClient<TidalDownloadClientSettings>(settings, logger!)
 {
+    private const string LegacyTotalDiscsMetadataKey = "total_discs";
+    private const string LegacyNumberOfVolumesMetadataKey = "number_of_volumes";
+
     private readonly TidalStreamService _streamService = streamService;
-    private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader;
+    private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader;   
     private readonly ITidalCore _apiClient = apiClient;
-    private readonly TidalQualityDetector _qualityDetector = qualityDetector;
+    private readonly TidalQualityDetector _qualityDetector = qualityDetector;   
     private readonly TidalModelMapper _mapper = new();
+    private readonly IAudioFormatHandler _audioFormatHandler = audioFormatHandler ?? new DefaultAudioFormatHandler();
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
@@ -94,17 +100,210 @@ public class TidalDownloadClient(
         int trackNumber = track.TrackNumber ?? 0;
         int discNumber = track.DiscNumber.GetValueOrDefault();
         discNumber = discNumber > 0 ? discNumber : 1;
-        string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
-        string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
-        string title = FileNameSanitizer.SanitizeFileName(baseTitle);
-        string artist = FileNameSanitizer.SanitizeFileName(baseArtist);
-        string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
 
-        string prefix = discNumber > 1
-            ? $"D{discNumber:00}T{tn}"
-            : tn;
+        const int maxReasonableDiscs = 99;
+
+        int? totalDiscsMetadata = TryGetIntMetadata(album?.Metadata, StreamingMetadataKeys.TotalDiscs)
+            ?? TryGetIntMetadata(album?.Metadata, LegacyTotalDiscsMetadataKey);
+        if (totalDiscsMetadata is < 1 or > maxReasonableDiscs) totalDiscsMetadata = null;
+
+        int? numberOfVolumesMetadata = TryGetIntMetadata(album?.Metadata, LegacyNumberOfVolumesMetadataKey);
+        if (numberOfVolumesMetadata is < 1 or > maxReasonableDiscs) numberOfVolumesMetadata = null;
+
+        int totalDiscs = totalDiscsMetadata
+            ?? numberOfVolumesMetadata
+            ?? 1;
+        totalDiscs = Math.Max(1, totalDiscs);
+        totalDiscs = Math.Max(totalDiscs, discNumber);
+
+        string title = track.Title ?? "Unknown Track";
         string extension = Settings.ExtractFlac ? "flac" : "m4a";
-        return $"{prefix} - {artist} - {title}.{extension}";
+
+        return FileSystemUtilities.CreateTrackFileName(title, trackNumber, extension, discNumber, totalDiscs);
+    }
+
+    private static int? TryGetIntMetadata(Dictionary<string, object>? metadata, string key)
+    {
+        if (metadata == null) return null;
+        if (!metadata.TryGetValue(key, out object? value)) return null;
+        if (value == null) return null;
+
+        if (value is int i) return i;
+        if (value is long l)
+        {
+            if (l > int.MaxValue || l < int.MinValue) return null;
+            return (int)l;
+        }
+        if (value is short s) return s;
+        if (value is byte b) return b;
+        if (value is float f)
+        {
+            if (float.IsNaN(f) || float.IsInfinity(f)) return null;
+            if (f > int.MaxValue || f < int.MinValue) return null;
+            var rounded = (int)Math.Round(f);
+            return Math.Abs(f - rounded) < 0.0001f ? rounded : null;
+        }
+        if (value is double d)
+        {
+            if (double.IsNaN(d) || double.IsInfinity(d)) return null;
+            if (d > int.MaxValue || d < int.MinValue) return null;
+            var rounded = (int)Math.Round(d);
+            return Math.Abs(d - rounded) < 0.0000001 ? rounded : null;
+        }
+        if (value is decimal dec)
+        {
+            if (dec > int.MaxValue || dec < int.MinValue) return null;
+            if (dec != decimal.Truncate(dec)) return null;
+            return (int)dec;
+        }
+        if (value is string str)
+        {
+            if (int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedInt))
+            {
+                return parsedInt;
+            }
+
+            const NumberStyles decimalStyles =
+                NumberStyles.AllowLeadingWhite |
+                NumberStyles.AllowTrailingWhite |
+                NumberStyles.AllowLeadingSign |
+                NumberStyles.AllowDecimalPoint;
+
+            if (decimal.TryParse(str, decimalStyles, CultureInfo.InvariantCulture, out decimal parsedDecimal))
+            {
+                if (parsedDecimal > int.MaxValue || parsedDecimal < int.MinValue) return null;
+                if (parsedDecimal != decimal.Truncate(parsedDecimal)) return null;
+                return (int)parsedDecimal;
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeDotExtension(string? extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return string.Empty;
+        }
+
+        string trimmed = extension.Trim();
+        return trimmed.StartsWith(".", StringComparison.Ordinal) ? trimmed : "." + trimmed;
+    }
+
+    private static bool PathsEqual(string path1, string path2)
+    {
+        string full1 = Path.GetFullPath(path1);
+        string full2 = Path.GetFullPath(path2);
+
+        return string.Equals(
+            full1,
+            full2,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
+    private static void MoveFileOverwrite(string sourcePath, string destinationPath)
+    {
+        try
+        {
+            File.Move(sourcePath, destinationPath, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(destinationPath))
+            {
+                File.Delete(destinationPath);
+            }
+
+            File.Move(sourcePath, destinationPath);
+        }
+    }
+
+    private static string ResolveTempOutputPath(string outputPath, string? tempExtension)
+    {
+        string normalizedTempExt = NormalizeDotExtension(tempExtension);
+        if (string.IsNullOrEmpty(normalizedTempExt))
+        {
+            return outputPath;
+        }
+
+        if (string.IsNullOrEmpty(Path.GetExtension(outputPath)))
+        {
+            return outputPath + normalizedTempExt;
+        }
+
+        return Path.ChangeExtension(outputPath, normalizedTempExt);
+    }
+
+    protected async Task<string> FinalizeDownloadedTrackAsync(
+        Stream audioStream,
+        string outputPath,
+        string? payloadFileExtension,
+        string? mimeType,
+        StreamingTrack track,
+        CancellationToken cancellationToken,
+        string? tempFileExtension = null,
+        bool extractFlac = false,
+        string? codec = null)
+    {
+        string tempOutputPath = ResolveTempOutputPath(outputPath, tempFileExtension);
+        string partialPath = tempOutputPath + ".partial";
+
+        string directory = Path.GetDirectoryName(tempOutputPath) ?? Path.GetTempPath();
+        Directory.CreateDirectory(directory);
+
+        if (File.Exists(partialPath))
+        {
+            try { File.Delete(partialPath); } catch { /* ignore */ }
+        }
+
+        await using (FileStream fileStream = new(partialPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+        {
+            byte[] header = new byte[512];
+            int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken).ConfigureAwait(false);
+            if (read <= 0)
+            {
+                throw new InvalidDataException("Downloaded stream contained no data.");
+            }
+
+            DownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), payloadFileExtension, mimeType);
+
+            await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            await audioStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+            await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            try { fileStream.Flush(true); } catch { /* best effort */ }
+        }
+
+        MoveFileOverwrite(partialPath, tempOutputPath);
+
+        string processedPath = tempOutputPath;
+        if (extractFlac)
+        {
+            if (!string.Equals(codec, "FLAC", StringComparison.OrdinalIgnoreCase))
+            {
+                Logger?.LogWarning("ExtractFlac is enabled but codec is '{Codec}'. File will be renamed to match outputPath.", codec);
+            }
+            else
+            {
+                processedPath = await _audioFormatHandler.ProcessAudioFileAsync(
+                        tempOutputPath,
+                        codec,
+                        extractFlac: true,
+                        keepOriginal: false)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        if (!PathsEqual(processedPath, outputPath))
+        {
+            MoveFileOverwrite(processedPath, outputPath);
+            processedPath = outputPath;
+        }
+
+        DownloadPayloadValidator.ValidateFileOrThrow(processedPath);
+        await ApplyMetadataTagsAsync(processedPath, track).ConfigureAwait(false);
+
+        return processedPath;
     }
 
     /// <summary>
@@ -127,8 +326,6 @@ public class TidalDownloadClient(
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
-            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={manifest.SecurityToken?.Length ?? 0} codec={manifest.Codec}");
-
             // Step 4: Download and assemble chunks
             string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir);
@@ -138,45 +335,20 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
-
-            // Step 5: Save assembled audio with correct extension
-            string tempPath = outputPath + manifest.FileExtension;
-            audioStream.Position = 0;
-            byte[] header = new byte[512];
-            int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
-            if (read <= 0)
-            {
-                throw new InvalidDataException("Downloaded stream contained no data.");
-            }
-
-            TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), manifest.FileExtension, manifest.MimeType);
-
-            audioStream.Position = 0;
-            await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
-            {
-                await audioStream.CopyToAsync(fileStream, cancellationToken);
-                await fileStream.FlushAsync(cancellationToken);
-                try { fileStream.Flush(true); } catch { /* best effort */ }
-            }
-
-            // Step 6: Process audio format (extract FLAC from M4A if needed)
-            string finalPath = tempPath;
-            if (Settings.ExtractFlac && manifest.Codec == "FLAC")
-            {
-                string extractedPath = await AudioFormatHandler.ProcessAudioFileAsync(
-                    tempPath, manifest.Codec, extractFlac: true, keepOriginal: false);
-                finalPath = extractedPath;
-            }
-
-            // Rename to final output path if needed
-            if (finalPath != outputPath)
-            {
-                if (File.Exists(outputPath))
-                    File.Delete(outputPath);
-                File.Move(finalPath, outputPath);
-                finalPath = outputPath;
-            }
+            await using Stream audioStream = await this._chunkDownloader
+                .DownloadAndAssembleStreamAsync(manifest, progress, cancellationToken)
+                .ConfigureAwait(false);
+            string finalPath = await FinalizeDownloadedTrackAsync(        
+                    audioStream,
+                    outputPath,
+                    manifest.FileExtension,
+                    manifest.MimeType,
+                    track,
+                    cancellationToken,
+                    tempFileExtension: manifest.FileExtension,
+                    extractFlac: Settings.ExtractFlac,
+                    codec: manifest.Codec)
+                .ConfigureAwait(false);
 
             return new EnhancedDownloadResult
             {
@@ -237,52 +409,28 @@ public class TidalDownloadClient(
             string dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir2);
 
-            // Write to temp .partial for atomicity
-            string tempPath = outputPath + ".partial";
-            if (File.Exists(tempPath))
-            {
-                try { File.Delete(tempPath); } catch { /* ignore */ }
-            }
-
             Progress<int> progress = new();
-            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            await using Stream audioStream = await this._chunkDownloader
+                .DownloadAndAssembleAsync(streamInfo, progress, cancellationToken)
+                .ConfigureAwait(false);
 
-            await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
-            {
-                byte[] header = new byte[512];
-                int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
-                if (read <= 0)
-                {
-                    throw new InvalidDataException("Downloaded stream contained no data.");
-                }
-
-                TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), streamInfo.FileExtension, streamInfo.MimeType);
-
-                await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken);
-                await audioStream.CopyToAsync(fileStream, cancellationToken);
-                await fileStream.FlushAsync(cancellationToken);
-                try { fileStream.Flush(true); } catch { /* best effort */ }
-            }
-
-            // Atomic move
-            try
-            {
-                File.Move(tempPath, outputPath, overwrite: true);
-            }
-            catch
-            {
-                if (File.Exists(outputPath)) File.Delete(outputPath);
-                File.Move(tempPath, outputPath);
-            }
+            string finalPath = await FinalizeDownloadedTrackAsync(        
+                    audioStream,
+                    outputPath,
+                    streamInfo.FileExtension,
+                    streamInfo.MimeType,
+                    track,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             return new StreamingDownloadResult
             {
                 Success = true,
                 TrackId = trackId,
-                OutputPath = outputPath,
+                OutputPath = finalPath,
                 Track = track,
                 Quality = this._mapper.ToStreamingQuality(quality),
-                FileSize = new FileInfo(outputPath).Length
+                FileSize = new FileInfo(finalPath).Length
             };
         }
         catch (Exception ex)
@@ -381,9 +529,10 @@ public class TidalDownloadClient(
     {
         TidalTrackInfo track = await this._apiClient.GetTrackAsync(trackId);
         TidalQuality preferredQuality = quality ?? Settings.PreferredQuality;
-        string outputPath = GetTempFilePath(track, ".flac");
+        string extension = Settings.ExtractFlac ? ".flac" : ".m4a";
+        string outputPath = GetTempFilePath(track, extension);
 
-        StreamingDownloadResult result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);
+        EnhancedDownloadResult result = await DownloadTrackEnhancedAsync(trackId, outputPath, preferredQuality);
 
         return new TidalDownloadResult
         {
@@ -391,9 +540,9 @@ public class TidalDownloadClient(
             Title = track.Title,
             Artist = string.Join(", ", track.Artists ?? []),
             Quality = preferredQuality,
-            FileExtension = ".flac",
-            AudioData = result.Success ? File.ReadAllBytes(outputPath) : [],
-            FilePath = outputPath,
+            FileExtension = Path.GetExtension(result.OutputPath),
+            AudioData = result.Success ? File.ReadAllBytes(result.OutputPath) : [],
+            FilePath = result.OutputPath,
             Success = result.Success,
             ErrorMessage = result.ErrorMessage
         };
@@ -402,7 +551,7 @@ public class TidalDownloadClient(
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
         string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
-        safeName = FileNameSanitizer.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
+        safeName = FileSystemUtilities.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }

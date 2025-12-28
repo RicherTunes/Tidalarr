@@ -18,6 +18,7 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
+using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration.LidarrNative;
@@ -327,25 +328,10 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
     private string BuildOutputPath(RemoteAlbum remoteAlbum)
     {
         var basePath = Settings.DownloadPath;
-        var artistName = SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
-        var albumTitle = SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
+        var artistName = FileSystemUtilities.SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
+        var albumTitle = FileSystemUtilities.CreateAlbumDirectoryName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
 
         return Path.Combine(basePath, artistName, albumTitle);
-    }
-
-    private static string SanitizeFileName(string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName)) return "Unknown";
-
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = fileName;
-
-        foreach (var invalidChar in invalidChars)
-        {
-            sanitized = sanitized.Replace(invalidChar, '_');
-        }
-
-        return sanitized.Trim();
     }
 }
 

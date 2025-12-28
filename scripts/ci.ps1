@@ -51,20 +51,21 @@ try {
     }
 
     Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
-    # Build tests first since build.ps1 only builds the plugin project
+    # Build tests first since build.ps1 only builds the plugin project    
     # ExcludeHostBridge=true skips HostBridge project that requires full Lidarr assemblies
     Write-Host "Building test project..." -ForegroundColor Cyan
     dotnet build "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-restore -v minimal `
+        -nr:false -p:BuildInParallel=false -p:UseSharedCompilation=false `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
         -p:ExcludeHostBridge=true
 
     if ($IncludeCliTests) {
         Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+        & "$repoRoot/scripts/test.ps1" -Configuration Release -NoBuild -IncludeCliTests
     }
     else {
         Write-Host "Excluding CLI-scope tests (scope=cli) for PR/CI runs" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build --filter "scope!=cli"
+        & "$repoRoot/scripts/test.ps1" -Configuration Release -NoBuild
     }
 
     if (-not $SkipPackage) {

@@ -95,6 +95,7 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddScoped<TidalStreamService>();
         _ = services.AddScoped<TidalChunkStreamProvider>();
         _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        _ = services.AddSingleton<IAudioFormatHandler, DefaultAudioFormatHandler>();
 
         // Application services
         _ = services.AddScoped<TidalSearchService>();
@@ -251,7 +252,6 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
-
 
 
 

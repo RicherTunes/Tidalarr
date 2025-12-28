@@ -181,10 +181,16 @@ dotnet run -- config set-quality --preferred Lossless
 ## Testing
 
 ```bash
-# Run all tests
+# Stable test runner (recommended)
+pwsh ./scripts/test.ps1
+
+# Stable runner with CLI-scope tests included
+pwsh ./scripts/test.ps1 -IncludeCliTests
+
+# Run all tests (may intermittently hit CS2012 file locks in the Common submodule build)
 dotnet test
 
-# Run specific test project  
+# Run specific test project
 dotnet test tests/Tidalarr.Tests/
 
 # Development build tests (with CLI)

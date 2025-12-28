@@ -1,4 +1,5 @@
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
@@ -8,15 +9,19 @@ namespace Tidalarr.Tests;
 
 public class TidalDownloadClientFileNameTests
 {
-    private class ExposedDownloadClient : TidalDownloadClient
+    private const string LegacyNumberOfVolumesMetadataKey = "number_of_volumes";
+
+    private sealed class ExposedDownloadClient : TidalDownloadClient
     {
         public ExposedDownloadClient()
-            : base(new TidalStreamService(new CoreStub(), new TidalManifestParser()),
-                   new TidalChunkDownloader(new HttpClient()),
-                   new CoreStub(),
-                   new TidalQualityDetector(),
-                   new TidalDownloadClientSettings())
-        { }
+            : base(
+                new TidalStreamService(new CoreStub(), new TidalManifestParser()),
+                new TidalChunkDownloader(new HttpClient()),
+                new CoreStub(),
+                new TidalQualityDetector(),
+                new TidalDownloadClientSettings())
+        {
+        }
 
         public string ExposeGenerateFileName(StreamingTrack track, StreamingAlbum album)
         {
@@ -24,16 +29,18 @@ public class TidalDownloadClientFileNameTests
         }
     }
 
-    private class CoreStub : Core.Interfaces.ITidalCore
+    private sealed class CoreStub : Core.Interfaces.ITidalCore
     {
         public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalTrackInfo("", "", new List<string>(), "", "", 0, 0, TidalQuality.High, true, DateTime.MinValue));
+            return Task.FromResult(
+                new TidalTrackInfo("", "", new List<string>(), "", "", 0, 0, TidalQuality.High, true, DateTime.MinValue));
         }
 
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalAlbumInfo("", "", new List<string>(), new List<TidalTrackInfo>(), new List<TidalQuality>(), DateTime.MinValue, "", true));
+            return Task.FromResult(
+                new TidalAlbumInfo("", "", new List<string>(), new List<TidalTrackInfo>(), new List<TidalQuality>(), DateTime.MinValue, "", true));
         }
 
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
@@ -46,7 +53,7 @@ public class TidalDownloadClientFileNameTests
             return GetAlbumAsync(albumId, cancellationToken);
         }
 
-        public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
+        public Task<TidalSearchResults> SearchAsync(string query, int limit = 1000, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo>(), new List<TidalArtistInfo>(), 0, false));
         }
@@ -63,31 +70,30 @@ public class TidalDownloadClientFileNameTests
     }
 
     [Theory]
-    [InlineData("CON", "Artist", "00 - Artist - Track.flac")] // Reserved name becomes sanitized
-    [InlineData("AUX?*|\"", "Art:ist", "00 - Art-ist - AUX' .flac")] // Odd chars sanitized
-    [InlineData("Title. ", "Artist ", "00 - Artist - Title.flac")] // Trim trailing dot/space
-    [InlineData("  T  I  T  L  E  ", "  A  R  T  I  S  T  ", "00 - A  R  T  I  S  T  - T  I  T  L  E.flac")] // Multiple spaces preserved in middle
-    public void GenerateFileName_SanitizesReservedAndInvalidCharacters(string title, string artist, string expectedEndsWith)
+    [InlineData("CON")]
+    [InlineData("AUX?*|\"")]
+    [InlineData("Title. ")]
+    public void GenerateFileName_SanitizesReservedAndInvalidCharacters(string title)
     {
         ExposedDownloadClient client = new();
-        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = artist } };
-        StreamingTrack track = new() { Title = title, Artist = new StreamingArtist { Name = artist }, TrackNumber = 0 };
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingTrack track = new() { Title = title, TrackNumber = 1, DiscNumber = 1 };
 
         string fileName = client.ExposeGenerateFileName(track, album);
-        Assert.EndsWith(".flac", fileName);
-        Assert.Contains(" - ", fileName);
 
-        // Ensure illegal characters are removed
+        Assert.StartsWith("01 - ", fileName);
+        Assert.EndsWith(".flac", fileName);
+
         char[] illegalChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
         Assert.DoesNotContain(illegalChars, fileName.Contains);
 
-        // Ensure reserved names are not used verbatim as the final component
         string baseName = Path.GetFileNameWithoutExtension(fileName);
-        string lastComponent = baseName.Split(" - ").Last();
-        Assert.False(string.Equals("CON", lastComponent, StringComparison.OrdinalIgnoreCase));
+        string safeTitle = baseName.Split(" - ").Last();
 
-        // Use parameter to satisfy analyzer, without enforcing exact output
-        Assert.NotNull(expectedEndsWith);
+        Assert.False(string.Equals("CON", safeTitle, StringComparison.OrdinalIgnoreCase));
+        Assert.False(string.Equals("AUX", safeTitle, StringComparison.OrdinalIgnoreCase));
+        Assert.False(safeTitle.EndsWith('.'));
+        Assert.False(safeTitle.EndsWith(' '));
     }
 
     [Fact]
@@ -95,30 +101,159 @@ public class TidalDownloadClientFileNameTests
     {
         ExposedDownloadClient client = new();
         StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
-        StreamingTrack track = new() { Title = "Title", Artist = new StreamingArtist { Name = "Artist" }, TrackNumber = 3 };
+        StreamingTrack track = new() { Title = "Title", TrackNumber = 3, DiscNumber = 1 };
 
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.StartsWith("03 - ", fileName);
     }
 
     [Fact]
-    public void GenerateFileName_WithDiscNumberGreaterThanOne_IncludesDiscPrefix()
+    public void GenerateFileName_MultiDisc_PrefixesDiscAndPreventsCollisions()  
     {
         ExposedDownloadClient client = new();
-        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
-        StreamingTrack track = new()
+        StreamingAlbum album = new()
         {
-            Title = "Title",
             Artist = new StreamingArtist { Name = "Artist" },
-            DiscNumber = 2,
-            TrackNumber = 3
+            Metadata = new Dictionary<string, object> { [StreamingMetadataKeys.TotalDiscs] = 2 }
         };
 
-        string fileName = client.ExposeGenerateFileName(track, album);
-        Assert.StartsWith("D02T03 - ", fileName);
+        StreamingTrack disc1 = new()
+        {
+            Title = "Title",
+            DiscNumber = 1,
+            TrackNumber = 1
+        };
+
+        StreamingTrack disc2 = new()
+        {
+            Title = "Title",
+            DiscNumber = 2,
+            TrackNumber = 1
+        };
+
+        string fileNameDisc1 = client.ExposeGenerateFileName(disc1, album);
+        string fileNameDisc2 = client.ExposeGenerateFileName(disc2, album);
+
+        Assert.StartsWith("D01T01 - ", fileNameDisc1);
+        Assert.StartsWith("D02T01 - ", fileNameDisc2);
+        Assert.NotEqual(fileNameDisc1, fileNameDisc2);
+    }
+
+    [Theory]
+    [InlineData("02")]
+    [InlineData("2.0")]
+    public void GenerateFileName_MultiDisc_ParsesTotalDiscsStringMetadata(string totalDiscsValue)
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new()
+        {
+            Artist = new StreamingArtist { Name = "Artist" },
+            Metadata = new Dictionary<string, object> { [StreamingMetadataKeys.TotalDiscs] = totalDiscsValue }
+        };
+
+        StreamingTrack disc1 = new()
+        {
+            Title = "Title",
+            DiscNumber = 1,
+            TrackNumber = 1
+        };
+
+        string fileName = client.ExposeGenerateFileName(disc1, album);
+        Assert.StartsWith("D01T01 - ", fileName);
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-1")]
+    [InlineData("0")]
+    [InlineData("1000")]
+    [InlineData("1e2")]
+    [InlineData("2,0")]
+    public void GenerateFileName_InvalidOrOutOfRangeTotalDiscsMetadata_DefaultsToSingleDisc(string totalDiscsValue)
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new()
+        {
+            Artist = new StreamingArtist { Name = "Artist" },
+            Metadata = new Dictionary<string, object> { [StreamingMetadataKeys.TotalDiscs] = totalDiscsValue }
+        };
+
+        StreamingTrack disc1 = new()
+        {
+            Title = "Title",
+            DiscNumber = 1,
+            TrackNumber = 1
+        };
+
+        string fileName = client.ExposeGenerateFileName(disc1, album);
+        Assert.StartsWith("01 - ", fileName);
+        Assert.DoesNotContain("D01T01 - ", fileName);
+    }
+
+    [Fact]
+    public void GenerateFileName_InvalidOrOutOfRangeTotalDiscsMetadata_AsNumber_DefaultsToSingleDisc()
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new()
+        {
+            Artist = new StreamingArtist { Name = "Artist" },
+            Metadata = new Dictionary<string, object>
+            {
+                [StreamingMetadataKeys.TotalDiscs] = double.MaxValue
+            }
+        };
+
+        StreamingTrack disc1 = new()
+        {
+            Title = "Title",
+            DiscNumber = 1,
+            TrackNumber = 1
+        };
+
+        string fileName = client.ExposeGenerateFileName(disc1, album);
+        Assert.StartsWith("01 - ", fileName);
+    }
+
+    [Fact]
+    public void CreateTrackFileName_NormalizesLeadingDotExtension()
+    {
+        string fileName = FileSystemUtilities.CreateTrackFileName("Title", 1, ".m4a", discNumber: 1, totalDiscs: 1);
+
+        Assert.EndsWith(".m4a", fileName);
+        Assert.DoesNotContain("..m4a", fileName);
+    }
+
+    [Fact]
+    public void SanitizeFileName_TrimsTrailingDotAndSpaceAndAvoidsReservedNames()
+    {
+        Assert.Equal("_CON", FileSystemUtilities.SanitizeFileName("CON. "));
+        Assert.Equal("_AUX", FileSystemUtilities.SanitizeFileName("AUX "));
+    }
+
+    [Fact]
+    public void GenerateFileName_TotalDiscsMetadata_TakesPrecedenceOverLegacyNumberOfVolumes()
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new()
+        {
+            Artist = new StreamingArtist { Name = "Artist" },
+            Metadata = new Dictionary<string, object>
+            {
+                [StreamingMetadataKeys.TotalDiscs] = 1,
+                [LegacyNumberOfVolumesMetadataKey] = 2
+            }
+        };
+
+        StreamingTrack disc1 = new()
+        {
+            Title = "Title",
+            DiscNumber = 1,
+            TrackNumber = 1
+        };
+
+        string fileName = client.ExposeGenerateFileName(disc1, album);
+        Assert.StartsWith("01 - ", fileName);
     }
 }
-
-
-
-

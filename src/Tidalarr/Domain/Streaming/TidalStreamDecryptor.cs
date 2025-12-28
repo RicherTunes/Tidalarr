@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 
 namespace Tidalarr.Domain.Streaming;
@@ -44,15 +45,73 @@ public static class TidalStreamDecryptor
             throw new ArgumentException("Security token is required for decryption.", nameof(securityToken));
         }
 
-        _ = stream.Seek(0, SeekOrigin.Begin);
-        using MemoryStream buffer = new();
-        await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-        byte[] decrypted = Decrypt(buffer.ToArray(), securityToken);
+        (byte[] key, byte[] counterSeed) = DeriveKeyAndCounter(securityToken);
 
-        _ = stream.Seek(0, SeekOrigin.Begin);
-        stream.SetLength(0);
-        await stream.WriteAsync(decrypted, 0, decrypted.Length, cancellationToken).ConfigureAwait(false);
-        _ = stream.Seek(0, SeekOrigin.Begin);
+        using Aes aes = Aes.Create();
+        aes.Mode = CipherMode.ECB;
+        aes.Padding = PaddingMode.None;
+        aes.Key = key;
+
+        using ICryptoTransform encryptor = aes.CreateEncryptor();
+
+        byte[] counter = new byte[16];
+        Buffer.BlockCopy(counterSeed, 0, counter, 0, Math.Min(counterSeed.Length, counter.Length));
+
+        byte[] keystream = new byte[16];
+        int keystreamOffset = 0;
+
+        const int BufferSize = 64 * 1024;
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        try
+        {
+            _ = stream.Seek(0, SeekOrigin.Begin);
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                int read = await stream.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false);
+                if (read <= 0)
+                {
+                    break;
+                }
+
+                int offset = 0;
+                while (offset < read)
+                {
+                    if (keystreamOffset == 0)
+                    {
+                        _ = encryptor.TransformBlock(counter, 0, counter.Length, keystream, 0);
+                    }
+
+                    int blockSize = Math.Min(keystream.Length - keystreamOffset, read - offset);
+                    for (int i = 0; i < blockSize; i++)
+                    {
+                        buffer[offset + i] ^= keystream[keystreamOffset + i];
+                    }
+
+                    offset += blockSize;
+                    keystreamOffset += blockSize;
+
+                    if (keystreamOffset >= keystream.Length)
+                    {
+                        keystreamOffset = 0;
+                        IncrementCounter(counter);
+                    }
+                }
+
+                stream.Position -= read;
+                await stream.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+
+                _ = stream.Seek(0, SeekOrigin.Current);
+            }
+
+            _ = stream.Seek(0, SeekOrigin.Begin);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+        }
     }
 
     private static (byte[] Key, byte[] CounterSeed) DeriveKeyAndCounter(string securityToken)
@@ -140,5 +199,4 @@ public static class TidalStreamDecryptor
         }
     }
 }
-
 

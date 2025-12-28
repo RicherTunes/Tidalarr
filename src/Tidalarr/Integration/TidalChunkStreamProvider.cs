@@ -30,10 +30,11 @@ namespace Tidalarr.Integration
                 // Ignore and fall back to legacy stream info path
             }
 
-            if (manifest != null && manifest.ChunkUrls?.Any() == true)
+            if (manifest != null && manifest.ChunkUrls?.Any() == true)    
             {
-                MemoryStream assembled = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
-                assembled.Position = 0;
+                Stream assembled = await this._chunkDownloader
+                    .DownloadAndAssembleStreamAsync(manifest, progress: null, cancellationToken)
+                    .ConfigureAwait(false);
                 return new AudioStreamResult
                 {
                     Stream = assembled,
@@ -43,7 +44,9 @@ namespace Tidalarr.Integration
             }
 
             TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
-            Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
+            Stream ms = await this._chunkDownloader
+                .DownloadAndAssembleAsync(info, progress: null, cancellationToken)
+                .ConfigureAwait(false);
             return new AudioStreamResult
             {
                 Stream = ms,
@@ -54,4 +57,3 @@ namespace Tidalarr.Integration
 
     }
 }
-
