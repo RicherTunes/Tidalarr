@@ -57,6 +57,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content);
         if (dto == null) throw new InvalidOperationException("Failed to parse track response");
+        if (dto.album == null)
+            throw new InvalidOperationException("Track response missing album information.");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(1));
         return MapToTidalTrackInfo(dto);
     }
@@ -260,8 +262,6 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalTrackInfo MapToTidalTrackInfo(TidalTrackDto dto)
     {
-        if (dto.album == null)
-            throw new InvalidOperationException("Track response missing album information.");
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
             artistNames.Add(dto.artist!.name!);
@@ -289,10 +289,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             IsAvailable: dto.streamReady,
             ReleaseDate: ParseReleaseDate(dto.album?.releaseDate));
     }
-    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
+    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)  
     {
-        if (dto.artist == null)
-            throw new InvalidOperationException("Album response missing primary artist.");
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
             artistNames.Add(dto.artist!.name!);
@@ -318,8 +316,6 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalSearchResults MapToTidalSearchResults(TidalSearchResponseDto dto)
     {
-        if (dto.albums?.items == null || dto.tracks?.items == null)
-            throw new ArgumentNullException(nameof(dto), "Search response missing album or track collections.");
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
         List<TidalArtistDto> artistDtos = dto.artists?.items ?? [];
@@ -445,4 +441,3 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._httpClient?.Dispose();
     }
 }
-

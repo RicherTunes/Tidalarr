@@ -1,10 +1,14 @@
 namespace Tidalarr.Core.Models;
 
+using System.Text.Json.Serialization;
+using Tidalarr.Core.Json;
+
 /// <summary>
 /// DTO for Tidal artist from API response.
 /// </summary>
 public class TidalArtistDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string? id { get; set; }
     public string? name { get; set; }
 
@@ -22,6 +26,7 @@ public class TidalArtistDto
 /// </summary>
 public class TidalAlbumDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string id { get; set; } = string.Empty;
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
@@ -53,6 +58,7 @@ public class TidalAlbumDto
 /// </summary>
 public class TidalTrackDto
 {
+    [JsonConverter(typeof(JsonStringOrNumberConverter))]
     public string id { get; set; } = string.Empty;
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
