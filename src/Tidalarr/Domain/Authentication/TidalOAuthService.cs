@@ -16,7 +16,7 @@ namespace Tidalarr.Domain.Authentication;
 public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
     private readonly HttpClient _httpClient = httpClient;
-    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore();
+    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore(Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json"));
     private TidalTokens? _currentTokens;
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
@@ -335,4 +335,3 @@ public record TidalUserResponse(
     string sessionId,
     string countryCode,
     long userId);
-
