@@ -55,13 +55,14 @@ public class TidalApiClientMissingFieldsTests
     }
 
     [Fact]
-    public async Task SearchAsync_MissingCollections_ThrowsArgumentNull()
+    public async Task SearchAsync_MissingCollections_ReturnsEmptyResults()
     {
         string json = "{" + "\"albums\":{},\"tracks\":{}}"; // missing 'items' arrays
         TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
-        _ = await Assert.ThrowsAsync<ArgumentNullException>(() => api.SearchAsync("abc"));
+        TidalSearchResults results = await api.SearchAsync("abc");
+        Assert.Empty(results.Albums);
+        Assert.Empty(results.Tracks);
     }
 }
-
 
 

@@ -117,10 +117,10 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             await authManager.EnsureValidSessionAsync().ConfigureAwait(false);
         }
 
-        var searchService = _serviceProvider.GetService<TidalSearchService>();
-        if (searchService == null)
+        var apiClient = _serviceProvider.GetService<ITidalCore>();
+        if (apiClient == null)
         {
-            _logger.Error("TidalSearchService not available");
+            _logger.Error("ITidalCore not available");
             return releases;
         }
 
@@ -140,8 +140,8 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
 
                 try
                 {
-                    var searchResults = await searchService
-                        .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
+                    var searchResults = await apiClient
+                        .SearchAsync(query, limit: PageSize)
                         .ConfigureAwait(false);
 
                     if (searchResults.Albums == null || searchResults.Albums.Count == 0)
@@ -428,12 +428,14 @@ public class TidalLidarrParser : IParseIndexerResponse
 
         // Determine quality from available qualities
         var bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
-        var quality = DetermineQualityString(bestQuality);
+        var (formatMarker, extraMarker) = DetermineTitleMarkers(bestQuality);
 
         return new ReleaseInfo
         {
             Guid = $"tidal:album:{album.Id}",
-            Title = $"{artistName} - {albumTitle} [{quality}]",
+            Title = extraMarker == null
+                ? $"{artistName} - {albumTitle} [{formatMarker}] [WEB]"
+                : $"{artistName} - {albumTitle} [{formatMarker}] [{extraMarker}] [WEB]",
             Artist = artistName,
             Album = albumTitle,
             PublishDate = releaseDate,
@@ -443,14 +445,16 @@ public class TidalLidarrParser : IParseIndexerResponse
         };
     }
 
-    private static string DetermineQualityString(TidalQuality quality)
+    private static (string FormatMarker, string? ExtraMarker) DetermineTitleMarkers(TidalQuality quality)
     {
+        // Lidarr's release parsing is much more reliable when using canonical bracket tokens.
+        // Keep this aligned with Qobuzarr's title contract: [FLAC] [WEB], etc.
         return quality switch
         {
-            TidalQuality.HiRes => "Hi-Res FLAC 24bit",
-            TidalQuality.Lossless => "FLAC 16bit",
-            TidalQuality.High => "AAC 320kbps",
-            _ => "AAC 96kbps"
+            TidalQuality.HiRes => ("FLAC", "HIRES"),
+            TidalQuality.Lossless => ("FLAC", null),
+            TidalQuality.High => ("AAC", null),
+            _ => ("AAC", null)
         };
     }
 
