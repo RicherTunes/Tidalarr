@@ -23,7 +23,7 @@ namespace Tidalarr.Integration.LidarrNative;
 /// Lidarr-native indexer extending HttpIndexerBase for plugin discovery.
 /// Uses TidalModule services internally for actual search functionality.
 /// </summary>
-public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
+public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>   
 {
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
@@ -99,10 +99,119 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     public override IParseIndexerResponse GetParser()
     {
         EnsureServicesInitialized();
-        return new TidalLidarrParser(Settings, _serviceProvider, _logger);
+        return new TidalLidarrParser(Settings, _serviceProvider, _logger);      
     }
 
-    protected override async Task Test(List<ValidationFailure> failures)
+    protected override async Task<IList<ReleaseInfo>> FetchReleases(
+        Func<IIndexerRequestGenerator, IndexerPageableRequestChain> pageableRequestChainSelector,
+        bool isRecent = false)
+    {
+        EnsureServicesInitialized();
+
+        var releases = new List<ReleaseInfo>();
+
+        // Ensure valid session early so Lidarr reports a clear authentication error.
+        var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
+        if (authManager != null)
+        {
+            await authManager.EnsureValidSessionAsync().ConfigureAwait(false);
+        }
+
+        var searchService = _serviceProvider.GetService<TidalSearchService>();
+        if (searchService == null)
+        {
+            _logger.Error("TidalSearchService not available");
+            return releases;
+        }
+
+        var requestGenerator = GetRequestGenerator();
+        var requestChain = pageableRequestChainSelector(requestGenerator);
+
+        foreach (var tier in requestChain.GetAllTiers())
+        {
+            foreach (var request in tier)
+            {
+                var requestUrl = request.HttpRequest?.Url?.ToString() ?? string.Empty;
+                if (!TryExtractSearchQuery(requestUrl, out var query))
+                {
+                    _logger.Warn("Unexpected request URL format: {0}", requestUrl);
+                    continue;
+                }
+
+                try
+                {
+                    var searchResults = await searchService
+                        .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
+                        .ConfigureAwait(false);
+
+                    if (searchResults.Albums == null || searchResults.Albums.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var album in searchResults.Albums)
+                    {
+                        var release = TidalLidarrParser.ConvertToReleaseInfoStatic(album);
+                        if (release != null)
+                        {
+                            releases.Add(release);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Tidal search failed for query: {0}", query);
+                }
+            }
+        }
+
+        // Ensure Lidarr can attribute grabs to this indexer.
+        var indexerId = Definition?.Id ?? 0;
+        var indexerName = Definition?.Name;
+
+        foreach (var release in releases)
+        {
+            release.IndexerId = indexerId;
+            if (string.IsNullOrWhiteSpace(release.Indexer) && !string.IsNullOrWhiteSpace(indexerName))
+            {
+                release.Indexer = indexerName;
+            }
+        }
+
+        // Deduplicate by Guid (same query can appear in multiple tiers).
+        return releases
+            .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
+            .GroupBy(r => r.Guid)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static bool TryExtractSearchQuery(string requestUrl, out string query)
+    {
+        query = string.Empty;
+
+        if (!requestUrl.StartsWith("tidal://search", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var q = queryParams["query"];
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return false;
+        }
+
+        query = q;
+        return true;
+    }
+
+    protected override async Task Test(List<ValidationFailure> failures)        
     {
         try
         {
@@ -287,7 +396,7 @@ public class TidalLidarrParser : IParseIndexerResponse
             {
                 try
                 {
-                    var release = ConvertToReleaseInfo(album);
+                    var release = ConvertToReleaseInfoStatic(album);
                     if (release != null)
                     {
                         releases.Add(release);
@@ -309,7 +418,7 @@ public class TidalLidarrParser : IParseIndexerResponse
         return releases;
     }
 
-    private ReleaseInfo ConvertToReleaseInfo(TidalAlbumInfo album)
+    internal static ReleaseInfo ConvertToReleaseInfoStatic(TidalAlbumInfo album)
     {
         if (album == null) return null;
 
@@ -334,7 +443,7 @@ public class TidalLidarrParser : IParseIndexerResponse
         };
     }
 
-    private string DetermineQualityString(TidalQuality quality)
+    private static string DetermineQualityString(TidalQuality quality)
     {
         return quality switch
         {
@@ -345,11 +454,11 @@ public class TidalLidarrParser : IParseIndexerResponse
         };
     }
 
-    private long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
+    private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)  
     {
         // Estimate size based on track count and quality
-        // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps
-        var trackCount = album.Tracks?.Count ?? 12; // Default to 12 tracks
+        // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps        
+        var trackCount = album.Tracks?.Count ?? 12; // Default to 12 tracks     
         var avgTrackDurationSeconds = 240; // 4 minutes average
         var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
         var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
