@@ -433,8 +433,9 @@ public class TidalLidarrParser : IParseIndexerResponse
         return new ReleaseInfo
         {
             Guid = $"tidal:album:{album.Id}",
+            DownloadProtocol = nameof(TidalarrDownloadProtocol),
             Title = extraMarker == null
-                ? $"{artistName} - {albumTitle} [{formatMarker}] [WEB]"
+                ? $"{artistName} - {albumTitle} [{formatMarker}] [WEB]"   
                 : $"{artistName} - {albumTitle} [{formatMarker}] [{extraMarker}] [WEB]",
             Artist = artistName,
             Album = albumTitle,
