@@ -458,7 +458,7 @@ public class TidalLidarrParser : IParseIndexerResponse
     {
         // Estimate size based on track count and quality
         // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps        
-        var trackCount = album.Tracks?.Count ?? 12; // Default to 12 tracks     
+        var trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12; // Default to 12 tracks when unknown/empty
         var avgTrackDurationSeconds = 240; // 4 minutes average
         var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
         var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
