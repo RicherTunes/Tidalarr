@@ -29,11 +29,14 @@ namespace Tidalarr.Integration.LidarrNative;
 /// </summary>
 public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadClientSettings>
 {
-    private readonly ConcurrentDictionary<string, TidalDownloadItem> _activeDownloads;
+    // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
+    // process-wide so queue polling always sees active downloads, even if a new instance is created.
+    private static readonly ConcurrentDictionary<string, TidalDownloadItem> ActiveDownloads = new();
     private new readonly Logger _logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
     private SimpleDownloadOrchestrator _orchestrator;
+    private static readonly TimeSpan CompletedDownloadRetention = TimeSpan.FromMinutes(30);
 
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
@@ -47,7 +50,6 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         : base(configService, diskProvider, remotePathMappingService, localizationService, logger)
     {
         _logger = logger;
-        _activeDownloads = new ConcurrentDictionary<string, TidalDownloadItem>();
     }
 
     /// <summary>
@@ -93,7 +95,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         }
     }
 
-    public override async Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
+    public override Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
     {
         try
         {
@@ -128,7 +130,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                 OutputPath = outputPath
             };
 
-            _activeDownloads[downloadId] = downloadItem;
+            ActiveDownloads[downloadId] = downloadItem;
 
             // Start actual download using the orchestrator
             _ = Task.Run(async () =>
@@ -140,7 +142,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                     // Create progress reporter to update download item
                     var progressReporter = new Progress<DownloadProgress>(p =>
                     {
-                        if (_activeDownloads.TryGetValue(downloadId, out var item))
+                        if (ActiveDownloads.TryGetValue(downloadId, out var item))
                         {
                             item.Progress = p.PercentComplete;
                         }
@@ -153,25 +155,27 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                         progress: progressReporter);
 
                     // Mark as completed
-                    if (_activeDownloads.TryGetValue(downloadId, out var item))
+                    if (ActiveDownloads.TryGetValue(downloadId, out var item))
                     {
                         item.Status = result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed;
                         item.Progress = 100;
+                        item.CompletedAt = DateTime.UtcNow;
                         _logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Failed to download album {0}", albumId);
-                    if (_activeDownloads.TryGetValue(downloadId, out var item))
+                    if (ActiveDownloads.TryGetValue(downloadId, out var item))
                     {
                         item.Status = DownloadItemStatus.Failed;
+                        item.CompletedAt = DateTime.UtcNow;
                     }
                 }
             });
 
             _logger.Debug("Tidal download started with ID: {0}", downloadId);
-            return downloadId;
+            return Task.FromResult(downloadId);
         }
         catch (Exception ex)
         {
@@ -184,9 +188,20 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
     {
         var result = new List<DownloadClientItem>();
 
-        foreach (var kv in _activeDownloads)
+        // Best-effort cleanup to prevent unbounded growth if Lidarr doesn't call RemoveItem.
+        var now = DateTime.UtcNow;
+        foreach (var kv in ActiveDownloads)
         {
             var item = kv.Value;
+
+            if ((item.Status == DownloadItemStatus.Completed || item.Status == DownloadItemStatus.Failed) &&
+                item.CompletedAt.HasValue &&
+                now - item.CompletedAt.Value > CompletedDownloadRetention)
+            {
+                _ = ActiveDownloads.TryRemove(kv.Key, out _);
+                continue;
+            }
+
             result.Add(new DownloadClientItem
             {
                 DownloadId = item.DownloadId,
@@ -204,7 +219,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
 
     public override void RemoveItem(DownloadClientItem item, bool deleteData)
     {
-        if (_activeDownloads.TryRemove(item.DownloadId, out var download))
+        if (ActiveDownloads.TryRemove(item.DownloadId, out var download))
         {
             _logger.Debug("Removed Tidal download: {0}", item.DownloadId);
 
@@ -362,5 +377,6 @@ internal class TidalDownloadItem
     public double Progress { get; set; }
     public long TotalSize { get; set; }
     public DateTime StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
     public string OutputPath { get; set; } = string.Empty;
 }
