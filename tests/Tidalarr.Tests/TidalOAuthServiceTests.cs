@@ -1,4 +1,5 @@
 using System.Net;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using Tidalarr.Core.Models;
@@ -134,7 +135,7 @@ public class TidalOAuthServiceTests
     }
 
     [Fact]
-    public async Task ExchangeCodeAsync_ValidResponse_ReturnsTokens()
+    public async Task ExchangeCodeAsync_ValidResponse_ReturnsTokens()     
     {
         // Arrange
         var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
@@ -161,6 +162,33 @@ public class TidalOAuthServiceTests
         Assert.Equal("US", tokens.CountryCode);
         Assert.Equal("12345", tokens.UserId);
         Assert.True(tokens.ExpiresAt > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task ExchangeCodeAsync_ValidResponseWithoutUser_UsesJwtClaimsForSessionAndCountry()
+    {
+        string accessToken = CreateJwt(new Dictionary<string, object>
+        {
+            ["sid"] = "sess-from-jwt",
+            ["cc"] = "ca"
+        });
+
+        var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
+            access_token: accessToken,
+            refresh_token: "test_refresh_token",
+            token_type: "Bearer",
+            expires_in: 3600,
+            user: null
+        );
+
+        HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
+
+        TidalTokens tokens = await oauthService.ExchangeCodeAsync("test_auth_code", "test_verifier");
+
+        Assert.Equal("sess-from-jwt", tokens.SessionId);
+        Assert.Equal("CA", tokens.CountryCode);
     }
 
     [Fact]
@@ -206,6 +234,23 @@ public class TidalOAuthServiceTests
         MockHttpMessageHandler mockHandler = new(jsonResponse, statusCode);
         return new HttpClient(mockHandler);
     }
+
+    private static string CreateJwt(Dictionary<string, object> payloadClaims)
+    {
+        string headerJson = JsonSerializer.Serialize(new Dictionary<string, object> { ["alg"] = "none", ["typ"] = "JWT" });
+        string payloadJson = JsonSerializer.Serialize(payloadClaims);
+        string header = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
+        string payload = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
+        return $"{header}.{payload}.";
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
 }
 
 public class MockHttpMessageHandler(string response, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
@@ -245,6 +290,5 @@ public class MockTokenStorage : ITokenStorage
         return Task.CompletedTask;
     }
 }
-
 
 

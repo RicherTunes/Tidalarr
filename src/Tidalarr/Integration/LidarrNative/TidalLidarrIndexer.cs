@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation.Results;
@@ -16,6 +17,7 @@ using NzbDrone.Core.Parser.Model;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -211,7 +213,7 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         return true;
     }
 
-    protected override async Task Test(List<ValidationFailure> failures)        
+    protected override async Task Test(List<ValidationFailure> failures)
     {
         try
         {
@@ -224,30 +226,58 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(Settings.RedirectUrl))
-            {
-                failures.Add(new ValidationFailure("RedirectUrl", "OAuth redirect URL is required"));
-                return;
-            }
-
-            // Initialize services and test authentication
-            EnsureServicesInitialized();
-
-            // Ensure valid session (will throw if not authenticated)
-            var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
-            if (authManager != null)
+            // Ensure config directory exists
+            if (!Directory.Exists(Settings.ConfigPath))
             {
                 try
                 {
-                    await authManager.EnsureValidSessionAsync();
+                    Directory.CreateDirectory(Settings.ConfigPath);
+                    _logger.Info($"Created config directory: {Settings.ConfigPath}");
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(new ValidationFailure("ConfigPath", $"Failed to create config directory: {ex.Message}"));
+                    return;
+                }
+            }
+
+            // Initialize services
+            EnsureServicesInitialized();
+
+            // Check if we have a valid redirect URL with authorization code
+            bool hasRedirectUrl = !string.IsNullOrWhiteSpace(Settings.RedirectUrl);
+
+            // Try to get existing valid session first
+            var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
+            var authService = _serviceProvider.GetService<ITidalAuth>();
+
+            if (authService != null)
+            {
+                try
+                {
+                    // Try to get valid tokens
+                    await authService.GetValidTokensAsync();
                     _logger.Debug("Tidal authentication session is valid");
                 }
-                catch (Exception authEx)
+                catch (InvalidOperationException authEx)
                 {
-                    _logger.Warn(authEx, "Tidal authentication not configured or invalid");
-                    failures.Add(new ValidationFailure("Authentication",
-                        "Not authenticated with Tidal. Please complete the OAuth flow using the redirect URL."));
-                    return;
+                    _logger.Debug(authEx, "No valid Tidal session - checking if we can authenticate...");
+
+                    // No valid tokens - try to exchange redirect URL if provided
+                    if (hasRedirectUrl)
+                    {
+                        var exchangeResult = await TryExchangeAuthorizationCode(authService, failures);
+                        if (!exchangeResult)
+                        {
+                            return; // Error already added to failures
+                        }
+                    }
+                    else
+                    {
+                        // No redirect URL - generate auth URL for user
+                        await GenerateOAuthAuthUrl(authService, failures);
+                        return;
+                    }
                 }
             }
 
@@ -265,6 +295,98 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         {
             _logger.Error(ex, "Tidalarr indexer test failed");
             failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
+        }
+    }
+
+    private async Task<bool> TryExchangeAuthorizationCode(ITidalAuth authService, List<ValidationFailure> failures)
+    {
+        try
+        {
+            // Parse the redirect URL to extract authorization code
+            var callbackResult = authService.ParseCallbackUrl(Settings.RedirectUrl);
+            if (!callbackResult.IsSuccess)
+            {
+                _logger.Warn($"Failed to parse redirect URL: {callbackResult.ErrorMessage}");
+                failures.Add(new ValidationFailure("RedirectUrl", callbackResult.ErrorMessage ?? "Invalid redirect URL"));
+                return false;
+            }
+
+            // Load PKCE state from disk
+            var pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            var pkceState = await pkceStore.LoadStateAsync();
+
+            if (pkceState == null)
+            {
+                _logger.Warn("No PKCE state found - auth URL may have expired. Generate a new one.");
+                await GenerateOAuthAuthUrl(authService, failures);
+                failures.Add(new ValidationFailure("OAuthAuthUrl",
+                    "Authorization URL expired. A new one has been generated. Copy it, authenticate, then paste the redirect URL."));
+                return false;
+            }
+
+            // Validate state matches
+            if (pkceState.State != callbackResult.State)
+            {
+                _logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL");
+                await GenerateOAuthAuthUrl(authService, failures);
+                failures.Add(new ValidationFailure("OAuthAuthUrl",
+                    "Authorization state mismatch. A new auth URL has been generated. Please re-authenticate."));
+                return false;
+            }
+
+            // Exchange authorization code for tokens
+            _logger.Info("Exchanging authorization code for tokens...");
+            var tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier);
+
+            if (tokens == null || string.IsNullOrWhiteSpace(tokens.AccessToken))
+            {
+                failures.Add(new ValidationFailure("Authentication", "Token exchange failed - received invalid tokens"));
+                return false;
+            }
+
+            // Clean up PKCE state after successful exchange
+            await pkceStore.DeleteStateAsync();
+
+            _logger.Info("Successfully authenticated with Tidal!");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to exchange authorization code");
+            failures.Add(new ValidationFailure("Authentication", $"Token exchange failed: {ex.Message}"));
+            return false;
+        }
+    }
+
+    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures)
+    {
+        try
+        {
+            // Generate new auth URL + PKCE state
+            var authUrlData = await authService.GenerateAuthUrlAsync();
+
+            // Persist PKCE state for later token exchange
+            var pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            var pkceState = new PKCEState(
+                authUrlData.AuthorizationUrl,
+                authUrlData.CodeVerifier,
+                authUrlData.State,
+                authUrlData.ClientUniqueKey,
+                DateTime.UtcNow);
+            await pkceStore.SaveStateAsync(pkceState);
+
+            _logger.Info($"Generated OAuth authorization URL. Copy it from the 'OAuth Authorization URL' field.");
+
+            // Update settings with the auth URL (this won't persist, but shows in validation message)
+            Settings.OAuthAuthUrl = authUrlData.AuthorizationUrl;
+
+            failures.Add(new ValidationFailure("OAuthAuthUrl",
+                $"Not authenticated. 1) Copy the OAuth Authorization URL. 2) Open it in a browser and log in. 3) Copy the redirect URL. 4) Paste it in 'OAuth Redirect URL' field. Auth URL: {authUrlData.AuthorizationUrl}"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to generate OAuth authorization URL");
+            failures.Add(new ValidationFailure("Authentication", $"Failed to generate auth URL: {ex.Message}"));
         }
     }
 }
