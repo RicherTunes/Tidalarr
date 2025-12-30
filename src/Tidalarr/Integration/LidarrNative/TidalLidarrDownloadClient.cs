@@ -160,7 +160,28 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                         item.Status = result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed;
                         item.Progress = 100;
                         item.CompletedAt = DateTime.UtcNow;
-                        _logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
+
+                        // Log all track results for debugging
+                        var failedTracks = result.TrackResults.Where(t => !t.Success).ToList();
+                        var successTracks = result.TrackResults.Where(t => t.Success).ToList();
+
+                        if (failedTracks.Count > 0 || result.FilePaths?.Count == 0)
+                        {
+                            _logger.Error("Download issues for {0} - {1}: {2} failed, {3} succeeded, {4} files on disk",
+                                artistName, albumTitle, failedTracks.Count, successTracks.Count, result.FilePaths?.Count ?? 0);
+                            foreach (var tr in failedTracks.Take(5))
+                            {
+                                _logger.Error("  Track {0} failed: {1}", tr.TrackId, tr.ErrorMessage);
+                            }
+                            if (result.TrackResults.Count == 0)
+                            {
+                                _logger.Error("  No track results at all - likely no track IDs returned from API");
+                            }
+                        }
+                        else
+                        {
+                            _logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
+                        }
                     }
                 }
                 catch (Exception ex)
