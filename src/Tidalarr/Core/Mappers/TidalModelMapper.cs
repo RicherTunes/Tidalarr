@@ -5,17 +5,24 @@ namespace Tidalarr.Core.Mappers;
 
 public class TidalModelMapper
 {
+    private const string UnknownArtist = "Unknown Artist";
     public StreamingTrack ToStreamingTrack(TidalTrackInfo track)
     {
         // Create a non-null StreamingTrack even if inputs are sparse
+        // Normalize empty/null artists to "Unknown Artist" to prevent empty tags/folder names
         string artistName = string.Join(", ", track.Artists ?? []);
+        if (string.IsNullOrWhiteSpace(artistName))
+            artistName = UnknownArtist;
+        string artistId = track.Artists?.FirstOrDefault() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(artistId))
+            artistId = UnknownArtist;
         StreamingTrack streaming = new()
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = track.Artists?.FirstOrDefault() ?? string.Empty,
+                Id = artistId,
                 Name = artistName
             },
             Album = new StreamingAlbum
@@ -54,14 +61,20 @@ public class TidalModelMapper
 
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
+        // Normalize empty/null artists to "Unknown Artist"
         string artistName = string.Join(", ", album.Artists ?? []);
+        if (string.IsNullOrWhiteSpace(artistName))
+            artistName = UnknownArtist;
+        string artistId = album.Artists?.FirstOrDefault() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(artistId))
+            artistId = UnknownArtist;
         StreamingAlbum streaming = new()
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = album.Artists?.FirstOrDefault() ?? string.Empty,
+                Id = artistId,
                 Name = artistName
             },
             AdditionalArtists = [],
