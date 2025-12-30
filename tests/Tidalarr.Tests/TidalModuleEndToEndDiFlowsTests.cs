@@ -33,6 +33,11 @@ public class TidalModuleEndToEndDiFlowsTests
             return Task.FromResult(Create());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Create()
         {
             return new("atk", "rtk", "Bearer", DateTime.UtcNow.AddHours(1), "sess1", "US", "user1");
@@ -116,7 +121,6 @@ public class TidalModuleEndToEndDiFlowsTests
         Assert.True(ok);
     }
 }
-
 
 
 

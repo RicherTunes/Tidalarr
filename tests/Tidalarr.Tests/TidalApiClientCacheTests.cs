@@ -99,6 +99,11 @@ internal class StubAuth : ITidalAuth
         return Task.FromResult(Default());
     }
 
+    public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+    {
+        return TidalCallbackResult.Failure("Not implemented in test stub");
+    }
+
     private static TidalTokens Default()
     {
         return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "u1");
@@ -157,6 +162,5 @@ internal class PrepopulatedCache : IStreamingResponseCache
     public void Clear() { }
     public void ClearEndpoint(string endpoint) { }
 }
-
 
 

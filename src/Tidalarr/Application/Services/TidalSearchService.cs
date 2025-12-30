@@ -37,21 +37,9 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             optimizedQuery = optimization.Query;
         }
 
-        // Execute search with safe error handling
+        // Execute search
         Stopwatch stopwatch = Stopwatch.StartNew();
-        (bool success, TidalSearchResults searchResults) = await SafeOperationExecutor.TryExecuteAsync<TidalSearchResults>(() =>
-            this._apiClient.SearchAsync(optimizedQuery));
-
-        if (!success || searchResults == null)
-        {
-            return new TidalSearchResults(
-                Albums: [],
-                Tracks: [],
-                Artists: [],
-                TotalCount: 0,
-                HasMore: false
-            );
-        }
+        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery);
 
         stopwatch.Stop();
 

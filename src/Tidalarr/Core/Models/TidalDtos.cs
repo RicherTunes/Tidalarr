@@ -2,10 +2,11 @@ namespace Tidalarr.Core.Models;
 
 /// <summary>
 /// DTO for Tidal artist from API response.
+/// Note: Tidal API returns numeric IDs, so we use long and convert to string in mappers.
 /// </summary>
 public class TidalArtistDto
 {
-    public string? id { get; set; }
+    public long id { get; set; }
     public string? name { get; set; }
 
     public TidalArtistDto() { }
@@ -13,16 +14,17 @@ public class TidalArtistDto
     public TidalArtistDto(string? name, string? id)
     {
         this.name = name;
-        this.id = id;
+        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
     }
 }
 
 /// <summary>
 /// DTO for Tidal album from API response.
+/// Note: Tidal API returns numeric IDs, so we use long and convert to string in mappers.
 /// </summary>
 public class TidalAlbumDto
 {
-    public string id { get; set; } = string.Empty;
+    public long id { get; set; }
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
     public List<TidalArtistDto>? artists { get; set; }
@@ -36,7 +38,7 @@ public class TidalAlbumDto
 
     public TidalAlbumDto(string id, string title, TidalArtistDto? artist, string? releaseDate, int numberOfTracks, int duration, bool streamReady, string? cover, string? audioQuality = null)
     {
-        this.id = id;
+        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.releaseDate = releaseDate;
@@ -50,10 +52,11 @@ public class TidalAlbumDto
 
 /// <summary>
 /// DTO for Tidal track from API response.
+/// Note: Tidal API returns numeric IDs, so we use long and convert to string in mappers.
 /// </summary>
 public class TidalTrackDto
 {
-    public string id { get; set; } = string.Empty;
+    public long id { get; set; }
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
     public List<TidalArtistDto>? artists { get; set; }
@@ -68,7 +71,7 @@ public class TidalTrackDto
 
     public TidalTrackDto(string id, string title, TidalArtistDto? artist, TidalAlbumDto? album, int trackNumber, int duration, bool streamReady, string? audioQuality)
     {
-        this.id = id;
+        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.album = album;
