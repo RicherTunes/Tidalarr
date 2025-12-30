@@ -12,7 +12,7 @@ public class TidalModelMapper
         // Filter null/empty entries before joining to avoid ", , " garbage
         var validArtists = (track.Artists ?? []).Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
         string artistName = validArtists.Count > 0 ? string.Join(", ", validArtists) : UnknownArtist;
-        // Note: TidalTrackInfo.Artists contains names, not IDs. Tidal API does not provide artist IDs in track responses.
+        // Note: TidalTrackInfo.Artists contains names only. Artist IDs are available in TidalArtistDto but not plumbed through yet.
         // Using primary artist name as placeholder for StreamingArtist.Id until proper ID mapping is available.
         string primaryArtistName = validArtists.FirstOrDefault() ?? UnknownArtist;
 
