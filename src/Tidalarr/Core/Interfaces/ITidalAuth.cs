@@ -8,6 +8,7 @@ public interface ITidalAuth
     Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier);
     Task<TidalTokens> RefreshTokensAsync(string refreshToken);
     Task<TidalTokens> GetValidTokensAsync();
+    TidalCallbackResult ParseCallbackUrl(string callbackUrl);
     bool IsAuthenticated { get; }
 }
 
