@@ -15,6 +15,41 @@ public class PKCEStateStore
         WriteIndented = true
     };
 
+    public static string? TryReadAuthorizationUrl(string? configPath)
+    {
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var storagePath = Path.Combine(configPath, "pkce_state.json");
+            if (!File.Exists(storagePath))
+            {
+                return null;
+            }
+
+            var json = File.ReadAllText(storagePath);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("authorizationUrl", out var authorizationUrlElement))
+            {
+                return null;
+            }
+
+            return authorizationUrlElement.GetString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public PKCEStateStore(string configPath)
     {
         if (string.IsNullOrWhiteSpace(configPath))

@@ -169,6 +169,14 @@ Tidalarr integrates with `Lidarr.Plugin.Common` v1.1.0+ for:
 - Settings handled by `TidalSettings` extending `BaseStreamingSettings`
 - OAuth authentication managed by `TidalOAuthService`
 
+### **OAuth Authorization URL Field (Do Not Remove)**
+Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the indexer and download client settings to reduce OAuth setup friction and support/debug time.
+
+- Lidarr's UI does not reliably live-update computed fields during `Test()`, so this field is populated by reading the persisted PKCE state file at `${ConfigPath}/pkce_state.json`.
+- The field may be empty until you click `Test` on the indexer (which generates and persists the PKCE state), and you may need to refresh the settings page to see it.
+- Keeping this field prevents regressions where users cannot easily retrieve the correct auth URL (error messages are transient and easy to miss).
+- Security: `pkce_state.json` contains a PKCE `code_verifier`; never commit it or include it in logs/artifacts.
+
 ### **CLI Configuration**
 ```bash
 # Configure authentication
