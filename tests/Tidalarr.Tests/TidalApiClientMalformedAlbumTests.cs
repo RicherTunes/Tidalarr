@@ -30,6 +30,11 @@ public class TidalApiClientMalformedAlbumTests
             return Task.FromResult(Default());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
@@ -45,7 +50,6 @@ public class TidalApiClientMalformedAlbumTests
         _ = await Assert.ThrowsAnyAsync<Exception>(() => api.GetAlbumAsync("al1"));
     }
 }
-
 
 
 
