@@ -275,10 +275,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         }
         if (artistNames.Count == 0)
             artistNames.Add("Unknown Artist");
-        string albumId = dto.album?.id ?? string.Empty;
+        string albumId = dto.album?.id.ToString() ?? string.Empty;
         string albumTitle = dto.album?.title ?? string.Empty;
         return new TidalTrackInfo(
-            Id: dto.id,
+            Id: dto.id.ToString(),
             Title: dto.title,
             Artists: artistNames,
             AlbumId: albumId,
@@ -291,23 +291,28 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
     {
-        if (dto.artist == null)
-            throw new InvalidOperationException("Album response missing primary artist.");
+        // Note: Search results only have 'artists' array, not singular 'artist' field
+        // The singular 'artist' field is only present in album detail responses
         List<string> artistNames = [];
+
+        // First try singular artist (from album detail responses)
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
             artistNames.Add(dto.artist!.name!);
+
+        // Then add from artists array (from search results and detail responses)
         if (dto.artists != null)
         {
             foreach (TidalArtistDto artist in dto.artists)
             {
-                if (!string.IsNullOrWhiteSpace(artist?.name))
+                if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name))
                     artistNames.Add(artist!.name!);
             }
         }
+
         if (artistNames.Count == 0)
             artistNames.Add("Unknown Artist");
         return new TidalAlbumInfo(
-            Id: dto.id,
+            Id: dto.id.ToString(),
             Title: dto.title,
             Artists: artistNames,
             Tracks: [],
@@ -334,7 +339,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static TidalArtistInfo MapToTidalArtistInfo(TidalArtistDto dto)
     {
         return new TidalArtistInfo(
-            Id: dto.id ?? string.Empty,
+            Id: dto.id.ToString(),
             Name: dto.name ?? string.Empty,
             PictureId: null,
             AlbumCount: null,
