@@ -23,6 +23,7 @@ internal sealed partial record PackagingPolicyBaseline(
         ForbiddenAssemblies: new[]
         {
             "System.Text.Json.dll",
+            "NLog.dll",
             "Lidarr.Core.dll",
             "Lidarr.Common.dll",
             "Lidarr.Host.dll",
