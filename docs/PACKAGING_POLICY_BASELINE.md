@@ -34,6 +34,8 @@ Host-provided assemblies (examples, non-exhaustive):
 - `Lidarr.Host.dll`
 - `Lidarr.Http.dll`
 
+Other host-provided assemblies (should not ship):
+- `NLog.dll`
+
 Cross-boundary risk:
 - `System.Text.Json.dll`
-
