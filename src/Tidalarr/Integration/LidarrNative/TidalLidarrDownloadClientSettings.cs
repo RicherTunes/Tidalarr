@@ -4,6 +4,7 @@ using NzbDrone.Core.Annotations;
 using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.Validation;
 using Tidalarr.Core.Models;
+using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -21,6 +22,14 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         IncludeMqa = true;
         ExtractFlac = true;
         DownloadDelay = 1000;
+    }
+
+    [FieldDefinition(0, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Convenience field (derived from Config Path). Click Test on the indexer to generate an OAuth URL; you may need to refresh the settings page to see it. Changes to this field are ignored.")]
+    public string OAuthAuthUrl
+    {
+        get => PKCEStateStore.TryReadAuthorizationUrl(ConfigPath) ?? string.Empty;
+        set { }
     }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
