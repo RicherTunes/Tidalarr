@@ -170,12 +170,33 @@ Tidalarr integrates with `Lidarr.Plugin.Common` v1.1.0+ for:
 - OAuth authentication managed by `TidalOAuthService`
 
 ### **OAuth Authorization URL Field (Do Not Remove)**
-Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the indexer and download client settings to reduce OAuth setup friction and support/debug time.
 
-- Lidarr's UI does not reliably live-update computed fields during `Test()`, so this field is populated by reading the persisted PKCE state file at `${ConfigPath}/pkce_state.json`.
-- The field may be empty until you click `Test` on the indexer (which generates and persists the PKCE state), and you may need to refresh the settings page to see it.
-- Keeping this field prevents regressions where users cannot easily retrieve the correct auth URL (error messages are transient and easy to miss).
-- Security: `pkce_state.json` contains a PKCE `code_verifier`; never commit it or include it in logs/artifacts.
+Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the indexer and download client settings:
+
+- **Location**: `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs` and `TidalLidarrDownloadClientSettings.cs`
+- **Property**: `OAuthAuthUrl` with `[FieldDefinition(0, ...)]`
+
+**Why it exists**:
+- Reduces OAuth setup friction and support/debug time
+- Lidarr's UI does not reliably live-update computed fields during `Test()`, so this field is populated by reading the persisted PKCE state file at `${ConfigPath}/pkce_state.json`
+- The field is intentionally derived/read-only (setter is a no-op)
+
+**Regression history** (DO NOT REPEAT):
+- ❌ Removed in `ff0cf39` ("remove non-functional OAuthAuthUrl field")
+- ✅ Restored in `2b4225c` ("restore OAuthAuthUrl field with file-based implementation")
+
+**When the field appears empty**:
+- You haven't clicked `Test` on the indexer yet (which generates and persists PKCE state)
+- You may need to refresh the settings page after clicking Test
+- The `ConfigPath` is not set or is invalid
+
+**When the field is missing entirely** (triage steps):
+1. Confirm plugin is loaded: check `/api/v1/indexer/schema` for Tidalarr
+2. Check Lidarr logs for plugin load errors
+3. Multi-plugin runs can be affected by the upstream Lidarr AssemblyLoadContext lifecycle bug
+4. Verify you're running the build with the field restored (`2b4225c` or later)
+
+**Security**: `pkce_state.json` contains a PKCE `code_verifier`; never commit it or include it in logs/artifacts.
 
 ### **CLI Configuration**
 ```bash
@@ -188,15 +209,25 @@ dotnet run -- config set-quality --preferred Lossless
 
 ## Testing
 
+**IMPORTANT**: Always use the test runner script to ensure proper build flags:
+
+```powershell
+# Run all tests (recommended)
+./scripts/test.ps1
+
+# Run with filter
+./scripts/test.ps1 -Filter "FullyQualifiedName~TidalApiClient"
+
+# CI mode (excludes HostBridge tests)
+./scripts/test.ps1 -ExcludeHostBridge
+```
+
+**Why not `dotnet test` directly?**
+ILRepack merges dependencies with `Internalize=true`, making types like `IStreamingResponseCache` internal. Tests built without `-p:PluginPackagingDisable=true` will fail with `MissingMethodException`. The test script handles this automatically.
+
 ```bash
-# Run all tests
-dotnet test
-
-# Run specific test project  
-dotnet test tests/Tidalarr.Tests/
-
-# Development build tests (with CLI)
-dotnet test -p:IncludeCLIFramework=true
+# Development build tests (with CLI framework)
+dotnet test -p:IncludeCLIFramework=true -p:PluginPackagingDisable=true
 ```
 
 ## Troubleshooting
@@ -216,6 +247,15 @@ dotnet test -p:IncludeCLIFramework=true
 **CLI commands not working**:
 - Ensure CLI build: `dotnet build TidalCLI/ -p:IncludeCLIFramework=true`
 - Verify CLI project references main plugin correctly
+
+### **Multi-Plugin Testing**
+
+**Intermittent failures on :8691 (multi-plugin instance)**:
+- Root cause: Upstream Lidarr AssemblyLoadContext lifecycle bug
+- Symptoms: Missing schemas after restart, type identity errors, non-deterministic test failures
+- Workaround: Use dedicated single-plugin instance `:8690` for reliable Tidalarr E2E
+- Status: `:8691` is "best-effort" until Lidarr ALC fix lands
+- See: `ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_ROADMAP.md` for details
 
 ## Version Management
 
