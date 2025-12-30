@@ -237,7 +237,7 @@ public class TidalMappingCharacterizationTests
     #region Edge Cases
 
     [Fact]
-    public void ToStreamingTrack_EmptyArtists_UsesEmptyString()
+    public void ToStreamingTrack_EmptyArtists_NormalizesToUnknownArtist()
     {
         // Arrange
         var trackInfo = new TidalTrackInfo(
@@ -255,13 +255,13 @@ public class TidalMappingCharacterizationTests
         // Act
         var result = _mapper.ToStreamingTrack(trackInfo);
 
-        // Assert - should not throw, uses empty string
-        Assert.Equal(string.Empty, result.Artist.Name);
-        Assert.Equal(string.Empty, result.Artist.Id);
+        // Assert - empty artists normalized to "Unknown Artist" to prevent empty tags/folder names
+        Assert.Equal("Unknown Artist", result.Artist.Name);
+        Assert.Equal("Unknown Artist", result.Artist.Id);
     }
 
     [Fact]
-    public void ToStreamingTrack_NullArtists_UsesEmptyString()
+    public void ToStreamingTrack_NullArtists_NormalizesToUnknownArtist()
     {
         // Arrange - using null for artists (if somehow passed)
         var trackInfo = new TidalTrackInfo(
@@ -279,8 +279,8 @@ public class TidalMappingCharacterizationTests
         // Act
         var result = _mapper.ToStreamingTrack(trackInfo);
 
-        // Assert - should handle null gracefully
-        Assert.Equal(string.Empty, result.Artist.Name);
+        // Assert - null artists normalized to "Unknown Artist" to prevent empty tags/folder names
+        Assert.Equal("Unknown Artist", result.Artist.Name);
     }
 
     [Fact]
