@@ -10,10 +10,7 @@ internal sealed partial record PackagingPolicyBaseline(
     public static PackagingPolicyBaseline Default { get; } = new(
         RequiredAssemblies: new[]
         {
-            "FluentValidation.dll",
             "Lidarr.Plugin.Abstractions.dll",
-            "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
-            "Microsoft.Extensions.Logging.Abstractions.dll",
             "Lidarr.Plugin.Tidalarr.dll"
         },
         OptionalAssemblies: new[]
@@ -22,6 +19,9 @@ internal sealed partial record PackagingPolicyBaseline(
         },
         ForbiddenAssemblies: new[]
         {
+            "FluentValidation.dll",
+            "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+            "Microsoft.Extensions.Logging.Abstractions.dll",
             "System.Text.Json.dll",
             "NLog.dll",
             "Lidarr.Core.dll",
