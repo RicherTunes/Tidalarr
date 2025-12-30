@@ -317,20 +317,16 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
 
             if (pkceState == null)
             {
-                _logger.Warn("No PKCE state found - auth URL may have expired. Generate a new one.");
+                _logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
                 await GenerateOAuthAuthUrl(authService, failures);
-                failures.Add(new ValidationFailure("OAuthAuthUrl",
-                    "Authorization URL expired. A new one has been generated. Copy it, authenticate, then paste the redirect URL."));
                 return false;
             }
 
             // Validate state matches
             if (pkceState.State != callbackResult.State)
             {
-                _logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL");
+                _logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL. Generating new one.");
                 await GenerateOAuthAuthUrl(authService, failures);
-                failures.Add(new ValidationFailure("OAuthAuthUrl",
-                    "Authorization state mismatch. A new auth URL has been generated. Please re-authenticate."));
                 return false;
             }
 
@@ -375,13 +371,11 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                 DateTime.UtcNow);
             await pkceStore.SaveStateAsync(pkceState);
 
-            _logger.Info($"Generated OAuth authorization URL. Copy it from the 'OAuth Authorization URL' field.");
+            _logger.Info("Generated OAuth authorization URL for Tidal authentication.");
 
-            // Update settings with the auth URL (this won't persist, but shows in validation message)
-            Settings.OAuthAuthUrl = authUrlData.AuthorizationUrl;
-
-            failures.Add(new ValidationFailure("OAuthAuthUrl",
-                $"Not authenticated. 1) Copy the OAuth Authorization URL. 2) Open it in a browser and log in. 3) Copy the redirect URL. 4) Paste it in 'OAuth Redirect URL' field. Auth URL: {authUrlData.AuthorizationUrl}"));
+            // Provide clear instructions with the auth URL in the error message
+            failures.Add(new ValidationFailure("RedirectUrl",
+                $"Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
         }
         catch (Exception ex)
         {

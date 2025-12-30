@@ -24,34 +24,30 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Should match the indexer config path.")]
+        HelpText = "Directory used to persist Tidal authentication tokens. Must match the indexer config path to share authentication.")]
     public string ConfigPath { get; set; } = string.Empty;
 
-    [FieldDefinition(2, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Copy this URL and open it in your browser to authenticate with Tidal (if not already done via indexer setup).")]
-    public string OAuthAuthUrl { get; set; } = string.Empty;
-
-    [FieldDefinition(3, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "After visiting the authorization URL and logging in, paste the complete redirect URL here.")]
+    [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Same as indexer. If using shared ConfigPath, authentication is automatic after indexer setup.")]
     public string RedirectUrl { get; set; } = string.Empty;
 
-    [FieldDefinition(4, Label = "Download Path", Type = FieldType.Path, Section = "Download",
+    [FieldDefinition(3, Label = "Download Path", Type = FieldType.Path, Section = "Download",
         HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(5, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
+    [FieldDefinition(4, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
         HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-    [FieldDefinition(6, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(5, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Allow Master (MQA) releases when available.")]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(7, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(6, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Convert M4A containers to FLAC when possible.")]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(8, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
+    [FieldDefinition(7, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
         HelpText = "Delay between chunk requests used for throttling. Range: 0-60000, Default: 1000")]
     public int DownloadDelay { get; set; } = 1000;
 
