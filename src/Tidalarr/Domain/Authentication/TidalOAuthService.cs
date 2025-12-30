@@ -241,14 +241,39 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     private static TidalTokens MapToTidalTokens(TidalTokenResponse response)
     {
+        string sessionId = response.user?.sessionId ?? string.Empty;
+        string countryCode = response.user?.countryCode ?? string.Empty;
+        string userId = response.user?.userId.ToString() ?? string.Empty;
+
+        // Tidal's token response does not always include the user/session block.
+        // In those cases, required fields are present on the access token (JWT).
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            sessionId = TryGetJwtStringClaim(response.access_token, claimName: "sid") ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            countryCode = TryGetJwtStringClaim(response.access_token, claimName: "cc") ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            countryCode = "US";
+        }
+        else
+        {
+            countryCode = countryCode.Trim().ToUpperInvariant();
+        }
+
         return new(
                 AccessToken: response.access_token,
                 RefreshToken: response.refresh_token,
                 TokenType: response.token_type,
                 ExpiresAt: DateTime.UtcNow.AddSeconds(response.expires_in),
-                SessionId: response.user?.sessionId ?? string.Empty,
-                CountryCode: response.user?.countryCode ?? "US",
-                UserId: response.user?.userId.ToString() ?? string.Empty);
+                SessionId: sessionId,
+                CountryCode: countryCode,
+                UserId: userId);
     }
 
     public async Task<TidalTokens> GetValidTokensAsync()
@@ -259,15 +284,39 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         TidalTokens? stored = await this._tokenStorage.LoadTokensAsync();
         if (stored != null && !stored.IsExpired)
         {
-            this._currentTokens = stored;
-            return this._currentTokens;
+            TidalTokens normalized = EnsureRequiredSessionFields(stored);
+            if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
+            {
+                // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
+                normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken));
+            }
+
+            if (string.IsNullOrWhiteSpace(normalized.SessionId))
+                throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+
+            if (!stored.Equals(normalized))
+            {
+                await this._tokenStorage.SaveTokensAsync(normalized);
+            }
+
+            this._currentTokens = normalized;
+            return normalized;
         }
 
         if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
         {
             TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
-            this._currentTokens = refreshed;
-            return refreshed;
+            TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
+            if (string.IsNullOrWhiteSpace(normalized.SessionId))
+                throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+
+            if (!refreshed.Equals(normalized))
+            {
+                await this._tokenStorage.SaveTokensAsync(normalized);
+            }
+
+            this._currentTokens = normalized;
+            return normalized;
         }
 
         throw new InvalidOperationException("Not authenticated");
@@ -322,6 +371,79 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     public new bool SupportsRefresh => true;
     public string ServiceName => "Tidal";
+
+    private static TidalTokens EnsureRequiredSessionFields(TidalTokens tokens)
+    {
+        string sessionId = tokens.SessionId;
+        string countryCode = tokens.CountryCode;
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            sessionId = TryGetJwtStringClaim(tokens.AccessToken, claimName: "sid") ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            countryCode = TryGetJwtStringClaim(tokens.AccessToken, claimName: "cc") ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(countryCode))
+        {
+            countryCode = "US";
+        }
+        else
+        {
+            countryCode = countryCode.Trim().ToUpperInvariant();
+        }
+
+        if (string.Equals(tokens.SessionId, sessionId, StringComparison.Ordinal) &&
+            string.Equals(tokens.CountryCode, countryCode, StringComparison.Ordinal))
+        {
+            return tokens;
+        }
+
+        return tokens with { SessionId = sessionId, CountryCode = countryCode };
+    }
+
+    private static string? TryGetJwtStringClaim(string? jwt, string claimName)
+    {
+        if (string.IsNullOrWhiteSpace(jwt)) return null;
+
+        string[] parts = jwt.Split('.');
+        if (parts.Length < 2) return null;
+
+        string payloadJson;
+        try
+        {
+            byte[] payloadBytes = Base64UrlDecode(parts[1]);
+            payloadJson = Encoding.UTF8.GetString(payloadBytes);
+        }
+        catch
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(payloadJson);
+            if (!doc.RootElement.TryGetProperty(claimName, out JsonElement element)) return null;
+            return element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static byte[] Base64UrlDecode(string base64Url)
+    {
+        string padded = base64Url.Replace('-', '+').Replace('_', '/');
+        int mod = padded.Length % 4;
+        if (mod == 2) padded += "==";
+        else if (mod == 3) padded += "=";
+        else if (mod != 0) throw new FormatException("Invalid base64url length");
+        return Convert.FromBase64String(padded);
+    }
 }
 
 public record TidalTokenResponse(

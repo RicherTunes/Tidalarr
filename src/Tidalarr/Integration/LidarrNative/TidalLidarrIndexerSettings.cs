@@ -28,23 +28,27 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
         HelpText = "Directory used to persist Tidal authentication tokens.")]
     public string ConfigPath { get; set; } = string.Empty;
 
-    [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "OAuth redirect URL captured after completing the Tidal login flow. Open the auth URL and paste the redirect URL here.")]
+    [FieldDefinition(2, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Copy this URL and open it in your browser to authenticate with Tidal. After logging in, you'll be redirected - paste that URL below.")]
+    public string OAuthAuthUrl { get; set; } = string.Empty;
+
+    [FieldDefinition(3, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "After visiting the authorization URL and logging in, paste the complete redirect URL here (starts with https://tidal.com/).")]
     public string RedirectUrl { get; set; } = string.Empty;
 
-    [FieldDefinition(3, Label = "Market", Type = FieldType.Textbox, Section = "Authentication", Advanced = true,
+    [FieldDefinition(4, Label = "Market", Type = FieldType.Textbox, Section = "Authentication", Advanced = true,
         HelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).")]
     public string TidalMarket { get; set; } = "US";
 
-    [FieldDefinition(4, Label = "Early Release Limit", Type = FieldType.Number, Section = "Search", Advanced = true,
+    [FieldDefinition(5, Label = "Early Release Limit", Type = FieldType.Number, Section = "Search", Advanced = true,
         HelpText = "Limit pre-release downloads to this many days before release. Range: 0-365, Default: 14")]
     public int? EarlyReleaseLimit { get; set; } = 14;
 
-    [FieldDefinition(5, Label = "Enable Cache", Type = FieldType.Checkbox, Section = "Performance", Advanced = true,
+    [FieldDefinition(6, Label = "Enable Cache", Type = FieldType.Checkbox, Section = "Performance", Advanced = true,
         HelpText = "Cache search results to reduce API calls.")]
     public bool EnableCache { get; set; } = true;
 
-    [FieldDefinition(6, Label = "Cache Duration (minutes)", Type = FieldType.Number, Section = "Performance", Advanced = true,
+    [FieldDefinition(7, Label = "Cache Duration (minutes)", Type = FieldType.Number, Section = "Performance", Advanced = true,
         HelpText = "How long to cache search results. Range: 0-1440, Default: 15")]
     public int CacheDuration { get; set; } = 15;
 
@@ -79,9 +83,10 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
         RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
+        // RedirectUrl validation: only validate format when provided (not required during initial setup)
         RuleFor(x => x.RedirectUrl)
-            .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication")
-            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL");
+            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
+            .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
         RuleFor(x => x.TidalMarket)
             .Must(market => SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase))
