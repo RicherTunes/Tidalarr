@@ -9,20 +9,20 @@ public class TidalModelMapper
     public StreamingTrack ToStreamingTrack(TidalTrackInfo track)
     {
         // Create a non-null StreamingTrack even if inputs are sparse
-        // Normalize empty/null artists to "Unknown Artist" to prevent empty tags/folder names
-        string artistName = string.Join(", ", track.Artists ?? []);
-        if (string.IsNullOrWhiteSpace(artistName))
-            artistName = UnknownArtist;
-        string artistId = track.Artists?.FirstOrDefault() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(artistId))
-            artistId = UnknownArtist;
+        // Filter null/empty entries before joining to avoid ", , " garbage
+        var validArtists = (track.Artists ?? []).Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+        string artistName = validArtists.Count > 0 ? string.Join(", ", validArtists) : UnknownArtist;
+        // Note: TidalTrackInfo.Artists contains names, not IDs. Tidal API does not provide artist IDs in track responses.
+        // Using primary artist name as placeholder for StreamingArtist.Id until proper ID mapping is available.
+        string primaryArtistName = validArtists.FirstOrDefault() ?? UnknownArtist;
+
         StreamingTrack streaming = new()
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = artistId,
+                Id = primaryArtistName,  // TODO: Use actual artist ID when available from API
                 Name = artistName
             },
             Album = new StreamingAlbum
@@ -31,7 +31,7 @@ public class TidalModelMapper
                 Title = track.AlbumTitle ?? string.Empty,
                 Artist = new StreamingArtist
                 {
-                    Id = track.Artists?.FirstOrDefault() ?? string.Empty,
+                    Id = primaryArtistName,  // TODO: Use actual artist ID when available from API
                     Name = artistName
                 }
             },
@@ -61,20 +61,19 @@ public class TidalModelMapper
 
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
-        // Normalize empty/null artists to "Unknown Artist"
-        string artistName = string.Join(", ", album.Artists ?? []);
-        if (string.IsNullOrWhiteSpace(artistName))
-            artistName = UnknownArtist;
-        string artistId = album.Artists?.FirstOrDefault() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(artistId))
-            artistId = UnknownArtist;
+        // Filter null/empty entries before joining to avoid ", , " garbage
+        var validArtists = (album.Artists ?? []).Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+        string artistName = validArtists.Count > 0 ? string.Join(", ", validArtists) : UnknownArtist;
+        // Note: TidalAlbumInfo.Artists contains names, not IDs.
+        string primaryArtistName = validArtists.FirstOrDefault() ?? UnknownArtist;
+
         StreamingAlbum streaming = new()
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = artistId,
+                Id = primaryArtistName,  // TODO: Use actual artist ID when available from API
                 Name = artistName
             },
             AdditionalArtists = [],
