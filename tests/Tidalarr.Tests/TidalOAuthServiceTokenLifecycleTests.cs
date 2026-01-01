@@ -1,5 +1,4 @@
 using System.Net;
-using System.Collections.Generic;
 using System.Text.Json;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
@@ -14,7 +13,7 @@ public class TidalOAuthServiceTokenLifecycleTests
     {
         TidalTokens expired = new("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
         MemoryTokenStorage storage = new(expired);
-        var refreshResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new Tidalarr.Domain.Authentication.TidalUserResponse("sess2", "US", 123));
+        Domain.Authentication.TidalTokenResponse refreshResponse = new Domain.Authentication.TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new TidalUserResponse("sess2", "US", 123));
         HttpClient http = new(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
         TidalOAuthService svc = new(http, storage);
@@ -24,7 +23,7 @@ public class TidalOAuthServiceTokenLifecycleTests
     }
 
     [Fact]
-    public async Task GetValidTokens_Throws_WhenNoStoredOrCurrentTokens()       
+    public async Task GetValidTokens_Throws_WhenNoStoredOrCurrentTokens()
     {
         MemoryTokenStorage storage = new(null);
         HttpClient http = new(new FixedResponseHandler("", HttpStatusCode.BadRequest));

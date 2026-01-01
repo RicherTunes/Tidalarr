@@ -1,10 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
@@ -18,7 +12,6 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
-using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -27,12 +20,17 @@ namespace Tidalarr.Integration.LidarrNative;
 /// Lidarr's plugin system scans for classes extending this base class.
 /// Uses TidalModule services internally for actual download functionality.
 /// </summary>
-public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadClientSettings>
+public class TidalLidarrDownloadClient(
+    IConfigService configService,
+    IDiskProvider diskProvider,
+    IRemotePathMappingService remotePathMappingService,
+    ILocalizationService localizationService,
+    Logger logger) : DownloadClientBase<TidalLidarrDownloadClientSettings>(configService, diskProvider, remotePathMappingService, localizationService, logger)
 {
     // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
     private static readonly ConcurrentDictionary<string, TidalDownloadItem> ActiveDownloads = new();
-    private new readonly Logger _logger;
+    private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
     private SimpleDownloadOrchestrator _orchestrator;
@@ -41,34 +39,23 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
 
-    public TidalLidarrDownloadClient(
-        IConfigService configService,
-        IDiskProvider diskProvider,
-        IRemotePathMappingService remotePathMappingService,
-        ILocalizationService localizationService,
-        Logger logger)
-        : base(configService, diskProvider, remotePathMappingService, localizationService, logger)
-    {
-        _logger = logger;
-    }
-
     /// <summary>
     /// Initialize Tidal services from TidalModule when first needed.
     /// </summary>
     private void EnsureServicesInitialized()
     {
-        if (_servicesInitialized) return;
+        if (this._servicesInitialized) return;
 
         try
         {
-            var services = new ServiceCollection();
+            ServiceCollection services = new ServiceCollection();
 
             // Use the ToTidalSettings() method for proper conversion
-            var downloadSettings = Settings.ToTidalSettings();
-            services.AddSingleton(downloadSettings);
+            TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
+            _ = services.AddSingleton(downloadSettings);
 
             // Create TidalarrSettings from Lidarr-native settings
-            var tidalarrSettings = new TidalarrSettings
+            TidalarrSettings tidalarrSettings = new TidalarrSettings
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = Settings.RedirectUrl,
@@ -78,19 +65,19 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                 ExtractFlac = Settings.ExtractFlac,
                 DownloadDelay = Settings.DownloadDelay
             };
-            services.AddSingleton(tidalarrSettings);
+            _ = services.AddSingleton(tidalarrSettings);
 
             // Register all Tidal services
             TidalModule.RegisterServices(services);
 
-            _serviceProvider = services.BuildServiceProvider();
-            _orchestrator = TidalModule.CreateOrchestrator(_serviceProvider);
-            _servicesInitialized = true;
-            _logger.Debug("Tidal download services initialized successfully");
+            this._serviceProvider = services.BuildServiceProvider();
+            this._orchestrator = TidalModule.CreateOrchestrator(this._serviceProvider);
+            this._servicesInitialized = true;
+            this._logger.Debug("Tidal download services initialized successfully");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to initialize Tidal download services");
+            this._logger.Error(ex, "Failed to initialize Tidal download services");
             throw;
         }
     }
@@ -101,24 +88,24 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         {
             EnsureServicesInitialized();
 
-            var albumTitle = remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album";
-            var artistName = remoteAlbum.Artist?.Name ?? "Unknown Artist";
+            string albumTitle = remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album";
+            string artistName = remoteAlbum.Artist?.Name ?? "Unknown Artist";
 
-            _logger.Info("Starting Tidal download: {0} - {1}", artistName, albumTitle);
+            this._logger.Info("Starting Tidal download: {0} - {1}", artistName, albumTitle);
 
             // Extract album ID from release
-            var albumId = ExtractAlbumIdFromRelease(remoteAlbum.Release);
+            string albumId = ExtractAlbumIdFromRelease(remoteAlbum.Release);
             if (string.IsNullOrWhiteSpace(albumId))
             {
                 throw new InvalidOperationException("Could not extract album ID from release");
             }
 
             // Generate unique download ID
-            var downloadId = Guid.NewGuid().ToString("N");
-            var outputPath = BuildOutputPath(remoteAlbum);
+            string downloadId = Guid.NewGuid().ToString("N");
+            string outputPath = BuildOutputPath(remoteAlbum);
 
             // Create download item for tracking
-            var downloadItem = new TidalDownloadItem
+            TidalDownloadItem downloadItem = new TidalDownloadItem
             {
                 DownloadId = downloadId,
                 AlbumId = albumId,
@@ -137,57 +124,57 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
             {
                 try
                 {
-                    _logger.Debug("Starting async download for album {0}", albumId);
+                    this._logger.Debug("Starting async download for album {0}", albumId);
 
                     // Create progress reporter to update download item
-                    var progressReporter = new Progress<DownloadProgress>(p =>
+                    Progress<DownloadProgress> progressReporter = new Progress<DownloadProgress>(p =>
                     {
-                        if (ActiveDownloads.TryGetValue(downloadId, out var item))
+                        if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                         {
                             item.Progress = p.PercentComplete;
                         }
                     });
 
-                    var result = await _orchestrator.DownloadAlbumAsync(
+                    DownloadResult result = await this._orchestrator.DownloadAlbumAsync(
                         albumId,
                         outputPath,
                         quality: null,
                         progress: progressReporter);
 
                     // Mark as completed
-                    if (ActiveDownloads.TryGetValue(downloadId, out var item))
+                    if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                     {
                         item.Status = result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed;
                         item.Progress = 100;
                         item.CompletedAt = DateTime.UtcNow;
 
                         // Log all track results for debugging
-                        var failedTracks = result.TrackResults.Where(t => !t.Success).ToList();
-                        var successTracks = result.TrackResults.Where(t => t.Success).ToList();
+                        List<TrackDownloadResult> failedTracks = [.. result.TrackResults.Where(t => !t.Success)];
+                        List<TrackDownloadResult> successTracks = [.. result.TrackResults.Where(t => t.Success)];
 
                         if (failedTracks.Count > 0 || result.FilePaths?.Count == 0)
                         {
-                            _logger.Error("Download issues for {0} - {1}: {2} failed, {3} succeeded, {4} files on disk",
+                            this._logger.Error("Download issues for {0} - {1}: {2} failed, {3} succeeded, {4} files on disk",
                                 artistName, albumTitle, failedTracks.Count, successTracks.Count, result.FilePaths?.Count ?? 0);
-                            foreach (var tr in failedTracks.Take(5))
+                            foreach (TrackDownloadResult? tr in failedTracks.Take(5))
                             {
-                                _logger.Error("  Track {0} failed: {1}", tr.TrackId, tr.ErrorMessage);
+                                this._logger.Error("  Track {0} failed: {1}", tr.TrackId, tr.ErrorMessage);
                             }
                             if (result.TrackResults.Count == 0)
                             {
-                                _logger.Error("  No track results at all - likely no track IDs returned from API");
+                                this._logger.Error("  No track results at all - likely no track IDs returned from API");
                             }
                         }
                         else
                         {
-                            _logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
+                            this._logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Failed to download album {0}", albumId);
-                    if (ActiveDownloads.TryGetValue(downloadId, out var item))
+                    this._logger.Error(ex, "Failed to download album {0}", albumId);
+                    if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                     {
                         item.Status = DownloadItemStatus.Failed;
                         item.CompletedAt = DateTime.UtcNow;
@@ -195,25 +182,25 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
                 }
             });
 
-            _logger.Debug("Tidal download started with ID: {0}", downloadId);
+            this._logger.Debug("Tidal download started with ID: {0}", downloadId);
             return Task.FromResult(downloadId);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to start Tidal download");
+            this._logger.Error(ex, "Failed to start Tidal download");
             throw;
         }
     }
 
     public override IEnumerable<DownloadClientItem> GetItems()
     {
-        var result = new List<DownloadClientItem>();
+        List<DownloadClientItem> result = new List<DownloadClientItem>();
 
         // Best-effort cleanup to prevent unbounded growth if Lidarr doesn't call RemoveItem.
-        var now = DateTime.UtcNow;
-        foreach (var kv in ActiveDownloads)
+        DateTime now = DateTime.UtcNow;
+        foreach (KeyValuePair<string, TidalDownloadItem> kv in ActiveDownloads)
         {
-            var item = kv.Value;
+            TidalDownloadItem item = kv.Value;
 
             if ((item.Status == DownloadItemStatus.Completed || item.Status == DownloadItemStatus.Failed) &&
                 item.CompletedAt.HasValue &&
@@ -240,20 +227,20 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
 
     public override void RemoveItem(DownloadClientItem item, bool deleteData)
     {
-        if (ActiveDownloads.TryRemove(item.DownloadId, out var download))
+        if (ActiveDownloads.TryRemove(item.DownloadId, out TidalDownloadItem? download))
         {
-            _logger.Debug("Removed Tidal download: {0}", item.DownloadId);
+            this._logger.Debug("Removed Tidal download: {0}", item.DownloadId);
 
             if (deleteData && Directory.Exists(download.OutputPath))
             {
                 try
                 {
                     Directory.Delete(download.OutputPath, recursive: true);
-                    _logger.Debug("Deleted download data at: {0}", download.OutputPath);
+                    this._logger.Debug("Deleted download data at: {0}", download.OutputPath);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn(ex, "Failed to delete download data at: {0}", download.OutputPath);
+                    this._logger.Warn(ex, "Failed to delete download data at: {0}", download.OutputPath);
                 }
             }
         }
@@ -264,7 +251,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         return new DownloadClientInfo
         {
             IsLocalhost = true,
-            OutputRootFolders = new List<OsPath> { new OsPath(Settings.DownloadPath) }
+            OutputRootFolders = [new OsPath(Settings.DownloadPath)]
         };
     }
 
@@ -272,7 +259,7 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
     {
         try
         {
-            _logger.Info("Testing Tidalarr download client connection...");
+            this._logger.Info("Testing Tidalarr download client connection...");
 
             // Basic settings validation
             if (string.IsNullOrWhiteSpace(Settings.ConfigPath))
@@ -292,8 +279,8 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
             {
                 try
                 {
-                    Directory.CreateDirectory(Settings.DownloadPath);
-                    _logger.Debug("Created download directory: {0}", Settings.DownloadPath);
+                    _ = Directory.CreateDirectory(Settings.DownloadPath);
+                    this._logger.Debug("Created download directory: {0}", Settings.DownloadPath);
                 }
                 catch (Exception ex)
                 {
@@ -305,28 +292,28 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
             // Initialize services and test authentication
             EnsureServicesInitialized();
 
-            var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
+            IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
             if (authManager != null)
             {
                 try
                 {
                     authManager.EnsureValidSessionAsync().GetAwaiter().GetResult();
-                    _logger.Debug("Tidal authentication session is valid");
+                    this._logger.Debug("Tidal authentication session is valid");
                 }
                 catch (Exception authEx)
                 {
-                    _logger.Warn(authEx, "Tidal authentication not configured or invalid");
+                    this._logger.Warn(authEx, "Tidal authentication not configured or invalid");
                     failures.Add(new ValidationFailure("Authentication",
                         "Not authenticated with Tidal. Please complete the OAuth flow using the redirect URL."));
                     return;
                 }
             }
 
-            _logger.Info("Tidalarr download client test completed successfully");
+            this._logger.Info("Tidalarr download client test completed successfully");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Tidalarr download client test failed");
+            this._logger.Error(ex, "Tidalarr download client test failed");
             failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
         }
     }
@@ -337,20 +324,16 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
         if (!string.IsNullOrWhiteSpace(release?.Guid))
         {
             // Format: tidal:album:12345678
-            var parts = release.Guid.Split(':');
-            if (parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase))
-            {
-                return parts[2];
-            }
-            return release.Guid;
+            string[] parts = release.Guid.Split(':');
+            return parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase) ? parts[2] : release.Guid;
         }
 
         if (!string.IsNullOrWhiteSpace(release?.InfoUrl))
         {
             // Try to extract from URL: https://tidal.com/browse/album/12345678
-            var uri = new Uri(release.InfoUrl);
-            var segments = uri.AbsolutePath.Split('/');
-            var albumIndex = Array.IndexOf(segments, "album");
+            Uri uri = new Uri(release.InfoUrl);
+            string[] segments = uri.AbsolutePath.Split('/');
+            int albumIndex = Array.IndexOf(segments, "album");
             if (albumIndex >= 0 && albumIndex < segments.Length - 1)
             {
                 return segments[albumIndex + 1];
@@ -362,9 +345,9 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
 
     private string BuildOutputPath(RemoteAlbum remoteAlbum)
     {
-        var basePath = Settings.DownloadPath;
-        var artistName = SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
-        var albumTitle = SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
+        string basePath = Settings.DownloadPath;
+        string artistName = SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
+        string albumTitle = SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
 
         return Path.Combine(basePath, artistName, albumTitle);
     }
@@ -373,10 +356,10 @@ public class TidalLidarrDownloadClient : DownloadClientBase<TidalLidarrDownloadC
     {
         if (string.IsNullOrEmpty(fileName)) return "Unknown";
 
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = fileName;
+        char[] invalidChars = Path.GetInvalidFileNameChars();
+        string sanitized = fileName;
 
-        foreach (var invalidChar in invalidChars)
+        foreach (char invalidChar in invalidChars)
         {
             sanitized = sanitized.Replace(invalidChar, '_');
         }

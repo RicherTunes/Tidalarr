@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using FluentValidation.Results;
-using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
@@ -25,7 +19,12 @@ namespace Tidalarr.Integration.LidarrNative;
 /// Lidarr-native indexer extending HttpIndexerBase for plugin discovery.
 /// Uses TidalModule services internally for actual search functionality.
 /// </summary>
-public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>   
+public class TidalLidarrIndexer(
+    IHttpClient httpClient,
+    IIndexerStatusService indexerStatusService,
+    IConfigService configService,
+    IParsingService parsingService,
+    Logger logger) : HttpIndexerBase<TidalLidarrIndexerSettings>(httpClient, indexerStatusService, configService, parsingService, logger)
 {
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
@@ -33,34 +32,23 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     public override bool SupportsSearch => true;
     public override int PageSize => 100;
 
-    private new readonly Logger _logger;
+    private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
-
-    public TidalLidarrIndexer(
-        IHttpClient httpClient,
-        IIndexerStatusService indexerStatusService,
-        IConfigService configService,
-        IParsingService parsingService,
-        Logger logger)
-        : base(httpClient, indexerStatusService, configService, parsingService, logger)
-    {
-        _logger = logger;
-    }
 
     /// <summary>
     /// Initialize Tidal services from TidalModule when first needed.
     /// </summary>
     private void EnsureServicesInitialized()
     {
-        if (_servicesInitialized) return;
+        if (this._servicesInitialized) return;
 
         try
         {
-            var services = new ServiceCollection();
+            ServiceCollection services = new ServiceCollection();
 
             // Register settings from Lidarr configuration
-            var indexerSettings = new TidalIndexerSettings
+            TidalIndexerSettings indexerSettings = new TidalIndexerSettings
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = Settings.RedirectUrl,
@@ -69,8 +57,8 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                 EnableCache = Settings.EnableCache,
                 CacheDuration = Settings.CacheDuration
             };
-            services.AddSingleton(indexerSettings);
-            services.AddSingleton(new TidalarrSettings
+            _ = services.AddSingleton(indexerSettings);
+            _ = services.AddSingleton(new TidalarrSettings
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = Settings.RedirectUrl,
@@ -80,13 +68,13 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             // Register all Tidal services
             TidalModule.RegisterServices(services);
 
-            _serviceProvider = services.BuildServiceProvider();
-            _servicesInitialized = true;
-            _logger.Debug("Tidal services initialized successfully");
+            this._serviceProvider = services.BuildServiceProvider();
+            this._servicesInitialized = true;
+            this._logger.Debug("Tidal services initialized successfully");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to initialize Tidal services");
+            this._logger.Error(ex, "Failed to initialize Tidal services");
             throw;
         }
     }
@@ -95,13 +83,13 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     {
         // We use a special request generator that encodes the search query
         // The actual search happens in the parser using our services
-        return new TidalLidarrRequestGenerator(Settings, _logger);
+        return new TidalLidarrRequestGenerator(Settings, this._logger);
     }
 
     public override IParseIndexerResponse GetParser()
     {
         EnsureServicesInitialized();
-        return new TidalLidarrParser(Settings, _serviceProvider, _logger);      
+        return new TidalLidarrParser(Settings, this._serviceProvider, this._logger);
     }
 
     protected override async Task<IList<ReleaseInfo>> FetchReleases(
@@ -110,39 +98,39 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     {
         EnsureServicesInitialized();
 
-        var releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = new List<ReleaseInfo>();
 
         // Ensure valid session early so Lidarr reports a clear authentication error.
-        var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
+        IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
         if (authManager != null)
         {
             await authManager.EnsureValidSessionAsync().ConfigureAwait(false);
         }
 
-        var searchService = _serviceProvider.GetService<TidalSearchService>();
+        TidalSearchService? searchService = this._serviceProvider.GetService<TidalSearchService>();
         if (searchService == null)
         {
-            _logger.Error("TidalSearchService not available");
+            this._logger.Error("TidalSearchService not available");
             return releases;
         }
 
-        var requestGenerator = GetRequestGenerator();
-        var requestChain = pageableRequestChainSelector(requestGenerator);
+        IIndexerRequestGenerator requestGenerator = GetRequestGenerator();
+        IndexerPageableRequestChain requestChain = pageableRequestChainSelector(requestGenerator);
 
-        foreach (var tier in requestChain.GetAllTiers())
+        foreach (IndexerPageableRequest? tier in requestChain.GetAllTiers())
         {
-            foreach (var request in tier)
+            foreach (IndexerRequest? request in tier)
             {
-                var requestUrl = request.HttpRequest?.Url?.ToString() ?? string.Empty;
-                if (!TryExtractSearchQuery(requestUrl, out var query))
+                string requestUrl = request.HttpRequest?.Url?.ToString() ?? string.Empty;
+                if (!TryExtractSearchQuery(requestUrl, out string? query))
                 {
-                    _logger.Warn("Unexpected request URL format: {0}", requestUrl);
+                    this._logger.Warn("Unexpected request URL format: {0}", requestUrl);
                     continue;
                 }
 
                 try
                 {
-                    var searchResults = await searchService
+                    TidalSearchResults searchResults = await searchService
                         .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
                         .ConfigureAwait(false);
 
@@ -151,9 +139,9 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                         continue;
                     }
 
-                    foreach (var album in searchResults.Albums)
+                    foreach (TidalAlbumInfo album in searchResults.Albums)
                     {
-                        var release = TidalLidarrParser.ConvertToReleaseInfoStatic(album);
+                        ReleaseInfo release = TidalLidarrParser.ConvertToReleaseInfoStatic(album);
                         if (release != null)
                         {
                             releases.Add(release);
@@ -162,16 +150,16 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn(ex, "Tidal search failed for query: {0}", query);
+                    this._logger.Warn(ex, "Tidal search failed for query: {0}", query);
                 }
             }
         }
 
         // Ensure Lidarr can attribute grabs to this indexer.
-        var indexerId = Definition?.Id ?? 0;
-        var indexerName = Definition?.Name;
+        int indexerId = Definition?.Id ?? 0;
+        string? indexerName = Definition?.Name;
 
-        foreach (var release in releases)
+        foreach (ReleaseInfo release in releases)
         {
             release.IndexerId = indexerId;
             if (string.IsNullOrWhiteSpace(release.Indexer) && !string.IsNullOrWhiteSpace(indexerName))
@@ -181,11 +169,10 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         }
 
         // Deduplicate by Guid (same query can appear in multiple tiers).
-        return releases
+        return [.. releases
             .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
             .GroupBy(r => r.Guid)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static bool TryExtractSearchQuery(string requestUrl, out string query)
@@ -197,13 +184,13 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             return false;
         }
 
-        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out Uri? uri))
         {
             return false;
         }
 
-        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var q = queryParams["query"];
+        System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        string? q = queryParams["query"];
         if (string.IsNullOrWhiteSpace(q))
         {
             return false;
@@ -217,7 +204,7 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
     {
         try
         {
-            _logger.Info("Testing Tidalarr indexer connection...");
+            this._logger.Info("Testing Tidalarr indexer connection...");
 
             // Basic settings validation
             if (string.IsNullOrWhiteSpace(Settings.ConfigPath))
@@ -231,8 +218,8 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             {
                 try
                 {
-                    Directory.CreateDirectory(Settings.ConfigPath);
-                    _logger.Info($"Created config directory: {Settings.ConfigPath}");
+                    _ = Directory.CreateDirectory(Settings.ConfigPath);
+                    this._logger.Info($"Created config directory: {Settings.ConfigPath}");
                 }
                 catch (Exception ex)
                 {
@@ -248,25 +235,25 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             bool hasRedirectUrl = !string.IsNullOrWhiteSpace(Settings.RedirectUrl);
 
             // Try to get existing valid session first
-            var authManager = _serviceProvider.GetService<IStreamingAuthManager>();
-            var authService = _serviceProvider.GetService<ITidalAuth>();
+            IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
+            ITidalAuth? authService = this._serviceProvider.GetService<ITidalAuth>();
 
             if (authService != null)
             {
                 try
                 {
                     // Try to get valid tokens
-                    await authService.GetValidTokensAsync();
-                    _logger.Debug("Tidal authentication session is valid");
+                    _ = await authService.GetValidTokensAsync();
+                    this._logger.Debug("Tidal authentication session is valid");
                 }
                 catch (InvalidOperationException authEx)
                 {
-                    _logger.Debug(authEx, "No valid Tidal session - checking if we can authenticate...");
+                    this._logger.Debug(authEx, "No valid Tidal session - checking if we can authenticate...");
 
                     // No valid tokens - try to exchange redirect URL if provided
                     if (hasRedirectUrl)
                     {
-                        var exchangeResult = await TryExchangeAuthorizationCode(authService, failures);
+                        bool exchangeResult = await TryExchangeAuthorizationCode(authService, failures);
                         if (!exchangeResult)
                         {
                             return; // Error already added to failures
@@ -282,18 +269,18 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             }
 
             // Test a simple search
-            var searchService = _serviceProvider.GetService<TidalSearchService>();
+            TidalSearchService? searchService = this._serviceProvider.GetService<TidalSearchService>();
             if (searchService != null)
             {
-                var testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless);
-                _logger.Info($"Test search completed. Found {testResults.Albums?.Count ?? 0} albums.");
+                TidalSearchResults testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless);
+                this._logger.Info($"Test search completed. Found {testResults.Albums?.Count ?? 0} albums.");
             }
 
-            _logger.Info("Tidalarr indexer test completed successfully");
+            this._logger.Info("Tidalarr indexer test completed successfully");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Tidalarr indexer test failed");
+            this._logger.Error(ex, "Tidalarr indexer test failed");
             failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
         }
     }
@@ -303,21 +290,21 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         try
         {
             // Parse the redirect URL to extract authorization code
-            var callbackResult = authService.ParseCallbackUrl(Settings.RedirectUrl);
+            TidalCallbackResult callbackResult = authService.ParseCallbackUrl(Settings.RedirectUrl);
             if (!callbackResult.IsSuccess)
             {
-                _logger.Warn($"Failed to parse redirect URL: {callbackResult.ErrorMessage}");
+                this._logger.Warn($"Failed to parse redirect URL: {callbackResult.ErrorMessage}");
                 failures.Add(new ValidationFailure("RedirectUrl", callbackResult.ErrorMessage ?? "Invalid redirect URL"));
                 return false;
             }
 
             // Load PKCE state from disk
-            var pkceStore = new PKCEStateStore(Settings.ConfigPath);
-            var pkceState = await pkceStore.LoadStateAsync();
+            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            PKCEState? pkceState = await pkceStore.LoadStateAsync();
 
             if (pkceState == null)
             {
-                _logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
+                this._logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
                 await GenerateOAuthAuthUrl(authService, failures);
                 return false;
             }
@@ -325,14 +312,14 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             // Validate state matches
             if (pkceState.State != callbackResult.State)
             {
-                _logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL. Generating new one.");
+                this._logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL. Generating new one.");
                 await GenerateOAuthAuthUrl(authService, failures);
                 return false;
             }
 
             // Exchange authorization code for tokens
-            _logger.Info("Exchanging authorization code for tokens...");
-            var tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier);
+            this._logger.Info("Exchanging authorization code for tokens...");
+            TidalTokens tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier);
 
             if (tokens == null || string.IsNullOrWhiteSpace(tokens.AccessToken))
             {
@@ -343,12 +330,12 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
             // Clean up PKCE state after successful exchange
             await pkceStore.DeleteStateAsync();
 
-            _logger.Info("Successfully authenticated with Tidal!");
+            this._logger.Info("Successfully authenticated with Tidal!");
             return true;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to exchange authorization code");
+            this._logger.Error(ex, "Failed to exchange authorization code");
             failures.Add(new ValidationFailure("Authentication", $"Token exchange failed: {ex.Message}"));
             return false;
         }
@@ -359,11 +346,11 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         try
         {
             // Generate new auth URL + PKCE state
-            var authUrlData = await authService.GenerateAuthUrlAsync();
+            TidalAuthUrl authUrlData = await authService.GenerateAuthUrlAsync();
 
             // Persist PKCE state for later token exchange
-            var pkceStore = new PKCEStateStore(Settings.ConfigPath);
-            var pkceState = new PKCEState(
+            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            PKCEState pkceState = new PKCEState(
                 authUrlData.AuthorizationUrl,
                 authUrlData.CodeVerifier,
                 authUrlData.State,
@@ -371,7 +358,7 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
                 DateTime.UtcNow);
             await pkceStore.SaveStateAsync(pkceState);
 
-            _logger.Info("Generated OAuth authorization URL for Tidal authentication.");
+            this._logger.Info("Generated OAuth authorization URL for Tidal authentication.");
 
             // Provide clear instructions with the auth URL in the error message
             failures.Add(new ValidationFailure("RedirectUrl",
@@ -379,7 +366,7 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to generate OAuth authorization URL");
+            this._logger.Error(ex, "Failed to generate OAuth authorization URL");
             failures.Add(new ValidationFailure("Authentication", $"Failed to generate auth URL: {ex.Message}"));
         }
     }
@@ -389,29 +376,23 @@ public class TidalLidarrIndexer : HttpIndexerBase<TidalLidarrIndexerSettings>
 /// Request generator for Tidal API searches.
 /// Generates placeholder requests - actual search happens in parser.
 /// </summary>
-public class TidalLidarrRequestGenerator : IIndexerRequestGenerator
+public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Logger logger) : IIndexerRequestGenerator
 {
-    private readonly TidalLidarrIndexerSettings _settings;
-    private readonly Logger _logger;
-
-    public TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Logger logger)
-    {
-        _settings = settings;
-        _logger = logger;
-    }
+    private readonly TidalLidarrIndexerSettings _settings = settings;
+    private readonly Logger _logger = logger;
 
     public IndexerPageableRequestChain GetRecentRequests()
     {
-        var chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
         // Tidal doesn't have a traditional RSS feed
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
-        var chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
 
-        var searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
+        string searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             chain.Add(GetSearchRequests(searchTerm));
@@ -422,7 +403,7 @@ public class TidalLidarrRequestGenerator : IIndexerRequestGenerator
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
-        var chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
 
         if (!string.IsNullOrWhiteSpace(searchCriteria.ArtistQuery))
         {
@@ -434,14 +415,14 @@ public class TidalLidarrRequestGenerator : IIndexerRequestGenerator
 
     private IEnumerable<IndexerRequest> GetSearchRequests(string searchTerm)
     {
-        _logger.Debug($"Generating Tidal search request for: {searchTerm}");
+        this._logger.Debug($"Generating Tidal search request for: {searchTerm}");
 
         // Create a placeholder URL that encodes the search query
         // The actual search is performed by the parser using TidalSearchService
-        var encodedQuery = Uri.EscapeDataString(searchTerm);
-        var requestUrl = $"tidal://search?query={encodedQuery}";
+        string encodedQuery = Uri.EscapeDataString(searchTerm);
+        string requestUrl = $"tidal://search?query={encodedQuery}";
 
-        var request = new HttpRequest(requestUrl);
+        HttpRequest request = new HttpRequest(requestUrl);
         request.Headers.Accept = "application/json";
 
         yield return new IndexerRequest(request);
@@ -452,67 +433,60 @@ public class TidalLidarrRequestGenerator : IIndexerRequestGenerator
 /// Parser for Tidal search results.
 /// Uses TidalSearchService to perform actual searches and converts results to Lidarr format.
 /// </summary>
-public class TidalLidarrParser : IParseIndexerResponse
+public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger) : IParseIndexerResponse
 {
-    private readonly TidalLidarrIndexerSettings _settings;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly Logger _logger;
-
-    public TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger)
-    {
-        _settings = settings;
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
+    private readonly TidalLidarrIndexerSettings _settings = settings;
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly Logger _logger = logger;
 
     public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
     {
-        var releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = new List<ReleaseInfo>();
 
         try
         {
             // Extract search query from the placeholder URL
-            var requestUrl = indexerResponse.Request?.Url?.ToString() ?? "";
+            string requestUrl = indexerResponse.Request?.Url?.ToString() ?? "";
             if (!requestUrl.StartsWith("tidal://search"))
             {
-                _logger.Warn("Unexpected request URL format: {0}", requestUrl);
+                this._logger.Warn("Unexpected request URL format: {0}", requestUrl);
                 return releases;
             }
 
-            var uri = new Uri(requestUrl);
-            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            var searchQuery = queryParams["query"];
+            Uri uri = new Uri(requestUrl);
+            System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            string? searchQuery = queryParams["query"];
 
             if (string.IsNullOrWhiteSpace(searchQuery))
             {
-                _logger.Warn("No search query found in request");
+                this._logger.Warn("No search query found in request");
                 return releases;
             }
 
             // Perform actual search using TidalSearchService
-            var searchService = _serviceProvider.GetService<TidalSearchService>();
+            TidalSearchService? searchService = this._serviceProvider.GetService<TidalSearchService>();
             if (searchService == null)
             {
-                _logger.Error("TidalSearchService not available");
+                this._logger.Error("TidalSearchService not available");
                 return releases;
             }
 
             // Execute search synchronously (we're in a sync context)
-            var searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
-            var searchResults = searchTask.GetAwaiter().GetResult();
+            Task<TidalSearchResults> searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
+            TidalSearchResults searchResults = searchTask.GetAwaiter().GetResult();
 
             if (searchResults.Albums == null || searchResults.Albums.Count == 0)
             {
-                _logger.Debug("No albums found for query: {0}", searchQuery);
+                this._logger.Debug("No albums found for query: {0}", searchQuery);
                 return releases;
             }
 
             // Convert Tidal albums to Lidarr ReleaseInfo
-            foreach (var album in searchResults.Albums)
+            foreach (TidalAlbumInfo album in searchResults.Albums)
             {
                 try
                 {
-                    var release = ConvertToReleaseInfoStatic(album);
+                    ReleaseInfo release = ConvertToReleaseInfoStatic(album);
                     if (release != null)
                     {
                         releases.Add(release);
@@ -520,15 +494,15 @@ public class TidalLidarrParser : IParseIndexerResponse
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn(ex, "Failed to convert album: {0}", album.Title);
+                    this._logger.Warn(ex, "Failed to convert album: {0}", album.Title);
                 }
             }
 
-            _logger.Debug("Parsed {0} releases from Tidal search", releases.Count);
+            this._logger.Debug("Parsed {0} releases from Tidal search", releases.Count);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to parse Tidal search response");
+            this._logger.Error(ex, "Failed to parse Tidal search response");
         }
 
         return releases;
@@ -538,13 +512,13 @@ public class TidalLidarrParser : IParseIndexerResponse
     {
         if (album == null) return null;
 
-        var artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
-        var albumTitle = album.Title ?? "Unknown Album";
-        var releaseDate = album.ReleaseDate;
+        string artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
+        string albumTitle = album.Title ?? "Unknown Album";
+        DateTime releaseDate = album.ReleaseDate;
 
         // Determine quality from available qualities
-        var bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
-        var quality = DetermineQualityString(bestQuality);
+        TidalQuality bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
+        string quality = DetermineQualityString(bestQuality);
 
         return new ReleaseInfo
         {
@@ -566,19 +540,20 @@ public class TidalLidarrParser : IParseIndexerResponse
             TidalQuality.HiRes => "Hi-Res FLAC 24bit",
             TidalQuality.Lossless => "FLAC 16bit",
             TidalQuality.High => "AAC 320kbps",
+            TidalQuality.Low => throw new NotImplementedException(),
             _ => "AAC 96kbps"
         };
     }
 
-    private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)  
+    private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
     {
         // Estimate size based on track count and quality
         // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps        
-        var trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12; // Default to 12 tracks when unknown/empty
-        var avgTrackDurationSeconds = 240; // 4 minutes average
-        var totalDurationSeconds = trackCount * avgTrackDurationSeconds;
-        var bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
+        int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12; // Default to 12 tracks when unknown/empty
+        int avgTrackDurationSeconds = 240; // 4 minutes average
+        int totalDurationSeconds = trackCount * avgTrackDurationSeconds;
+        int bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
 
-        return (long)(totalDurationSeconds * bitrateKbps * 125); // Convert to bytes
+        return totalDurationSeconds * bitrateKbps * 125; // Convert to bytes
     }
 }

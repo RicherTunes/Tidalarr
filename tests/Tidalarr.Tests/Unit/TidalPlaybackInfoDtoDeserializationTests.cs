@@ -32,7 +32,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -52,7 +52,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -73,7 +73,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -92,7 +92,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -118,7 +118,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -149,7 +149,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);
@@ -181,7 +181,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
         """;
 
         // Act
-        var dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(dto);

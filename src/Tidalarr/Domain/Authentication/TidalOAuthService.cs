@@ -13,7 +13,7 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FileTokenStore(Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json"));
@@ -257,14 +257,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             countryCode = TryGetJwtStringClaim(response.access_token, claimName: "cc") ?? string.Empty;
         }
 
-        if (string.IsNullOrWhiteSpace(countryCode))
-        {
-            countryCode = "US";
-        }
-        else
-        {
-            countryCode = countryCode.Trim().ToUpperInvariant();
-        }
+        countryCode = string.IsNullOrWhiteSpace(countryCode) ? "US" : countryCode.Trim().ToUpperInvariant();
 
         return new(
                 AccessToken: response.access_token,
@@ -387,22 +380,12 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             countryCode = TryGetJwtStringClaim(tokens.AccessToken, claimName: "cc") ?? string.Empty;
         }
 
-        if (string.IsNullOrWhiteSpace(countryCode))
-        {
-            countryCode = "US";
-        }
-        else
-        {
-            countryCode = countryCode.Trim().ToUpperInvariant();
-        }
+        countryCode = string.IsNullOrWhiteSpace(countryCode) ? "US" : countryCode.Trim().ToUpperInvariant();
 
-        if (string.Equals(tokens.SessionId, sessionId, StringComparison.Ordinal) &&
-            string.Equals(tokens.CountryCode, countryCode, StringComparison.Ordinal))
-        {
-            return tokens;
-        }
-
-        return tokens with { SessionId = sessionId, CountryCode = countryCode };
+        return string.Equals(tokens.SessionId, sessionId, StringComparison.Ordinal) &&
+            string.Equals(tokens.CountryCode, countryCode, StringComparison.Ordinal)
+            ? tokens
+            : (tokens with { SessionId = sessionId, CountryCode = countryCode });
     }
 
     private static string? TryGetJwtStringClaim(string? jwt, string claimName)
@@ -426,8 +409,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         try
         {
             using JsonDocument doc = JsonDocument.Parse(payloadJson);
-            if (!doc.RootElement.TryGetProperty(claimName, out JsonElement element)) return null;
-            return element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString();
+            return !doc.RootElement.TryGetProperty(claimName, out JsonElement element)
+                ? null
+                : element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString();
         }
         catch
         {

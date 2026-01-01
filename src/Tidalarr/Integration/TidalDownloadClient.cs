@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
@@ -202,21 +201,6 @@ public class TidalDownloadClient(
                 ErrorMessage = ex.Message
             };
         }
-    }
-
-    private async Task<JsonElement> GetStreamManifestDataAsync(string trackId, TidalQuality quality)
-    {
-        TidalStreamInfo streamInfo = await this._apiClient.GetStreamInfoAsync(trackId, quality);
-
-        // Create JsonElement from stream info for StreamManifest constructor
-        JsonElement manifestJson = JsonSerializer.SerializeToElement(new
-        {
-            manifestMimeType = streamInfo.MimeType,
-            manifest = "placeholder", // streamInfo doesn't have raw manifest - will be handled differently
-            keyId = streamInfo.SecurityToken
-        });
-
-        return manifestJson;
     }
 
     /// <summary>
