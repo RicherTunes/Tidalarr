@@ -14,11 +14,11 @@ public class TidalApiClientTests
     {
         // Arrange
         TidalSearchResponseDto mockSearchResponse = new(
-            albums: new TidalAlbumsResponseDto(new List<TidalAlbumDto> {
+            albums: new TidalAlbumsResponseDto([
                 new("123", "Test Album", new TidalArtistDto("Test Artist", "456"),
                     DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover123")
-            }),
-            tracks: new TidalTracksResponseDto(new List<TidalTrackDto>())
+            ]),
+            tracks: new TidalTracksResponseDto([])
         );
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockSearchResponse));

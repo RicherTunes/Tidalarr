@@ -7,17 +7,17 @@ namespace Tidalarr.Tests.Unit.Packaging;
 
 public sealed class HostVersionCouplingTests
 {
-    [Utils.HostVersionFact]
+    [HostVersionFact]
     [Trait("Category", "Packaging")]
     public void DirectoryPackagesProps_Should_Match_HostVersions_For_Coupled_Dependencies()
     {
-        var repoRoot = PackagingTestPaths.TryFindRepoRoot();
+        string? repoRoot = PackagingTestPaths.TryFindRepoRoot();
         Assert.NotNull(repoRoot);
 
-        var hostDir = HostVersionTestPaths.TryFindHostAssembliesDir(repoRoot!);
+        string? hostDir = HostVersionTestPaths.TryFindHostAssembliesDir(repoRoot!);
         Assert.NotNull(hostDir);
 
-        var packagesProps = Path.Combine(repoRoot!, "Directory.Packages.props");
+        string packagesProps = Path.Combine(repoRoot!, "Directory.Packages.props");
         Assert.True(File.Exists(packagesProps), $"Expected {packagesProps} to exist.");
 
         AssertPinnedMatchesHost(packagesProps, hostDir!, "FluentValidation", "FluentValidation.dll");
@@ -26,10 +26,10 @@ public sealed class HostVersionCouplingTests
 
     private static void AssertPinnedMatchesHost(string packagesPropsPath, string hostAssembliesDir, string packageId, string hostDllName)
     {
-        var pinned = NormalizeVersion(ReadPinnedVersion(packagesPropsPath, packageId));
+        string pinned = NormalizeVersion(ReadPinnedVersion(packagesPropsPath, packageId));
         Assert.False(string.IsNullOrWhiteSpace(pinned), $"Pinned version for {packageId} was not found in {packagesPropsPath}.");
 
-        var hostFileVersion = NormalizeVersion(ReadHostFileVersion(Path.Combine(hostAssembliesDir, hostDllName)));
+        string hostFileVersion = NormalizeVersion(ReadHostFileVersion(Path.Combine(hostAssembliesDir, hostDllName)));
         Assert.False(string.IsNullOrWhiteSpace(hostFileVersion), $"Host version for {hostDllName} was not found in {hostAssembliesDir}.");
 
         Assert.Equal(hostFileVersion, pinned);
@@ -37,8 +37,8 @@ public sealed class HostVersionCouplingTests
 
     private static string ReadPinnedVersion(string packagesPropsPath, string packageId)
     {
-        var doc = XDocument.Load(packagesPropsPath);
-        var version = doc.Descendants()
+        XDocument doc = XDocument.Load(packagesPropsPath);
+        string? version = doc.Descendants()
             .Where(e => e.Name.LocalName == "PackageVersion")
             .Where(e => string.Equals((string?)e.Attribute("Include"), packageId, StringComparison.Ordinal))
             .Select(e => (string?)e.Attribute("Version"))
@@ -54,7 +54,7 @@ public sealed class HostVersionCouplingTests
             return string.Empty;
         }
 
-        var fullPath = new FileInfo(path).FullName;
+        string fullPath = new FileInfo(path).FullName;
         return FileVersionInfo.GetVersionInfo(fullPath).FileVersion ?? string.Empty;
     }
 
@@ -65,7 +65,7 @@ public sealed class HostVersionCouplingTests
             return string.Empty;
         }
 
-        var match = Regex.Match(value, @"(\d+\.\d+\.\d+)", RegexOptions.CultureInvariant);
+        Match match = Regex.Match(value, @"(\d+\.\d+\.\d+)", RegexOptions.CultureInvariant);
         return match.Success ? match.Groups[1].Value : value.Trim();
     }
 }

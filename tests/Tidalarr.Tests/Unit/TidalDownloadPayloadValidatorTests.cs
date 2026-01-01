@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text;
 using Tidalarr.Integration;
 
@@ -8,7 +7,7 @@ public class TidalDownloadPayloadValidatorTests
 {
     [Theory]
     [InlineData("<html><body>blocked</body></html>")]
-    [InlineData("{\"error\":\"not authorized\"}")]
+    [InlineData(/*lang=json,strict*/ "{\"error\":\"not authorized\"}")]
     [InlineData("[1,2,3]")]
     public void ValidateOrThrow_WithTextPayload_Throws(string payload)
     {

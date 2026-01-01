@@ -79,17 +79,17 @@ public class TidalModule : StreamingPluginModule
         // Always prefer the user-configured ConfigPath from settings for token persistence.
         _ = services.AddSingleton<ITokenStorage>(sp =>
         {
-            var settings = sp.GetService<TidalarrSettings>();
-            var configPath = settings?.ConfigPath;
+            TidalarrSettings? settings = sp.GetService<TidalarrSettings>();
+            string? configPath = settings?.ConfigPath;
 
             if (!string.IsNullOrWhiteSpace(configPath))
             {
-                var tokenPath = Path.Combine(configPath, "tidal_tokens.json");
+                string tokenPath = Path.Combine(configPath, "tidal_tokens.json");
                 return new FileTokenStore(tokenPath);
             }
 
             // Dev/test fallback: avoid crashing when services are constructed before settings are provided.
-            var fallbackPath = Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json");
+            string fallbackPath = Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json");
             return new FileTokenStore(fallbackPath);
         });
         _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
