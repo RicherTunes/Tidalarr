@@ -17,7 +17,7 @@ public class TidalIndexerProtectedTests
 
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalAlbumInfo(albumId, "Album", new List<string> { "Artist" }, new List<TidalTrackInfo> { new TidalTrackInfo("t1", "Song", new List<string> { "Artist" }, albumId, "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, new List<TidalQuality> { TidalQuality.High }, DateTime.UtcNow, "cover", true));
+            return Task.FromResult(new TidalAlbumInfo(albumId, "Album", new List<string> { "Artist" }, new List<TidalTrackInfo> { new("t1", "Song", new List<string> { "Artist" }, albumId, "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, new List<TidalQuality> { TidalQuality.High }, DateTime.UtcNow, "cover", true));
         }
 
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
@@ -32,7 +32,7 @@ public class TidalIndexerProtectedTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo> { new TidalTrackInfo("t1", "Song", new List<string> { "Artist" }, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, new List<TidalArtistInfo>(), 1, false));
+            return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo> { new("t1", "Song", new List<string> { "Artist" }, "al1", "Album", 1, 100, TidalQuality.High, true, DateTime.UtcNow) }, new List<TidalArtistInfo>(), 1, false));
         }
 
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)

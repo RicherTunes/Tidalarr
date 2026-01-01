@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;

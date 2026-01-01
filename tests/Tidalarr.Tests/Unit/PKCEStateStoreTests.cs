@@ -15,8 +15,8 @@ public class PKCEStateStoreTests
     [Fact]
     public void TryReadAuthorizationUrl_WithMissingStateFile_ReturnsNull()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempDir);
 
         try
         {
@@ -31,13 +31,13 @@ public class PKCEStateStoreTests
     [Fact]
     public void TryReadAuthorizationUrl_WithValidStateFile_ReturnsUrl()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempDir);
 
         try
         {
-            var path = Path.Combine(tempDir, "pkce_state.json");
-            File.WriteAllText(path, """
+            string path = Path.Combine(tempDir, "pkce_state.json");
+            File.WriteAllText(path, /*lang=json,strict*/ """
                 {
                   "authorizationUrl": "https://login.tidal.com/authorize?response_type=code",
                   "codeVerifier": "abc",
@@ -58,12 +58,12 @@ public class PKCEStateStoreTests
     [Fact]
     public void TryReadAuthorizationUrl_WithInvalidJson_ReturnsNull()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempDir);
 
         try
         {
-            var path = Path.Combine(tempDir, "pkce_state.json");
+            string path = Path.Combine(tempDir, "pkce_state.json");
             File.WriteAllText(path, "{not json");
 
             Assert.Null(PKCEStateStore.TryReadAuthorizationUrl(tempDir));
