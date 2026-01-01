@@ -21,7 +21,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Id_FlowsCorrectly()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "123456789",
             Title: "Test Track",
             Artists: ["Test Artist"],
@@ -34,7 +34,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: new DateTime(2024, 1, 15));
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert - verify Id flows through unchanged
         Assert.Equal("123456789", result.Id);
@@ -46,7 +46,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Title_FlowsCorrectly()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "So What (feat. John Coltrane)",
             Artists: ["Miles Davis"],
@@ -59,7 +59,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: new DateTime(1959, 8, 17));
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert
         Assert.Equal("So What (feat. John Coltrane)", result.Title);
@@ -69,7 +69,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Artist_FlowsCorrectly()
     {
         // Arrange - multiple artists
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Miles Davis", "John Coltrane", "Cannonball Adderley"],
@@ -82,7 +82,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert - artists joined with comma
         Assert.Equal("Miles Davis, John Coltrane, Cannonball Adderley", result.Artist.Name);
@@ -94,7 +94,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Album_FlowsCorrectly()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -107,7 +107,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert
         Assert.Equal("987654321", result.Album.Id);
@@ -119,7 +119,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_TrackNumber_FlowsCorrectly()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -132,7 +132,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert
         Assert.Equal(7, result.TrackNumber);
@@ -142,7 +142,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Duration_FlowsCorrectly()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -155,7 +155,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert
         Assert.Equal(TimeSpan.FromSeconds(562), result.Duration);
@@ -165,7 +165,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Quality_MapsToStreamingQuality()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -178,7 +178,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert - HiRes maps to HI_RES id
         Assert.Contains(result.AvailableQualities, q => q.Id == "HI_RES");
@@ -192,7 +192,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingAlbum_Id_FlowsCorrectly()
     {
         // Arrange
-        var albumInfo = new TidalAlbumInfo(
+        TidalAlbumInfo albumInfo = new TidalAlbumInfo(
             Id: "246813579",
             Title: "Kind of Blue",
             Artists: ["Miles Davis"],
@@ -203,7 +203,7 @@ public class TidalMappingCharacterizationTests
             IsAvailable: true);
 
         // Act
-        var result = _mapper.ToStreamingAlbum(albumInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingAlbum result = this._mapper.ToStreamingAlbum(albumInfo);
 
         // Assert
         Assert.Equal("246813579", result.Id);
@@ -215,7 +215,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingAlbum_ExternalUrls_IncludesTidalUrl()
     {
         // Arrange
-        var albumInfo = new TidalAlbumInfo(
+        TidalAlbumInfo albumInfo = new TidalAlbumInfo(
             Id: "12345",
             Title: "Album",
             Artists: ["Artist"],
@@ -226,7 +226,7 @@ public class TidalMappingCharacterizationTests
             IsAvailable: true);
 
         // Act
-        var result = _mapper.ToStreamingAlbum(albumInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingAlbum result = this._mapper.ToStreamingAlbum(albumInfo);
 
         // Assert
         Assert.Equal("https://tidal.com/browse/album/12345", result.ExternalUrls["tidal"]);
@@ -240,7 +240,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_EmptyArtists_NormalizesToUnknownArtist()
     {
         // Arrange
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: [], // Empty
@@ -253,7 +253,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert - empty artists normalized to "Unknown Artist" to prevent empty tags/folder names
         Assert.Equal("Unknown Artist", result.Artist.Name);
@@ -264,7 +264,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_NullArtists_NormalizesToUnknownArtist()
     {
         // Arrange - using null for artists (if somehow passed)
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: null!,
@@ -277,7 +277,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert - null artists normalized to "Unknown Artist" to prevent empty tags/folder names
         Assert.Equal("Unknown Artist", result.Artist.Name);
@@ -287,7 +287,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_DiscNumber_DefaultsToOne()
     {
         // Arrange - TidalTrackInfo doesn't have disc number, should default to 1
-        var trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -300,7 +300,7 @@ public class TidalMappingCharacterizationTests
             ReleaseDate: DateTime.Now);
 
         // Act
-        var result = _mapper.ToStreamingTrack(trackInfo);
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
 
         // Assert
         Assert.Equal(1, result.DiscNumber);

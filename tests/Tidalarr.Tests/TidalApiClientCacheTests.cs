@@ -43,7 +43,7 @@ public class TidalApiClientCacheTests
         HttpClient http = new(new ThrowingHandler());
         StubAuth auth = new();
         TidalTrackDto track = new("t1", "Song", new("Artist", "a1"), new("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover"), 1, 180, true, "LOSSLESS");
-        TidalAlbumTracksDto dto = new(new List<TidalTrackDto> { track }, 1);
+        TidalAlbumTracksDto dto = new([track], 1);
         PrepopulatedCache cache = new PrepopulatedCache()
             .With("albums/al1/tracks", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" }, { "limit", "1000" } }, dto);
 
@@ -58,7 +58,7 @@ public class TidalApiClientCacheTests
     {
         HttpClient http = new(new ThrowingHandler());
         StubAuth auth = new();
-        TidalSearchResponseDto dto = new(new(new()), new(new()));
+        TidalSearchResponseDto dto = new(new([]), new([]));
         PrepopulatedCache cache = new PrepopulatedCache()
             .With("search", new Dictionary<string, string> { { "query", "abc" }, { "types", "albums,tracks" }, { "limit", "100" }, { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
 

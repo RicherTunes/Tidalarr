@@ -85,24 +85,24 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
 
     public TidalLidarrIndexerSettingsValidator()
     {
-        RuleFor(x => x.ConfigPath)
+        _ = RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
         // RedirectUrl validation: only validate format when provided (not required during initial setup)
-        RuleFor(x => x.RedirectUrl)
+        _ = RuleFor(x => x.RedirectUrl)
             .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
             .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
-        RuleFor(x => x.TidalMarket)
+        _ = RuleFor(x => x.TidalMarket)
             .Must(market => SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase))
             .WithMessage("Unsupported market. Supported values: US, UK, DE, FR, CA, AU, JP");
 
-        RuleFor(x => x.EarlyReleaseLimit)
+        _ = RuleFor(x => x.EarlyReleaseLimit)
             .InclusiveBetween(0, 365)
             .WithMessage("Early release limit must be between 0 and 365 days")
             .When(x => x.EarlyReleaseLimit.HasValue);
 
-        RuleFor(x => x.CacheDuration)
+        _ = RuleFor(x => x.CacheDuration)
             .InclusiveBetween(0, 1440)
             .WithMessage("Cache duration must be between 0 and 1440 minutes");
     }

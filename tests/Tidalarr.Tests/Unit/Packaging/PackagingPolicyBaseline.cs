@@ -8,17 +8,17 @@ internal sealed partial record PackagingPolicyBaseline(
     IReadOnlyCollection<string> ForbiddenAssemblies)
 {
     public static PackagingPolicyBaseline Default { get; } = new(
-        RequiredAssemblies: new[]
-        {
+        RequiredAssemblies:
+        [
             "Lidarr.Plugin.Abstractions.dll",
             "Lidarr.Plugin.Tidalarr.dll"
-        },
-        OptionalAssemblies: new[]
-        {
+        ],
+        OptionalAssemblies:
+        [
             "Lidarr.Plugin.Common.dll"
-        },
-        ForbiddenAssemblies: new[]
-        {
+        ],
+        ForbiddenAssemblies:
+        [
             "FluentValidation.dll",
             "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
             "Microsoft.Extensions.Logging.Abstractions.dll",
@@ -31,7 +31,7 @@ internal sealed partial record PackagingPolicyBaseline(
             "Lidarr.Api.V1.dll",
             "NzbDrone.Core.dll",
             "NzbDrone.Common.dll"
-        });
+        ]);
 
     public static PackagingPolicyBaseline LoadOrDefault(string? baselinePath)
     {
@@ -40,14 +40,14 @@ internal sealed partial record PackagingPolicyBaseline(
             return Default;
         }
 
-        var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var optional = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> optional = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var mode = Mode.None;
-        foreach (var rawLine in File.ReadAllLines(baselinePath))
+        Mode mode = Mode.None;
+        foreach (string rawLine in File.ReadAllLines(baselinePath))
         {
-            var line = rawLine.Trim();
+            string line = rawLine.Trim();
             if (line.StartsWith("Required", StringComparison.OrdinalIgnoreCase))
             {
                 mode = Mode.Required;
@@ -79,7 +79,7 @@ internal sealed partial record PackagingPolicyBaseline(
 
             foreach (Match match in BacktickedValueRegex().Matches(line))
             {
-                var value = match.Groups["value"].Value;
+                string value = match.Groups["value"].Value;
                 if (!value.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -88,24 +88,25 @@ internal sealed partial record PackagingPolicyBaseline(
                 switch (mode)
                 {
                     case Mode.Required:
-                        required.Add(value);
+                        _ = required.Add(value);
                         break;
                     case Mode.Optional:
-                        optional.Add(value);
+                        _ = optional.Add(value);
                         break;
                     case Mode.Forbidden:
-                        forbidden.Add(value);
+                        _ = forbidden.Add(value);
+                        break;
+                    case Mode.None:
+                        break;
+                    default:
                         break;
                 }
             }
         }
 
-        if (required.Count == 0 && optional.Count == 0 && forbidden.Count == 0)
-        {
-            return Default;
-        }
-
-        return new PackagingPolicyBaseline(
+        return required.Count == 0 && optional.Count == 0 && forbidden.Count == 0
+            ? Default
+            : new PackagingPolicyBaseline(
             RequiredAssemblies: required.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(),
             OptionalAssemblies: optional.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(),
             ForbiddenAssemblies: forbidden.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray());

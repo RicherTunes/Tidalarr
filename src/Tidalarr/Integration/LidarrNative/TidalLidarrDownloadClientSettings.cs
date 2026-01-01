@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using FluentValidation;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.ThingiProvider;
@@ -85,22 +84,22 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
 {
     public TidalLidarrDownloadClientSettingsValidator()
     {
-        RuleFor(x => x.ConfigPath)
+        _ = RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
         // RedirectUrl validation: only validate format when provided (not required during initial setup)
-        RuleFor(x => x.RedirectUrl)
+        _ = RuleFor(x => x.RedirectUrl)
             .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
             .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
-        RuleFor(x => x.DownloadPath)
+        _ = RuleFor(x => x.DownloadPath)
             .NotEmpty().WithMessage("Download path is required");
 
-        RuleFor(x => x.PreferredQuality)
+        _ = RuleFor(x => x.PreferredQuality)
             .Must(quality => Enum.IsDefined(typeof(TidalQuality), quality))
             .WithMessage("Preferred quality selection is invalid");
 
-        RuleFor(x => x.DownloadDelay)
+        _ = RuleFor(x => x.DownloadDelay)
             .InclusiveBetween(0, 60000)
             .WithMessage("Chunk delay must be between 0 and 60000 milliseconds");
     }

@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Tidalarr.Core.Serialization;
 
 namespace Tidalarr.Core.Models;
 
@@ -19,7 +18,7 @@ public class TidalArtistDto
     public TidalArtistDto(string? name, string? id)
     {
         this.name = name;
-        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
     }
 }
 
@@ -45,7 +44,7 @@ public class TidalAlbumDto
 
     public TidalAlbumDto(string id, string title, TidalArtistDto? artist, string? releaseDate, int numberOfTracks, int duration, bool streamReady, string? cover, string? audioQuality = null)
     {
-        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.releaseDate = releaseDate;
@@ -80,7 +79,7 @@ public class TidalTrackDto
 
     public TidalTrackDto(string id, string title, TidalArtistDto? artist, TidalAlbumDto? album, int trackNumber, int duration, bool streamReady, string? audioQuality)
     {
-        this.id = long.TryParse(id, out var parsed) ? parsed : 0;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.album = album;
@@ -106,7 +105,7 @@ public class TidalPagedItemsDto<T>
     public TidalPagedItemsDto(List<T>? items)
     {
         this.items = items;
-        this.totalNumberOfItems = items?.Count ?? 0;
+        totalNumberOfItems = items?.Count ?? 0;
     }
 }
 

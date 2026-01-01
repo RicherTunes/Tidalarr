@@ -24,25 +24,22 @@ public class PKCEStateStore
 
         try
         {
-            var storagePath = Path.Combine(configPath, "pkce_state.json");
+            string storagePath = Path.Combine(configPath, "pkce_state.json");
             if (!File.Exists(storagePath))
             {
                 return null;
             }
 
-            var json = File.ReadAllText(storagePath);
+            string json = File.ReadAllText(storagePath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return null;
             }
 
-            using var document = JsonDocument.Parse(json);
-            if (!document.RootElement.TryGetProperty("authorizationUrl", out var authorizationUrlElement))
-            {
-                return null;
-            }
-
-            return authorizationUrlElement.GetString();
+            using JsonDocument document = JsonDocument.Parse(json);
+            return !document.RootElement.TryGetProperty("authorizationUrl", out JsonElement authorizationUrlElement)
+                ? null
+                : authorizationUrlElement.GetString();
         }
         catch
         {
@@ -55,7 +52,7 @@ public class PKCEStateStore
         if (string.IsNullOrWhiteSpace(configPath))
             throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
 
-        _storagePath = Path.Combine(configPath, "pkce_state.json");
+        this._storagePath = Path.Combine(configPath, "pkce_state.json");
         EnsureStorageDirectoryExists();
     }
 
@@ -64,7 +61,7 @@ public class PKCEStateStore
         try
         {
             string json = JsonSerializer.Serialize(state, JsonOptions);
-            await File.WriteAllTextAsync(_storagePath, json);
+            await File.WriteAllTextAsync(this._storagePath, json);
         }
         catch (Exception ex)
         {
@@ -76,14 +73,14 @@ public class PKCEStateStore
     {
         try
         {
-            if (!File.Exists(_storagePath))
+            if (!File.Exists(this._storagePath))
                 return null;
 
-            string json = await File.ReadAllTextAsync(_storagePath);
+            string json = await File.ReadAllTextAsync(this._storagePath);
             if (string.IsNullOrWhiteSpace(json))
                 return null;
 
-            var state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
+            PKCEState? state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
 
             // Check if state has expired (10 minutes is typical for PKCE)
             if (state != null && state.CreatedAt.AddMinutes(30) < DateTime.UtcNow)
@@ -104,8 +101,8 @@ public class PKCEStateStore
     {
         try
         {
-            if (File.Exists(_storagePath))
-                File.Delete(_storagePath);
+            if (File.Exists(this._storagePath))
+                File.Delete(this._storagePath);
         }
         catch
         {
@@ -116,10 +113,10 @@ public class PKCEStateStore
 
     private void EnsureStorageDirectoryExists()
     {
-        string? directory = Path.GetDirectoryName(_storagePath);
+        string? directory = Path.GetDirectoryName(this._storagePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
     }
 }
