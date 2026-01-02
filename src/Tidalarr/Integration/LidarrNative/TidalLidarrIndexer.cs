@@ -540,7 +540,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             TidalQuality.HiRes => "Hi-Res FLAC 24bit",
             TidalQuality.Lossless => "FLAC 16bit",
             TidalQuality.High => "AAC 320kbps",
-            TidalQuality.Low => throw new NotImplementedException(),
+            TidalQuality.Low => "AAC 96kbps",
             _ => "AAC 96kbps"
         };
     }
