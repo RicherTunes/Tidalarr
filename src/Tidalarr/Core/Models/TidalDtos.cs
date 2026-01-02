@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Tidalarr.Core.Serialization;
 
 namespace Tidalarr.Core.Models;
 
