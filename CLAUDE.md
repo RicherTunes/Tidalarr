@@ -178,7 +178,8 @@ Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the in
 
 **Why it exists**:
 - Reduces OAuth setup friction and support/debug time
-- Lidarr's UI does not reliably live-update computed fields during `Test()`, so this field is populated by reading the persisted PKCE state file at `${ConfigPath}/pkce_state.json`
+- Lidarr's UI does not reliably live-update computed fields inside the settings modal after `Test()`. This field exists so users can copy the auth URL without digging through logs, and so we have a reliable “plugin is loaded” signal in `/api/v1/*/schema`.
+- The value is derived from `${ConfigPath}/pkce_state.json`. If missing/expired, the getter creates a fresh PKCE state file and returns the new URL (safe for schema rendering: best-effort, no throws).
 - The field is intentionally derived/read-only (setter is a no-op)
 
 **Regression history** (DO NOT REPEAT):
@@ -186,9 +187,14 @@ Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the in
 - ✅ Restored in `2b4225c` ("restore OAuthAuthUrl field with file-based implementation")
 
 **When the field appears empty**:
-- You haven't clicked `Test` on the indexer yet (which generates and persists PKCE state)
-- You may need to refresh the settings page after clicking Test
 - The `ConfigPath` is not set or is invalid
+- You changed `ConfigPath` but haven’t saved/re-opened the modal yet (Lidarr typically evaluates computed fields when the modal is opened, not live while editing)
+- Lidarr may not refresh this computed field inside the modal after clicking `Test()`. If you click Test and immediately need the URL, copy it from the validation error message, then refresh/re-open the settings modal to see the field populated.
+
+**Redirect URL lifecycle (important)**:
+- The OAuth Redirect URL is a one-time input used to exchange an auth code for tokens.
+- Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored Redirect URL value.
+- If tokens expire and you see a state mismatch, the stored Redirect URL is stale. You do not need to clear it first; paste the NEW redirect URL from your most recent OAuth login (overwrite) and click Test again.
 
 **When the field is missing entirely** (triage steps):
 1. Confirm plugin is loaded: check `/api/v1/indexer/schema` for Tidalarr

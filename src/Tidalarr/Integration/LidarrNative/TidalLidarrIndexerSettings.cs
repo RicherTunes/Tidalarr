@@ -26,10 +26,10 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     public string BaseUrl { get; set; }
 
     [FieldDefinition(0, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Convenience field (derived from Config Path). Click Test to generate an OAuth URL; you may need to refresh the settings page to see it. Changes to this field are ignored.")]
+        HelpText = "Convenience field derived from Config Path. If empty, set Config Path to a writable directory. Lidarr may not refresh this field inside the modal after clicking Test; copy the URL from the validation error message if needed. Changes to this field are ignored.")]
     public string OAuthAuthUrl
     {
-        get => PKCEStateStore.TryReadAuthorizationUrl(ConfigPath) ?? string.Empty;
+        get => PKCEStateStore.TryGetOrCreateAuthorizationUrl(ConfigPath) ?? string.Empty;
         set { }
     }
 
@@ -38,7 +38,7 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     public string ConfigPath { get; set; } = string.Empty;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Click Test to generate an OAuth URL. Copy it from the error message, authenticate in browser, then paste the redirect URL here.")]
+        HelpText = "Paste the redirect URL you are sent to after completing the OAuth login in your browser. If the stored redirect URL is stale, click Test and overwrite it with the NEW redirect URL (no need to clear first).")]
     public string RedirectUrl { get; set; } = string.Empty;
 
     [FieldDefinition(3, Label = "Market", Type = FieldType.Textbox, Section = "Authentication", Advanced = true,

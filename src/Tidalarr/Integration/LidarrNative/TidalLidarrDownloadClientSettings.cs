@@ -24,10 +24,10 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     }
 
     [FieldDefinition(0, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Convenience field (derived from Config Path). Click Test on the indexer to generate an OAuth URL; you may need to refresh the settings page to see it. Changes to this field are ignored.")]
+        HelpText = "Convenience field derived from Config Path. If empty, set Config Path to a writable directory. Lidarr may not refresh this field inside the modal after clicking Test; copy the URL from the indexer test error message if needed. Changes to this field are ignored.")]
     public string OAuthAuthUrl
     {
-        get => PKCEStateStore.TryReadAuthorizationUrl(ConfigPath) ?? string.Empty;
+        get => PKCEStateStore.TryGetOrCreateAuthorizationUrl(ConfigPath) ?? string.Empty;
         set { }
     }
 
@@ -36,7 +36,7 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     public string ConfigPath { get; set; } = string.Empty;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Same as indexer. If using shared ConfigPath, authentication is automatic after indexer setup.")]
+        HelpText = "Same as indexer. If using shared ConfigPath, authentication is automatic after indexer setup. If the stored redirect URL is stale, overwrite it with the NEW redirect URL from your most recent OAuth login.")]
     public string RedirectUrl { get; set; } = string.Empty;
 
     [FieldDefinition(3, Label = "Download Path", Type = FieldType.Path, Section = "Download",
