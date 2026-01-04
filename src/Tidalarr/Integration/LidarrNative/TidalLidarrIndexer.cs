@@ -313,10 +313,9 @@ public class TidalLidarrIndexer(
             if (pkceState.State != callbackResult.State)
             {
                 this._logger.Warn("PKCE state mismatch - redirect URL state doesn't match current PKCE state. Redirect URL is stale.");
-                // Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored value.
-                // Treat the stored redirect URL as stale and guide the user to re-auth using the current PKCE auth URL.
-                failures.Add(new ValidationFailure("RedirectUrl",
-                    $"OAuth redirect URL is stale (state mismatch). Authenticate using this URL, then paste the NEW redirect URL here: {pkceState.AuthorizationUrl}"));
+                // Treat stale redirect URLs as one-time input from an older OAuth attempt.
+                // Generate a fresh auth URL + PKCE state and instruct the user to overwrite the stored redirect URL.
+                await GenerateOAuthAuthUrl(authService, failures, prefix: "OAuth redirect URL is stale (state mismatch). ");
                 return false;
             }
 
@@ -344,7 +343,7 @@ public class TidalLidarrIndexer(
         }
     }
 
-    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures)
+    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures, string? prefix = null)
     {
         try
         {
@@ -365,7 +364,7 @@ public class TidalLidarrIndexer(
 
             // Provide clear instructions with the auth URL in the error message
             failures.Add(new ValidationFailure("RedirectUrl",
-                $"Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
+                $"{prefix}Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
         }
         catch (Exception ex)
         {
