@@ -531,7 +531,8 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             PublishDate = releaseDate,
             DownloadUrl = $"tidal://album/{album.Id}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
-            Size = EstimateAlbumSize(album, bestQuality)
+            Size = EstimateAlbumSize(album, bestQuality),
+            DownloadProtocol = "TidalarrDownloadProtocol"
         };
     }
 
