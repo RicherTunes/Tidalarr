@@ -64,4 +64,30 @@ public class TidalLidarrDownloadClientGuidParsingTests
 
         Assert.Equal(expectedAlbumId, result);
     }
+
+    [Theory]
+    [InlineData("000_tidal:album:107386922", "107386922")]  // Leading zeros
+    [InlineData("0_tidal:album:12345678", "12345678")]       // Single zero
+    [InlineData("2147483647_tidal:album:999999", "999999")]  // Max int32
+    [InlineData("9999999999_tidal:album:1", "1")]            // Beyond int32 (still valid digits)
+    public void ExtractAlbumIdFromGuid_EdgeCasePrefixes_ReturnsAlbumId(string guid, string expectedAlbumId)
+    {
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+
+        Assert.Equal(expectedAlbumId, result);
+    }
+
+    [Theory]
+    [InlineData("foo_tidal:album:123")]           // Non-numeric prefix
+    [InlineData("abc_2_tidal:album:123")]         // Mixed prefix
+    [InlineData("_tidal:album:123")]              // Empty prefix (no digits)
+    [InlineData("2a_tidal:album:123")]            // Alphanumeric prefix
+    public void ExtractAlbumIdFromGuid_NonNumericPrefix_ReturnsNull(string guid)
+    {
+        // Non-numeric prefixes should not be stripped, and the resulting string
+        // won't match "tidal:album:{id}" format, so should return null
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+
+        Assert.Null(result);
+    }
 }

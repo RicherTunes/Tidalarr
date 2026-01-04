@@ -65,6 +65,7 @@
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
     <!-- TidalLidarrParser returns ReleaseInfo from Lidarr.Core -->
     <Compile Remove="Unit\TidalLidarrIndexerSizeEstimationTests.cs" />
+    <Compile Remove="Unit\TidalLidarrIndexerReleaseContractTests.cs" />
     <!-- Exclude ALL Tidal* integration tests - use outdated DTO/model patterns -->
     <Compile Remove="Tidal*.cs" />
     <!-- Exclude milestone tests that reference MockTokenStorage -->

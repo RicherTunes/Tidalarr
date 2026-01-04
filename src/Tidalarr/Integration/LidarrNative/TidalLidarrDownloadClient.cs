@@ -335,6 +335,11 @@ public class TidalLidarrDownloadClient(
     /// Extracts album ID from GUID, handling both prefixed (e.g., "2_tidal:album:12345678")
     /// and unprefixed (e.g., "tidal:album:12345678") formats.
     /// </summary>
+    /// <remarks>
+    /// The prefix format is "{indexerId}_tidal:album:{albumId}" where indexerId is a positive integer.
+    /// Only strips prefixes that match the pattern ^\d+_tidal: to avoid incorrectly parsing
+    /// GUIDs that contain "_tidal:" elsewhere in the string.
+    /// </remarks>
     internal static string? ExtractAlbumIdFromGuid(string? guid)
     {
         if (string.IsNullOrWhiteSpace(guid))
@@ -344,11 +349,17 @@ public class TidalLidarrDownloadClient(
 
         string normalizedGuid = guid;
 
-        // Strip indexer ID prefix if present (format: "2_tidal:album:12345678")
-        int prefixEnd = guid.IndexOf("_tidal:", StringComparison.OrdinalIgnoreCase);
-        if (prefixEnd >= 0)
+        // Strip indexer ID prefix if present (format: "123_tidal:album:12345678")
+        // Only strip if the prefix is purely numeric followed by "_tidal:"
+        int underscoreIndex = guid.IndexOf("_tidal:", StringComparison.OrdinalIgnoreCase);
+        if (underscoreIndex > 0)
         {
-            normalizedGuid = guid[(prefixEnd + 1)..]; // Remove "2_" prefix, keep "tidal:album:12345678"
+            // Verify everything before the underscore is digits (the indexer ID)
+            string potentialPrefix = guid[..underscoreIndex];
+            if (potentialPrefix.All(char.IsDigit))
+            {
+                normalizedGuid = guid[(underscoreIndex + 1)..]; // Remove "123_" prefix, keep "tidal:album:12345678"
+            }
         }
 
         // Format: tidal:album:12345678
@@ -372,11 +383,27 @@ public class TidalLidarrDownloadClient(
         {
             // Try to extract from URL: https://tidal.com/browse/album/12345678
             Uri uri = new Uri(infoUrl);
-            string[] segments = uri.AbsolutePath.Split('/');
-            int albumIndex = Array.IndexOf(segments, "album");
-            if (albumIndex >= 0 && albumIndex < segments.Length - 1)
+
+            // Validate this is a Tidal URL with the expected path format
+            if (!uri.Host.EndsWith("tidal.com", StringComparison.OrdinalIgnoreCase))
             {
-                return segments[albumIndex + 1];
+                return null;
+            }
+
+            // Validate path contains /browse/album/ and extract album ID
+            string[] segments = uri.AbsolutePath.Split('/');
+            int browseIndex = Array.IndexOf(segments, "browse");
+            int albumIndex = Array.IndexOf(segments, "album");
+
+            // Ensure path structure is /browse/album/{id}
+            if (browseIndex >= 0 && albumIndex == browseIndex + 1 && albumIndex < segments.Length - 1)
+            {
+                string albumId = segments[albumIndex + 1];
+                // Validate album ID is not empty and looks like a valid ID
+                if (!string.IsNullOrWhiteSpace(albumId))
+                {
+                    return albumId;
+                }
             }
         }
         catch
