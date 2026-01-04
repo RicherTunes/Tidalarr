@@ -155,24 +155,14 @@ public class TidalLidarrIndexer(
             }
         }
 
-        // Ensure Lidarr can attribute grabs to this indexer.
-        int indexerId = Definition?.Id ?? 0;
-        string? indexerName = Definition?.Name;
-
-        foreach (ReleaseInfo release in releases)
-        {
-            release.IndexerId = indexerId;
-            if (string.IsNullOrWhiteSpace(release.Indexer) && !string.IsNullOrWhiteSpace(indexerName))
-            {
-                release.Indexer = indexerName;
-            }
-        }
-
         // Deduplicate by Guid (same query can appear in multiple tiers).
-        return [.. releases
+        List<ReleaseInfo> deduplicated = [.. releases
             .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
             .GroupBy(r => r.Guid)
             .Select(g => g.First())];
+
+        // CleanupReleases sets IndexerId, Indexer, DownloadProtocol, and IndexerPriority from indexer Definition.
+        return CleanupReleases(deduplicated);
     }
 
     private static bool TryExtractSearchQuery(string requestUrl, out string query)
@@ -532,7 +522,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             DownloadUrl = $"tidal://album/{album.Id}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
             Size = EstimateAlbumSize(album, bestQuality),
-            DownloadProtocol = "TidalarrDownloadProtocol"
+            DownloadProtocol = nameof(TidalarrDownloadProtocol)
         };
     }
 
