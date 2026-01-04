@@ -312,10 +312,11 @@ public class TidalLidarrIndexer(
             // Validate state matches
             if (pkceState.State != callbackResult.State)
             {
-                this._logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL. Generating new one.");
+                this._logger.Warn("PKCE state mismatch - redirect URL state doesn't match current PKCE state. Redirect URL is stale.");
+                // Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored value.
+                // Treat the stored redirect URL as stale and guide the user to re-auth using the current PKCE auth URL.
                 failures.Add(new ValidationFailure("RedirectUrl",
-                    "OAuth redirect URL does not match the current PKCE state. Clear the OAuth Redirect URL field, then authenticate again using the newly generated OAuth Authorization URL."));
-                await GenerateOAuthAuthUrl(authService, failures);
+                    $"OAuth redirect URL is stale (state mismatch). Authenticate using this URL, then paste the NEW redirect URL here: {pkceState.AuthorizationUrl}"));
                 return false;
             }
 
@@ -331,10 +332,6 @@ public class TidalLidarrIndexer(
 
             // Clean up PKCE state after successful exchange
             await pkceStore.DeleteStateAsync();
-
-            // The redirect URL is a one-time input for exchanging an auth code; keeping it after success causes
-            // stale state/code reuse confusion when tokens expire.
-            Settings.RedirectUrl = string.Empty;
 
             this._logger.Info("Successfully authenticated with Tidal!");        
             return true;

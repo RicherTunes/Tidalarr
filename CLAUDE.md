@@ -193,7 +193,7 @@ Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the in
 
 **Redirect URL lifecycle (important)**:
 - The OAuth Redirect URL is a one-time input used to exchange an auth code for tokens.
-- Tidalarr clears the stored Redirect URL after a successful token exchange to prevent stale PKCE/state reuse confusion when tokens expire.
+- Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored Redirect URL value.
 - If tokens expire and you see a state mismatch, clear the Redirect URL field and re-authenticate using the newly generated OAuth Authorization URL.
 
 **When the field is missing entirely** (triage steps):
