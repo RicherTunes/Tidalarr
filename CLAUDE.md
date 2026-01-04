@@ -189,6 +189,12 @@ Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the in
 - You haven't clicked `Test` on the indexer yet (which generates and persists PKCE state)
 - You may need to refresh the settings page after clicking Test
 - The `ConfigPath` is not set or is invalid
+- You already authenticated successfully (PKCE state is deleted after a successful token exchange, so the derived URL will be blank until the next auth attempt)
+
+**Redirect URL lifecycle (important)**:
+- The OAuth Redirect URL is a one-time input used to exchange an auth code for tokens.
+- Tidalarr clears the stored Redirect URL after a successful token exchange to prevent stale PKCE/state reuse confusion when tokens expire.
+- If tokens expire and you see a state mismatch, clear the Redirect URL field and re-authenticate using the newly generated OAuth Authorization URL.
 
 **When the field is missing entirely** (triage steps):
 1. Confirm plugin is loaded: check `/api/v1/indexer/schema` for Tidalarr
