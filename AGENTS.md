@@ -37,6 +37,6 @@ Tidalarr implements the Lidarr streaming plugin as a layered .NET solution.
 
 ## Security & Configuration Tips
 - Never commit real Tidal credentials or tokens; consume them through secure environment configuration.
+- Do not remove the `OAuth Authorization URL` settings field (`OAuthAuthUrl`); it reduces OAuth setup friction and is used as a quick “plugin loaded” triage signal. See `tidalarr/CLAUDE.md` for the exact UX constraints and expected user flow.
 - Update `plugin.json` metadata, `CHANGELOG.md`, and release notes together whenever behavior changes ship.
 - Validate new network endpoints through the resilience policies under `Infrastructure/Resilience` before exposing them in the module.
-

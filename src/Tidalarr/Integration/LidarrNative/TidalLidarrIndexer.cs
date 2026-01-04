@@ -155,24 +155,14 @@ public class TidalLidarrIndexer(
             }
         }
 
-        // Ensure Lidarr can attribute grabs to this indexer.
-        int indexerId = Definition?.Id ?? 0;
-        string? indexerName = Definition?.Name;
-
-        foreach (ReleaseInfo release in releases)
-        {
-            release.IndexerId = indexerId;
-            if (string.IsNullOrWhiteSpace(release.Indexer) && !string.IsNullOrWhiteSpace(indexerName))
-            {
-                release.Indexer = indexerName;
-            }
-        }
-
         // Deduplicate by Guid (same query can appear in multiple tiers).
-        return [.. releases
+        List<ReleaseInfo> deduplicated = [.. releases
             .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
             .GroupBy(r => r.Guid)
             .Select(g => g.First())];
+
+        // CleanupReleases sets IndexerId, Indexer, DownloadProtocol, and IndexerPriority from indexer Definition.
+        return CleanupReleases(deduplicated);
     }
 
     private static bool TryExtractSearchQuery(string requestUrl, out string query)
@@ -312,8 +302,10 @@ public class TidalLidarrIndexer(
             // Validate state matches
             if (pkceState.State != callbackResult.State)
             {
-                this._logger.Warn("PKCE state mismatch - possible CSRF attack or stale auth URL. Generating new one.");
-                await GenerateOAuthAuthUrl(authService, failures);
+                this._logger.Warn("PKCE state mismatch - redirect URL state doesn't match current PKCE state. Redirect URL is stale.");
+                // Treat stale redirect URLs as one-time input from an older OAuth attempt.
+                // Generate a fresh auth URL + PKCE state and instruct the user to overwrite the stored redirect URL.
+                await GenerateOAuthAuthUrl(authService, failures, prefix: "OAuth redirect URL is stale (state mismatch). ");
                 return false;
             }
 
@@ -330,7 +322,7 @@ public class TidalLidarrIndexer(
             // Clean up PKCE state after successful exchange
             await pkceStore.DeleteStateAsync();
 
-            this._logger.Info("Successfully authenticated with Tidal!");
+            this._logger.Info("Successfully authenticated with Tidal!");        
             return true;
         }
         catch (Exception ex)
@@ -341,7 +333,7 @@ public class TidalLidarrIndexer(
         }
     }
 
-    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures)
+    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures, string? prefix = null)
     {
         try
         {
@@ -362,7 +354,7 @@ public class TidalLidarrIndexer(
 
             // Provide clear instructions with the auth URL in the error message
             failures.Add(new ValidationFailure("RedirectUrl",
-                $"Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
+                $"{prefix}Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
         }
         catch (Exception ex)
         {
@@ -529,7 +521,8 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             PublishDate = releaseDate,
             DownloadUrl = $"tidal://album/{album.Id}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
-            Size = EstimateAlbumSize(album, bestQuality)
+            Size = EstimateAlbumSize(album, bestQuality),
+            DownloadProtocol = nameof(TidalarrDownloadProtocol)
         };
     }
 

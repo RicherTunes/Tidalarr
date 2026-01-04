@@ -17,7 +17,9 @@ public static class TidalConstants
     public const string LOGIN_BASE = "https://login.tidal.com/authorize";
 
     // OAuth Parameters
-    public const string OAUTH_SCOPE = "r_usr+w_usr+w_sub";
+    // Space-delimited to match OAuth2 spec; FormUrlEncodedContent will encode spaces as '+'.
+    // Include offline_access to obtain refresh tokens for long-lived sessions.
+    public const string OAUTH_SCOPE = "r_usr w_usr w_sub offline_access";
     public const string APP_MODE = "android";
     public const string LANGUAGE = "EN";
 
@@ -35,5 +37,4 @@ public static class TidalConstants
     public const int MAX_SEARCH_LIMIT = 1000;
     public const int DEFAULT_ITEM_LIMIT = 1000;
 }
-
 
