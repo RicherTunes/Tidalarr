@@ -88,9 +88,7 @@ public class TidalModule : StreamingPluginModule
                 return new FileTokenStore(tokenPath);
             }
 
-            // Dev/test fallback: avoid crashing when services are constructed before settings are provided.
-            string fallbackPath = Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json");
-            return new FileTokenStore(fallbackPath);
+            return new FailOnIOTokenStore();
         });
         _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
         _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
@@ -268,7 +266,6 @@ public class TidalModule : StreamingPluginModule
             streamProvider: chunkProvider);
     }
 }
-
 
 
 

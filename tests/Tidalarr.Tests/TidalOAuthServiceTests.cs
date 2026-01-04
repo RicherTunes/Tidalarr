@@ -30,8 +30,10 @@ public class TidalOAuthServiceTests
         // Verify URL structure
         Assert.StartsWith("https://login.tidal.com/authorize?", authUrl.AuthorizationUrl);
         Assert.Contains("client_id=6BDSRdpK9hqEBTgU", authUrl.AuthorizationUrl);
-        Assert.Contains("response_type=code", authUrl.AuthorizationUrl);
+        Assert.Contains("response_type=code", authUrl.AuthorizationUrl);        
         Assert.Contains("code_challenge_method=S256", authUrl.AuthorizationUrl);
+        Assert.Contains("scope=", authUrl.AuthorizationUrl);
+        Assert.Contains("offline_access", authUrl.AuthorizationUrl);
 
         // Verify PKCE format
         Assert.Equal(128, authUrl.CodeVerifier.Length);
@@ -289,5 +291,4 @@ public class MockTokenStorage : ITokenStorage
         return Task.CompletedTask;
     }
 }
-
 
