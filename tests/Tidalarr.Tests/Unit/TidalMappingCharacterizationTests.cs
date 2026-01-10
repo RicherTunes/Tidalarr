@@ -3,6 +3,10 @@ using Tidalarr.Core.Models;
 
 namespace Tidalarr.Tests.Unit;
 
+// Reference: TRACK_IDENTITY_PARITY.md DOC_VERSION: 2026-01-10-v2
+// If this version changes, review Tier 2/3 parity tests for updated expectations.
+// Location: https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/docs/TRACK_IDENTITY_PARITY.md
+
 /// <summary>
 /// Characterization tests for the DTO → Domain → StreamingTrack mapping chain.
 /// These tests lock the behavior of the mapping layer to prevent regressions
