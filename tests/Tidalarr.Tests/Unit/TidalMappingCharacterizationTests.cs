@@ -307,4 +307,94 @@ public class TidalMappingCharacterizationTests
     }
 
     #endregion
+
+    #region Track Identity Parity (See docs/TRACK_IDENTITY_PARITY.md in Common)
+
+    /// <summary>
+    /// Documents current ISRC behavior: Tidal API doesn't provide ISRC in track responses.
+    /// See TRACK_IDENTITY_PARITY.md Tier 2 fields.
+    /// </summary>
+    [Fact]
+    public void ToStreamingTrack_Isrc_IsEmpty_TidalApiLimitation()
+    {
+        // Arrange
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
+            Id: "1",
+            Title: "So What",
+            Artists: ["Miles Davis"],
+            AlbumId: "2",
+            AlbumTitle: "Kind of Blue",
+            TrackNumber: 1,
+            Duration: 562,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: new DateTime(1959, 8, 17));
+
+        // Act
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
+
+        // Assert - ISRC not available from Tidal API at track level
+        // This is a known parity gap with Qobuzarr
+        Assert.True(string.IsNullOrEmpty(result.Isrc));
+    }
+
+    /// <summary>
+    /// Documents current MusicBrainzId behavior: Tidal doesn't provide MusicBrainz IDs.
+    /// See TRACK_IDENTITY_PARITY.md Tier 3 fields.
+    /// </summary>
+    [Fact]
+    public void ToStreamingTrack_MusicBrainzId_IsEmpty_TidalApiLimitation()
+    {
+        // Arrange
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
+            Id: "1",
+            Title: "So What",
+            Artists: ["Miles Davis"],
+            AlbumId: "2",
+            AlbumTitle: "Kind of Blue",
+            TrackNumber: 1,
+            Duration: 562,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: new DateTime(1959, 8, 17));
+
+        // Act
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
+
+        // Assert - MusicBrainzId not available from Tidal API
+        // This is a known parity gap with Qobuzarr
+        Assert.True(string.IsNullOrEmpty(result.MusicBrainzId));
+    }
+
+    /// <summary>
+    /// Documents current ReleaseDate behavior: stored in Metadata, not Album.ReleaseDate.
+    /// See TRACK_IDENTITY_PARITY.md Tier 2 fields.
+    /// </summary>
+    [Fact]
+    public void ToStreamingTrack_ReleaseDate_StoredInMetadataOnly()
+    {
+        // Arrange
+        DateTime expectedDate = new DateTime(1959, 8, 17);
+        TidalTrackInfo trackInfo = new TidalTrackInfo(
+            Id: "1",
+            Title: "So What",
+            Artists: ["Miles Davis"],
+            AlbumId: "2",
+            AlbumTitle: "Kind of Blue",
+            TrackNumber: 1,
+            Duration: 562,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: expectedDate);
+
+        // Act
+        Lidarr.Plugin.Abstractions.Models.StreamingTrack result = this._mapper.ToStreamingTrack(trackInfo);
+
+        // Assert - ReleaseDate is stored in Metadata but not Album.ReleaseDate
+        // This is a known parity gap: TagLib applier reads Album.ReleaseDate for Year tag
+        Assert.Equal(expectedDate, result.Metadata["release_date"]);
+        // TODO: For parity, also set result.Album.ReleaseDate = expectedDate
+    }
+
+    #endregion
 }
