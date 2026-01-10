@@ -10,6 +10,32 @@ permissions:
   contents: read
 
 jobs:
+  parity-lint:
+    name: Parity Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init Common submodule
+        shell: bash
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Run Parity Lint
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/parity-lint.ps1"
+          if (Test-Path $script) {
+            & $script -Mode ci -RepoPath .
+          } else {
+            Write-Host "Parity lint script not found at $script - skipping"
+          }
+
   build:
     runs-on: ubuntu-latest
     steps:
