@@ -26,15 +26,25 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
 
+      - name: Show Common submodule SHA
+        run: |
+          echo "=== Submodule status ==="
+          git submodule status ext/Lidarr.Plugin.Common
+          echo ""
+          if [ -f ext-common-sha.txt ]; then
+            echo "=== ext-common-sha.txt ==="
+            cat ext-common-sha.txt
+          fi
+
       - name: Run Parity Lint
         shell: pwsh
         run: |
           $script = "ext/Lidarr.Plugin.Common/scripts/parity-lint.ps1"
-          if (Test-Path $script) {
-            & $script -Mode ci -RepoPath .
-          } else {
-            Write-Host "Parity lint script not found at $script - skipping"
+          if (-not (Test-Path $script)) {
+            Write-Error "FATAL: parity-lint.ps1 not found at $script - submodule likely not initialized"
+            exit 1
           }
+          & $script -Mode ci -RepoPath .
 
   build:
     runs-on: ubuntu-latest
