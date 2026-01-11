@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
 using Microsoft.Extensions.DependencyInjection;
@@ -399,16 +400,8 @@ public class TidalLidarrDownloadClient(
     private static string SanitizeFileName(string fileName)
     {
         if (string.IsNullOrEmpty(fileName)) return "Unknown";
-
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string sanitized = fileName;
-
-        foreach (char invalidChar in invalidChars)
-        {
-            sanitized = sanitized.Replace(invalidChar, '_');
-        }
-
-        return sanitized.Trim();
+        var sanitized = Sanitize.PathSegment(fileName);
+        return string.IsNullOrEmpty(sanitized) ? "Unknown" : sanitized;
     }
 }
 
