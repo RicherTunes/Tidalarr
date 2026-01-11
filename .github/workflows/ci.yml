@@ -26,6 +26,22 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
 
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
+
       - name: Show Common submodule SHA
         run: |
           echo "=== Submodule status ==="
@@ -62,6 +78,22 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
 
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
+
       - name: Setup .NET SDKs
         # actions/setup-dotnet v4.3.1
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
@@ -86,5 +118,3 @@ jobs:
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
-
-
