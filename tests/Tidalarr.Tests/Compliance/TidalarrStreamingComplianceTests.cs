@@ -120,6 +120,17 @@ public class TidalarrStreamingComplianceTests : IDisposable
         Assert.True(hasDownload, "Download client must implement a Download method");
     }
 
+    /// <summary>
+    /// Verifies download client exposes queue inspection capability.
+    /// </summary>
+    /// <remarks>
+    /// Lidarr requires download clients to expose active/pending items for queue management.
+    /// BaseStreamingDownloadClient (Lidarr.Plugin.Common) implements this via:
+    /// - GetDownloads(): List all active downloads
+    /// - GetDownload(id): Get specific download by ID
+    /// The original test only checked for "Status/GetItems/Queue" which missed the
+    /// actual Common library API. This is a contract requirement, not a workaround.
+    /// </remarks>
     [Fact]
     public void DownloadClient_HasStatusMethod()
     {
@@ -127,9 +138,10 @@ public class TidalarrStreamingComplianceTests : IDisposable
         bool hasStatus = methods.Any(m =>
             m.Name.Contains("Status", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("GetItems", StringComparison.OrdinalIgnoreCase) ||
+            m.Name.Contains("GetDownloads", StringComparison.OrdinalIgnoreCase) ||
             m.Name.Contains("Queue", StringComparison.OrdinalIgnoreCase));
 
-        Assert.True(hasStatus, "Download client should implement a status/GetItems method");
+        Assert.True(hasStatus, "Download client should implement a status/GetDownloads method");
     }
 
     #endregion
