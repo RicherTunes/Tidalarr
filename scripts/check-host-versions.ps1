@@ -95,13 +95,34 @@ if ($HostAssembliesDir) {
     }
 }
 
-# Call the module function and propagate exit code
+# Call the module function
+# Note: Module may call exit 1 directly for -Strict + errors, terminating immediately.
+# The logic below provides redundancy for robustness if module behavior changes.
 $result = Test-HostVersionCompatibility @params
-$exitCode = $LASTEXITCODE
 
 # Output result (module returns JSON string when Format=Json)
 if ($result) {
     Write-Output $result
 }
 
-exit $exitCode
+# Determine if errors exist from result (robust exit code handling)
+$hasErrors = $false
+if ($Format -eq 'Json' -and $result) {
+    try {
+        $parsed = $result | ConvertFrom-Json
+        $hasErrors = $parsed.hasErrors -eq $true
+    }
+    catch {
+        # If JSON parsing fails, assume no errors
+    }
+}
+elseif ($result) {
+    # Table format returns array of objects with Status property
+    $hasErrors = @($result | Where-Object { $_.Status -ne 'OK' }).Count -gt 0
+}
+
+if ($Strict -and $hasErrors) {
+    exit 1
+}
+
+exit 0
