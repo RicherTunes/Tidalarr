@@ -31,7 +31,30 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: recursive
+          submodules: false
+
+      - name: Init Common submodule only
+        shell: bash
+        run: |
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '
+ ' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
