@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Tidalarr.Integration;
+using Tidalarr.Tests.Utils;
 
 namespace Tidalarr.Tests.Compliance;
 
@@ -172,7 +173,12 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
     #region Input Validation Tests
 
-    [Fact]
+    /// <summary>
+    /// SQL injection check - gated by RUN_SECURITY_SCAN_TESTS=1.
+    /// High false positive rate due to generic string concatenation patterns.
+    /// Long-term fix: contract-based sanitizer tests (inputs → sanitized outputs).
+    /// </summary>
+    [SecurityScanFact]
     public void InputValidation_NoSqlInjectionVulnerabilities()
     {
         if (this._sourceCodePath == null)
