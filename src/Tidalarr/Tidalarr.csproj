@@ -4,7 +4,7 @@
     <AssemblyName>Lidarr.Plugin.Tidalarr</AssemblyName>
     <!-- Version managed by Directory.Build.props from VERSION file -->
     <!-- Suppress unused parameter warnings for interface implementations and future-proofed parameters -->
-    <NoWarn>$(NoWarn);IDE0052;IDE0060</NoWarn>
+    <NoWarn>$(NoWarn);IDE0005;IDE0052;IDE0060</NoWarn>
     <!-- Output to bin/ root like other plugins for consistent ILRepack behavior -->
     <OutputPath>bin\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
