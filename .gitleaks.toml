@@ -5,15 +5,27 @@
 useDefault = true
 
 [allowlist]
-description = "Test files with fixture data"
+description = "Test files, constants, and CI scripts"
 paths = [
-    '''tests/.*Tests\.cs$''',
+    '''tests/.*\.cs$''',
     '''tests/.*\.json$''',
-    '''tests/Tidalarr\.Tests/Integration/.*\.cs''',
-    '''tests/Tidalarr\.Tests/Unit/Security/.*\.cs''',
+    # CI/CD scripts
+    '''\.github/.*''',
+    '''scripts/.*''',
+    '''.*\.ps1''',
+    '''.*\.sh''',
 ]
 regexes = [
     '''user_auth_token=(test|fake|REDACTED|mock)''',
     '''test@example\.com''',
     '''user@test\.com''',
+    # Public Tidal API credentials (same as Spotify public client IDs)
+    '''CLIENT_ID''',
+    '''CLIENT_SECRET''',
+    '''CLIENT_ID_PKCE''',
+    '''CLIENT_SECRET_PKCE''',
+    '''clientId''',
+    '''clientSecret''',
+    # API key header patterns in test/doc
+    '''X-Api-Key''',
 ]
