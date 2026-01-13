@@ -5,7 +5,7 @@
 useDefault = true
 
 [allowlist]
-description = "Test files, constants, and CI scripts"
+description = "Test files, constants, CLI tools, and CI scripts"
 paths = [
     '''tests/.*\.cs$''',
     '''tests/.*\.json$''',
@@ -14,6 +14,12 @@ paths = [
     '''scripts/.*''',
     '''.*\.ps1''',
     '''.*\.sh''',
+    # CLI and test projects (development tools)
+    '''TidalCLI/.*''',
+    '''TidalTest/.*''',
+    '''AuthTest/.*''',
+    # Constants file with public API credentials
+    '''src/Tidalarr/Core/Constants/.*''',
 ]
 regexes = [
     '''user_auth_token=(test|fake|REDACTED|mock)''',
