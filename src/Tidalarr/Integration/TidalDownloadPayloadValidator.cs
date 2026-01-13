@@ -102,7 +102,7 @@ internal static class TidalDownloadPayloadValidator
 
     private static bool HasMagic(ReadOnlySpan<byte> sample, byte[] magic, int offset)
     {
-        return offset < 0 ? false : sample.Length >= offset + magic.Length && sample.Slice(offset, magic.Length).SequenceEqual(magic);
+        return offset >= 0 && sample.Length >= offset + magic.Length && sample.Slice(offset, magic.Length).SequenceEqual(magic);
     }
 }
 
