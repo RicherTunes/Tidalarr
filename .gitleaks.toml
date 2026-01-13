@@ -4,31 +4,16 @@
 [extend]
 useDefault = true
 
-# Allowlist for test files containing fake/example credentials
-[[allowlist]]
+[allowlist]
 description = "Test files with fixture data"
 paths = [
     '''tests/.*Tests\.cs$''',
     '''tests/.*\.json$''',
-]
-
-# Allowlist for specific patterns commonly used in tests
-[[allowlist]]
-description = "Common test patterns"
-regexes = [
-    # Fake session tokens in test URLs
-    '''user_auth_token=test''',
-    '''user_auth_token=REDACTED''',
-    '''user_auth_token=fake''',
-    # Test email patterns
-    '''test@example\.com''',
-    '''user@test\.com''',
-]
-
-# Specific file allowlists
-[[allowlist]]
-description = "Security test files - intentionally contain credential patterns for validation testing"
-paths = [
     '''tests/Tidalarr\.Tests/Integration/.*\.cs''',
     '''tests/Tidalarr\.Tests/Unit/Security/.*\.cs''',
+]
+regexes = [
+    '''user_auth_token=(test|fake|REDACTED|mock)''',
+    '''test@example\.com''',
+    '''user@test\.com''',
 ]
