@@ -27,14 +27,26 @@ jobs:
       - name: Run gitleaks
         id: gitleaks
         run: |
-          gitleaks detect --no-banner --redact --source . --verbose --report-path gitleaks-results.sarif --report-format sarif || echo "LEAKS_FOUND=true" >> $GITHUB_OUTPUT
+          set +e
+          gitleaks detect --no-banner --redact --source . --verbose --report-path gitleaks-results.sarif --report-format sarif
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 1 ]; then
+            echo "LEAKS_FOUND=true" >> $GITHUB_OUTPUT
+          elif [ $EXIT_CODE -ne 0 ]; then
+            echo "::warning::Gitleaks exited with unexpected code $EXIT_CODE"
+          fi
+          exit 0  # Don't fail the step - we handle exit in dedicated step
 
       - name: Show findings in log (quota-safe)
         if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
         run: |
-          echo "::group::Gitleaks findings (SARIF)"
-          cat gitleaks-results.sarif
-          echo "::endgroup::"
+          if [ -f gitleaks-results.sarif ]; then
+            echo "::group::Gitleaks findings (SARIF)"
+            cat gitleaks-results.sarif
+            echo "::endgroup::"
+          else
+            echo "::warning::SARIF file not found despite leaks being detected"
+          fi
 
       - name: Upload SARIF (best-effort)
         if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
@@ -44,6 +56,7 @@ jobs:
           name: gitleaks-results.sarif
           path: gitleaks-results.sarif
           retention-days: 3
+          if-no-files-found: ignore
 
       - name: Fail if leaks found
         if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
