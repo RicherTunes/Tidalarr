@@ -25,7 +25,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Id_FlowsCorrectly()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "123456789",
             Title: "Test Track",
             Artists: ["Test Artist"],
@@ -50,7 +50,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Title_FlowsCorrectly()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "So What (feat. John Coltrane)",
             Artists: ["Miles Davis"],
@@ -73,7 +73,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Artist_FlowsCorrectly()
     {
         // Arrange - multiple artists
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Miles Davis", "John Coltrane", "Cannonball Adderley"],
@@ -98,7 +98,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Album_FlowsCorrectly()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -123,7 +123,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_TrackNumber_FlowsCorrectly()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -146,7 +146,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Duration_FlowsCorrectly()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -169,7 +169,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Quality_MapsToStreamingQuality()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -196,7 +196,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingAlbum_Id_FlowsCorrectly()
     {
         // Arrange
-        TidalAlbumInfo albumInfo = new TidalAlbumInfo(
+        TidalAlbumInfo albumInfo = new(
             Id: "246813579",
             Title: "Kind of Blue",
             Artists: ["Miles Davis"],
@@ -219,7 +219,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingAlbum_ExternalUrls_IncludesTidalUrl()
     {
         // Arrange
-        TidalAlbumInfo albumInfo = new TidalAlbumInfo(
+        TidalAlbumInfo albumInfo = new(
             Id: "12345",
             Title: "Album",
             Artists: ["Artist"],
@@ -244,7 +244,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_EmptyArtists_NormalizesToUnknownArtist()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: [], // Empty
@@ -268,7 +268,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_NullArtists_NormalizesToUnknownArtist()
     {
         // Arrange - using null for artists (if somehow passed)
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: null!,
@@ -291,7 +291,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_DiscNumber_DefaultsToOne()
     {
         // Arrange - TidalTrackInfo doesn't have disc number, should default to 1
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "Track",
             Artists: ["Artist"],
@@ -322,7 +322,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_Isrc_IsEmpty_TidalApiLimitation()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "So What",
             Artists: ["Miles Davis"],
@@ -350,7 +350,7 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_MusicBrainzId_IsEmpty_TidalApiLimitation()
     {
         // Arrange
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "So What",
             Artists: ["Miles Davis"],
@@ -378,8 +378,8 @@ public class TidalMappingCharacterizationTests
     public void ToStreamingTrack_ReleaseDate_StoredInMetadataOnly()
     {
         // Arrange
-        DateTime expectedDate = new DateTime(1959, 8, 17);
-        TidalTrackInfo trackInfo = new TidalTrackInfo(
+        DateTime expectedDate = new(1959, 8, 17);
+        TidalTrackInfo trackInfo = new(
             Id: "1",
             Title: "So What",
             Artists: ["Miles Davis"],

@@ -174,12 +174,7 @@ public class PKCEStateStore
             }
 
             string json = File.ReadAllText(storagePath);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            return JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
+            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
         }
         catch
         {

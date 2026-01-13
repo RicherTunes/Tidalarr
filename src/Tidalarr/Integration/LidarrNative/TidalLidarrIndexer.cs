@@ -45,10 +45,10 @@ public class TidalLidarrIndexer(
 
         try
         {
-            ServiceCollection services = new ServiceCollection();
+            ServiceCollection services = new();
 
             // Register settings from Lidarr configuration
-            TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+            TidalIndexerSettings indexerSettings = new()
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = Settings.RedirectUrl,
@@ -98,7 +98,7 @@ public class TidalLidarrIndexer(
     {
         EnsureServicesInitialized();
 
-        List<ReleaseInfo> releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = [];
 
         // Ensure valid session early so Lidarr reports a clear authentication error.
         IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
@@ -289,7 +289,7 @@ public class TidalLidarrIndexer(
             }
 
             // Load PKCE state from disk
-            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            PKCEStateStore pkceStore = new(Settings.ConfigPath);
             PKCEState? pkceState = await pkceStore.LoadStateAsync();
 
             if (pkceState == null)
@@ -322,7 +322,7 @@ public class TidalLidarrIndexer(
             // Clean up PKCE state after successful exchange
             await pkceStore.DeleteStateAsync();
 
-            this._logger.Info("Successfully authenticated with Tidal!");        
+            this._logger.Info("Successfully authenticated with Tidal!");
             return true;
         }
         catch (Exception ex)
@@ -341,8 +341,8 @@ public class TidalLidarrIndexer(
             TidalAuthUrl authUrlData = await authService.GenerateAuthUrlAsync();
 
             // Persist PKCE state for later token exchange
-            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
-            PKCEState pkceState = new PKCEState(
+            PKCEStateStore pkceStore = new(Settings.ConfigPath);
+            PKCEState pkceState = new(
                 authUrlData.AuthorizationUrl,
                 authUrlData.CodeVerifier,
                 authUrlData.State,
@@ -375,14 +375,14 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetRecentRequests()
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
         // Tidal doesn't have a traditional RSS feed
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
 
         string searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -395,7 +395,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
 
         if (!string.IsNullOrWhiteSpace(searchCriteria.ArtistQuery))
         {
@@ -414,7 +414,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
         string encodedQuery = Uri.EscapeDataString(searchTerm);
         string requestUrl = $"tidal://search?query={encodedQuery}";
 
-        HttpRequest request = new HttpRequest(requestUrl);
+        HttpRequest request = new(requestUrl);
         request.Headers.Accept = "application/json";
 
         yield return new IndexerRequest(request);
@@ -433,7 +433,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
     public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
     {
-        List<ReleaseInfo> releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = [];
 
         try
         {
@@ -445,7 +445,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 return releases;
             }
 
-            Uri uri = new Uri(requestUrl);
+            Uri uri = new(requestUrl);
             System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
             string? searchQuery = queryParams["query"];
 

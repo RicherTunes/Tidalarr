@@ -29,7 +29,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     {
         (string codeVerifier, string codeChallenge) = this._pkceGenerator.GeneratePair();
         string state = GenerateSecureState();
-        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);        
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
         string authUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey, TidalConstants.OAUTH_SCOPE);
         return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state, clientUniqueKey));
     }
@@ -42,8 +42,8 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     protected override Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
     {
-        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);        
-        string scopeString = string.Join(' ', scopes ?? Array.Empty<string>()).Trim();
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        string scopeString = string.Join(' ', scopes ?? []).Trim();
         return Task.FromResult(BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey, scopeString));
     }
 

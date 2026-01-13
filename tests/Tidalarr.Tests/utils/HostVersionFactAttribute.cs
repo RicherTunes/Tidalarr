@@ -35,10 +35,8 @@ public sealed class HostVersionFactAttribute : FactAttribute
 
     private static bool IsTruthy(string? value)
     {
-        return string.IsNullOrWhiteSpace(value)
-            ? false
-            : string.Equals(value, "1", StringComparison.Ordinal)
-               || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrWhiteSpace(value) && (string.Equals(value, "1", StringComparison.Ordinal)
+               || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
     }
 }
 
