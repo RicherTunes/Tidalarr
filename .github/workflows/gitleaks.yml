@@ -29,8 +29,16 @@ jobs:
         run: |
           gitleaks detect --no-banner --redact --source . --verbose --report-path gitleaks-results.sarif --report-format sarif || echo "LEAKS_FOUND=true" >> $GITHUB_OUTPUT
 
-      - name: Upload SARIF (only on findings)
+      - name: Show findings in log (quota-safe)
         if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
+        run: |
+          echo "::group::Gitleaks findings (SARIF)"
+          cat gitleaks-results.sarif
+          echo "::endgroup::"
+
+      - name: Upload SARIF (best-effort)
+        if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-results.sarif
@@ -40,5 +48,5 @@ jobs:
       - name: Fail if leaks found
         if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
         run: |
-          echo "::error::Gitleaks found potential secrets. Check the SARIF artifact for details."
+          echo "::error::Gitleaks found potential secrets. See 'Gitleaks findings' group above for details."
           exit 1
