@@ -40,9 +40,7 @@ on:
       - 'ext-common-sha.txt'
       - '.github/workflows/multi-plugin-smoke-test.yml'
   workflow_dispatch:
-  schedule:
-    # Run weekly on Sundays at 4 AM UTC (staggered from Brainarr@2AM, Qobuzarr@3AM)
-    - cron: '0 4 * * 0'
+  # NOTE: No schedule - Brainarr is the canonical weekly runner to avoid redundant artifact usage
 
 permissions:
   contents: read

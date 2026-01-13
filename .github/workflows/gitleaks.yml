@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read  # Required for gitleaks to scan PR commits
+  pull-requests: read
 
 jobs:
   scan:
@@ -17,10 +17,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: gitleaks
+        run: |
+          gitleaks detect --no-banner --redact --source . --verbose --report-path gitleaks-results.sarif --report-format sarif || echo "LEAKS_FOUND=true" >> $GITHUB_OUTPUT
+
+      - name: Upload SARIF (only on findings)
+        if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          args: detect --no-banner --redact --source . --verbose
+          name: gitleaks-results.sarif
+          path: gitleaks-results.sarif
+          retention-days: 3
+
+      - name: Fail if leaks found
+        if: steps.gitleaks.outputs.LEAKS_FOUND == 'true'
+        run: |
+          echo "::error::Gitleaks found potential secrets. Check the SARIF artifact for details."
+          exit 1
