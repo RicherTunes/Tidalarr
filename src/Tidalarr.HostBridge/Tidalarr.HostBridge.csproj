@@ -6,6 +6,9 @@
     <AssemblyName>Tidalarr.HostBridge</AssemblyName>
     <RootNamespace>Tidalarr</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Suppress IDE0005 (unnecessary using) - format check runs before Lidarr assemblies are extracted,
+         so types can't be resolved and usings appear unnecessary when they're actually required -->
+    <NoWarn>$(NoWarn);IDE0005</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,4 +26,3 @@
     <ProjectReference Include="..\Tidalarr\Tidalarr.csproj" />
   </ItemGroup>
 </Project>
-
