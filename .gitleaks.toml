@@ -1,40 +1,39 @@
 # Gitleaks configuration for Tidalarr
-# Allows test fixture data patterns that are intentionally present in test files
+# Tightly scoped allowlists for known-safe files
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Test files, constants, CLI tools, docs, and CI scripts"
+description = "Specific files containing known-safe patterns"
 paths = [
+    # Test files with fixture data
     '''tests/.*\.cs$''',
     '''tests/.*\.json$''',
-    # CI/CD scripts
-    '''\.github/.*''',
-    '''scripts/.*''',
-    '''.*\.ps1''',
-    '''.*\.sh''',
-    # CLI and test projects (development tools)
-    '''TidalCLI/.*''',
-    '''TidalTest/.*''',
-    '''AuthTest/.*''',
-    # Constants file with public API credentials
-    '''src/Tidalarr/Core/Constants/.*''',
-    # Documentation files mentioning credentials
-    '''docs/.*''',
-    '''.*\.md$''',
+
+    # TidalConstants.cs - Contains Tidal public API credentials
+    # (similar to Spotify public client IDs used by desktop apps)
+    '''src/Tidalarr/Core/Constants/TidalConstants\.cs$''',
+
+    # CLI development tools (not shipped in plugin)
+    '''TidalCLI/TidalOAuth\.cs$''',
+    '''TidalCLI/TokenStorage\.cs$''',
+    '''TidalTest/Program\.cs$''',
+    '''TidalTest/TokenStorage\.cs$''',
+    '''AuthTest/Program\.cs$''',
+
+    # Documentation and session notes
+    '''docs/archive/.*\.md$''',
+    '''docs/TECH-DEBT-INVENTORY\.md$''',
+    '''SESSION_SUMMARY.*\.md$''',
+
+    # CI/CD scripts (env var references, not actual secrets)
+    '''\.github/workflows/.*\.yml$''',
+    '''scripts/.*\.(ps1|sh)$''',
 ]
 regexes = [
+    # Test fixture patterns only
     '''user_auth_token=(test|fake|REDACTED|mock)''',
     '''test@example\.com''',
     '''user@test\.com''',
-    # Public Tidal API credentials (same as Spotify public client IDs)
-    '''CLIENT_ID''',
-    '''CLIENT_SECRET''',
-    '''CLIENT_ID_PKCE''',
-    '''CLIENT_SECRET_PKCE''',
-    '''clientId''',
-    '''clientSecret''',
-    # API key header patterns in test/doc
-    '''X-Api-Key''',
 ]
