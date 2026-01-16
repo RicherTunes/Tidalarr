@@ -115,6 +115,37 @@ jobs:
         run: |
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
 
+      - name: Extract Lidarr host assemblies (net8)
+        shell: bash
+        env:
+          LIDARR_IMAGE: ghcr.io/hotio/lidarr:pr-plugins-3.1.1.4884
+        run: |
+          set -euo pipefail
+          mkdir -p ext/Lidarr/_output/net8.0
+          echo "Pulling Lidarr image: ${LIDARR_IMAGE}"
+          docker pull "${LIDARR_IMAGE}"
+
+          cid="$(docker create "${LIDARR_IMAGE}")"
+          echo "Created container ${cid}"
+          mkdir -p ext/Lidarr/_extracted
+          if ! docker cp "${cid}:/app" ext/Lidarr/_extracted 2>/dev/null; then
+            docker cp "${cid}:/opt/lidarr" ext/Lidarr/_extracted
+          fi
+          docker rm "${cid}" >/dev/null
+
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
+
+          if [ ! -f ext/Lidarr/_output/net8.0/Lidarr.Core.dll ]; then
+            echo "::error::Failed to extract Lidarr.Core.dll from ${LIDARR_IMAGE}"
+            exit 1
+          fi
+
+          # Quick sanity check: make sure we extracted a plugins-enabled host build
+          if ! strings ext/Lidarr/_output/net8.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
+            echo "::error::Extracted Lidarr.Core.dll does not contain expected plugins symbols; check image tag ${LIDARR_IMAGE}"
+            exit 1
+          fi
+
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
