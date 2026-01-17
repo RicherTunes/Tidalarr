@@ -52,6 +52,19 @@ jobs:
           cache-dependency-path: |
             **/*.csproj
 
+      - name: Validate plugin manifest (ManifestCheck)
+        shell: pwsh
+        run: |
+          $scriptPath = 'ext/Lidarr.Plugin.Common/tools/ManifestCheck.ps1'
+          if (-not (Test-Path -LiteralPath $scriptPath)) {
+            throw "ManifestCheck script not found at '$scriptPath'. Ensure the Common submodule is initialized."
+          }
+
+          & $scriptPath `
+            -ProjectPath 'src/Tidalarr/Tidalarr.csproj' `
+            -ManifestPath 'plugin.json' `
+            -Strict
+
       - name: Formatting check (repo-only)
         shell: pwsh
         continue-on-error: ${{ github.event_name != 'pull_request' }}
@@ -93,5 +106,4 @@ jobs:
             src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.pdb
             src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Common.dll
             plugin.json
-
 
