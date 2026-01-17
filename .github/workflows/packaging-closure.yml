@@ -5,7 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      common_version:
+        description: 'Common version for canonical Abstractions (leave empty to use ext-common-sha.txt)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -58,6 +63,82 @@ jobs:
         run: |
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
 
+      # ═══════════════════════════════════════════════════════════════════════════
+      # CANONICAL ABSTRACTIONS: Download byte-identical DLL from Common releases
+      # This eliminates "same code, different binary" drift across plugins
+      # ═══════════════════════════════════════════════════════════════════════════
+      - name: Determine Common version for canonical Abstractions
+        id: common-version
+        shell: pwsh
+        run: |
+          # Use workflow input if provided, otherwise extract from plugin.json commonVersion
+          $inputVersion = '${{ github.event.inputs.common_version }}'
+          if ($inputVersion) {
+            $version = $inputVersion
+            Write-Host "Using workflow input version: $version"
+          } else {
+            # Read from plugin.json commonVersion field
+            $manifest = Get-Content plugin.json | ConvertFrom-Json
+            if ($manifest.commonVersion) {
+              $version = $manifest.commonVersion
+              Write-Host "Using plugin.json commonVersion: $version"
+            } else {
+              Write-Host "::warning::No commonVersion in plugin.json, skipping canonical Abstractions"
+              echo "skip=true" >> $env:GITHUB_OUTPUT
+              exit 0
+            }
+          }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "skip=false" >> $env:GITHUB_OUTPUT
+
+      - name: Download canonical Abstractions DLL
+        if: steps.common-version.outputs.skip != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = '${{ steps.common-version.outputs.version }}'
+          $tag = "v$version"
+          $repo = 'RicherTunes/Lidarr.Plugin.Common'
+          $outputDir = 'canonical-abstractions'
+
+          Write-Host "Downloading canonical Abstractions from $repo $tag..."
+
+          New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+
+          # Download using gh CLI (handles auth and rate limits)
+          gh release download $tag `
+            --repo $repo `
+            --pattern "Lidarr.Plugin.Abstractions.dll" `
+            --pattern "Lidarr.Plugin.Abstractions.dll.sha256" `
+            --pattern "Lidarr.Plugin.Abstractions.pdb" `
+            --dir $outputDir `
+            --clobber
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::Failed to download canonical Abstractions from $tag"
+            Write-Host "::warning::Release may not exist yet. Using submodule-built Abstractions."
+            echo "CANONICAL_ABSTRACTIONS_AVAILABLE=false" >> $env:GITHUB_ENV
+            exit 0
+          }
+
+          # Verify SHA256
+          Write-Host "Verifying SHA256..."
+          $sha256File = Join-Path $outputDir "Lidarr.Plugin.Abstractions.dll.sha256"
+          $dllFile = Join-Path $outputDir "Lidarr.Plugin.Abstractions.dll"
+
+          $expectedHash = (Get-Content $sha256File -Raw).Split()[0].Trim().ToLower()
+          $actualHash = (Get-FileHash -Path $dllFile -Algorithm SHA256).Hash.ToLower()
+
+          if ($expectedHash -ne $actualHash) {
+            Write-Error "SHA256 MISMATCH! Expected: $expectedHash, Actual: $actualHash"
+            exit 1
+          }
+
+          Write-Host "✓ SHA256 verified: $expectedHash"
+          Write-Host "✓ Canonical Abstractions downloaded successfully"
+          echo "CANONICAL_ABSTRACTIONS_AVAILABLE=true" >> $env:GITHUB_ENV
+
       - name: Build (Release)
         shell: pwsh
         run: |
@@ -70,6 +151,50 @@ jobs:
             -p:RunAnalyzersDuringBuild=false `
             -p:EnableNETAnalyzers=false `
             -p:TreatWarningsAsErrors=false
+
+      # Replace submodule-built Abstractions with canonical version
+      - name: Replace Abstractions with canonical DLL
+        if: env.CANONICAL_ABSTRACTIONS_AVAILABLE == 'true'
+        shell: pwsh
+        run: |
+          $outputDir = 'src/Tidalarr/bin/Release/net8.0'
+          $canonicalDir = 'canonical-abstractions'
+
+          $targetDll = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.dll'
+          $targetPdb = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.pdb'
+          $canonicalDll = Join-Path $canonicalDir 'Lidarr.Plugin.Abstractions.dll'
+          $canonicalPdb = Join-Path $canonicalDir 'Lidarr.Plugin.Abstractions.pdb'
+
+          if (-not (Test-Path $targetDll)) {
+            Write-Error "Build output Abstractions not found at $targetDll"
+            exit 1
+          }
+
+          # Record original hash for comparison
+          $originalHash = (Get-FileHash -Path $targetDll -Algorithm SHA256).Hash.ToLower()
+          $canonicalHash = (Get-FileHash -Path $canonicalDll -Algorithm SHA256).Hash.ToLower()
+
+          if ($originalHash -eq $canonicalHash) {
+            Write-Host "✓ Submodule Abstractions already matches canonical (no replacement needed)"
+          } else {
+            Write-Host "Replacing submodule Abstractions with canonical version..."
+            Write-Host "  Original:  $originalHash"
+            Write-Host "  Canonical: $canonicalHash"
+
+            Copy-Item -Path $canonicalDll -Destination $targetDll -Force
+            if (Test-Path $canonicalPdb) {
+              Copy-Item -Path $canonicalPdb -Destination $targetPdb -Force
+            }
+
+            # Verify replacement
+            $newHash = (Get-FileHash -Path $targetDll -Algorithm SHA256).Hash.ToLower()
+            if ($newHash -ne $canonicalHash) {
+              Write-Error "Replacement verification failed!"
+              exit 1
+            }
+
+            Write-Host "✓ Replaced with canonical Abstractions DLL"
+          }
 
       - name: Verify dependency closure
         shell: pwsh
@@ -92,6 +217,7 @@ jobs:
             src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll
             src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.pdb
             src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Common.dll
+            src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Abstractions.dll
             plugin.json
 
 
