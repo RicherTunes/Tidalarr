@@ -134,22 +134,28 @@
 
   <!-- Guard 3: After restore, verify project.assets.json contains NuGet package provenance for Abstractions -->
   <Target Name="ValidateNuGetProvenance" AfterTargets="ResolvePackageAssets" Condition=" '$(UseNuGetPackages)' == 'true' ">
+    <!-- Find project.assets.json robustly (handles RuntimeIdentifier variations) -->
+    <ItemGroup>
+      <_CandidateAssetsFiles Include="$(MSBuildProjectDirectory)\obj\**\project.assets.json" />
+    </ItemGroup>
     <PropertyGroup>
-      <_AssetsJsonPath>$(ProjectAssetsFile)</_AssetsJsonPath>
-      <_AssetsJsonPath Condition="'$(_AssetsJsonPath)' == ''">$(BaseIntermediateOutputPath)project.assets.json</_AssetsJsonPath>
-      <!-- Expected package ID (case-insensitive in NuGet) -->
-      <_ExpectedAbstractionsPkg>lidarr.plugin.abstractions</_ExpectedAbstractionsPkg>
+      <!-- Prefer $(ProjectAssetsFile) if set, otherwise find first match under obj/ -->
+      <_AssetsJsonPath Condition="'$(ProjectAssetsFile)' != '' and Exists('$(ProjectAssetsFile)')">$(ProjectAssetsFile)</_AssetsJsonPath>
+      <_AssetsJsonPath Condition="'$(_AssetsJsonPath)' == ''">@(_CandidateAssetsFiles->First())</_AssetsJsonPath>
     </PropertyGroup>
-    <Error Condition="!Exists('$(_AssetsJsonPath)')"
-           Text="PACKAGING GUARD FAILED: project.assets.json not found at '$(_AssetsJsonPath)'. Run 'dotnet restore' first." />
-    <!-- Read assets.json and check for NuGet package entry (package IDs are lowercase in assets.json) -->
+    <Error Condition="'$(_AssetsJsonPath)' == '' or !Exists('$(_AssetsJsonPath)')"
+           Text="PACKAGING GUARD FAILED: project.assets.json not found under obj/. Run 'dotnet restore' first." />
+    <!-- Read assets.json and check for NuGet package entries (package IDs are lowercase in assets.json) -->
     <PropertyGroup>
       <_AssetsContent>$([System.IO.File]::ReadAllText('$(_AssetsJsonPath)'))</_AssetsContent>
-      <!-- Check if assets.json contains the package in libraries section (format: "lidarr.plugin.abstractions/x.y.z") -->
+      <!-- Check if assets.json contains BOTH packages in libraries section with type="package" -->
       <_HasAbstractionsNuGet>$([System.Text.RegularExpressions.Regex]::IsMatch('$(_AssetsContent)', '"lidarr\.plugin\.abstractions/\d+\.\d+\.\d+[^"]*"\s*:\s*\{[^}]*"type"\s*:\s*"package"'))</_HasAbstractionsNuGet>
+      <_HasCommonNuGet>$([System.Text.RegularExpressions.Regex]::IsMatch('$(_AssetsContent)', '"lidarr\.plugin\.common/\d+\.\d+\.\d+[^"]*"\s*:\s*\{[^}]*"type"\s*:\s*"package"'))</_HasCommonNuGet>
     </PropertyGroup>
     <Error Condition="'$(_HasAbstractionsNuGet)' != 'True'"
            Text="PACKAGING GUARD FAILED: UseNuGetPackages=true but Lidarr.Plugin.Abstractions not found as NuGet package in project.assets.json. Ensure PackageReference exists and 'dotnet restore' was run." />
-    <Message Importance="High" Text="✓ Packaging guard passed: Lidarr.Plugin.Abstractions resolved from NuGet packages" />
+    <Error Condition="'$(_HasCommonNuGet)' != 'True'"
+           Text="PACKAGING GUARD FAILED: UseNuGetPackages=true but Lidarr.Plugin.Common not found as NuGet package in project.assets.json. Ensure PackageReference exists and 'dotnet restore' was run." />
+    <Message Importance="High" Text="✓ Packaging guard passed: Lidarr.Plugin.{Abstractions,Common} resolved from NuGet packages" />
   </Target>
 </Project>

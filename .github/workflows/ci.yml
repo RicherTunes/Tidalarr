@@ -150,21 +150,34 @@ jobs:
         id: check-nuget
         shell: pwsh
         run: |
-          # Check if Lidarr.Plugin.Abstractions is available on NuGet.org
-          $packageId = 'Lidarr.Plugin.Abstractions'
-          $expectedVersion = '1.5.0'
-          try {
-            $response = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json" -ErrorAction Stop
-            $available = $response.versions -contains $expectedVersion
-            if ($available) {
-              Write-Host "✓ $packageId $expectedVersion is available on NuGet.org"
-              echo "available=true" >> $env:GITHUB_OUTPUT
-            } else {
-              Write-Host "⚠ $packageId $expectedVersion not yet published (available: $($response.versions -join ', '))"
-              echo "available=false" >> $env:GITHUB_OUTPUT
+          # Check if ALL required packages are available on NuGet.org
+          $requiredPackages = @(
+            @{ Id = 'Lidarr.Plugin.Abstractions'; Version = '1.5.0' },
+            @{ Id = 'Lidarr.Plugin.Common'; Version = '1.5.0' }
+          )
+          $allAvailable = $true
+          foreach ($pkg in $requiredPackages) {
+            $packageId = $pkg.Id
+            $expectedVersion = $pkg.Version
+            try {
+              $response = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json" -ErrorAction Stop
+              $available = $response.versions -contains $expectedVersion
+              if ($available) {
+                Write-Host "✓ $packageId $expectedVersion is available on NuGet.org"
+              } else {
+                Write-Host "⚠ $packageId $expectedVersion not yet published (available: $($response.versions -join ', '))"
+                $allAvailable = $false
+              }
+            } catch {
+              Write-Host "⚠ $packageId not found on NuGet.org (package may not be published yet)"
+              $allAvailable = $false
             }
-          } catch {
-            Write-Host "⚠ $packageId not found on NuGet.org (package may not be published yet)"
+          }
+          if ($allAvailable) {
+            Write-Host "`n✓ All required packages available"
+            echo "available=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "`n⚠ Some packages not yet available"
             echo "available=false" >> $env:GITHUB_OUTPUT
           }
 
@@ -180,5 +193,5 @@ jobs:
         if: steps.check-nuget.outputs.available != 'true'
         shell: pwsh
         run: |
-          Write-Host "::notice::SKIPPED: NuGet package path validation skipped - Lidarr.Plugin.Abstractions 1.5.0 not yet published to NuGet.org"
+          Write-Host "::notice::SKIPPED: NuGet package path validation skipped - Lidarr.Plugin.{Abstractions,Common} 1.5.0 not yet published to NuGet.org"
           Write-Host "This job will automatically start validating once v1.5.0 is released."
