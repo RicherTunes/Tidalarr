@@ -124,6 +124,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       # HARD GATE: Verify NuGet packages are available (no silent fallback to submodule)
+      # Skipped when use_submodule=true (workflow_dispatch escape hatch)
       - name: Verify NuGet package availability
         if: env.USE_NUGET_PACKAGES == 'true'
         shell: pwsh
@@ -138,25 +139,48 @@ jobs:
           )
           $allAvailable = $true
           $missing = @()
+          $apiErrors = @()
 
           foreach ($pkg in $requiredPackages) {
             $packageId = $pkg.Id
             $expectedVersion = $pkg.Version
+            $url = "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json"
             try {
-              $response = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json" -ErrorAction Stop
+              $response = Invoke-RestMethod -Uri $url -ErrorAction Stop
               $available = $response.versions -contains $expectedVersion
               if ($available) {
                 Write-Host "✓ $packageId $expectedVersion available"
               } else {
-                Write-Host "✗ $packageId $expectedVersion NOT FOUND (available: $($response.versions[-5..-1] -join ', ')...)"
+                $recentVersions = if ($response.versions.Count -gt 5) { $response.versions[-5..-1] -join ', ' } else { $response.versions -join ', ' }
+                Write-Host "✗ $packageId $expectedVersion NOT FOUND (available: $recentVersions)"
                 $allAvailable = $false
                 $missing += "$packageId@$expectedVersion"
               }
             } catch {
-              Write-Host "✗ $packageId not found on NuGet.org"
-              $allAvailable = $false
-              $missing += "$packageId@$expectedVersion"
+              $statusCode = $_.Exception.Response.StatusCode.value__
+              if ($statusCode -eq 404) {
+                Write-Host "✗ $packageId not published to NuGet.org (404 Not Found)"
+                $allAvailable = $false
+                $missing += "$packageId@$expectedVersion"
+              } elseif ($statusCode -eq 429) {
+                Write-Host "⚠ $packageId - NuGet.org rate limited (429). Retry later."
+                $apiErrors += "$packageId (rate limited)"
+              } elseif ($statusCode) {
+                Write-Host "⚠ $packageId - NuGet.org returned HTTP $statusCode"
+                $apiErrors += "$packageId (HTTP $statusCode)"
+              } else {
+                Write-Host "⚠ $packageId - Network error: $($_.Exception.Message)"
+                $apiErrors += "$packageId (network error)"
+              }
             }
+          }
+
+          # Fail differently for API errors vs missing packages
+          if ($apiErrors.Count -gt 0) {
+            Write-Host ""
+            Write-Host "::error::NUGET API ERROR: Could not verify packages: $($apiErrors -join ', ')"
+            Write-Host "::error::This may be a transient NuGet.org issue. Please retry the workflow."
+            exit 1
           }
 
           if (-not $allAvailable) {
