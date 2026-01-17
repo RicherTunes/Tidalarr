@@ -118,3 +118,67 @@ jobs:
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
+
+  # Validate NuGet package path (UseNuGetPackages=true)
+  # This job ensures the NuGet-based build path works before/after package publishing
+  nuget-package-path:
+    name: NuGet Package Path (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init Common submodule (for build targets only)
+        shell: pwsh
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check NuGet package availability
+        id: check-nuget
+        shell: pwsh
+        run: |
+          # Check if Lidarr.Plugin.Abstractions is available on NuGet.org
+          $packageId = 'Lidarr.Plugin.Abstractions'
+          $expectedVersion = '1.5.0'
+          try {
+            $response = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json" -ErrorAction Stop
+            $available = $response.versions -contains $expectedVersion
+            if ($available) {
+              Write-Host "✓ $packageId $expectedVersion is available on NuGet.org"
+              echo "available=true" >> $env:GITHUB_OUTPUT
+            } else {
+              Write-Host "⚠ $packageId $expectedVersion not yet published (available: $($response.versions -join ', '))"
+              echo "available=false" >> $env:GITHUB_OUTPUT
+            }
+          } catch {
+            Write-Host "⚠ $packageId not found on NuGet.org (package may not be published yet)"
+            echo "available=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build with NuGet packages
+        if: steps.check-nuget.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Building with UseNuGetPackages=true (NuGet package available)"
+          dotnet restore src/Tidalarr/Tidalarr.csproj -p:UseNuGetPackages=true
+          dotnet build src/Tidalarr/Tidalarr.csproj -c Release -p:UseNuGetPackages=true --no-restore
+
+      - name: Skip NuGet build (package not published)
+        if: steps.check-nuget.outputs.available != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "::notice::SKIPPED: NuGet package path validation skipped - Lidarr.Plugin.Abstractions 1.5.0 not yet published to NuGet.org"
+          Write-Host "This job will automatically start validating once v1.5.0 is released."
