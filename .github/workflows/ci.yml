@@ -5,9 +5,23 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      use_submodule:
+        description: 'Use submodule instead of NuGet packages (dev escape hatch)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: read
+
+# Environment variable for NuGet package mode (can be overridden by workflow_dispatch)
+env:
+  USE_NUGET_PACKAGES: ${{ github.event.inputs.use_submodule == 'true' && 'false' || 'true' }}
 
 jobs:
   parity-lint:
@@ -109,18 +123,98 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # HARD GATE: Verify NuGet packages are available (no silent fallback to submodule)
+      - name: Verify NuGet package availability
+        if: env.USE_NUGET_PACKAGES == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Verifying NuGet packages are available (UseNuGetPackages=true)"
+          Write-Host "To use submodule instead, trigger workflow_dispatch with use_submodule=true"
+          Write-Host ""
+
+          $requiredPackages = @(
+            @{ Id = 'Lidarr.Plugin.Abstractions'; Version = '1.5.0' },
+            @{ Id = 'Lidarr.Plugin.Common'; Version = '1.5.0' }
+          )
+          $allAvailable = $true
+          $missing = @()
+
+          foreach ($pkg in $requiredPackages) {
+            $packageId = $pkg.Id
+            $expectedVersion = $pkg.Version
+            try {
+              $response = Invoke-RestMethod -Uri "https://api.nuget.org/v3-flatcontainer/$($packageId.ToLower())/index.json" -ErrorAction Stop
+              $available = $response.versions -contains $expectedVersion
+              if ($available) {
+                Write-Host "✓ $packageId $expectedVersion available"
+              } else {
+                Write-Host "✗ $packageId $expectedVersion NOT FOUND (available: $($response.versions[-5..-1] -join ', ')...)"
+                $allAvailable = $false
+                $missing += "$packageId@$expectedVersion"
+              }
+            } catch {
+              Write-Host "✗ $packageId not found on NuGet.org"
+              $allAvailable = $false
+              $missing += "$packageId@$expectedVersion"
+            }
+          }
+
+          if (-not $allAvailable) {
+            Write-Host ""
+            Write-Host "::error::HARD GATE FAILED: Required NuGet packages not available: $($missing -join ', ')"
+            Write-Host "::error::CI cannot proceed with UseNuGetPackages=true until packages are published."
+            Write-Host "::error::For local development, use workflow_dispatch with use_submodule=true"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "✓ All required NuGet packages available"
+
+      - name: Show build mode
+        shell: pwsh
+        run: |
+          if ($env:USE_NUGET_PACKAGES -eq 'true') {
+            Write-Host "::notice::Building with NuGet packages (UseNuGetPackages=true)"
+          } else {
+            Write-Host "::notice::Building with submodule (escape hatch active)"
+          }
+
       - name: Formatting check (repo-only)
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
 
-      - name: Run unified plugin pipeline
+      - name: Run unified plugin pipeline (submodule mode)
+        if: env.USE_NUGET_PACKAGES != 'true'
         shell: pwsh
-        run: ./scripts/ci.ps1
+        run: |
+          Write-Host "Running CI with submodule (UseInRepoCommon=true)"
+          ./scripts/ci.ps1
 
-  # Validate NuGet package path (UseNuGetPackages=true)
-  # This job ensures the NuGet-based build path works before/after package publishing
+      - name: Build with NuGet packages
+        if: env.USE_NUGET_PACKAGES == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Building with UseNuGetPackages=true"
+          # Prepare host stub assemblies (still needed for Lidarr references)
+          $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
+          $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
+          if (-not (Test-Path $hostOutput) -or -not (Get-ChildItem -Path $hostOutput -Filter *.dll -File -ErrorAction SilentlyContinue)) {
+            Write-Host "Generating host stub assemblies" -ForegroundColor Cyan
+            & (Join-Path $commonScripts 'prepare-host-stub.ps1') -OutputPath $hostOutput
+          }
+          # Restore and build with NuGet packages
+          dotnet restore Tidalarr.sln -p:UseNuGetPackages=true
+          dotnet build src/Tidalarr/Tidalarr.csproj -c Release -p:UseNuGetPackages=true --no-restore
+          # Verify plugin manifest
+          & ./scripts/verify-plugin.ps1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # REDUNDANT CANARY: Keep for one release cycle after NuGet default is merged
+  # This job validates the NuGet path independently on Linux + Windows.
+  # Can be removed once the main build job has proven stable with NuGet packages.
+  # ═══════════════════════════════════════════════════════════════════════════
   nuget-package-path:
     name: NuGet Package Path (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
