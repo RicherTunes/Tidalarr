@@ -96,13 +96,21 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only allow graceful degrade on workflow_dispatch, not on PR/push
+          ALLOW_DEGRADE: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           $version = '${{ steps.common-version.outputs.version }}'
           $tag = "v$version"
           $repo = 'RicherTunes/Lidarr.Plugin.Common'
           $outputDir = 'canonical-abstractions'
+          $allowDegrade = $env:ALLOW_DEGRADE -eq 'true'
 
           Write-Host "Downloading canonical Abstractions from $repo $tag..."
+          if ($allowDegrade) {
+            Write-Host "(workflow_dispatch: graceful degrade allowed)"
+          } else {
+            Write-Host "(PR/push: canonical Abstractions required)"
+          }
 
           New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 
@@ -116,10 +124,17 @@ jobs:
             --clobber
 
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "::warning::Failed to download canonical Abstractions from $tag"
-            Write-Host "::warning::Release may not exist yet. Using submodule-built Abstractions."
-            echo "CANONICAL_ABSTRACTIONS_AVAILABLE=false" >> $env:GITHUB_ENV
-            exit 0
+            if ($allowDegrade) {
+              Write-Host "::warning::Failed to download canonical Abstractions from $tag"
+              Write-Host "::warning::Release may not exist yet. Using submodule-built Abstractions."
+              echo "CANONICAL_ABSTRACTIONS_AVAILABLE=false" >> $env:GITHUB_ENV
+              exit 0
+            } else {
+              Write-Host "::error::CANONICAL ABSTRACTIONS REQUIRED: Failed to download from $tag"
+              Write-Host "::error::Ensure Common $tag release exists with Abstractions assets."
+              Write-Host "::error::For local testing, use workflow_dispatch which allows graceful degrade."
+              exit 1
+            }
           }
 
           # Verify SHA256
@@ -138,6 +153,7 @@ jobs:
           Write-Host "✓ SHA256 verified: $expectedHash"
           Write-Host "✓ Canonical Abstractions downloaded successfully"
           echo "CANONICAL_ABSTRACTIONS_AVAILABLE=true" >> $env:GITHUB_ENV
+          echo "CANONICAL_ABSTRACTIONS_HASH=$expectedHash" >> $env:GITHUB_ENV
 
       - name: Build (Release)
         shell: pwsh
@@ -207,6 +223,33 @@ jobs:
           $disallowed = $dlls | Where-Object { $_ -like 'Lidarr.*' -and -not ($allowed -contains $_) }
           if ($disallowed) { Write-Error "Disallowed host assemblies found: $($disallowed -join ', ')"; exit 1 }
           Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
+
+      # Final verification: shipped Abstractions must match canonical hash
+      - name: Verify canonical Abstractions hash
+        if: env.CANONICAL_ABSTRACTIONS_AVAILABLE == 'true'
+        shell: pwsh
+        run: |
+          $outputDir = 'src/Tidalarr/bin/Release/net8.0'
+          $abstractionsDll = Join-Path $outputDir 'Lidarr.Plugin.Abstractions.dll'
+          $expectedHash = $env:CANONICAL_ABSTRACTIONS_HASH
+
+          if (-not (Test-Path $abstractionsDll)) {
+            Write-Error "Abstractions DLL not found in build output"
+            exit 1
+          }
+
+          $actualHash = (Get-FileHash -Path $abstractionsDll -Algorithm SHA256).Hash.ToLower()
+
+          if ($actualHash -ne $expectedHash) {
+            Write-Host "::error::PACKAGING GUARD FAILED: Shipped Abstractions hash doesn't match canonical"
+            Write-Host "::error::Expected: $expectedHash"
+            Write-Host "::error::Actual:   $actualHash"
+            Write-Host "::error::This indicates local build output leaked into the package."
+            exit 1
+          }
+
+          Write-Host "✓ PACKAGING GUARD PASSED: Shipped Abstractions matches canonical"
+          Write-Host "  Hash: $actualHash"
 
       - name: Upload build artifacts
         # actions/upload-artifact v4.6.2
