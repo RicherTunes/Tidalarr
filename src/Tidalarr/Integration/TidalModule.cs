@@ -196,20 +196,6 @@ public class TidalModule : StreamingPluginModule
         // Reserved for future auto-registration via base module
     }
 
-    public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
-    {
-        TidalModule module = new();
-        ServiceProvider provider = module.BuildServiceProvider(settings);
-        return provider.GetRequiredService<TidalIndexer>();
-    }
-
-    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadClientSettings settings)
-    {
-        TidalModule module = new();
-        ServiceProvider provider = module.BuildServiceProvider(settings);
-        return provider.GetRequiredService<TidalDownloadClient>();
-    }
-
     public static bool ValidateConfiguration(TidalIndexerSettings settings)
     {
         return settings.IsValid(out _);
