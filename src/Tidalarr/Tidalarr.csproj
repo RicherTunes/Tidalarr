@@ -21,9 +21,16 @@
     <None Remove="Integration\\LidarrNative\\**\\*" />
   </ItemGroup>
 
-  <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
+  <!-- Dual-path Common wiring:
+       - Local dev: submodule (UseInRepoCommon=true, the default)
+       - CI: NuGet packages when UseNuGetPackages=true is passed
+       - Override: set UseInRepoCommon explicitly to force either mode -->
   <PropertyGroup>
-    <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' ">true</UseInRepoCommon>
+    <!-- CI can set UseNuGetPackages=true to use published NuGet packages -->
+    <UseNuGetPackages Condition=" '$(UseNuGetPackages)' == '' ">false</UseNuGetPackages>
+    <!-- Default to submodule unless CI explicitly requests NuGet packages -->
+    <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' and '$(UseNuGetPackages)' != 'true' ">true</UseInRepoCommon>
+    <UseInRepoCommon Condition=" '$(UseInRepoCommon)' == '' and '$(UseNuGetPackages)' == 'true' ">false</UseInRepoCommon>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' ">
@@ -102,7 +109,13 @@
              AssemblyFile="$(PkgILRepack_Lib_MSBuild_Task)\build\ILRepack.Lib.MSBuild.Task.dll"
              Condition="'$(PkgILRepack_Lib_MSBuild_Task)' != ''" />
 
-  <!-- Import shared plugin packaging targets from Lidarr.Plugin.Common for ILRepack merging -->
+  <!-- Import shared plugin packaging targets from Lidarr.Plugin.Common for ILRepack merging
+       Note: The submodule is still required for build targets even when using NuGet packages for code -->
   <Import Project="..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets"
           Condition="Exists('..\..\ext\Lidarr.Plugin.Common\build\PluginPackaging.targets')" />
+
+  <!-- Packaging guard: fail CI build if Abstractions is compiled from source when NuGet is expected -->
+  <Target Name="ValidateNuGetPackageUsage" BeforeTargets="Build" Condition=" '$(UseNuGetPackages)' == 'true' and '$(UseInRepoCommon)' == 'true' ">
+    <Error Text="BUILD ERROR: UseNuGetPackages=true but UseInRepoCommon is also true. This indicates Abstractions will be compiled from source instead of using NuGet packages. Set UseInRepoCommon=false or remove UseNuGetPackages." />
+  </Target>
 </Project>

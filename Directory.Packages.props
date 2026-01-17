@@ -31,8 +31,9 @@
   </ItemGroup>
 
   <ItemGroup Label="Shared Plugin Ecosystem">
-    <PackageVersion Include="Lidarr.Plugin.Abstractions" Version="1.2.2" />
-    <PackageVersion Include="Lidarr.Plugin.Common" Version="1.2.2" />
+    <!-- Version 1.5.0: IStringProtector facade + NuGet.org publishing -->
+    <PackageVersion Include="Lidarr.Plugin.Abstractions" Version="1.5.0" />
+    <PackageVersion Include="Lidarr.Plugin.Common" Version="1.5.0" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════════════════
