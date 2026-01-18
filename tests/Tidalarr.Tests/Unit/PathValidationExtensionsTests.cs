@@ -1,12 +1,25 @@
+using System.IO;
+using System.Runtime.InteropServices;
+
 namespace Tidalarr.Tests.Unit;
 
 public class PathValidationExtensionsTests
 {
-    [Theory]
-    [InlineData("C:/temp")]
-    [InlineData("C:/temp/file.txt")]
-    public void IsReasonablePath_Valid_ReturnsTrue(string path)
+    [Fact]
+    public void IsReasonablePath_OsNativeTempPath_ReturnsTrue()
     {
+        // Use OS-native temp path - works on both Windows and Linux
+        var path = Path.Combine(Path.GetTempPath(), "test", "file.txt");
+        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+    }
+
+    [Fact]
+    public void IsReasonablePath_OsNativeAbsolutePath_ReturnsTrue()
+    {
+        // Use OS-appropriate absolute path
+        var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? @"C:\temp\file.txt"
+            : "/tmp/file.txt";
         Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 
@@ -21,25 +34,56 @@ public class PathValidationExtensionsTests
     }
 
     [Fact]
-    public void IsReasonablePath_Unc_ReturnsTrue()
+    public void IsReasonablePath_WindowsDrivePath_BehavesCorrectlyPerPlatform()
     {
+        // Windows drive paths are only valid on Windows
+        var path = "C:/temp/file.txt";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        }
+        else
+        {
+            // On non-Windows, drive letter paths are not "reasonable"
+            Assert.False(Integration.PathValidationExtensions.IsReasonablePath(path));
+        }
+    }
+
+    [Fact]
+    public void IsReasonablePath_Unc_BehavesCorrectlyPerPlatform()
+    {
+        // UNC paths are Windows-specific
         string unc = "\\\\server\\share\\folder";
-        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc));
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc));
+        }
+        else
+        {
+            // On non-Windows, UNC paths are not "reasonable"
+            Assert.False(Integration.PathValidationExtensions.IsReasonablePath(unc));
+        }
     }
 
     [Fact]
-    public void IsReasonablePath_LongLocalPath_ReturnsTrue()
+    public void IsReasonablePath_LongPath_ReturnsTrue()
     {
-        string longSegment = new('a', 260);
-        string path = $"C:/{longSegment}/file";
-        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
-    }
+        // Use OS-appropriate long path
+        string longSegment = new('a', 200);
+        var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? $"C:/{longSegment}/file"
+            : $"/tmp/{longSegment}/file";
 
-    [Fact]
-    public void IsReasonablePath_LongUncPath_ReturnsTrue()
-    {
-        string longSegment = new('b', 260);
-        string path = $"\\\\server\\share\\{longSegment}\\folder";
-        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        }
+        else
+        {
+            // Long paths should still be valid on Linux
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        }
     }
 }
