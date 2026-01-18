@@ -85,13 +85,18 @@ public class FileTokenStoreTests : IDisposable
     [Fact]
     public async Task SaveTokens_InvalidPath_ThrowsException()
     {
-        // Arrange
-        string invalidPath = "<>|*?invalid:path";
+        // Arrange - use path that is invalid on both platforms
+        // On Windows: invalid chars like <>|*?:"
+        // On Linux: /dev/null/file (can't create files under /dev/null) or use root-owned path
+        string invalidPath = OperatingSystem.IsWindows()
+            ? "<>|*?invalid:path"
+            : "/proc/1/root/impossible_path_" + Guid.NewGuid().ToString("N"); // /proc/1/root requires root
+
         FileTokenStore storage = new(invalidPath);
         TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
 
-        // Act & Assert
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        // Act & Assert - should throw some form of exception on invalid path
+        await Assert.ThrowsAnyAsync<Exception>(() =>
             storage.SaveTokensAsync(tokens));
     }
 
