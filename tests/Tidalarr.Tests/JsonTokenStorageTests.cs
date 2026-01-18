@@ -92,12 +92,14 @@ public class FileTokenStoreTests : IDisposable
             ? "<>|*?invalid:path"
             : "/dev/null/impossible_file_" + Guid.NewGuid().ToString("N");
 
-        FileTokenStore storage = new(invalidPath);
         TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
 
-        // Act & Assert - should throw some form of exception on invalid path
-        await Assert.ThrowsAnyAsync<Exception>(() =>
-            storage.SaveTokensAsync(tokens));
+        // Act & Assert - exception may throw in constructor (EnsureStorageDirectoryExists) or SaveTokensAsync
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            FileTokenStore storage = new(invalidPath);
+            await storage.SaveTokensAsync(tokens);
+        });
     }
 
     public void Dispose()
