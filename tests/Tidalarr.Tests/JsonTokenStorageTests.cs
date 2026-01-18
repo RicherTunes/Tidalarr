@@ -87,10 +87,10 @@ public class FileTokenStoreTests : IDisposable
     {
         // Arrange - use path that is invalid on both platforms
         // On Windows: invalid chars like <>|*?:"
-        // On Linux: /dev/null/file (can't create files under /dev/null) or use root-owned path
+        // On Linux: /dev/null/file - can't create files under /dev/null device
         string invalidPath = OperatingSystem.IsWindows()
             ? "<>|*?invalid:path"
-            : "/proc/1/root/impossible_path_" + Guid.NewGuid().ToString("N"); // /proc/1/root requires root
+            : "/dev/null/impossible_file_" + Guid.NewGuid().ToString("N");
 
         FileTokenStore storage = new(invalidPath);
         TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
