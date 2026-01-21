@@ -14,9 +14,27 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrDownloadClientSettings : IProviderConfig
 {
     private static readonly TidalLidarrDownloadClientSettingsValidator Validator = new();
-    private static readonly string DefaultConfigPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Tidalarr");
+    private static readonly string DefaultConfigPath = GetDefaultConfigPath();
+
+    private static string GetDefaultConfigPath()
+    {
+        // Try ApplicationData first (works on Windows: %AppData%)
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (!string.IsNullOrEmpty(appData))
+        {
+            return Path.Combine(appData, "Tidalarr");
+        }
+
+        // Fall back to HOME/.config on Linux/macOS
+        var home = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrEmpty(home))
+        {
+            return Path.Combine(home, ".config", "Tidalarr");
+        }
+
+        // Last resort: use /config/Tidalarr (common Docker mount point)
+        return "/config/Tidalarr";
+    }
 
     public TidalLidarrDownloadClientSettings()
     {
