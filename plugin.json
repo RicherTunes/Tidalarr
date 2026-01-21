@@ -13,5 +13,5 @@
   "minimumLidarrVersion": "3.0.0.4855",
   "targetFramework": "net8.0",
   "main": "Lidarr.Plugin.Tidalarr.dll",
-  "rootNamespace": "Lidarr.Plugin.Tidalarr"
+  "rootNamespace": "Tidalarr"
 }
