@@ -13,10 +13,14 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrIndexerSettings : IIndexerSettings
 {
     private static readonly TidalLidarrIndexerSettingsValidator Validator = new();
+    private static readonly string DefaultConfigPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Tidalarr");
 
     public TidalLidarrIndexerSettings()
     {
         BaseUrl = "https://api.tidal.com";
+        ConfigPath = DefaultConfigPath;
         TidalMarket = "US";
         EarlyReleaseLimit = 14;
         EnableCache = true;
@@ -34,8 +38,8 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens.")]
-    public string ConfigPath { get; set; } = string.Empty;
+        HelpText = "Directory used to persist Tidal authentication tokens. Defaults to user's AppData/Tidalarr.")]
+    public string ConfigPath { get; set; } = DefaultConfigPath;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
         HelpText = "Paste the redirect URL you are sent to after completing the OAuth login in your browser. If the stored redirect URL is stale, click Test and overwrite it with the NEW redirect URL (no need to clear first).")]

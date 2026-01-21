@@ -14,9 +14,13 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrDownloadClientSettings : IProviderConfig
 {
     private static readonly TidalLidarrDownloadClientSettingsValidator Validator = new();
+    private static readonly string DefaultConfigPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Tidalarr");
 
     public TidalLidarrDownloadClientSettings()
     {
+        ConfigPath = DefaultConfigPath;
         PreferredQuality = TidalQuality.Lossless;
         IncludeMqa = true;
         ExtractFlac = true;
@@ -32,8 +36,8 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Must match the indexer config path to share authentication.")]
-    public string ConfigPath { get; set; } = string.Empty;
+        HelpText = "Directory used to persist Tidal authentication tokens. Must match the indexer config path to share authentication. Defaults to user's AppData/Tidalarr.")]
+    public string ConfigPath { get; set; } = DefaultConfigPath;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
         HelpText = "Same as indexer. If using shared ConfigPath, authentication is automatic after indexer setup. If the stored redirect URL is stale, overwrite it with the NEW redirect URL from your most recent OAuth login.")]
