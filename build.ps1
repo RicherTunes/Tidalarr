@@ -165,7 +165,14 @@ if (-not $NoBuild) {
         $modulePath = Join-Path $scriptRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $scriptRoot 'plugin.json'
-        $packagePath = New-PluginPackage -Csproj $pluginProject -Manifest $manifestPath -Framework 'net8.0' -Configuration $Configuration
+
+        # Canonical Abstractions injection (reads version/sha256 from canonical-abstractions.json in Common)
+        $packagePath = New-PluginPackage `
+            -Csproj $pluginProject `
+            -Manifest $manifestPath `
+            -Framework 'net8.0' `
+            -Configuration $Configuration `
+            -RequireCanonicalAbstractions
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 
         try {
