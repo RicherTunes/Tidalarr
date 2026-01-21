@@ -1,0 +1,30 @@
+# Caller workflow for Common's reusable packaging gates
+# Provides: Canonical Abstractions, MAN004 escalation, Entrypoint validation, Parity lint
+name: Packaging Gates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'plugin.json'
+      - 'ext/Lidarr.Plugin.Common/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'plugin.json'
+      - 'ext/Lidarr.Plugin.Common/**'
+  workflow_dispatch:
+
+jobs:
+  packaging-gates:
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@cfb131f
+    with:
+      common-path: ext/Lidarr.Plugin.Common
+      plugin-csproj: src/Tidalarr/Tidalarr.csproj
+      manifest-path: plugin.json
+    secrets:
+      submodules-token: ${{ secrets.SUBMODULES_TOKEN }}
