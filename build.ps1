@@ -166,13 +166,14 @@ if (-not $NoBuild) {
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $scriptRoot 'plugin.json'
 
-        # Canonical Abstractions injection (reads version/sha256 from canonical-abstractions.json in Common)
+        # Canonical Abstractions injection + entrypoint validation
         $packagePath = New-PluginPackage `
             -Csproj $pluginProject `
             -Manifest $manifestPath `
             -Framework 'net8.0' `
             -Configuration $Configuration `
-            -RequireCanonicalAbstractions
+            -RequireCanonicalAbstractions `
+            -ResolveEntryPoints
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 
         try {
