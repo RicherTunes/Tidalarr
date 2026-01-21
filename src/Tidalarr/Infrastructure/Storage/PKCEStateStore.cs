@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -18,6 +19,10 @@ public class PKCEStateStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
+
+    // In-memory cache for PKCE state, keyed by normalized config path.
+    // This allows URL generation without file I/O during schema rendering.
+    private static readonly ConcurrentDictionary<string, PKCEState> InMemoryCache = new();
 
     public static string? TryReadAuthorizationUrl(string? configPath)
     {
@@ -52,11 +57,12 @@ public class PKCEStateStore
     }
 
     /// <summary>
-    /// Returns the persisted authorization URL if present and unexpired, otherwise generates a new PKCE state,
-    /// persists it to <c>pkce_state.json</c>, and returns the new authorization URL.
+    /// Returns an authorization URL, generating one in-memory if needed.
+    /// This method never requires file I/O and is safe to call during schema rendering.
     /// </summary>
     /// <remarks>
-    /// Used by UI schema rendering; must not throw. Returns <c>null</c> on IO/parse errors.
+    /// Uses an in-memory cache keyed by configPath (similar to TrevTV's singleton pattern).
+    /// The state is regenerated if expired. File persistence happens separately during token exchange.
     /// </remarks>
     public static string? TryGetOrCreateAuthorizationUrl(string? configPath)
     {
@@ -67,28 +73,84 @@ public class PKCEStateStore
 
         try
         {
+            string cacheKey = configPath.ToLowerInvariant();
+
+            // Check in-memory cache first (fast path, no I/O)
+            if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState) &&
+                cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+            {
+                return cachedState.AuthorizationUrl;
+            }
+
+            // Try to load from file if exists (for state continuity across restarts)
             string storagePath = Path.Combine(configPath, "pkce_state.json");
-
-            PKCEState? existingState = TryReadState(storagePath);
-            if (existingState != null && existingState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+            PKCEState? fileState = TryReadState(storagePath);
+            if (fileState != null && fileState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
             {
-                return existingState.AuthorizationUrl;
+                InMemoryCache[cacheKey] = fileState;
+                return fileState.AuthorizationUrl;
             }
 
-            if (!Directory.Exists(configPath))
-            {
-                _ = Directory.CreateDirectory(configPath);
-            }
-
+            // Generate new state in-memory (no file I/O required)
             PKCEState newState = CreateState();
-            string json = JsonSerializer.Serialize(newState, JsonOptions);
-            File.WriteAllText(storagePath, json);
+            InMemoryCache[cacheKey] = newState;
+
+            // Attempt to persist to file (best-effort, don't fail if directory doesn't exist)
+            TryPersistState(configPath, storagePath, newState);
+
             return newState.AuthorizationUrl;
         }
         catch
         {
-            return null;
+            // Last resort: generate URL without caching
+            try
+            {
+                return CreateState().AuthorizationUrl;
+            }
+            catch
+            {
+                return null;
+            }
         }
+    }
+
+    /// <summary>
+    /// Attempts to persist state to file. Best-effort, never throws.
+    /// </summary>
+    private static void TryPersistState(string configPath, string storagePath, PKCEState state)
+    {
+        try
+        {
+            if (!Directory.Exists(configPath))
+            {
+                Directory.CreateDirectory(configPath);
+            }
+
+            string json = JsonSerializer.Serialize(state, JsonOptions);
+            File.WriteAllText(storagePath, json);
+        }
+        catch
+        {
+            // Silently ignore persistence failures - URL generation still works
+        }
+    }
+
+    /// <summary>
+    /// Regenerates PKCE codes for a given config path. Call after successful token exchange.
+    /// </summary>
+    public static void RegenerateCodes(string? configPath)
+    {
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            return;
+        }
+
+        string cacheKey = configPath.ToLowerInvariant();
+        PKCEState newState = CreateState();
+        InMemoryCache[cacheKey] = newState;
+
+        string storagePath = Path.Combine(configPath, "pkce_state.json");
+        TryPersistState(configPath, storagePath, newState);
     }
 
     public PKCEStateStore(string configPath)
