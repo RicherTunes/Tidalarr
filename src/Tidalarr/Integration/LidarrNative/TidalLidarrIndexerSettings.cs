@@ -17,7 +17,15 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
 
     private static string GetDefaultConfigPath()
     {
-        // Try ApplicationData first (works on Windows: %AppData%)
+        // Docker environment: /config is the standard writable mount point.
+        // Check this FIRST because in Docker containers, ApplicationData often
+        // points to /root/.config which isn't writable by non-root users (hotio, abc, etc.)
+        if (Directory.Exists("/config"))
+        {
+            return "/config/Tidalarr";
+        }
+
+        // Try ApplicationData (Windows: %AppData%, Linux/macOS: ~/.config)
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (!string.IsNullOrEmpty(appData))
         {
@@ -31,7 +39,7 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
             return Path.Combine(home, ".config", "Tidalarr");
         }
 
-        // Last resort: use /config/Tidalarr (common Docker mount point)
+        // Last resort: use /config/Tidalarr
         return "/config/Tidalarr";
     }
 
