@@ -12,6 +12,7 @@ namespace Tidalarr.Infrastructure.Storage;
 /// </summary>
 public class PKCEStateStore
 {
+    private readonly string _configPath;
     private readonly string _storagePath;
     private const int StateTtlMinutes = 30;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -158,6 +159,7 @@ public class PKCEStateStore
         if (string.IsNullOrWhiteSpace(configPath))
             throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
 
+        this._configPath = configPath;
         this._storagePath = Path.Combine(configPath, "pkce_state.json");
         EnsureStorageDirectoryExists();
     }
@@ -166,6 +168,11 @@ public class PKCEStateStore
     {
         try
         {
+            // Update in-memory cache
+            string cacheKey = this._configPath.ToLowerInvariant();
+            InMemoryCache[cacheKey] = state;
+
+            // Persist to disk
             string json = JsonSerializer.Serialize(state, JsonOptions);
             await File.WriteAllTextAsync(this._storagePath, json);
         }
@@ -179,6 +186,21 @@ public class PKCEStateStore
     {
         try
         {
+            string cacheKey = this._configPath.ToLowerInvariant();
+
+            // Check in-memory cache first (fast path, critical for schema->validation flow)
+            if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState))
+            {
+                // Check if state has expired
+                if (cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+                {
+                    return cachedState;
+                }
+                // Expired - remove from cache
+                InMemoryCache.TryRemove(cacheKey, out _);
+            }
+
+            // Fall back to disk
             if (!File.Exists(this._storagePath))
                 return null;
 
@@ -188,11 +210,17 @@ public class PKCEStateStore
 
             PKCEState? state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
 
-            // Check if state has expired (10 minutes is typical for PKCE)
+            // Check if state has expired
             if (state != null && state.CreatedAt.AddMinutes(StateTtlMinutes) < DateTime.UtcNow)
             {
                 await DeleteStateAsync();
                 return null;
+            }
+
+            // Update in-memory cache with loaded state
+            if (state != null)
+            {
+                InMemoryCache[cacheKey] = state;
             }
 
             return state;
@@ -207,6 +235,11 @@ public class PKCEStateStore
     {
         try
         {
+            // Remove from in-memory cache
+            string cacheKey = this._configPath.ToLowerInvariant();
+            InMemoryCache.TryRemove(cacheKey, out _);
+
+            // Delete from disk
             if (File.Exists(this._storagePath))
                 File.Delete(this._storagePath);
         }
