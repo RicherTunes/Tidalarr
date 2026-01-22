@@ -60,6 +60,8 @@
     <!-- HostBridge tests require full Lidarr assemblies -->
     <Compile Remove="Unit\HostBridgeMappingTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
+    <!-- Lidarr-native download client types require Lidarr.Core -->
+    <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />

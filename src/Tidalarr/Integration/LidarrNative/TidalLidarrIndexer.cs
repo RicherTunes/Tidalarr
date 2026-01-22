@@ -139,13 +139,14 @@ public class TidalLidarrIndexer(
                         continue;
                     }
 
+                    this._logger.Info("Tidal search returned {0} albums for query: {1}", searchResults.Albums.Count, query);
+
                     foreach (TidalAlbumInfo album in searchResults.Albums)
                     {
-                        ReleaseInfo release = TidalLidarrParser.ConvertToReleaseInfoStatic(album);
-                        if (release != null)
-                        {
-                            releases.Add(release);
-                        }
+                        // Create multiple releases per album - one for each available quality
+                        List<ReleaseInfo> albumReleases = [.. TidalLidarrParser.ConvertToReleaseInfosStatic(album)];
+                        this._logger.Info("Created {0} releases for album: {1}", albumReleases.Count, album.Title);
+                        releases.AddRange(albumReleases);
                     }
                 }
                 catch (Exception ex)
@@ -155,11 +156,15 @@ public class TidalLidarrIndexer(
             }
         }
 
+        this._logger.Info("Total releases before dedup: {0}", releases.Count);
+
         // Deduplicate by Guid (same query can appear in multiple tiers).
         List<ReleaseInfo> deduplicated = [.. releases
             .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
             .GroupBy(r => r.Guid)
             .Select(g => g.First())];
+
+        this._logger.Info("Total releases after dedup: {0}", deduplicated.Count);
 
         // CleanupReleases sets IndexerId, Indexer, DownloadProtocol, and IndexerPriority from indexer Definition.
         return CleanupReleases(deduplicated);
@@ -252,7 +257,7 @@ public class TidalLidarrIndexer(
                     else
                     {
                         // No redirect URL - generate auth URL for user
-                        await GenerateOAuthAuthUrl(authService, failures);
+                        await GenerateOAuthAuthUrl(failures);
                         return;
                     }
                 }
@@ -288,24 +293,24 @@ public class TidalLidarrIndexer(
                 return false;
             }
 
-            // Load PKCE state from disk
+            // Load PKCE state (code_verifier) needed for token exchange.
+            // Like TrevTV's implementation, we skip state validation - it's for CSRF protection
+            // which isn't relevant in a manual copy/paste OAuth flow.
             PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
             PKCEState? pkceState = await pkceStore.LoadStateAsync();
 
             if (pkceState == null)
             {
                 this._logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
-                await GenerateOAuthAuthUrl(authService, failures);
+                await GenerateOAuthAuthUrl(failures);
                 return false;
             }
 
-            // Validate state matches
-            if (pkceState.State != callbackResult.State)
+            if (!PKCEStateStore.IsCallbackStateMatch(pkceState, callbackResult.State))
             {
-                this._logger.Warn("PKCE state mismatch - redirect URL state doesn't match current PKCE state. Redirect URL is stale.");
-                // Treat stale redirect URLs as one-time input from an older OAuth attempt.
-                // Generate a fresh auth URL + PKCE state and instruct the user to overwrite the stored redirect URL.
-                await GenerateOAuthAuthUrl(authService, failures, prefix: "OAuth redirect URL is stale (state mismatch). ");
+                this._logger.Warn("OAuth state mismatch - likely a stale URL or different browser tab. Regenerating OAuth URL.");
+                PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
+                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ");
                 return false;
             }
 
@@ -319,8 +324,9 @@ public class TidalLidarrIndexer(
                 return false;
             }
 
-            // Clean up PKCE state after successful exchange
-            await pkceStore.DeleteStateAsync();
+            // Regenerate PKCE codes after successful exchange so the OAuth URL field
+            // shows a fresh URL for any future re-authentication needs.
+            PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
 
             this._logger.Info("Successfully authenticated with Tidal!");        
             return true;
@@ -333,34 +339,35 @@ public class TidalLidarrIndexer(
         }
     }
 
-    private async Task GenerateOAuthAuthUrl(ITidalAuth authService, List<ValidationFailure> failures, string? prefix = null)
+    private Task GenerateOAuthAuthUrl(List<ValidationFailure> failures, string? prefix = null)
     {
         try
         {
-            // Generate new auth URL + PKCE state
-            TidalAuthUrl authUrlData = await authService.GenerateAuthUrlAsync();
+            // Get the OAuth URL from PKCEStateStore - creates state if needed, or returns existing.
+            // IMPORTANT: Don't call RegenerateCodes() here - that would overwrite state the user
+            // may have already used to authenticate, causing code_verifier mismatch.
+            string? authUrl = PKCEStateStore.TryGetOrCreateAuthorizationUrl(Settings.ConfigPath);
 
-            // Persist PKCE state for later token exchange
-            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
-            PKCEState pkceState = new PKCEState(
-                authUrlData.AuthorizationUrl,
-                authUrlData.CodeVerifier,
-                authUrlData.State,
-                authUrlData.ClientUniqueKey,
-                DateTime.UtcNow);
-            await pkceStore.SaveStateAsync(pkceState);
+            if (string.IsNullOrEmpty(authUrl))
+            {
+                failures.Add(new ValidationFailure("ConfigPath",
+                    "Failed to generate OAuth URL. Ensure Config Path is set to a writable directory."));
+                return Task.CompletedTask;
+            }
 
             this._logger.Info("Generated OAuth authorization URL for Tidal authentication.");
 
             // Provide clear instructions with the auth URL in the error message
             failures.Add(new ValidationFailure("RedirectUrl",
-                $"{prefix}Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrlData.AuthorizationUrl}"));
+                $"{prefix}Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {authUrl}"));
         }
         catch (Exception ex)
         {
             this._logger.Error(ex, "Failed to generate OAuth authorization URL");
             failures.Add(new ValidationFailure("Authentication", $"Failed to generate auth URL: {ex.Message}"));
         }
+
+        return Task.CompletedTask;
     }
 }
 
@@ -473,16 +480,13 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 return releases;
             }
 
-            // Convert Tidal albums to Lidarr ReleaseInfo
+            // Convert Tidal albums to Lidarr ReleaseInfo - create multiple releases per album (one per quality)
             foreach (TidalAlbumInfo album in searchResults.Albums)
             {
                 try
                 {
-                    ReleaseInfo release = ConvertToReleaseInfoStatic(album);
-                    if (release != null)
-                    {
-                        releases.Add(release);
-                    }
+                    IEnumerable<ReleaseInfo> albumReleases = ConvertToReleaseInfosStatic(album);
+                    releases.AddRange(albumReleases);
                 }
                 catch (Exception ex)
                 {
@@ -498,6 +502,47 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         }
 
         return releases;
+    }
+
+    /// <summary>
+    /// Creates multiple ReleaseInfo entries per album - one for each available quality.
+    /// This matches TrevTV's approach where users see all quality options (LOW, HIGH, LOSSLESS, HI_RES).
+    /// </summary>
+    internal static IEnumerable<ReleaseInfo> ConvertToReleaseInfosStatic(TidalAlbumInfo album)
+    {
+        if (album == null) yield break;
+
+        string artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
+        string albumTitle = album.Title ?? "Unknown Album";
+        DateTime releaseDate = album.ReleaseDate;
+        int year = releaseDate.Year > 1900 ? releaseDate.Year : 0;
+
+        // Always offer all quality levels like TrevTV does - let the download handle actual availability.
+        // This ensures users see all options regardless of what the search API returns.
+        TidalQuality[] allQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless, TidalQuality.HiRes];
+
+        // Create a release for each quality level
+        foreach (TidalQuality quality in allQualities)
+        {
+            string qualityString = DetermineQualityString(quality);
+            string title = $"{artistName} - {albumTitle}";
+            if (year > 0) title += $" ({year})";
+            title += $" [{qualityString}] [WEB]";
+
+            yield return new ReleaseInfo
+            {
+                // Include quality in GUID so each quality level is a unique release
+                Guid = $"tidal:album:{album.Id}:{quality}",
+                Title = title,
+                Artist = artistName,
+                Album = albumTitle,
+                PublishDate = releaseDate,
+                DownloadUrl = $"tidal://album/{album.Id}?quality={quality}",
+                InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
+                Size = EstimateAlbumSize(album, quality),
+                DownloadProtocol = nameof(TidalarrDownloadProtocol)
+            };
+        }
     }
 
     internal static ReleaseInfo ConvertToReleaseInfoStatic(TidalAlbumInfo album)

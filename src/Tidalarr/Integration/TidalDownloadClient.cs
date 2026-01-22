@@ -126,8 +126,6 @@ public class TidalDownloadClient(
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
-            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={manifest.SecurityToken?.Length ?? 0} codec={manifest.Codec}");
-
             // Step 4: Download and assemble chunks
             string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir);
@@ -137,7 +135,7 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
+            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
@@ -229,7 +227,13 @@ public class TidalDownloadClient(
             }
 
             Progress<int> progress = new();
-            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            int maxChunks = Settings.GetEffectiveMaxConcurrentChunkDownloads();
+            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(
+                streamInfo,
+                Settings.DownloadDelay,
+                maxConcurrentChunkDownloads: maxChunks,
+                progress: progress,
+                cancellationToken: cancellationToken);
 
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {

@@ -10,6 +10,7 @@ namespace Tidalarr.Integration;
 public class TidalDownloadClientSettings : BaseStreamingSettings
 {
     private static readonly TidalDownloadClientSettingsValidator Validator = new();
+    internal const int MaxCombinedDownloadConcurrency = 6;
 
     [FieldDefinition(SettingsDisplay.Download.PreferredQualityOrder, Label = SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQuality), HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
@@ -32,14 +33,27 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
     [FieldDefinition(SettingsDisplay.Download.UseLrclibOrder, Label = SettingsDisplay.Download.UseLrclibLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
     public bool UseLRCLIB { get; set; } = false;
 
-    [FieldDefinition(SettingsDisplay.Download.ChunkDelayOrder, Label = SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
-    public int DownloadDelay { get; set; } = 1000;
+    [FieldDefinition(SettingsDisplay.Download.ChunkDelayOrder, Label = SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    public int DownloadDelay { get; set; } = 0;
 
-    [FieldDefinition(SettingsDisplay.Download.ChunkDelayMinOrder, Label = SettingsDisplay.Download.ChunkDelayMinLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayMinUnit, Advanced = true)]
-    public int DownloadDelayMin { get; set; } = 500;
+    [FieldDefinition(SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
-    [FieldDefinition(SettingsDisplay.Download.ChunkDelayMaxOrder, Label = SettingsDisplay.Download.ChunkDelayMaxLabel, Type = FieldType.Number, Unit = SettingsDisplay.Download.ChunkDelayMaxUnit, Advanced = true)]
-    public int DownloadDelayMax { get; set; } = 2000;
+    [FieldDefinition(SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
+
+    internal int GetEffectiveMaxConcurrentChunkDownloads()
+    {
+        int tracks = Math.Max(1, MaxConcurrentTrackDownloads);
+        int chunks = Math.Max(1, MaxConcurrentChunkDownloads);
+
+        if (tracks * chunks <= MaxCombinedDownloadConcurrency)
+        {
+            return chunks;
+        }
+
+        return Math.Max(1, MaxCombinedDownloadConcurrency / tracks);
+    }
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
 
@@ -73,21 +87,15 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
                 .WithMessage("Chunk delay must be between 0 and 60000 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayRange);
 
-            _ = RuleFor(x => x.DownloadDelayMin)
-                .GreaterThanOrEqualTo(0)
-                .WithMessage("Minimum delay must be greater than or equal to 0 milliseconds")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange)
-                .LessThanOrEqualTo(x => x.DownloadDelayMax)
-                .WithMessage("Minimum delay must be less than or equal to maximum delay")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange);
+            _ = RuleFor(x => x.MaxConcurrentTrackDownloads)
+                .InclusiveBetween(1, 3)
+                .WithMessage("Max concurrent track downloads must be between 1 and 3")
+                .WithErrorCode(TidalarrValidationCodes.MaxConcurrentTrackDownloadsRange);
 
-            _ = RuleFor(x => x.DownloadDelayMax)
-                .GreaterThanOrEqualTo(x => x.DownloadDelayMin)
-                .WithMessage("Maximum delay must be greater than or equal to minimum delay")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange)
-                .LessThanOrEqualTo(60000)
-                .WithMessage("Maximum delay must be between min delay and 60000 milliseconds")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange);
+            _ = RuleFor(x => x.MaxConcurrentChunkDownloads)
+                .InclusiveBetween(1, 8)
+                .WithMessage("Max concurrent chunk downloads must be between 1 and 8")
+                .WithErrorCode(TidalarrValidationCodes.MaxConcurrentChunkDownloadsRange);
         }
     }
 }
