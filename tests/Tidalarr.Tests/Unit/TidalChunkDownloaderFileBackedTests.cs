@@ -25,10 +25,16 @@ public class TidalChunkDownloaderFileBackedTests
     [Fact]
     public async Task DownloadAndAssembleToFileStreamAsync_ShouldReturn_FileBackedStream_AndConcatenateChunks()
     {
+        string[] urls =
+        [
+            "http://example.test/chunk/1",
+            "http://example.test/chunk/2"
+        ];
+
         var chunkMap = new Dictionary<string, byte[]>
         {
-            ["http://example.test/chunk/1"] = [1, 2, 3],
-            ["http://example.test/chunk/2"] = [4, 5]
+            [urls[0]] = [1, 2, 3],
+            [urls[1]] = [4, 5]
         };
 
         var handler = new StubHandler((req, _) =>
@@ -49,7 +55,7 @@ public class TidalChunkDownloaderFileBackedTests
         var downloader = new TidalChunkDownloader(httpClient);
 
         var manifest = new TidalManifest(
-            ChunkUrls: [.. chunkMap.Keys],
+            ChunkUrls: urls,
             Codec: "AAC",
             MimeType: "audio/mp4",
             FileExtension: "m4a",
@@ -77,11 +83,18 @@ public class TidalChunkDownloaderFileBackedTests
     [Fact]
     public async Task DownloadAndAssembleToFileStreamAsync_WithParallelChunks_PreservesChunkOrder()
     {
+        string[] urls =
+        [
+            "http://example.test/chunk/1",
+            "http://example.test/chunk/2",
+            "http://example.test/chunk/3"
+        ];
+
         var chunkMap = new Dictionary<string, (byte[] payload, int delayMs)>
         {
-            ["http://example.test/chunk/1"] = ([1], 150),
-            ["http://example.test/chunk/2"] = ([2], 0),
-            ["http://example.test/chunk/3"] = ([3], 50)
+            [urls[0]] = ([1], 150),
+            [urls[1]] = ([2], 0),
+            [urls[2]] = ([3], 50)
         };
 
         var handler = new DelayedHandler(async (req, ct) =>
@@ -107,7 +120,7 @@ public class TidalChunkDownloaderFileBackedTests
         var downloader = new TidalChunkDownloader(httpClient);
 
         var manifest = new TidalManifest(
-            ChunkUrls: [.. chunkMap.Keys],
+            ChunkUrls: urls,
             Codec: "AAC",
             MimeType: "audio/mp4",
             FileExtension: "m4a",
