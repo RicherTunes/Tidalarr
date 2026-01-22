@@ -54,5 +54,8 @@ public static class SettingsDisplay
 
         public const int MaxConcurrentTrackDownloadsOrder = 28;
         public const string MaxConcurrentTrackDownloadsLabel = "Max Concurrent Track Downloads";
+
+        public const int MaxConcurrentChunkDownloadsOrder = 29;
+        public const string MaxConcurrentChunkDownloadsLabel = "Max Concurrent Chunk Downloads";
     }
 }

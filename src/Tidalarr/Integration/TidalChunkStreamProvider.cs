@@ -40,6 +40,7 @@ namespace Tidalarr.Integration
                 Stream assembled = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(
                     manifest,
                     this._settings.DownloadDelay,
+                    maxConcurrentChunkDownloads: this._settings.MaxConcurrentChunkDownloads,
                     progress: null,
                     cancellationToken).ConfigureAwait(false);
                 assembled.Position = 0;
@@ -55,6 +56,7 @@ namespace Tidalarr.Integration
             Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(
                 info,
                 this._settings.DownloadDelay,
+                maxConcurrentChunkDownloads: this._settings.MaxConcurrentChunkDownloads,
                 progress: null,
                 cancellationToken).ConfigureAwait(false);
             return new AudioStreamResult

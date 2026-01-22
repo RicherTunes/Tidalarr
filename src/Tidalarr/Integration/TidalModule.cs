@@ -149,7 +149,8 @@ public class TidalModule : StreamingPluginModule
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
                     DownloadDelay = s.DownloadDelay,
-                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads
+                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads,
+                    MaxConcurrentChunkDownloads = s.MaxConcurrentChunkDownloads
                 };
         });
 
@@ -271,7 +272,6 @@ public class TidalModule : StreamingPluginModule
             postProcessor: postProcessor);
     }
 }
-
 
 
 

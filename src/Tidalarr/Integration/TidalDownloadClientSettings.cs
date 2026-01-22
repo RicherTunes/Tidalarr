@@ -38,6 +38,9 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
     [FieldDefinition(SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
     public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
+    [FieldDefinition(SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
+
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
 
     public override bool IsValid(out string errorMessage)
@@ -74,6 +77,11 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
                 .InclusiveBetween(1, 3)
                 .WithMessage("Max concurrent track downloads must be between 1 and 3")
                 .WithErrorCode(TidalarrValidationCodes.MaxConcurrentTrackDownloadsRange);
+
+            _ = RuleFor(x => x.MaxConcurrentChunkDownloads)
+                .InclusiveBetween(1, 8)
+                .WithMessage("Max concurrent chunk downloads must be between 1 and 8")
+                .WithErrorCode(TidalarrValidationCodes.MaxConcurrentChunkDownloadsRange);
         }
     }
 }

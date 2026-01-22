@@ -69,7 +69,8 @@ public class TidalLidarrDownloadClient(
                 IncludeMqa = Settings.IncludeMqa,
                 ExtractFlac = Settings.ExtractFlac,
                 DownloadDelay = Settings.DownloadDelay,
-                MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads
+                MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads,
+                MaxConcurrentChunkDownloads = Settings.MaxConcurrentChunkDownloads
             };
             _ = services.AddSingleton(tidalarrSettings);
 

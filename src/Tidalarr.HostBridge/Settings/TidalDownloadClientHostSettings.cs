@@ -16,6 +16,9 @@ public class TidalDownloadClientHostSettings
     [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
     public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
+
     public Integration.TidalDownloadClientSettings ToCore()
     {
         return new Integration.TidalDownloadClientSettings
@@ -23,7 +26,8 @@ public class TidalDownloadClientHostSettings
             PreferredQuality = MapQuality(PreferredQuality),
             DownloadPath = DownloadPath,
             DownloadDelay = DownloadDelay,
-            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads,
+            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads
         };
     }
 

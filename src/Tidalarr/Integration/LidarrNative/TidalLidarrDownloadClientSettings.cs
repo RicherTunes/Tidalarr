@@ -53,6 +53,10 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
     public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
+    [FieldDefinition(7, Label = "Max Concurrent Chunk Downloads", Type = FieldType.Number, Section = "Performance", Advanced = true,
+        HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
+
     public NzbDroneValidationResult Validate()
     {
         return new NzbDroneValidationResult(Validator.Validate(this));
@@ -70,7 +74,8 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
             IncludeMqa = IncludeMqa,
             ExtractFlac = ExtractFlac,
             DownloadDelay = DownloadDelay,
-            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads,
+            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads
         };
     }
 }
@@ -96,5 +101,9 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
         _ = RuleFor(x => x.MaxConcurrentTrackDownloads)
             .InclusiveBetween(1, 3)
             .WithMessage("Max concurrent track downloads must be between 1 and 3");
+
+        _ = RuleFor(x => x.MaxConcurrentChunkDownloads)
+            .InclusiveBetween(1, 8)
+            .WithMessage("Max concurrent chunk downloads must be between 1 and 8");
     }
 }

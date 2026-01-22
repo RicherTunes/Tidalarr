@@ -73,5 +73,67 @@ public class TidalChunkDownloaderFileBackedTests
         Assert.False(string.IsNullOrWhiteSpace(filePath));
         Assert.False(File.Exists(filePath!));
     }
-}
 
+    [Fact]
+    public async Task DownloadAndAssembleToFileStreamAsync_WithParallelChunks_PreservesChunkOrder()
+    {
+        var chunkMap = new Dictionary<string, (byte[] payload, int delayMs)>
+        {
+            ["http://example.test/chunk/1"] = ([1], 150),
+            ["http://example.test/chunk/2"] = ([2], 0),
+            ["http://example.test/chunk/3"] = ([3], 50)
+        };
+
+        var handler = new DelayedHandler(async (req, ct) =>
+        {
+            var url = req.RequestUri?.ToString() ?? string.Empty;
+            if (!chunkMap.TryGetValue(url, out var entry))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            if (entry.delayMs > 0)
+            {
+                await Task.Delay(entry.delayMs, ct);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(entry.payload)
+            };
+        });
+
+        using var httpClient = new HttpClient(handler);
+        var downloader = new TidalChunkDownloader(httpClient);
+
+        var manifest = new TidalManifest(
+            ChunkUrls: [.. chunkMap.Keys],
+            Codec: "AAC",
+            MimeType: "audio/mp4",
+            FileExtension: "m4a",
+            SampleRate: 44100,
+            IsEncrypted: false,
+            KeyId: null,
+            SecurityToken: null);
+
+        await using var stream = await downloader.DownloadAndAssembleToFileStreamAsync(manifest, chunkDelayMs: 0, maxConcurrentChunkDownloads: 3);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        Assert.Equal([1, 2, 3], ms.ToArray());
+    }
+
+    private sealed class DelayedHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler;
+
+        public DelayedHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
+        {
+            this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return this.handler(request, cancellationToken);
+        }
+    }
+}
