@@ -137,7 +137,7 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
+            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
@@ -229,7 +229,7 @@ public class TidalDownloadClient(
             }
 
             Progress<int> progress = new();
-            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, Settings.DownloadDelay, progress, cancellationToken);
 
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {

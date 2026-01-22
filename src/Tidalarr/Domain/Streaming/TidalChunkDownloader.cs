@@ -15,10 +15,15 @@ public class TidalChunkDownloader(HttpClient httpClient)
     private readonly HttpClient _httpClient = httpClient;
 
     /// <summary>
-    /// Download and assemble chunks from Tidal DASH manifest
+    /// Download and assemble chunks from Tidal DASH manifest.
     /// </summary>
+    /// <param name="manifest">The manifest containing chunk URLs.</param>
+    /// <param name="chunkDelayMs">Delay between chunk downloads in milliseconds. Use 0 for no delay.</param>
+    /// <param name="progress">Optional progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<MemoryStream> DownloadAndAssembleAsync(
         TidalManifest manifest,
+        int chunkDelayMs = 0,
         IProgress<ChunkDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -36,8 +41,9 @@ public class TidalChunkDownloader(HttpClient httpClient)
                 HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
-                byte[] chunkData = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-                await outputStream.WriteAsync(chunkData, 0, chunkData.Length, cancellationToken);
+                // Stream directly to output instead of buffering entire chunk in memory
+                await using Stream contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                await contentStream.CopyToAsync(outputStream, cancellationToken);
 
                 completedChunks++;
                 progress?.Report(new ChunkDownloadProgress
@@ -46,7 +52,11 @@ public class TidalChunkDownloader(HttpClient httpClient)
                     CompletedChunks = completedChunks
                 });
 
-                await Task.Delay(50, cancellationToken);
+                // Apply configurable delay (0 = no delay)
+                if (chunkDelayMs > 0)
+                {
+                    await Task.Delay(chunkDelayMs, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
@@ -82,9 +92,17 @@ public class TidalChunkDownloader(HttpClient httpClient)
     }
 
     /// <summary>
-    /// Legacy method for backward compatibility with existing TidalStreamInfo
+    /// Legacy method for backward compatibility with existing TidalStreamInfo.
     /// </summary>
-    public async Task<Stream> DownloadAndAssembleAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
+    /// <param name="streamInfo">The stream info containing chunk URLs.</param>
+    /// <param name="chunkDelayMs">Delay between chunk downloads in milliseconds. Use 0 for no delay.</param>
+    /// <param name="progress">Optional progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<Stream> DownloadAndAssembleAsync(
+        TidalStreamInfo streamInfo,
+        int chunkDelayMs = 0,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         string tempFilePath = Path.GetTempFileName();
         FileStream fileStream = new(tempFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
@@ -93,16 +111,23 @@ public class TidalChunkDownloader(HttpClient httpClient)
         {
             for (int i = 0; i < streamInfo.ChunkUrls.Length; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string chunkUrl = streamInfo.ChunkUrls[i];
 
                 using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
-                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: CancellationToken.None);
+                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
-                using Stream contentStream = await response.Content.ReadAsStreamAsync();
-                await contentStream.CopyToAsync(fileStream);
+                await using Stream contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                await contentStream.CopyToAsync(fileStream, cancellationToken);
 
                 progress?.Report(i + 1);
+
+                // Apply configurable delay (0 = no delay)
+                if (chunkDelayMs > 0)
+                {
+                    await Task.Delay(chunkDelayMs, cancellationToken);
+                }
             }
 
             if (streamInfo.IsEncrypted && string.IsNullOrWhiteSpace(streamInfo.SecurityToken))
@@ -112,7 +137,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
 
             if (RequiresDecryption(streamInfo.IsEncrypted, streamInfo.SecurityToken))
             {
-                await fileStream.FlushAsync().ConfigureAwait(false);
+                await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 await TidalStreamDecryptor.DecryptFileStreamAsync(fileStream, streamInfo.SecurityToken!).ConfigureAwait(false);
             }
 
@@ -126,11 +151,15 @@ public class TidalChunkDownloader(HttpClient httpClient)
         }
     }
 
-    public async Task<byte[]> DownloadAndAssembleBytesAsync(TidalStreamInfo streamInfo, IProgress<int>? progress = null)
+    public async Task<byte[]> DownloadAndAssembleBytesAsync(
+        TidalStreamInfo streamInfo,
+        int chunkDelayMs = 0,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        await using Stream stream = await DownloadAndAssembleAsync(streamInfo, progress);
+        await using Stream stream = await DownloadAndAssembleAsync(streamInfo, chunkDelayMs, progress, cancellationToken);
         using MemoryStream ms = new();
-        await stream.CopyToAsync(ms);
+        await stream.CopyToAsync(ms, cancellationToken);
         return ms.ToArray();
     }
 
