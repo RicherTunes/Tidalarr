@@ -21,10 +21,11 @@ on:
 
 jobs:
   packaging-gates:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@cfb131f
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@f8d4ce9
     with:
       common-path: ext/Lidarr.Plugin.Common
       plugin-csproj: src/Tidalarr/Tidalarr.csproj
       manifest-path: plugin.json
+      plugin-load-gate: true
     secrets:
       submodules-token: ${{ secrets.SUBMODULES_TOKEN }}
