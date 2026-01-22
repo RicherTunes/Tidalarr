@@ -49,6 +49,10 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
     public int DownloadDelay { get; set; } = 0;
 
+    [FieldDefinition(6, Label = "Max Concurrent Track Downloads", Type = FieldType.Number, Section = "Performance", Advanced = true,
+        HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    public int MaxConcurrentTrackDownloads { get; set; } = 1;
+
     public NzbDroneValidationResult Validate()
     {
         return new NzbDroneValidationResult(Validator.Validate(this));
@@ -65,7 +69,8 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
             DownloadPath = DownloadPath,
             IncludeMqa = IncludeMqa,
             ExtractFlac = ExtractFlac,
-            DownloadDelay = DownloadDelay
+            DownloadDelay = DownloadDelay,
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads
         };
     }
 }
@@ -87,5 +92,9 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
         _ = RuleFor(x => x.DownloadDelay)
             .InclusiveBetween(0, 60000)
             .WithMessage("Chunk delay must be between 0 and 60000 milliseconds");
+
+        _ = RuleFor(x => x.MaxConcurrentTrackDownloads)
+            .InclusiveBetween(1, 3)
+            .WithMessage("Max concurrent track downloads must be between 1 and 3");
     }
 }

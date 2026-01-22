@@ -38,7 +38,10 @@ public class TidalChunkDownloader(HttpClient httpClient)
             try
             {
                 using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
-                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
+                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(
+                    req,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
                 // Stream directly to output instead of buffering entire chunk in memory
@@ -92,6 +95,73 @@ public class TidalChunkDownloader(HttpClient httpClient)
     }
 
     /// <summary>
+    /// File-backed variant of <see cref="DownloadAndAssembleAsync(TidalManifest,int,System.IProgress{ChunkDownloadProgress}?,System.Threading.CancellationToken)"/>
+    /// intended for use by streaming orchestrators to avoid assembling full tracks in memory.
+    /// </summary>
+    public async Task<Stream> DownloadAndAssembleToFileStreamAsync(
+        TidalManifest manifest,
+        int chunkDelayMs = 0,
+        IProgress<ChunkDownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        string tempFilePath = Path.GetTempFileName();
+        FileStream fileStream = new(tempFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
+
+        try
+        {
+            int totalChunks = manifest.ChunkUrls.Length;
+            int completedChunks = 0;
+
+            for (int i = 0; i < manifest.ChunkUrls.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string chunkUrl = manifest.ChunkUrls[i];
+
+                using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
+                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(
+                    req,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken: cancellationToken);
+                _ = response.EnsureSuccessStatusCode();
+
+                await using Stream contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                await contentStream.CopyToAsync(fileStream, cancellationToken);
+
+                completedChunks++;
+                progress?.Report(new ChunkDownloadProgress
+                {
+                    TotalChunks = totalChunks,
+                    CompletedChunks = completedChunks
+                });
+
+                if (chunkDelayMs > 0)
+                {
+                    await Task.Delay(chunkDelayMs, cancellationToken);
+                }
+            }
+
+            if (manifest.IsEncrypted && string.IsNullOrWhiteSpace(manifest.SecurityToken))
+            {
+                throw new InvalidOperationException("Encrypted manifest missing security token for decryption.");
+            }
+
+            if (RequiresDecryption(manifest.IsEncrypted, manifest.SecurityToken))
+            {
+                await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                await TidalStreamDecryptor.DecryptFileStreamAsync(fileStream, manifest.SecurityToken!).ConfigureAwait(false);
+            }
+
+            _ = fileStream.Seek(0, SeekOrigin.Begin);
+            return fileStream;
+        }
+        catch
+        {
+            fileStream.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Legacy method for backward compatibility with existing TidalStreamInfo.
     /// </summary>
     /// <param name="streamInfo">The stream info containing chunk URLs.</param>
@@ -115,7 +185,10 @@ public class TidalChunkDownloader(HttpClient httpClient)
                 string chunkUrl = streamInfo.ChunkUrls[i];
 
                 using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
-                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
+                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(
+                    req,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
                 await using Stream contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -192,4 +265,3 @@ public class TidalChunkDownloader(HttpClient httpClient)
         return isEncrypted && !string.IsNullOrWhiteSpace(securityToken);
     }
 }
-

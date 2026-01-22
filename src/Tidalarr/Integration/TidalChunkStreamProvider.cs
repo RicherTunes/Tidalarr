@@ -37,7 +37,7 @@ namespace Tidalarr.Integration
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
-                MemoryStream assembled = await this._chunkDownloader.DownloadAndAssembleAsync(
+                Stream assembled = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(
                     manifest,
                     this._settings.DownloadDelay,
                     progress: null,
@@ -67,4 +67,3 @@ namespace Tidalarr.Integration
 
     }
 }
-

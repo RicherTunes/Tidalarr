@@ -13,5 +13,6 @@ public static class TidalarrValidationCodes
     public const string DownloadPathRequired = "TID-DOWNLOAD-REQUIRED";
     public const string DownloadPathInvalid = "TID-DOWNLOAD-PATH";
     public const string DownloadDelayRange = "TID-DOWNLOAD-DELAY";
+    public const string MaxConcurrentTrackDownloadsRange = "TID-DOWNLOAD-MAX-CONCURRENCY";
     public const string PreferredQualityInvalid = "TID-QUALITY-INVALID";
 }

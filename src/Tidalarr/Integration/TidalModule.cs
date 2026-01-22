@@ -147,7 +147,8 @@ public class TidalModule : StreamingPluginModule
                     ReEncodeAAC = s.ReEncodeAAC,
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
-                    DownloadDelay = s.DownloadDelay
+                    DownloadDelay = s.DownloadDelay,
+                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads
                 };
         });
 
@@ -228,6 +229,8 @@ public class TidalModule : StreamingPluginModule
         TidalModelMapper mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
         TidalStreamService streamService = serviceProvider.GetRequiredService<TidalStreamService>();
         TidalChunkStreamProvider chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
+        TidalDownloadClientSettings? downloadSettings = serviceProvider.GetService<TidalDownloadClientSettings>();
+        int maxConcurrentTracks = downloadSettings?.MaxConcurrentTrackDownloads ?? 1;
 
         // Delegates for orchestrator
         async Task<StreamingAlbum> getAlbum(string id)
@@ -261,10 +264,10 @@ public class TidalModule : StreamingPluginModule
             getTrackAsync: getTrack,
             getAlbumTrackIdsAsync: getTrackIds,
             getStreamAsync: getStream,
-            streamProvider: chunkProvider);
+            streamProvider: chunkProvider,
+            maxConcurrentTracks: maxConcurrentTracks);
     }
 }
-
 
 
 

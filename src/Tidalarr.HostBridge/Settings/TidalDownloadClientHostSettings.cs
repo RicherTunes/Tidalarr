@@ -13,13 +13,17 @@ public class TidalDownloadClientHostSettings
     [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
     public int DownloadDelay { get; set; } = 0;
 
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    public int MaxConcurrentTrackDownloads { get; set; } = 1;
+
     public Integration.TidalDownloadClientSettings ToCore()
     {
         return new Integration.TidalDownloadClientSettings
         {
             PreferredQuality = MapQuality(PreferredQuality),
             DownloadPath = DownloadPath,
-            DownloadDelay = DownloadDelay
+            DownloadDelay = DownloadDelay,
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads
         };
     }
 

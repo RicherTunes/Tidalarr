@@ -52,13 +52,7 @@ public static class SettingsDisplay
         public const string ChunkDelayLabel = "Chunk Delay";
         public const string ChunkDelayUnit = "ms";
 
-        public const int ChunkDelayMinOrder = 28;
-        public const string ChunkDelayMinLabel = "Min Chunk Delay";
-        public const string ChunkDelayMinUnit = "ms";
-
-        public const int ChunkDelayMaxOrder = 29;
-        public const string ChunkDelayMaxLabel = "Max Chunk Delay";
-        public const string ChunkDelayMaxUnit = "ms";
+        public const int MaxConcurrentTrackDownloadsOrder = 28;
+        public const string MaxConcurrentTrackDownloadsLabel = "Max Concurrent Track Downloads";
     }
 }
-
