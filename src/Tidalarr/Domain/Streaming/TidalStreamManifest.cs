@@ -63,9 +63,8 @@ public class StreamManifest
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"⚠️ Error parsing stream manifest: {ex.Message}");
             // Fallback to empty manifest
             ChunkUrls = [];
         }
@@ -153,10 +152,8 @@ public class StreamManifest
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"⚠️ Error parsing DASH manifest: {ex.Message}");
-            Console.WriteLine($"⚠️ Manifest content preview: {encodedManifest?[..Math.Min(200, encodedManifest?.Length ?? 0)]}...");
             ChunkUrls = [];
         }
     }
@@ -184,7 +181,5 @@ public class StreamManifest
             return ".m4a"; // AAC inside M4A
     }
 }
-
-
 
 

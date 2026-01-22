@@ -10,11 +10,16 @@ namespace Tidalarr.Integration
     /// Bridges Tidal's chunked streaming to the shared download orchestrator by
     /// assembling a contiguous audio stream from DASH chunks.
     /// </summary>
-    public class TidalChunkStreamProvider(TidalStreamService streamService, TidalChunkDownloader chunkDownloader, TidalModelMapper mapper) : IAudioStreamProvider
+    public class TidalChunkStreamProvider(
+        TidalStreamService streamService,
+        TidalChunkDownloader chunkDownloader,
+        TidalModelMapper mapper,
+        TidalDownloadClientSettings settings) : IAudioStreamProvider
     {
         private readonly TidalStreamService _streamService = streamService ?? throw new ArgumentNullException(nameof(streamService));
         private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader ?? throw new ArgumentNullException(nameof(chunkDownloader));
         private readonly TidalModelMapper _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
@@ -32,7 +37,13 @@ namespace Tidalarr.Integration
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
-                MemoryStream assembled = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress: null, cancellationToken).ConfigureAwait(false);
+                int maxChunks = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
+                Stream assembled = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(
+                    manifest,
+                    this._settings.DownloadDelay,
+                    maxConcurrentChunkDownloads: maxChunks,
+                    progress: null,
+                    cancellationToken).ConfigureAwait(false);
                 assembled.Position = 0;
                 return new AudioStreamResult
                 {
@@ -43,7 +54,13 @@ namespace Tidalarr.Integration
             }
 
             TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
-            Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(info, progress: null).ConfigureAwait(false);
+            int maxChunksLegacy = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
+            Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(
+                info,
+                this._settings.DownloadDelay,
+                maxConcurrentChunkDownloads: maxChunksLegacy,
+                progress: null,
+                cancellationToken).ConfigureAwait(false);
             return new AudioStreamResult
             {
                 Stream = ms,
@@ -54,4 +71,3 @@ namespace Tidalarr.Integration
 
     }
 }
-

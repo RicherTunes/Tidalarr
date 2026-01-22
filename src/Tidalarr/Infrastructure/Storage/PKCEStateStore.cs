@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -11,6 +12,7 @@ namespace Tidalarr.Infrastructure.Storage;
 /// </summary>
 public class PKCEStateStore
 {
+    private readonly string _configPath;
     private readonly string _storagePath;
     private const int StateTtlMinutes = 30;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -18,6 +20,17 @@ public class PKCEStateStore
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
+
+    // In-memory cache for PKCE state, keyed by normalized config path.
+    // This allows URL generation without file I/O during schema rendering.
+    private static readonly ConcurrentDictionary<string, PKCEState> InMemoryCache = new();
+
+    public static bool IsCallbackStateMatch(PKCEState storedState, string callbackState)
+    {
+        if (storedState is null) throw new ArgumentNullException(nameof(storedState));
+        return !string.IsNullOrWhiteSpace(callbackState) &&
+               string.Equals(storedState.State, callbackState, StringComparison.Ordinal);
+    }
 
     public static string? TryReadAuthorizationUrl(string? configPath)
     {
@@ -52,11 +65,12 @@ public class PKCEStateStore
     }
 
     /// <summary>
-    /// Returns the persisted authorization URL if present and unexpired, otherwise generates a new PKCE state,
-    /// persists it to <c>pkce_state.json</c>, and returns the new authorization URL.
+    /// Returns an authorization URL, generating one in-memory if needed.
+    /// This method never requires file I/O and is safe to call during schema rendering.
     /// </summary>
     /// <remarks>
-    /// Used by UI schema rendering; must not throw. Returns <c>null</c> on IO/parse errors.
+    /// Uses an in-memory cache keyed by configPath (similar to TrevTV's singleton pattern).
+    /// The state is regenerated if expired. File persistence happens separately during token exchange.
     /// </remarks>
     public static string? TryGetOrCreateAuthorizationUrl(string? configPath)
     {
@@ -67,28 +81,84 @@ public class PKCEStateStore
 
         try
         {
+            string cacheKey = configPath.ToLowerInvariant();
+
+            // Check in-memory cache first (fast path, no I/O)
+            if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState) &&
+                cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+            {
+                return cachedState.AuthorizationUrl;
+            }
+
+            // Try to load from file if exists (for state continuity across restarts)
             string storagePath = Path.Combine(configPath, "pkce_state.json");
-
-            PKCEState? existingState = TryReadState(storagePath);
-            if (existingState != null && existingState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+            PKCEState? fileState = TryReadState(storagePath);
+            if (fileState != null && fileState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
             {
-                return existingState.AuthorizationUrl;
+                InMemoryCache[cacheKey] = fileState;
+                return fileState.AuthorizationUrl;
             }
 
-            if (!Directory.Exists(configPath))
-            {
-                _ = Directory.CreateDirectory(configPath);
-            }
-
+            // Generate new state in-memory (no file I/O required)
             PKCEState newState = CreateState();
-            string json = JsonSerializer.Serialize(newState, JsonOptions);
-            File.WriteAllText(storagePath, json);
+            InMemoryCache[cacheKey] = newState;
+
+            // Attempt to persist to file (best-effort, don't fail if directory doesn't exist)
+            TryPersistState(configPath, storagePath, newState);
+
             return newState.AuthorizationUrl;
         }
         catch
         {
-            return null;
+            // Last resort: generate URL without caching
+            try
+            {
+                return CreateState().AuthorizationUrl;
+            }
+            catch
+            {
+                return null;
+            }
         }
+    }
+
+    /// <summary>
+    /// Attempts to persist state to file. Best-effort, never throws.
+    /// </summary>
+    private static void TryPersistState(string configPath, string storagePath, PKCEState state)
+    {
+        try
+        {
+            if (!Directory.Exists(configPath))
+            {
+                Directory.CreateDirectory(configPath);
+            }
+
+            string json = JsonSerializer.Serialize(state, JsonOptions);
+            File.WriteAllText(storagePath, json);
+        }
+        catch
+        {
+            // Silently ignore persistence failures - URL generation still works
+        }
+    }
+
+    /// <summary>
+    /// Regenerates PKCE codes for a given config path. Call after successful token exchange.
+    /// </summary>
+    public static void RegenerateCodes(string? configPath)
+    {
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            return;
+        }
+
+        string cacheKey = configPath.ToLowerInvariant();
+        PKCEState newState = CreateState();
+        InMemoryCache[cacheKey] = newState;
+
+        string storagePath = Path.Combine(configPath, "pkce_state.json");
+        TryPersistState(configPath, storagePath, newState);
     }
 
     public PKCEStateStore(string configPath)
@@ -96,6 +166,7 @@ public class PKCEStateStore
         if (string.IsNullOrWhiteSpace(configPath))
             throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
 
+        this._configPath = configPath;
         this._storagePath = Path.Combine(configPath, "pkce_state.json");
         EnsureStorageDirectoryExists();
     }
@@ -104,6 +175,11 @@ public class PKCEStateStore
     {
         try
         {
+            // Update in-memory cache
+            string cacheKey = this._configPath.ToLowerInvariant();
+            InMemoryCache[cacheKey] = state;
+
+            // Persist to disk
             string json = JsonSerializer.Serialize(state, JsonOptions);
             await File.WriteAllTextAsync(this._storagePath, json);
         }
@@ -117,6 +193,21 @@ public class PKCEStateStore
     {
         try
         {
+            string cacheKey = this._configPath.ToLowerInvariant();
+
+            // Check in-memory cache first (fast path, critical for schema->validation flow)
+            if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState))
+            {
+                // Check if state has expired
+                if (cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+                {
+                    return cachedState;
+                }
+                // Expired - remove from cache
+                InMemoryCache.TryRemove(cacheKey, out _);
+            }
+
+            // Fall back to disk
             if (!File.Exists(this._storagePath))
                 return null;
 
@@ -126,11 +217,17 @@ public class PKCEStateStore
 
             PKCEState? state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
 
-            // Check if state has expired (10 minutes is typical for PKCE)
+            // Check if state has expired
             if (state != null && state.CreatedAt.AddMinutes(StateTtlMinutes) < DateTime.UtcNow)
             {
                 await DeleteStateAsync();
                 return null;
+            }
+
+            // Update in-memory cache with loaded state
+            if (state != null)
+            {
+                InMemoryCache[cacheKey] = state;
             }
 
             return state;
@@ -145,6 +242,11 @@ public class PKCEStateStore
     {
         try
         {
+            // Remove from in-memory cache
+            string cacheKey = this._configPath.ToLowerInvariant();
+            InMemoryCache.TryRemove(cacheKey, out _);
+
+            // Delete from disk
             if (File.Exists(this._storagePath))
                 File.Delete(this._storagePath);
         }

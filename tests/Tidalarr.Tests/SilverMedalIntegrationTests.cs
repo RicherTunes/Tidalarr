@@ -83,7 +83,10 @@ public class SilverMedalIntegrationTests
     [Fact]
     public void SilverMedal_ErrorHandling_WorksGracefully()
     {
-        TidalIndexerSettings invalidSettings = new();
+        TidalIndexerSettings invalidSettings = new()
+        {
+            ConfigPath = string.Empty
+        };
         FluentValidation.Results.ValidationResult validation = invalidSettings.ValidateFluent();
         Assert.False(validation.IsValid);
         string[] errorCodes = [.. validation.Errors.Select(e => e.ErrorCode)];

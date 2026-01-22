@@ -27,9 +27,7 @@ jobs:
     with:
       caller_plugin: tidalarr
       test_plugins: 'brainarr,qobuzarr,tidalarr'
-      lidarr_docker_version: 'pr-plugins-2.14.2.4786'
-    secrets:
-      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
-
+      lidarr_tag: 'pr-plugins-3.1.1.4884'
+    secrets: inherit
 
 
