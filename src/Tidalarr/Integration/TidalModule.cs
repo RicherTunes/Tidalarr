@@ -110,6 +110,7 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddScoped<TidalStreamService>();
         _ = services.AddScoped<TidalChunkStreamProvider>();
         _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        _ = services.AddScoped<IAudioPostProcessor, TidalAudioPostProcessor>();
 
         // Application services
         _ = services.AddScoped<TidalSearchService>();
@@ -229,6 +230,7 @@ public class TidalModule : StreamingPluginModule
         TidalModelMapper mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
         TidalStreamService streamService = serviceProvider.GetRequiredService<TidalStreamService>();
         TidalChunkStreamProvider chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
+        IAudioPostProcessor? postProcessor = serviceProvider.GetService<IAudioPostProcessor>();
         TidalDownloadClientSettings? downloadSettings = serviceProvider.GetService<TidalDownloadClientSettings>();
         int maxConcurrentTracks = downloadSettings?.MaxConcurrentTrackDownloads ?? 1;
 
@@ -265,11 +267,10 @@ public class TidalModule : StreamingPluginModule
             getAlbumTrackIdsAsync: getTrackIds,
             getStreamAsync: getStream,
             streamProvider: chunkProvider,
-            maxConcurrentTracks: maxConcurrentTracks);
+            maxConcurrentTracks: maxConcurrentTracks,
+            postProcessor: postProcessor);
     }
 }
-
-
 
 
 
