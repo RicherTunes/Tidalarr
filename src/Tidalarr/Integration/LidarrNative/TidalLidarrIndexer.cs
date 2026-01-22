@@ -306,6 +306,14 @@ public class TidalLidarrIndexer(
                 return false;
             }
 
+            if (!PKCEStateStore.IsCallbackStateMatch(pkceState, callbackResult.State))
+            {
+                this._logger.Warn("OAuth state mismatch - likely a stale URL or different browser tab. Regenerating OAuth URL.");
+                PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
+                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ");
+                return false;
+            }
+
             // Exchange authorization code for tokens
             this._logger.Info("Exchanging authorization code for tokens...");
             TidalTokens tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier);

@@ -25,6 +25,13 @@ public class PKCEStateStore
     // This allows URL generation without file I/O during schema rendering.
     private static readonly ConcurrentDictionary<string, PKCEState> InMemoryCache = new();
 
+    public static bool IsCallbackStateMatch(PKCEState storedState, string callbackState)
+    {
+        if (storedState is null) throw new ArgumentNullException(nameof(storedState));
+        return !string.IsNullOrWhiteSpace(callbackState) &&
+               string.Equals(storedState.State, callbackState, StringComparison.Ordinal);
+    }
+
     public static string? TryReadAuthorizationUrl(string? configPath)
     {
         if (string.IsNullOrWhiteSpace(configPath))
