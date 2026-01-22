@@ -139,10 +139,13 @@ public class TidalLidarrIndexer(
                         continue;
                     }
 
+                    this._logger.Info("Tidal search returned {0} albums for query: {1}", searchResults.Albums.Count, query);
+
                     foreach (TidalAlbumInfo album in searchResults.Albums)
                     {
                         // Create multiple releases per album - one for each available quality
-                        IEnumerable<ReleaseInfo> albumReleases = TidalLidarrParser.ConvertToReleaseInfosStatic(album);
+                        List<ReleaseInfo> albumReleases = [.. TidalLidarrParser.ConvertToReleaseInfosStatic(album)];
+                        this._logger.Info("Created {0} releases for album: {1}", albumReleases.Count, album.Title);
                         releases.AddRange(albumReleases);
                     }
                 }
@@ -153,11 +156,15 @@ public class TidalLidarrIndexer(
             }
         }
 
+        this._logger.Info("Total releases before dedup: {0}", releases.Count);
+
         // Deduplicate by Guid (same query can appear in multiple tiers).
         List<ReleaseInfo> deduplicated = [.. releases
             .Where(r => !string.IsNullOrWhiteSpace(r.Guid))
             .GroupBy(r => r.Guid)
             .Select(g => g.First())];
+
+        this._logger.Info("Total releases after dedup: {0}", deduplicated.Count);
 
         // CleanupReleases sets IndexerId, Indexer, DownloadProtocol, and IndexerPriority from indexer Definition.
         return CleanupReleases(deduplicated);
