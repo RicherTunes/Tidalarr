@@ -2,6 +2,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
 using Tidalarr.Core.Models;
+using Tidalarr.Infrastructure.Storage;
 using FieldDefinition = Tidalarr.Integration.Annotations.FieldDefinitionAttribute;
 using FieldType = Tidalarr.Integration.Annotations.FieldType;
 
@@ -12,7 +13,7 @@ public class TidalarrSettings : BaseStreamingSettings
     private static readonly TidalarrSettingsValidator Validator = new();
 
     [FieldDefinition(0, Label = "Config Path", Type = FieldType.Textbox, HelpText = "Directory used to persist Tidal authentication tokens.")]
-    public string ConfigPath { get; set; } = string.Empty;
+    public string ConfigPath { get; set; } = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
 
     [FieldDefinition(1, Label = "Redirect URL", Type = FieldType.Textbox, HelpText = "OAuth redirect URL captured after completing the Tidal login flow.")]
     public string RedirectUrl { get; set; } = string.Empty;

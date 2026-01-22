@@ -13,35 +13,7 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrIndexerSettings : IIndexerSettings
 {
     private static readonly TidalLidarrIndexerSettingsValidator Validator = new();
-    private static readonly string DefaultConfigPath = GetDefaultConfigPath();
-
-    private static string GetDefaultConfigPath()
-    {
-        // Docker environment: /config is the standard writable mount point.
-        // Check this FIRST because in Docker containers, ApplicationData often
-        // points to /root/.config which isn't writable by non-root users (hotio, abc, etc.)
-        if (Directory.Exists("/config"))
-        {
-            return "/config/Tidalarr";
-        }
-
-        // Try ApplicationData (Windows: %AppData%, Linux/macOS: ~/.config)
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        if (!string.IsNullOrEmpty(appData))
-        {
-            return Path.Combine(appData, "Tidalarr");
-        }
-
-        // Fall back to HOME/.config on Linux/macOS
-        var home = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrEmpty(home))
-        {
-            return Path.Combine(home, ".config", "Tidalarr");
-        }
-
-        // Last resort: use /config/Tidalarr
-        return "/config/Tidalarr";
-    }
+    private static readonly string DefaultConfigPath = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
 
     public TidalLidarrIndexerSettings()
     {
@@ -64,7 +36,7 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
     }
 
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Defaults to user's AppData/Tidalarr.")]
+        HelpText = "Directory used to persist Tidal authentication tokens. Defaults to /config/Tidalarr in Docker, otherwise AppData/Tidalarr (~/.config/Tidalarr on Linux).")]
     public string ConfigPath { get; set; } = DefaultConfigPath;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
