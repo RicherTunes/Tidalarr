@@ -21,7 +21,26 @@ public class TidalManifestParserTests
         Core.Models.TidalManifest manifest = this._parser.ParseManifest(encoded, "application/dash+xml");
 
         Assert.Equal(".m4a", manifest.FileExtension); // mp4a codec
+        Assert.Equal("MP4A", manifest.Codec);
         Assert.True(manifest.ChunkUrls.Length >= 3); // 1 + repeats
+    }
+
+    [Fact]
+    public void ParseDash_WithRepresentationCodec_Flac_UsesM4aContainerExtension()
+    {
+        string xml = @"<MPD xmlns='urn:mpeg:dash:schema:mpd:2011'><Period><AdaptationSet>
+          <Representation id='audio_flac' codecs='flac'>
+            <SegmentTemplate initialization='https://test.com/init.m4a' media='https://test.com/seg_$Number%06d$.m4a' startNumber='1'>
+              <SegmentTimeline><S r='0' /></SegmentTimeline>
+            </SegmentTemplate>
+          </Representation>
+        </AdaptationSet></Period></MPD>";
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml));
+        Core.Models.TidalManifest manifest = this._parser.ParseManifest(encoded, "application/dash+xml");
+
+        Assert.Equal("FLAC", manifest.Codec);
+        Assert.Equal(".m4a", manifest.FileExtension);
+        Assert.True(manifest.ChunkUrls.Length >= 2); // init + segment
     }
 
     [Fact]
@@ -60,6 +79,5 @@ public class TidalManifestParserTests
         Assert.Equal(48000, manifest.SampleRate);
     }
 }
-
 
 

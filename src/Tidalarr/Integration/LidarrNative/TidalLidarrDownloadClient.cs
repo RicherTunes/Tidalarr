@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using FluentValidation.Results;
+using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services.Authentication;
@@ -13,6 +14,7 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
+using Tidalarr.Core.Mappers;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -55,16 +57,20 @@ public class TidalLidarrDownloadClient(
             TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
             _ = services.AddSingleton(downloadSettings);
 
-            // Create TidalarrSettings from Lidarr-native settings
+            // Create TidalarrSettings from Lidarr-native settings.
+            // RedirectUrl is empty - download client uses tokens from shared ConfigPath
+            // (authentication is done via the indexer, not the download client).
             TidalarrSettings tidalarrSettings = new TidalarrSettings
             {
                 ConfigPath = Settings.ConfigPath,
-                RedirectUrl = Settings.RedirectUrl,
+                RedirectUrl = string.Empty,
                 DownloadPath = Settings.DownloadPath,
                 PreferredQuality = Settings.PreferredQuality,
                 IncludeMqa = Settings.IncludeMqa,
                 ExtractFlac = Settings.ExtractFlac,
-                DownloadDelay = Settings.DownloadDelay
+                DownloadDelay = Settings.DownloadDelay,
+                MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads,
+                MaxConcurrentChunkDownloads = Settings.MaxConcurrentChunkDownloads
             };
             _ = services.AddSingleton(tidalarrSettings);
 
@@ -136,10 +142,14 @@ public class TidalLidarrDownloadClient(
                         }
                     });
 
+                    StreamingQuality desiredQuality = this._serviceProvider
+                        .GetRequiredService<TidalModelMapper>()
+                        .ToStreamingQuality(Settings.PreferredQuality);
+
                     DownloadResult result = await this._orchestrator.DownloadAlbumAsync(
                         albumId,
                         outputPath,
-                        quality: null,
+                        quality: desiredQuality,
                         progress: progressReporter);
 
                     // Mark as completed

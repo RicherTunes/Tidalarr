@@ -54,15 +54,15 @@ public class HostBridgeMappingTests
             PreferredQuality = TidalQualityHost.HiRes,
             DownloadPath = "C:/out",
             DownloadDelay = 123,
-            DownloadDelayMin = 100,
-            DownloadDelayMax = 200
+            MaxConcurrentTrackDownloads = 2,
+            MaxConcurrentChunkDownloads = 3
         };
         Integration.TidalDownloadClientSettings core = host.ToCore();
         Assert.Equal(Core.Models.TidalQuality.HiRes, core.PreferredQuality);
         Assert.Equal(host.DownloadPath, core.DownloadPath);
         Assert.Equal(host.DownloadDelay, core.DownloadDelay);
-        Assert.Equal(host.DownloadDelayMin, core.DownloadDelayMin);
-        Assert.Equal(host.DownloadDelayMax, core.DownloadDelayMax);
+        Assert.Equal(host.MaxConcurrentTrackDownloads, core.MaxConcurrentTrackDownloads);
+        Assert.Equal(host.MaxConcurrentChunkDownloads, core.MaxConcurrentChunkDownloads);
     }
 
     [Fact]
@@ -75,4 +75,3 @@ public class HostBridgeMappingTests
         Assert.NotNull(mapper);
     }
 }
-

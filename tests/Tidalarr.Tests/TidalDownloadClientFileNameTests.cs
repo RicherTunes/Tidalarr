@@ -1,4 +1,5 @@
 using Lidarr.Plugin.Abstractions.Models;
+using System.Text;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
@@ -117,8 +118,25 @@ public class TidalDownloadClientFileNameTests
         string fileName = client.ExposeGenerateFileName(track, album);
         Assert.StartsWith("D02T03 - ", fileName);
     }
-}
 
+    [Fact]
+    public void GenerateFileName_NormalizesUnicodeToFormC()
+    {
+        ExposedDownloadClient client = new();
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Cafe\u0301 Artist" } };
+        StreamingTrack track = new()
+        {
+            Title = "Cafe\u0301 Title",
+            Artist = new StreamingArtist { Name = "Cafe\u0301 Artist" },
+            TrackNumber = 1
+        };
+
+        string fileName = client.ExposeGenerateFileName(track, album);
+
+        Assert.True(fileName.IsNormalized(NormalizationForm.FormC));
+        Assert.Contains("Café", fileName, StringComparison.Ordinal);
+    }
+}
 
 
 
