@@ -126,8 +126,6 @@ public class TidalDownloadClient(
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
-            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={manifest.SecurityToken?.Length ?? 0} codec={manifest.Codec}");
-
             // Step 4: Download and assemble chunks
             string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir);

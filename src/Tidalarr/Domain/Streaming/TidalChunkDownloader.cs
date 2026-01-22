@@ -38,7 +38,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
             try
             {
                 using HttpRequestMessage req = new(HttpMethod.Get, chunkUrl);
-                HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
+                using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(req, cancellationToken: cancellationToken);
                 _ = response.EnsureSuccessStatusCode();
 
                 // Stream directly to output instead of buffering entire chunk in memory

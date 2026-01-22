@@ -22,7 +22,7 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         PreferredQuality = TidalQuality.Lossless;
         IncludeMqa = true;
         ExtractFlac = true;
-        DownloadDelay = 1000;
+        DownloadDelay = 0;
     }
 
     [FieldDefinition(0, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
@@ -46,8 +46,8 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     public bool ExtractFlac { get; set; } = true;
 
     [FieldDefinition(5, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
-        HelpText = "Delay between chunk requests used for throttling. Range: 0-60000, Default: 1000")]
-    public int DownloadDelay { get; set; } = 1000;
+        HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    public int DownloadDelay { get; set; } = 0;
 
     public NzbDroneValidationResult Validate()
     {

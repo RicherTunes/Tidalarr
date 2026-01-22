@@ -147,9 +147,7 @@ public class TidalModule : StreamingPluginModule
                     ReEncodeAAC = s.ReEncodeAAC,
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
-                    DownloadDelay = s.DownloadDelay,
-                    DownloadDelayMin = s.DownloadDelayMin,
-                    DownloadDelayMax = s.DownloadDelayMax
+                    DownloadDelay = s.DownloadDelay
                 };
         });
 

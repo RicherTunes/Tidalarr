@@ -51,14 +51,8 @@ public class TidalarrSettings : BaseStreamingSettings
     [FieldDefinition(26, Label = "Use LRCLIB for Lyrics", Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
     public bool UseLRCLIB { get; set; } = false;
 
-    [FieldDefinition(27, Label = "Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
-    public int DownloadDelay { get; set; } = 1000;
-
-    [FieldDefinition(28, Label = "Min Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
-    public int DownloadDelayMin { get; set; } = 500;
-
-    [FieldDefinition(29, Label = "Max Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true)]
-    public int DownloadDelayMax { get; set; } = 2000;
+    [FieldDefinition(27, Label = "Chunk Delay", Type = FieldType.Number, Unit = "ms", Advanced = true, HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    public int DownloadDelay { get; set; } = 0;
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
 
@@ -119,22 +113,6 @@ public class TidalarrSettings : BaseStreamingSettings
                 .InclusiveBetween(0, 60000)
                 .WithMessage("Chunk delay must be between 0 and 60000 milliseconds")
                 .WithErrorCode(TidalarrValidationCodes.DownloadDelayRange);
-
-            _ = RuleFor(x => x.DownloadDelayMin)
-                .GreaterThanOrEqualTo(0)
-                .WithMessage("Minimum delay must be greater than or equal to 0 milliseconds")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange)
-                .LessThanOrEqualTo(x => x.DownloadDelayMax)
-                .WithMessage("Minimum delay must be less than or equal to maximum delay")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMinRange);
-
-            _ = RuleFor(x => x.DownloadDelayMax)
-                .GreaterThanOrEqualTo(x => x.DownloadDelayMin)
-                .WithMessage("Maximum delay must be greater than or equal to minimum delay")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange)
-                .LessThanOrEqualTo(60000)
-                .WithMessage("Maximum delay must be between min delay and 60000 milliseconds")
-                .WithErrorCode(TidalarrValidationCodes.DownloadDelayMaxRange);
 
             _ = RuleFor(x => x.PreferredQuality)
                 .Must(quality => Enum.IsDefined(typeof(TidalQuality), quality))
