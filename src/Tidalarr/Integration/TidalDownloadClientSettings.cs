@@ -36,7 +36,7 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
     public int DownloadDelay { get; set; } = 0;
 
     [FieldDefinition(SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
-    public int MaxConcurrentTrackDownloads { get; set; } = 1;
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
 

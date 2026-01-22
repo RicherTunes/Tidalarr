@@ -51,7 +51,7 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
 
     [FieldDefinition(6, Label = "Max Concurrent Track Downloads", Type = FieldType.Number, Section = "Performance", Advanced = true,
         HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
-    public int MaxConcurrentTrackDownloads { get; set; } = 1;
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
     public NzbDroneValidationResult Validate()
     {

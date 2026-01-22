@@ -14,7 +14,7 @@ public class TidalDownloadClientHostSettings
     public int DownloadDelay { get; set; } = 0;
 
     [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
-    public int MaxConcurrentTrackDownloads { get; set; } = 1;
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
     public Integration.TidalDownloadClientSettings ToCore()
     {
