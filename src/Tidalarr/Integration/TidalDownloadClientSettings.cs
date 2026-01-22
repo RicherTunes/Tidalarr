@@ -10,6 +10,7 @@ namespace Tidalarr.Integration;
 public class TidalDownloadClientSettings : BaseStreamingSettings
 {
     private static readonly TidalDownloadClientSettingsValidator Validator = new();
+    internal const int MaxCombinedDownloadConcurrency = 6;
 
     [FieldDefinition(SettingsDisplay.Download.PreferredQualityOrder, Label = SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQuality), HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
@@ -40,6 +41,19 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
 
     [FieldDefinition(SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
     public int MaxConcurrentChunkDownloads { get; set; } = 2;
+
+    internal int GetEffectiveMaxConcurrentChunkDownloads()
+    {
+        int tracks = Math.Max(1, MaxConcurrentTrackDownloads);
+        int chunks = Math.Max(1, MaxConcurrentChunkDownloads);
+
+        if (tracks * chunks <= MaxCombinedDownloadConcurrency)
+        {
+            return chunks;
+        }
+
+        return Math.Max(1, MaxCombinedDownloadConcurrency / tracks);
+    }
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";
 

@@ -227,10 +227,11 @@ public class TidalDownloadClient(
             }
 
             Progress<int> progress = new();
+            int maxChunks = Settings.GetEffectiveMaxConcurrentChunkDownloads();
             using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(
                 streamInfo,
                 Settings.DownloadDelay,
-                maxConcurrentChunkDownloads: Settings.MaxConcurrentChunkDownloads,
+                maxConcurrentChunkDownloads: maxChunks,
                 progress: progress,
                 cancellationToken: cancellationToken);
 

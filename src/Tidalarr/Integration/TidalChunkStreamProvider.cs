@@ -37,10 +37,11 @@ namespace Tidalarr.Integration
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
             {
+                int maxChunks = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
                 Stream assembled = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(
                     manifest,
                     this._settings.DownloadDelay,
-                    maxConcurrentChunkDownloads: this._settings.MaxConcurrentChunkDownloads,
+                    maxConcurrentChunkDownloads: maxChunks,
                     progress: null,
                     cancellationToken).ConfigureAwait(false);
                 assembled.Position = 0;
@@ -53,10 +54,11 @@ namespace Tidalarr.Integration
             }
 
             TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            int maxChunksLegacy = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
             Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(
                 info,
                 this._settings.DownloadDelay,
-                maxConcurrentChunkDownloads: this._settings.MaxConcurrentChunkDownloads,
+                maxConcurrentChunkDownloads: maxChunksLegacy,
                 progress: null,
                 cancellationToken).ConfigureAwait(false);
             return new AudioStreamResult
