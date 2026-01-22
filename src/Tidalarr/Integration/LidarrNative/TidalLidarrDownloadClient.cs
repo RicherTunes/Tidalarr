@@ -55,11 +55,13 @@ public class TidalLidarrDownloadClient(
             TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
             _ = services.AddSingleton(downloadSettings);
 
-            // Create TidalarrSettings from Lidarr-native settings
+            // Create TidalarrSettings from Lidarr-native settings.
+            // RedirectUrl is empty - download client uses tokens from shared ConfigPath
+            // (authentication is done via the indexer, not the download client).
             TidalarrSettings tidalarrSettings = new TidalarrSettings
             {
                 ConfigPath = Settings.ConfigPath,
-                RedirectUrl = Settings.RedirectUrl,
+                RedirectUrl = string.Empty,
                 DownloadPath = Settings.DownloadPath,
                 PreferredQuality = Settings.PreferredQuality,
                 IncludeMqa = Settings.IncludeMqa,

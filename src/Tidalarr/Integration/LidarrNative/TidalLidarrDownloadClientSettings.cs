@@ -25,39 +25,27 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         DownloadDelay = 1000;
     }
 
-    [FieldDefinition(0, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Convenience field derived from Config Path. If empty, set Config Path to a writable directory. Lidarr may not refresh this field inside the modal after clicking Test; copy the URL from the indexer test error message if needed. Changes to this field are ignored.")]
-    public string OAuthAuthUrl
-    {
-        get => PKCEStateStore.TryGetOrCreateAuthorizationUrl(ConfigPath) ?? string.Empty;
-        set { }
-    }
-
-    [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Must match the indexer config path to share authentication. Defaults to /config/Tidalarr in Docker, otherwise AppData/Tidalarr (~/.config/Tidalarr on Linux).")]
+    [FieldDefinition(0, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
+        HelpText = "Directory containing Tidal authentication tokens. Must match the indexer's Config Path - authenticate via the indexer, then the download client uses the same tokens automatically.")]
     public string ConfigPath { get; set; } = DefaultConfigPath;
 
-    [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "Same as indexer. If using shared ConfigPath, authentication is automatic after indexer setup. If the stored redirect URL is stale, overwrite it with the NEW redirect URL from your most recent OAuth login.")]
-    public string RedirectUrl { get; set; } = string.Empty;
-
-    [FieldDefinition(3, Label = "Download Path", Type = FieldType.Path, Section = "Download",
+    [FieldDefinition(1, Label = "Download Path", Type = FieldType.Path, Section = "Download",
         HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(4, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
+    [FieldDefinition(2, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
         HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-    [FieldDefinition(5, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(3, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Allow Master (MQA) releases when available.")]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(6, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(4, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Convert M4A containers to FLAC when possible.")]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(7, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
+    [FieldDefinition(5, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
         HelpText = "Delay between chunk requests used for throttling. Range: 0-60000, Default: 1000")]
     public int DownloadDelay { get; set; } = 1000;
 
@@ -89,11 +77,6 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
         _ = RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
-        // RedirectUrl validation: only validate format when provided (not required during initial setup)
-        _ = RuleFor(x => x.RedirectUrl)
-            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
-            .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
-
         _ = RuleFor(x => x.DownloadPath)
             .NotEmpty().WithMessage("Download path is required");
 
@@ -104,11 +87,5 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
         _ = RuleFor(x => x.DownloadDelay)
             .InclusiveBetween(0, 60000)
             .WithMessage("Chunk delay must be between 0 and 60000 milliseconds");
-    }
-
-    private static bool BeValidHttpUri(string url)
-    {
-        return Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) &&
-               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 }
