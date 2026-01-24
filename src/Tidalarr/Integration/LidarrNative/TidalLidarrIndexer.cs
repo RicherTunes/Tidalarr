@@ -586,11 +586,20 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
     private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
     {
         // Estimate size based on track count and quality
-        // Average track: 4 minutes, FLAC: ~1000 kbps, AAC HQ: ~320 kbps        
+        // Average track: 4 minutes
+        // FLAC 16-bit/44.1kHz (Lossless): ~1000 kbps
+        // FLAC 24-bit/96kHz (HiRes): ~3000 kbps (2.5-4x larger due to bit depth + sample rate)
+        // AAC HQ: ~320 kbps, AAC Low: ~96 kbps
         int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12; // Default to 12 tracks when unknown/empty
         int avgTrackDurationSeconds = 240; // 4 minutes average
         int totalDurationSeconds = trackCount * avgTrackDurationSeconds;
-        int bitrateKbps = quality >= TidalQuality.Lossless ? 1000 : 320;
+        int bitrateKbps = quality switch
+        {
+            TidalQuality.HiRes => 3000,    // 24-bit/96kHz FLAC
+            TidalQuality.Lossless => 1000, // 16-bit/44.1kHz FLAC
+            TidalQuality.High => 320,      // AAC 320kbps
+            _ => 96                        // AAC 96kbps (Low)
+        };
 
         return totalDurationSeconds * bitrateKbps * 125; // Convert to bytes
     }
