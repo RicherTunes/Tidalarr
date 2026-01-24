@@ -1,5 +1,5 @@
 using Lidarr.Plugin.Common.Services.Download;
-using Microsoft.Extensions.Logging;
+using NLog;
 
 namespace Tidalarr.Integration;
 
@@ -9,19 +9,14 @@ namespace Tidalarr.Integration;
 /// </summary>
 public sealed class TidalDownloadTelemetrySink : IDownloadTelemetrySink
 {
-    private readonly ILogger? _logger;
-
-    public TidalDownloadTelemetrySink(ILogger<TidalDownloadTelemetrySink>? logger = null)
-    {
-        _logger = logger;
-    }
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     public void OnTrackCompleted(DownloadTelemetry telemetry)
     {
         if (telemetry.Success)
         {
-            _logger?.LogInformation(
-                "Download completed: track={TrackId} album={AlbumId} bytes={Bytes} elapsed={Elapsed:F2}s rate={Rate:F1}KB/s retries={Retries} 429s={TooManyRequests}",
+            Logger.Info(
+                "Tidalarr track completed: track={0} album={1} bytes={2} elapsed={3:F2}s rate={4:F1}KB/s retries={5} 429s={6}",
                 telemetry.TrackId,
                 telemetry.AlbumId ?? "unknown",
                 telemetry.BytesWritten,
@@ -32,8 +27,8 @@ public sealed class TidalDownloadTelemetrySink : IDownloadTelemetrySink
         }
         else
         {
-            _logger?.LogWarning(
-                "Download failed: track={TrackId} album={AlbumId} elapsed={Elapsed:F2}s retries={Retries} 429s={TooManyRequests} error={Error}",
+            Logger.Warn(
+                "Tidalarr track failed: track={0} album={1} elapsed={2:F2}s retries={3} 429s={4} error={5}",
                 telemetry.TrackId,
                 telemetry.AlbumId ?? "unknown",
                 telemetry.Elapsed.TotalSeconds,
