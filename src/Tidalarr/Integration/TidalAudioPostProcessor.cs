@@ -1,16 +1,14 @@
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
-using Microsoft.Extensions.Logging;
+using NLog;
 using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Integration;
 
-public sealed class TidalAudioPostProcessor(
-    TidalDownloadClientSettings settings,
-    ILogger<TidalAudioPostProcessor> logger) : IAudioPostProcessor
+public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings) : IAudioPostProcessor
 {
     private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-    private readonly ILogger<TidalAudioPostProcessor> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     private static bool? _ffmpegAvailable;
 
@@ -39,7 +37,7 @@ public sealed class TidalAudioPostProcessor(
             _ffmpegAvailable ??= AudioFormatHandler.IsFFmpegAvailable();
             if (_ffmpegAvailable != true)
             {
-                _logger.LogWarning("Extract FLAC is enabled but ffmpeg/ffprobe is not available; keeping original file: {FilePath}", filePath);
+                Logger.Warn("Extract FLAC is enabled but ffmpeg/ffprobe is not available; keeping original file: {0}", filePath);
                 return filePath;
             }
         }
@@ -67,4 +65,3 @@ public sealed class TidalAudioPostProcessor(
         return filePath;
     }
 }
-
