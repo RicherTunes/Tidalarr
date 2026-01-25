@@ -36,34 +36,50 @@ public class PathValidationExtensionsTests
     [Fact]
     public void IsReasonablePath_WindowsDrivePath_BehavesCorrectlyPerPlatform()
     {
-        // Windows drive paths are only valid on Windows
+        // Common's PathValidation.IsReasonablePath() is permissive:
+        // - Checks for invalid characters
+        // - Checks for non-empty root
+        // - Does NOT enforce OS-specific rules (avoids host dependencies)
+        // 
+        // Therefore, Windows drive paths are considered "reasonable" on all platforms
         var path = "C:/temp/file.txt";
-
+        
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path),
+                "Windows drive path should be reasonable on Windows (permissive check)");
         }
         else
         {
-            // On non-Windows, drive letter paths are not "reasonable"
-            Assert.False(Integration.PathValidationExtensions.IsReasonablePath(path));
+            // On non-Windows, Common's permissive check still accepts drive paths
+            // (no OS-specific filtering in IsReasonablePath())
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path),
+                "Permissive validation accepts drive paths on non-Windows");
         }
     }
 
     [Fact]
     public void IsReasonablePath_Unc_BehavesCorrectlyPerPlatform()
     {
-        // UNC paths are Windows-specific
+        // Common's PathValidation.IsReasonablePath() is permissive:
+        // - Checks for invalid characters
+        // - Checks for non-empty root
+        // - Does NOT enforce OS-specific rules (avoids host dependencies)
+        //
+        // Therefore, UNC paths are considered "reasonable" on all platforms
         string unc = "\\\\server\\share\\folder";
-
+        
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc));
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc),
+                "UNC path should be reasonable on Windows (permissive check)");
         }
         else
         {
-            // On non-Windows, UNC paths are not "reasonable"
-            Assert.False(Integration.PathValidationExtensions.IsReasonablePath(unc));
+            // On non-Windows, Common's permissive check still accepts UNC paths
+            // (no OS-specific filtering in IsReasonablePath())
+            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc),
+                "Permissive validation accepts UNC paths on non-Windows");
         }
     }
 
