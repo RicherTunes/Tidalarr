@@ -277,6 +277,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             artistNames.Add("Unknown Artist");
         string albumId = dto.album?.id.ToString() ?? string.Empty;
         string albumTitle = dto.album?.title ?? string.Empty;
+        // Extract primary artist ID when available (> 0)
+        long? primaryArtistId = dto.artist?.id > 0 ? dto.artist.id : null;
         return new TidalTrackInfo(
             Id: dto.id.ToString(),
             Title: dto.title,
@@ -287,7 +289,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             Duration: dto.duration,
             Quality: MapQualityFromString(dto.audioQuality ?? string.Empty),
             IsAvailable: dto.streamReady,
-            ReleaseDate: ParseReleaseDate(dto.album?.releaseDate));
+            ReleaseDate: ParseReleaseDate(dto.album?.releaseDate),
+            PrimaryArtistId: primaryArtistId);
     }
     private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
     {
@@ -311,6 +314,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
 
         if (artistNames.Count == 0)
             artistNames.Add("Unknown Artist");
+        // Extract primary artist ID when available (> 0)
+        long? primaryArtistId = dto.artist?.id > 0 ? dto.artist.id : null;
         return new TidalAlbumInfo(
             Id: dto.id.ToString(),
             Title: dto.title,
@@ -319,7 +324,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             AvailableQualities: DetectAlbumQualities(dto),
             ReleaseDate: ParseReleaseDate(dto.releaseDate),
             CoverArtId: dto.cover ?? string.Empty,
-            IsAvailable: dto.streamReady);
+            IsAvailable: dto.streamReady,
+            PrimaryArtistId: primaryArtistId);
     }
     private static TidalSearchResults MapToTidalSearchResults(TidalSearchResponseDto dto)
     {
