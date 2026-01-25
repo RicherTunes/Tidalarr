@@ -372,9 +372,28 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static List<TidalQuality> DetectAlbumQualities(TidalAlbumDto dto)
     {
-        List<TidalQuality> qualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless];
-        if (dto.audioQuality?.Contains("HI_RES", StringComparison.OrdinalIgnoreCase) == true)
-            qualities.Add(TidalQuality.HiRes);
+        // Parse audioQuality field to determine available qualities
+        // Tidal API returns the maximum quality available (e.g., "HI_RES_LOSSLESS", "LOSSLESS", "HIGH")
+        // We include all qualities up to and including the maximum
+        TidalQuality maxQuality = MapQualityFromString(dto.audioQuality ?? string.Empty);
+
+        // Build list of all qualities up to and including maxQuality
+        // Tidal typically makes all lower qualities available when a higher quality exists
+        List<TidalQuality> qualities = [];
+        foreach (TidalQuality q in Enum.GetValues(typeof(TidalQuality)))
+        {
+            if (q <= maxQuality)
+            {
+                qualities.Add(q);
+            }
+        }
+
+        // Ensure at least basic qualities are available (fallback for empty/null audioQuality)
+        if (qualities.Count == 0)
+        {
+            qualities = [TidalQuality.Low, TidalQuality.High];
+        }
+
         return qualities;
     }
     private static string InferPlaybackExtension(TidalPlaybackInfoDto dto)
