@@ -132,6 +132,37 @@ public class TidalModelsTests
         Assert.Equal(TidalQuality.Lossless, track.Quality);
         Assert.True(track.IsAvailable);
         Assert.Equal(releaseDate, track.ReleaseDate);
+        Assert.Null(track.PrimaryArtistId);
+    }
+
+    [Fact]
+    public void TidalTrackInfo_Constructor_WithPrimaryArtistId_SetsArtistId()
+    {
+        // Arrange
+        List<string> artists = ["Artist1"];
+        DateTime releaseDate = new(2023, 5, 15);
+        long artistId = 123456L;
+
+        // Act
+        TidalTrackInfo track = new(
+            "track123", "Test Track", artists, "album456", "Test Album",
+            3, 240, TidalQuality.Lossless, true, releaseDate, artistId);
+
+        // Assert
+        Assert.Equal(artistId, track.PrimaryArtistId);
+        Assert.Equal("Artist1", track.Artists[0]);
+    }
+
+    [Fact]
+    public void TidalTrackInfo_PrimaryArtistId_DefaultsToNull()
+    {
+        // Arrange & Act
+        TidalTrackInfo track = new(
+            "track123", "Test Track", ["Artist1"], "album456", "Test Album",
+            3, 240, TidalQuality.Lossless, true, DateTime.UtcNow);
+
+        // Assert
+        Assert.Null(track.PrimaryArtistId);
     }
 
     #endregion
@@ -161,6 +192,39 @@ public class TidalModelsTests
         Assert.Equal(releaseDate, album.ReleaseDate);
         Assert.Equal("cover123", album.CoverArtId);
         Assert.True(album.IsAvailable);
+        Assert.Null(album.PrimaryArtistId);
+    }
+
+    [Fact]
+    public void TidalAlbumInfo_Constructor_WithPrimaryArtistId_SetsArtistId()
+    {
+        // Arrange
+        List<string> artists = ["Artist1"];
+        List<TidalTrackInfo> tracks = [];
+        List<TidalQuality> qualities = [TidalQuality.Lossless];
+        DateTime releaseDate = new(2023, 1, 1);
+        long artistId = 789012L;
+
+        // Act
+        TidalAlbumInfo album = new(
+            "album123", "Test Album", artists, tracks, qualities,
+            releaseDate, "cover123", true, artistId);
+
+        // Assert
+        Assert.Equal(artistId, album.PrimaryArtistId);
+        Assert.Equal("Artist1", album.Artists[0]);
+    }
+
+    [Fact]
+    public void TidalAlbumInfo_PrimaryArtistId_DefaultsToNull()
+    {
+        // Arrange & Act
+        TidalAlbumInfo album = new(
+            "album123", "Test Album", ["Artist1"], [], [TidalQuality.Lossless],
+            DateTime.UtcNow, "cover123", true);
+
+        // Assert
+        Assert.Null(album.PrimaryArtistId);
     }
 
     #endregion
