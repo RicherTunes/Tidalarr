@@ -314,3 +314,22 @@ git submodule update --remote ext/Lidarr.Plugin.Common
 ```
 
 This architecture ensures Tidalarr remains developer-friendly while providing production-ready, scalable deployments suitable for enterprise environments and external adoption.
+
+---
+
+## Technical Debt
+
+This section tracks technical debt items that should be addressed but are not blocking current development. Technical debt is automatically prioritized and should never be put under the rug.
+
+### Completed Items
+
+| Item | Priority | Date | Description |
+|------|----------|------|-------------|
+| Quality Detection Enhancement | MEDIUM | 2025-01-25 | Fixed TidalSearchService to preserve API-detected qualities from audioQuality field; improved TidalApiClient.DetectAlbumQualities parsing |
+| Artist ID Plumbing | LOW | 2024-12-XX | Added PrimaryArtistId to TidalTrackInfo and TidalAlbumInfo with fallback to name |
+
+### Pending Items
+
+| Item | Priority | File | Description |
+|------|----------|------|-------------|
+| None identified | - | - | Tidalarr has relatively clean architecture with good separation of concerns |
