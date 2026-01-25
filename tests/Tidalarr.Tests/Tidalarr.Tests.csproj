@@ -72,8 +72,7 @@
     <!-- Exclude milestone tests that reference MockTokenStorage -->
     <Compile Remove="Week1MilestoneTests.cs" />
     <Compile Remove="*MilestoneTests.cs" />
-    <!-- Exclude platform-specific tests (Windows paths fail on Linux CI) -->
-    <Compile Remove="Unit\PathValidationExtensionsTests.cs" />
+    <!-- Path validation tests updated to match Common's permissive behavior (unblocks Linux CI) -->
     <!-- Exclude plugin smoke tests that look for Debug build output -->
     <Compile Remove="PluginSmokeTests.cs" />
     <!-- Exclude compliance tests with false positives -->
