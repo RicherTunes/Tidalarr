@@ -2,7 +2,10 @@ using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Web;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Infrastructure.Storage;
+using Tidalarr.Infrastructure.Logging;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
@@ -13,15 +16,24 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth, IStreamingTokenProvider
 {
-    private readonly HttpClient _httpClient = httpClient;
-    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FailOnIOTokenStore();
+    private readonly HttpClient _httpClient;
+    private readonly ITokenStorage _tokenStorage;
+    private readonly ILogger<TidalOAuthService> _logger;
     private TidalTokens? _currentTokens;
+
+    public TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null, ILogger<TidalOAuthService>? logger = null)
+        : base(new PKCEGenerator())
+    {
+        this._httpClient = httpClient;
+        this._tokenStorage = tokenStorage ?? new FailOnIOTokenStore();
+        this._logger = logger ?? NullLogger<TidalOAuthService>.Instance;
+    }
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
-        : this(httpClient, tokenStorage) { }
+        : this(httpClient, tokenStorage, null) { }
 
     public bool IsAuthenticated => this._currentTokens != null && !this._currentTokens.IsExpired;
 
@@ -84,6 +96,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         _ = Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
         _ = Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
 
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         string codeChallenge = this._pkceGenerator.CreateS256Challenge(codeVerifier);
         string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
 
@@ -91,42 +104,60 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request));
 
         if (!success || response == null)
+        {
+            this._logger.LogAuthFail(correlationId, "Failed to exchange authorization code");
             throw new InvalidOperationException("Failed to exchange authorization code");
+        }
 
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync();
+            this._logger.LogAuthFail(correlationId, $"Token exchange failed: {response.StatusCode}");
             throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {errorContent}");
         }
 
         string content = await response.Content.ReadAsStringAsync();
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
         if (tokenData == null)
+        {
+            this._logger.LogAuthFail(correlationId, "Failed to parse token response");
             throw new InvalidOperationException("Failed to parse token response");
+        }
 
         this._currentTokens = MapToTidalTokens(tokenData);
         await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+        this._logger.LogAuthSuccess(correlationId);
         return this._currentTokens;
     }
 
     public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
     {
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
         HttpResponseMessage response = await this._httpClient.SendAsync(request);
 
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync();
+            this._logger.LogTokenRefreshFail(correlationId, $"Token refresh failed: {response.StatusCode}");
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {errorContent}");
         }
 
         string content = await response.Content.ReadAsStringAsync();
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
         if (tokenData == null)
+        {
+            this._logger.LogTokenRefreshFail(correlationId, "Failed to parse refresh token response");
             throw new InvalidOperationException("Failed to parse refresh token response");
+        }
 
         this._currentTokens = MapToTidalTokens(tokenData);
         await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+
+        TimeSpan? expiresIn = this._currentTokens.ExpiresAt > DateTime.UtcNow
+            ? this._currentTokens.ExpiresAt - DateTime.UtcNow
+            : null;
+        this._logger.LogTokenRefreshSuccess(correlationId, expiresIn);
         return this._currentTokens;
     }
 

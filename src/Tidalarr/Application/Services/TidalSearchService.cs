@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Intelligence;
@@ -7,20 +9,31 @@ using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;
+using Tidalarr.Infrastructure.Logging;
 
 namespace Tidalarr.Application.Services;
 
-public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null)
+public class TidalSearchService
 {
-    private readonly ITidalCore _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
-    private readonly TidalQualityDetector _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
-    private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
+    private readonly ITidalCore _apiClient;
+    private readonly TidalQualityDetector _qualityDetector;
+    private readonly IQueryOptimizer? _queryOptimizer;
+    private readonly ILogger<TidalSearchService> _logger;
+
+    public TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null, ILogger<TidalSearchService>? logger = null)
+    {
+        this._apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+        this._qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
+        this._queryOptimizer = queryOptimizer;
+        this._logger = logger ?? NullLogger<TidalSearchService>.Instance;
+    }
 
     public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless)
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
         string sanitizedQuery = Sanitize.DisplayText(query);
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
 
         // Optimize query if optimizer is available
         string optimizedQuery = sanitizedQuery;
@@ -42,6 +55,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery);
 
         stopwatch.Stop();
+        this._logger.LogSearch(correlationId, optimizedQuery, searchResults.TotalCount, stopwatch.ElapsedMilliseconds);
 
         // Learn from results if optimizer is available
         if (this._queryOptimizer != null)
@@ -151,14 +165,13 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         _ = Guard.NotNullOrWhiteSpace(albumId, nameof(albumId));
 
         (bool success, TidalAlbumInfo album) = await SafeOperationExecutor.TryExecuteAsync<TidalAlbumInfo>(() =>
-            this._apiClient.GetAlbumAsync(albumId));
+            this._apiClient.GetAlbumWithTracksAsync(albumId));
 
         if (!success || album == null)
         {
             throw new InvalidOperationException($"Failed to retrieve album with ID: {albumId}");
         }
 
-        // TODO: Load album tracks - for now return basic album info
         return album;
     }
 

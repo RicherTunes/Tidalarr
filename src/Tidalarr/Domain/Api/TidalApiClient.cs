@@ -10,7 +10,7 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Tidalarr.Infrastructure.Observability;
+using Tidalarr.Infrastructure.Logging;
 
 namespace Tidalarr.Domain.Api;
 
@@ -35,6 +35,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"tracks/{trackId}";
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
@@ -49,10 +50,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        this._logger.LogApiCallStart(endpoint, correlationId, "GET");
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         sw.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
+        this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content);
@@ -64,6 +65,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"albums/{albumId}";
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
@@ -78,10 +80,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope2 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        this._logger.LogApiCallStart(endpoint, correlationId, "GET");
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         sw2.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
+        this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw2.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalAlbumDto? dto = JsonSerializer.Deserialize<TidalAlbumDto>(content);
@@ -93,6 +95,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = $"albums/{albumId}/tracks";
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         Dictionary<string, string> parameters = new()
         {
             ["sessionId"] = tokens.SessionId,
@@ -108,10 +111,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope3 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        this._logger.LogApiCallStart(endpoint, correlationId, "GET");
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         sw3.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
+        this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw3.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content);
@@ -139,6 +142,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = "search";
+        string correlationId = Guid.NewGuid().ToString("N")[..8];
         Dictionary<string, string> parameters = new()
         {
             ["query"] = query,
@@ -156,10 +160,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope4 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        this._logger.LogApiCallStart(endpoint, correlationId, "GET");
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         sw4.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
+        this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw4.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalSearchResponseDto? dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content);
