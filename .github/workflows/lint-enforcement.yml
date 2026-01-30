@@ -1,0 +1,70 @@
+# Lint enforcement: raw dotnet test detection + docs drift sentinel
+# Uses shared workflow from Common library
+
+name: Lint Enforcement
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/*.yml'
+      - '**.md'
+      - '.github/dotnet-test-allowlist.json'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/*.yml'
+      - '**.md'
+      - '.github/dotnet-test-allowlist.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init Common submodule only
+        shell: bash
+        run: |
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Install PowerShell
+        shell: bash
+        run: |
+          if ! command -v pwsh &> /dev/null; then
+            . /etc/os-release
+            CODENAME=${VERSION_CODENAME:-"jammy"}
+            curl -fsSL "https://packages.microsoft.com/config/ubuntu/$CODENAME/packages-microsoft-prod.deb" -o packages-microsoft-prod.deb \
+              || curl -fsSL "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb" -o packages-microsoft-prod.deb
+            sudo dpkg -i packages-microsoft-prod.deb
+            sudo apt-get update
+            sudo apt-get install -y powershell
+          fi
+
+      - name: Raw dotnet test lint
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/lint-test-usage.ps1"
+          if (Test-Path $script) {
+            & $script -CI
+          } else {
+            Write-Host "::warning::Lint script not found at $script"
+          }
+
+      - name: Docs drift sentinel
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/lint-docs-links.ps1"
+          if (Test-Path $script) {
+            & $script -CommonPath "ext/Lidarr.Plugin.Common" -CI
+          } else {
+            Write-Host "::warning::Docs lint script not found at $script"
+          }
