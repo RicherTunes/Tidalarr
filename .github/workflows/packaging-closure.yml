@@ -83,6 +83,20 @@ jobs:
           if ($disallowed) { Write-Error "Disallowed host assemblies found: $($disallowed -join ', ')"; exit 1 }
           Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
 
+      - name: Run Packaging Tests
+        shell: pwsh
+        env:
+          REQUIRE_PACKAGE_TESTS: 'true'
+          PLUGIN_ASSEMBLY_PATH: ${{ github.workspace }}/src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll
+        run: |
+          dotnet test tests/Tidalarr.Tests/Tidalarr.Tests.csproj `
+            --configuration Release `
+            --no-restore `
+            --filter "Category=Packaging|Category=LibraryLinking" `
+            --logger "console;verbosity=normal" `
+            -p:PluginPackagingDisable=true `
+            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false
+
       - name: Upload build artifacts
         # actions/upload-artifact v4.6.2
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
