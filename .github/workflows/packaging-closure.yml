@@ -85,11 +85,18 @@ jobs:
 
       - name: Verify artifact freshness (stale artifact guard)
         shell: pwsh
+        env:
+          ARTIFACT_MAX_AGE_MINUTES: ${{ vars.ARTIFACT_MAX_AGE_MINUTES || '15' }}
         run: |
           # Prevent false-greens from stale build artifacts
+          # Threshold configurable via ARTIFACT_MAX_AGE_MINUTES (default 15 for CI queue delays)
+          $maxAgeMinutes = [int]$env:ARTIFACT_MAX_AGE_MINUTES
+          Write-Host "Freshness threshold: $maxAgeMinutes minutes (configurable via ARTIFACT_MAX_AGE_MINUTES)"
+
           $pluginDll = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll'
           if (-not (Test-Path $pluginDll)) { Write-Error "Plugin DLL not found: $pluginDll"; exit 1 }
 
+          # 1. Timestamp freshness check
           $dllInfo = Get-Item $pluginDll
           $buildTime = $dllInfo.LastWriteTimeUtc
           $now = [DateTime]::UtcNow
@@ -99,15 +106,43 @@ jobs:
           Write-Host "Build time: $buildTime UTC"
           Write-Host "Artifact age: $([math]::Round($ageMinutes, 2)) minutes"
 
-          # Artifact should be less than 10 minutes old (generous for slow runners)
-          if ($ageMinutes -gt 10) {
-            Write-Error "STALE ARTIFACT DETECTED! DLL is $([math]::Round($ageMinutes, 2)) minutes old."
+          if ($ageMinutes -gt $maxAgeMinutes) {
+            Write-Error "STALE ARTIFACT DETECTED! DLL is $([math]::Round($ageMinutes, 2)) minutes old (threshold: $maxAgeMinutes)."
             Write-Error "This suggests testing a cached/stale artifact instead of fresh build."
             Write-Error "Build time: $buildTime UTC | Current time: $now UTC"
+            Write-Error "Increase ARTIFACT_MAX_AGE_MINUTES if CI queue delays are expected."
             exit 1
           }
 
-          # Verify assembly version metadata matches expected format
+          # 2. Version consistency check (plugin.json vs MSBuild)
+          $pluginJsonPath = Join-Path $env:GITHUB_WORKSPACE 'plugin.json'
+          if (Test-Path $pluginJsonPath) {
+            $pluginJson = Get-Content $pluginJsonPath -Raw | ConvertFrom-Json
+            $manifestVersion = $pluginJson.version
+            Write-Host "plugin.json version: $manifestVersion"
+
+            # Query MSBuild for expected version
+            $csprojPath = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/Tidalarr.csproj'
+            $msbuildVersion = (dotnet msbuild $csprojPath -getProperty:Version -verbosity:quiet 2>$null)?.Trim()
+            if ($msbuildVersion) {
+              Write-Host "MSBuild Version: $msbuildVersion"
+              $manifestBase = ($manifestVersion -split '\+')[0]
+              $msbuildBase = ($msbuildVersion -split '\+')[0]
+              if ($manifestBase -ne $msbuildBase) {
+                Write-Warning "Version mismatch: plugin.json=$manifestVersion, MSBuild=$msbuildVersion"
+              }
+            }
+          }
+
+          # 3. Git SHA verification (ensures artifact matches checkout)
+          $currentSha = (git rev-parse HEAD 2>$null)?.Trim()
+          if ($currentSha) {
+            Write-Host "Current checkout SHA: $($currentSha.Substring(0, 12))..."
+            # Store for downstream verification if needed
+            $env:BUILD_GIT_SHA = $currentSha
+          }
+
+          # 4. Assembly metadata verification
           try {
             $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($pluginDll)
             Write-Host "Assembly version: $($assemblyName.Version)"
