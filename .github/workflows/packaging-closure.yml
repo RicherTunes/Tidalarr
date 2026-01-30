@@ -83,6 +83,40 @@ jobs:
           if ($disallowed) { Write-Error "Disallowed host assemblies found: $($disallowed -join ', ')"; exit 1 }
           Write-Host "Dependency closure OK. Assemblies: $($dlls -join ', ')"
 
+      - name: Verify artifact freshness (stale artifact guard)
+        shell: pwsh
+        run: |
+          # Prevent false-greens from stale build artifacts
+          $pluginDll = Join-Path $env:GITHUB_WORKSPACE 'src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll'
+          if (-not (Test-Path $pluginDll)) { Write-Error "Plugin DLL not found: $pluginDll"; exit 1 }
+
+          $dllInfo = Get-Item $pluginDll
+          $buildTime = $dllInfo.LastWriteTimeUtc
+          $now = [DateTime]::UtcNow
+          $ageMinutes = ($now - $buildTime).TotalMinutes
+
+          Write-Host "Plugin DLL: $($dllInfo.Name)"
+          Write-Host "Build time: $buildTime UTC"
+          Write-Host "Artifact age: $([math]::Round($ageMinutes, 2)) minutes"
+
+          # Artifact should be less than 10 minutes old (generous for slow runners)
+          if ($ageMinutes -gt 10) {
+            Write-Error "STALE ARTIFACT DETECTED! DLL is $([math]::Round($ageMinutes, 2)) minutes old."
+            Write-Error "This suggests testing a cached/stale artifact instead of fresh build."
+            Write-Error "Build time: $buildTime UTC | Current time: $now UTC"
+            exit 1
+          }
+
+          # Verify assembly version metadata matches expected format
+          try {
+            $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($pluginDll)
+            Write-Host "Assembly version: $($assemblyName.Version)"
+            Write-Host "[OK] Artifact freshness verified - built within last $([math]::Round($ageMinutes, 2)) minutes"
+          } catch {
+            Write-Error "Failed to read assembly metadata: $_"
+            exit 1
+          }
+
       - name: Run Packaging Tests
         shell: pwsh
         env:
