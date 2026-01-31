@@ -5,6 +5,11 @@ All notable changes to Tidalarr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Quick Links
+- **Documentation**: [README.md](README.md) | [Configuration](docs/CONFIGURATION.md) | [Troubleshooting](docs/TROUBLESHOOTING.md)
+- **Architecture**: [Architecture Overview](docs/ARCHITECTURE.md) | [Technical Debt](docs/TECH_DEBT_ANALYSIS_2025.md)
+- **Ecosystem**: [Lidarr.Plugin.Common](https://github.com/RicherTunes/Lidarr.Plugin.Common) | [Plugin Comparison](https://github.com/RicherTunes/.github/blob/main/docs/ECOSYSTEM.md)
+
 ## [Unreleased]
 
 ### Added
@@ -80,4 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ecosystem E2E infrastructure roadmap
 - Aligned ecosystem E2E plan with .NET 8 host baseline
 - Expanded OAuth field documentation with multi-plugin stability note
+
+[Unreleased]: https://github.com/RicherTunes/Tidalarr/compare/v1.0.0...main
 
