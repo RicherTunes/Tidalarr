@@ -48,10 +48,10 @@ public class TidalApiClientMalformedAlbumTests
         string json = JsonSerializer.Serialize(album);
         TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
 
-        var result = await api.GetAlbumAsync("al1");
+        TidalAlbumInfo result = await api.GetAlbumAsync("al1");
 
         Assert.NotNull(result);
-        Assert.Single(result.Artists);
+        _ = Assert.Single(result.Artists);
         Assert.Equal("Unknown Artist", result.Artists[0]);
     }
 }

@@ -197,13 +197,19 @@ public class MockTidalApiClient : ITidalCore
         string key = $"{trackId}_{quality}";
 
         if (this._exceptionResponses.ContainsKey(trackId) || this._exceptionResponses.ContainsKey(key))
+        {
             throw this._exceptionResponses.ContainsKey(key) ? this._exceptionResponses[key] : this._exceptionResponses[trackId];
+        }
 
         if (this._streamInfoResponses.ContainsKey(key))
+        {
             return Task.FromResult(this._streamInfoResponses[key]);
+        }
 
         if (this._streamInfoResponses.ContainsKey(trackId))
+        {
             return Task.FromResult(this._streamInfoResponses[trackId]);
+        }
 
         TidalStreamInfo defaultStream = new(trackId, ["default"], ".flac", "audio/flac", false, null);
         return Task.FromResult(defaultStream);

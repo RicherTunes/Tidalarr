@@ -9,7 +9,10 @@ public static class AudioFormatHandler
         try
         {
             (int exitCode, _, _) = processor.RunFfprobe("-version");
-            if (exitCode != 0) return false;
+            if (exitCode != 0)
+            {
+                return false;
+            }
 
             // `RunFfmpegAsync` is async; keep the availability check sync-friendly by relying on ffprobe.
             return true;
@@ -34,12 +37,13 @@ public static class AudioFormatHandler
         try
         {
             (int exitCode, string stdout, _) = processor.RunFfprobe(args);
-            if (exitCode != 0) return string.Empty;
+            if (exitCode != 0)
+            {
+                return string.Empty;
+            }
 
             string codec = (stdout ?? string.Empty).Trim();
-            if (codec.Length == 0) return string.Empty;
-
-            return codec.ToUpperInvariant();
+            return codec.Length == 0 ? string.Empty : codec.ToUpperInvariant();
         }
         catch
         {
@@ -87,8 +91,8 @@ public static class AudioFormatHandler
             try { File.Delete(outputPath); } catch { /* best effort */ }
         }
 
-        string args = string.Join(" ", new[]
-        {
+        string args = string.Join(" ",
+        [
             "-y",
             "-hide_banner",
             "-loglevel error",
@@ -96,7 +100,7 @@ public static class AudioFormatHandler
             "-map 0:a:0",
             "-c:a copy",
             QuoteArg(outputPath)
-        });
+        ]);
 
         try
         {

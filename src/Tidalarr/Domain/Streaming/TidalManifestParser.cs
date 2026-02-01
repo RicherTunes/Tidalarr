@@ -206,21 +206,40 @@ public class TidalManifestParser
 
     private string DetermineFileExtension(string codec, string sampleUrl)
     {
-        if (codec.Contains("flac", StringComparison.OrdinalIgnoreCase)) return ".flac";
-        if (codec.Contains("mp4a", StringComparison.OrdinalIgnoreCase)) return ".m4a";
+        if (codec.Contains("flac", StringComparison.OrdinalIgnoreCase))
+        {
+            return ".flac";
+        }
+
+        if (codec.Contains("mp4a", StringComparison.OrdinalIgnoreCase))
+        {
+            return ".m4a";
+        }
+
         if (!string.IsNullOrEmpty(sampleUrl))
         {
-            if (sampleUrl.Contains(".flac", StringComparison.OrdinalIgnoreCase)) return ".flac";
-            if (sampleUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase)) return ".m4a";
-            if (sampleUrl.Contains(".ts", StringComparison.OrdinalIgnoreCase)) return ".ts";
+            if (sampleUrl.Contains(".flac", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".flac";
+            }
+
+            if (sampleUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".m4a";
+            }
+
+            if (sampleUrl.Contains(".ts", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".ts";
+            }
         }
         return ".m4a";
     }
 
     private static string NormalizeCodec(string codecRaw)
     {
-        if (codecRaw.Contains("flac", StringComparison.OrdinalIgnoreCase)) return "FLAC";
-        if (codecRaw.Contains("mp4a", StringComparison.OrdinalIgnoreCase)) return "MP4A";
-        return codecRaw.Trim();
+        return codecRaw.Contains("flac", StringComparison.OrdinalIgnoreCase)
+            ? "FLAC"
+            : codecRaw.Contains("mp4a", StringComparison.OrdinalIgnoreCase) ? "MP4A" : codecRaw.Trim();
     }
 }

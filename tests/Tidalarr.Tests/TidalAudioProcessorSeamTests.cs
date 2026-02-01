@@ -49,8 +49,8 @@ public class TidalAudioProcessorSeamTests
         }
         finally
         {
-            try { if (File.Exists(input)) File.Delete(input); } catch { }
-            try { if (File.Exists(output)) File.Delete(output); } catch { }
+            try { if (File.Exists(input)) { File.Delete(input); } } catch { }
+            try { if (File.Exists(output)) { File.Delete(output); } } catch { }
         }
     }
 
@@ -68,7 +68,7 @@ public class TidalAudioProcessorSeamTests
         }
         finally
         {
-            try { if (File.Exists(input)) File.Delete(input); } catch { }
+            try { if (File.Exists(input)) { File.Delete(input); } } catch { }
         }
     }
 }

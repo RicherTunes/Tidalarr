@@ -30,7 +30,7 @@ public class TidalOAuthServiceTests
         // Verify URL structure
         Assert.StartsWith("https://login.tidal.com/authorize?", authUrl.AuthorizationUrl);
         Assert.Contains("client_id=6BDSRdpK9hqEBTgU", authUrl.AuthorizationUrl);
-        Assert.Contains("response_type=code", authUrl.AuthorizationUrl);        
+        Assert.Contains("response_type=code", authUrl.AuthorizationUrl);
         Assert.Contains("code_challenge_method=S256", authUrl.AuthorizationUrl);
         Assert.Contains("scope=", authUrl.AuthorizationUrl);
         Assert.Contains("offline_access", authUrl.AuthorizationUrl);
@@ -139,7 +139,7 @@ public class TidalOAuthServiceTests
     public async Task ExchangeCodeAsync_ValidResponse_ReturnsTokens()
     {
         // Arrange
-        Domain.Authentication.TidalTokenResponse mockResponse = new Domain.Authentication.TidalTokenResponse(
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
             access_token: "test_access_token",
             refresh_token: "test_refresh_token",
             token_type: "Bearer",
@@ -174,7 +174,7 @@ public class TidalOAuthServiceTests
             ["cc"] = "ca"
         });
 
-        Domain.Authentication.TidalTokenResponse mockResponse = new Domain.Authentication.TidalTokenResponse(
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
             access_token: accessToken,
             refresh_token: "test_refresh_token",
             token_type: "Bearer",
@@ -196,7 +196,7 @@ public class TidalOAuthServiceTests
     public async Task RefreshTokensAsync_ValidResponse_ReturnsNewTokens()
     {
         // Arrange
-        Domain.Authentication.TidalTokenResponse mockResponse = new Domain.Authentication.TidalTokenResponse(
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
             access_token: "new_access_token",
             refresh_token: "new_refresh_token",
             token_type: "Bearer",

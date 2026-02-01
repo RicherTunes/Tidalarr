@@ -27,8 +27,9 @@ public class PKCEStateStore
 
     public static bool IsCallbackStateMatch(PKCEState storedState, string callbackState)
     {
-        if (storedState is null) throw new ArgumentNullException(nameof(storedState));
-        return !string.IsNullOrWhiteSpace(callbackState) &&
+        return storedState is null
+            ? throw new ArgumentNullException(nameof(storedState))
+            : !string.IsNullOrWhiteSpace(callbackState) &&
                string.Equals(storedState.State, callbackState, StringComparison.Ordinal);
     }
 
@@ -131,7 +132,7 @@ public class PKCEStateStore
         {
             if (!Directory.Exists(configPath))
             {
-                Directory.CreateDirectory(configPath);
+                _ = Directory.CreateDirectory(configPath);
             }
 
             string json = JsonSerializer.Serialize(state, JsonOptions);
@@ -164,7 +165,9 @@ public class PKCEStateStore
     public PKCEStateStore(string configPath)
     {
         if (string.IsNullOrWhiteSpace(configPath))
+        {
             throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
+        }
 
         this._configPath = configPath;
         this._storagePath = Path.Combine(configPath, "pkce_state.json");
@@ -204,16 +207,20 @@ public class PKCEStateStore
                     return cachedState;
                 }
                 // Expired - remove from cache
-                InMemoryCache.TryRemove(cacheKey, out _);
+                _ = InMemoryCache.TryRemove(cacheKey, out _);
             }
 
             // Fall back to disk
             if (!File.Exists(this._storagePath))
+            {
                 return null;
+            }
 
             string json = await File.ReadAllTextAsync(this._storagePath);
             if (string.IsNullOrWhiteSpace(json))
+            {
                 return null;
+            }
 
             PKCEState? state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
 
@@ -244,11 +251,13 @@ public class PKCEStateStore
         {
             // Remove from in-memory cache
             string cacheKey = this._configPath.ToLowerInvariant();
-            InMemoryCache.TryRemove(cacheKey, out _);
+            _ = InMemoryCache.TryRemove(cacheKey, out _);
 
             // Delete from disk
             if (File.Exists(this._storagePath))
+            {
                 File.Delete(this._storagePath);
+            }
         }
         catch
         {
@@ -276,12 +285,7 @@ public class PKCEStateStore
             }
 
             string json = File.ReadAllText(storagePath);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            return JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
+            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
         }
         catch
         {

@@ -43,7 +43,9 @@ public static class TokenStorage
         try
         {
             if (!File.Exists(TokenFilePath))
+            {
                 return null;
+            }
 
             string json = await File.ReadAllTextAsync(TokenFilePath);
             return JsonSerializer.Deserialize<TidalTokenInfo>(json);
@@ -61,7 +63,9 @@ public static class TokenStorage
         {
             string? directory = Path.GetDirectoryName(TokenFilePath);
             if (!Directory.Exists(directory))
+            {
                 _ = Directory.CreateDirectory(directory!);
+            }
 
             string json = JsonSerializer.Serialize(tokenInfo, new JsonSerializerOptions
             {
@@ -197,11 +201,19 @@ public static class TokenStorage
         if (tokenData.TryGetProperty("user", out JsonElement userInfo) && userInfo.ValueKind == JsonValueKind.Object)
         {
             if (userInfo.TryGetProperty("sessionId", out JsonElement sessionProp))
+            {
                 sessionId = sessionProp.GetString() ?? string.Empty;
+            }
+
             if (userInfo.TryGetProperty("countryCode", out JsonElement ccProp))
+            {
                 countryCode = ccProp.GetString() ?? string.Empty;
+            }
+
             if (userInfo.TryGetProperty("email", out JsonElement emailProp))
+            {
                 email = emailProp.GetString() ?? string.Empty;
+            }
         }
 
         if (string.IsNullOrEmpty(sessionId))
@@ -216,7 +228,9 @@ public static class TokenStorage
                     byte[] payloadBytes = Convert.FromBase64String(payload);
                     using JsonDocument payloadDoc = JsonDocument.Parse(payloadBytes);
                     if (payloadDoc.RootElement.TryGetProperty("sid", out JsonElement sidProp))
+                    {
                         sessionId = sidProp.GetString() ?? string.Empty;
+                    }
                 }
             }
             catch

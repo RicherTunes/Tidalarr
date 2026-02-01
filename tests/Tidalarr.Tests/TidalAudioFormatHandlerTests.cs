@@ -27,8 +27,8 @@ public class TidalAudioFormatHandlerTests
         }
         finally
         {
-            try { if (File.Exists(input)) File.Delete(input); } catch { }
-            try { if (File.Exists(output)) File.Delete(output); } catch { }
+            try { if (File.Exists(input)) { File.Delete(input); } } catch { }
+            try { if (File.Exists(output)) { File.Delete(output); } } catch { }
         }
     }
 

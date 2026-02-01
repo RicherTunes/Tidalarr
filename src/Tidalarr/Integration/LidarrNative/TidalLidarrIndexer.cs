@@ -41,14 +41,17 @@ public class TidalLidarrIndexer(
     /// </summary>
     private void EnsureServicesInitialized()
     {
-        if (this._servicesInitialized) return;
+        if (this._servicesInitialized)
+        {
+            return;
+        }
 
         try
         {
-            ServiceCollection services = new ServiceCollection();
+            ServiceCollection services = new();
 
             // Register settings from Lidarr configuration
-            TidalIndexerSettings indexerSettings = new TidalIndexerSettings
+            TidalIndexerSettings indexerSettings = new()
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = Settings.RedirectUrl,
@@ -98,7 +101,7 @@ public class TidalLidarrIndexer(
     {
         EnsureServicesInitialized();
 
-        List<ReleaseInfo> releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = [];
 
         // Ensure valid session early so Lidarr reports a clear authentication error.
         IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
@@ -296,7 +299,7 @@ public class TidalLidarrIndexer(
             // Load PKCE state (code_verifier) needed for token exchange.
             // Like TrevTV's implementation, we skip state validation - it's for CSRF protection
             // which isn't relevant in a manual copy/paste OAuth flow.
-            PKCEStateStore pkceStore = new PKCEStateStore(Settings.ConfigPath);
+            PKCEStateStore pkceStore = new(Settings.ConfigPath);
             PKCEState? pkceState = await pkceStore.LoadStateAsync();
 
             if (pkceState == null)
@@ -328,7 +331,7 @@ public class TidalLidarrIndexer(
             // shows a fresh URL for any future re-authentication needs.
             PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
 
-            this._logger.Info("Successfully authenticated with Tidal!");        
+            this._logger.Info("Successfully authenticated with Tidal!");
             return true;
         }
         catch (Exception ex)
@@ -382,14 +385,14 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetRecentRequests()
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
         // Tidal doesn't have a traditional RSS feed
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
 
         string searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -402,7 +405,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
-        IndexerPageableRequestChain chain = new IndexerPageableRequestChain();
+        IndexerPageableRequestChain chain = new();
 
         if (!string.IsNullOrWhiteSpace(searchCriteria.ArtistQuery))
         {
@@ -421,7 +424,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
         string encodedQuery = Uri.EscapeDataString(searchTerm);
         string requestUrl = $"tidal://search?query={encodedQuery}";
 
-        HttpRequest request = new HttpRequest(requestUrl);
+        HttpRequest request = new(requestUrl);
         request.Headers.Accept = "application/json";
 
         yield return new IndexerRequest(request);
@@ -440,7 +443,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
     public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
     {
-        List<ReleaseInfo> releases = new List<ReleaseInfo>();
+        List<ReleaseInfo> releases = [];
 
         try
         {
@@ -452,7 +455,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 return releases;
             }
 
-            Uri uri = new Uri(requestUrl);
+            Uri uri = new(requestUrl);
             System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
             string? searchQuery = queryParams["query"];
 
@@ -510,7 +513,10 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
     /// </summary>
     internal static IEnumerable<ReleaseInfo> ConvertToReleaseInfosStatic(TidalAlbumInfo album)
     {
-        if (album == null) yield break;
+        if (album == null)
+        {
+            yield break;
+        }
 
         string artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
         string albumTitle = album.Title ?? "Unknown Album";
@@ -526,7 +532,11 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         {
             string qualityString = DetermineQualityString(quality);
             string title = $"{artistName} - {albumTitle}";
-            if (year > 0) title += $" ({year})";
+            if (year > 0)
+            {
+                title += $" ({year})";
+            }
+
             title += $" [{qualityString}] [WEB]";
 
             yield return new ReleaseInfo
@@ -547,7 +557,10 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
     internal static ReleaseInfo ConvertToReleaseInfoStatic(TidalAlbumInfo album)
     {
-        if (album == null) return null;
+        if (album == null)
+        {
+            return null;
+        }
 
         string artistName = album.Artists?.FirstOrDefault() ?? "Unknown Artist";
         string albumTitle = album.Title ?? "Unknown Album";
@@ -598,6 +611,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             TidalQuality.HiRes => 3000,    // 24-bit/96kHz FLAC
             TidalQuality.Lossless => 1000, // 16-bit/44.1kHz FLAC
             TidalQuality.High => 320,      // AAC 320kbps
+            TidalQuality.Low => throw new NotImplementedException(),
             _ => 96                        // AAC 96kbps (Low)
         };
 

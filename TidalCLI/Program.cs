@@ -130,12 +130,20 @@ public class Program
                 case "6" or "auth-complete":
                     Console.Write("Enter full callback URL: ");
                     string? cb = Console.ReadLine();
-                    if (!string.IsNullOrWhiteSpace(cb)) await AuthComplete(cb!);
+                    if (!string.IsNullOrWhiteSpace(cb))
+                    {
+                        await AuthComplete(cb!);
+                    }
+
                     break;
                 case "7" or "search":
                     Console.Write("Enter search query: ");
                     string? q = Console.ReadLine();
-                    if (string.IsNullOrWhiteSpace(q)) q = "Bohemian Rhapsody Queen";
+                    if (string.IsNullOrWhiteSpace(q))
+                    {
+                        q = "Bohemian Rhapsody Queen";
+                    }
+
                     await SearchViaPlugin(q!);
                     break;
                 case "8" or "download-track":
@@ -267,7 +275,10 @@ public class Program
                     TidalQuality? qOverride = null;
                     if (kv.TryGetValue("Quality", out string? rawQ) && !string.IsNullOrWhiteSpace(rawQ))
                     {
-                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed)) qOverride = parsed;
+                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed))
+                        {
+                            qOverride = parsed;
+                        }
                         else
                         {
                             Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
@@ -303,7 +314,10 @@ public class Program
                     TidalQuality? qOverride = null;
                     if (kv.TryGetValue("Quality", out string? rawQ) && !string.IsNullOrWhiteSpace(rawQ))
                     {
-                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed)) qOverride = parsed;
+                        if (Enum.TryParse(rawQ, true, out TidalQuality parsed))
+                        {
+                            qOverride = parsed;
+                        }
                         else
                         {
                             Console.WriteLine("Invalid Quality. Allowed: Low|High|Lossless|HiRes");
@@ -379,7 +393,11 @@ public class Program
     private static string[] NormalizeArgs(string[]? args)
     {
         Environment.SetEnvironmentVariable("TIDALARR_HTTP_TRACE", null, EnvironmentVariableTarget.Process);
-        if (args == null) return [];
+        if (args == null)
+        {
+            return [];
+        }
+
         List<string> list = [];
         foreach (string arg in args)
         {
@@ -398,9 +416,17 @@ public class Program
         Dictionary<string, string> map = new(StringComparer.OrdinalIgnoreCase);
         foreach (string a in args)
         {
-            if (string.IsNullOrWhiteSpace(a)) continue;
+            if (string.IsNullOrWhiteSpace(a))
+            {
+                continue;
+            }
+
             int idx = a.IndexOf('=');
-            if (idx <= 0) continue;
+            if (idx <= 0)
+            {
+                continue;
+            }
+
             string k = a[..idx];
             string v = a[(idx + 1)..];
             map[k] = v;
@@ -428,8 +454,14 @@ public class Program
             Lidarr.Plugin.Abstractions.Models.StreamingQuality q = MakeQualityFromConfig(selectedQuality);
             Lidarr.Plugin.Common.Interfaces.TrackDownloadResult result = await orchestrator.DownloadTrackAsync(trackId, tempPath, q);
             Console.WriteLine();
-            if (result.Success) Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize / 1024 / 1024:F2} MB)");
-            else Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+            if (result.Success)
+            {
+                Console.WriteLine($"✅ Track downloaded: {result.FilePath} ({result.FileSize / 1024 / 1024:F2} MB)");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Download failed: {result.ErrorMessage}");
+            }
         }
         catch (Exception ex)
         {
@@ -646,7 +678,13 @@ public class Program
         private static string PathCfg => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Tidalarr", "cli_config.json");
         public static CliConfig Load()
         {
-            try { if (File.Exists(PathCfg)) return JsonSerializer.Deserialize<CliConfig>(File.ReadAllText(PathCfg)) ?? new CliConfig(); }
+            try
+            {
+                if (File.Exists(PathCfg))
+                {
+                    return JsonSerializer.Deserialize<CliConfig>(File.ReadAllText(PathCfg)) ?? new();
+                }
+            }
             catch { }
             return new CliConfig();
         }
@@ -655,7 +693,11 @@ public class Program
             try
             {
                 string? dir = Path.GetDirectoryName(PathCfg);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) _ = Directory.CreateDirectory(dir);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    _ = Directory.CreateDirectory(dir);
+                }
+
                 File.WriteAllText(PathCfg, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
                 Console.WriteLine($"✅ Saved config to {PathCfg}");
             }
@@ -668,7 +710,11 @@ public class Program
         CliConfig cfg = CliConfig.Load();
         Console.Write($"Output directory [{cfg.OutputDirectory ?? "(none)"}]: ");
         string? od = Console.ReadLine();
-        if (!string.IsNullOrWhiteSpace(od)) cfg.OutputDirectory = od;
+        if (!string.IsNullOrWhiteSpace(od))
+        {
+            cfg.OutputDirectory = od;
+        }
+
         Console.Write($"Preferred quality (Low|High|Lossless|HiRes) [{cfg.PreferredQuality}]: ");
         string? pq = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(pq) && Enum.TryParse(pq, true, out TidalQuality parsedQuality))
@@ -882,7 +928,10 @@ public class Program
 
                     Console.WriteLine($"   {i}. 📀 {title} by {artist} (ID: {id}, Quality: {quality})");
                     i++;
-                    if (i > 3) break; // Show first 3 results
+                    if (i > 3)
+                    {
+                        break; // Show first 3 results
+                    }
                 }
             }
             else
@@ -916,7 +965,10 @@ public class Program
                     string durationStr = TimeSpan.FromSeconds(duration).ToString(@"mm\:ss");
                     Console.WriteLine($"   {j}. 🎵 {title} by {artist} ({durationStr}) (ID: {id}, Quality: {quality})");
                     j++;
-                    if (j > 3) break; // Show first 3 results
+                    if (j > 3)
+                    {
+                        break; // Show first 3 results
+                    }
                 }
             }
             else
@@ -1058,15 +1110,24 @@ public class Program
         Console.WriteLine("\n🔧 Settings Validation (diagnostics)");
         Console.Write("ConfigPath (blank for temp): ");
         string? config = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
+        if (string.IsNullOrWhiteSpace(config))
+        {
+            config = Path.GetTempPath();
+        }
 
         Console.Write("RedirectUrl (blank for sample): ");
         string? redirect = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+        if (string.IsNullOrWhiteSpace(redirect))
+        {
+            redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+        }
 
         Console.Write("DownloadPath (blank for temp): ");
         string? output = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            output = Path.GetTempPath();
+        }
 
         string[] args = [$"ConfigPath={config}", $"RedirectUrl={redirect}", $"DownloadPath={output}"];
         await RunSettingsValidateAsync(args);
@@ -1100,9 +1161,20 @@ public class Program
             Console.WriteLine(Lidarr.Plugin.Abstractions.Results.PluginOperationResultJson.ToJson(op));
             return;
         }
-        if (!map.ContainsKey("ConfigPath")) map["ConfigPath"] = Path.GetTempPath();
-        if (!map.ContainsKey("RedirectUrl")) map["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state";
-        if (!map.ContainsKey("DownloadPath")) map["DownloadPath"] = Path.GetTempPath();
+        if (!map.ContainsKey("ConfigPath"))
+        {
+            map["ConfigPath"] = Path.GetTempPath();
+        }
+
+        if (!map.ContainsKey("RedirectUrl"))
+        {
+            map["RedirectUrl"] = "https://tidal.com/android/login/auth?code=test&state=state";
+        }
+
+        if (!map.ContainsKey("DownloadPath"))
+        {
+            map["DownloadPath"] = Path.GetTempPath();
+        }
 
         TidalarrPlugin plugin = new();
         await plugin.InitializeAsync(new HarnessContext(), CancellationToken.None);
@@ -1115,15 +1187,24 @@ public class Program
         Console.WriteLine("\n📇 Indexer Validation (diagnostics)");
         Console.Write("ConfigPath (blank for temp): ");
         string? config = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(config)) config = Path.GetTempPath();
+        if (string.IsNullOrWhiteSpace(config))
+        {
+            config = Path.GetTempPath();
+        }
 
         Console.Write("RedirectUrl (blank for sample): ");
         string? redirect = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(redirect)) redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+        if (string.IsNullOrWhiteSpace(redirect))
+        {
+            redirect = "https://tidal.com/android/login/auth?code=test&state=state";
+        }
 
         Console.Write("Market (default US): ");
         string? market = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(market)) market = "US";
+        if (string.IsNullOrWhiteSpace(market))
+        {
+            market = "US";
+        }
 
         await RunIndexerValidateAsync([$"ConfigPath={config}", $"RedirectUrl={redirect}", $"TidalMarket={market}"]);
     }
@@ -1134,12 +1215,25 @@ public class Program
         foreach (string arg in args)
         {
             int i = arg.IndexOf('=');
-            if (i <= 0) continue;
+            if (i <= 0)
+            {
+                continue;
+            }
+
             string k = arg[..i];
             string v = arg[(i + 1)..];
-            if (k.Equals(nameof(TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase)) idxSettings.ConfigPath = v;
-            else if (k.Equals(nameof(TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase)) idxSettings.RedirectUrl = v;
-            else if (k.Equals(nameof(TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase)) idxSettings.TidalMarket = v;
+            if (k.Equals(nameof(TidalIndexerSettings.ConfigPath), StringComparison.OrdinalIgnoreCase))
+            {
+                idxSettings.ConfigPath = v;
+            }
+            else if (k.Equals(nameof(TidalIndexerSettings.RedirectUrl), StringComparison.OrdinalIgnoreCase))
+            {
+                idxSettings.RedirectUrl = v;
+            }
+            else if (k.Equals(nameof(TidalIndexerSettings.TidalMarket), StringComparison.OrdinalIgnoreCase))
+            {
+                idxSettings.TidalMarket = v;
+            }
             else
             {
                 Dictionary<string, string> meta = new()
@@ -1169,15 +1263,24 @@ public class Program
         Console.WriteLine("\n⬇️ Download Validation (diagnostics)");
         Console.Write("TrackId: ");
         string? track = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(track)) track = "test-track";
+        if (string.IsNullOrWhiteSpace(track))
+        {
+            track = "test-track";
+        }
 
         Console.Write("Preferred Quality (Low|High|Lossless|HiRes, default Lossless): ");
         string? q = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(q)) q = "Lossless";
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            q = "Lossless";
+        }
 
         Console.Write("DownloadPath (blank for temp): ");
         string? output = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(output)) output = Path.GetTempPath();
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            output = Path.GetTempPath();
+        }
 
         await RunDownloadValidateAsync([$"TrackId={track}", $"Quality={q}", $"DownloadPath={output}"]);
     }
@@ -1193,13 +1296,31 @@ public class Program
         foreach (string arg in args)
         {
             int i = arg.IndexOf('=');
-            if (i <= 0) continue;
+            if (i <= 0)
+            {
+                continue;
+            }
+
             string k = arg[..i];
             string v = arg[(i + 1)..];
             _ = providedKeys.Add(k);
-            if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase)) trackId = v;
-            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase)) { qualityProvided = true; rawQuality = v; if (Enum.TryParse(v, true, out TidalQuality q)) quality = q; }
-            else if (k.Equals(nameof(TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase)) dlSettings.DownloadPath = v;
+            if (k.Equals("TrackId", StringComparison.OrdinalIgnoreCase))
+            {
+                trackId = v;
+            }
+            else if (k.Equals("Quality", StringComparison.OrdinalIgnoreCase))
+            {
+                qualityProvided = true;
+                rawQuality = v;
+                if (Enum.TryParse(v, true, out TidalQuality q))
+                {
+                    quality = q;
+                }
+            }
+            else if (k.Equals(nameof(TidalDownloadClientSettings.DownloadPath), StringComparison.OrdinalIgnoreCase))
+            {
+                dlSettings.DownloadPath = v;
+            }
             else
             {
                 Dictionary<string, string> meta = new()
@@ -1216,7 +1337,11 @@ public class Program
         }
 
         if (string.IsNullOrWhiteSpace(trackId)) { Console.WriteLine("Provide TrackId="); return; }
-        if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath)) dlSettings.DownloadPath = Path.GetTempPath();
+        if (string.IsNullOrWhiteSpace(dlSettings.DownloadPath))
+        {
+            dlSettings.DownloadPath = Path.GetTempPath();
+        }
+
         if (!PathValidationExtensions.IsReasonablePath(dlSettings.DownloadPath))
         {
             Dictionary<string, string> meta = new()

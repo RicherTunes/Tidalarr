@@ -95,7 +95,7 @@ public class FileTokenStoreTests : IDisposable
         TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
 
         // Act & Assert - exception may throw in constructor (EnsureStorageDirectoryExists) or SaveTokensAsync
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
             FileTokenStore storage = new(invalidPath);
             await storage.SaveTokensAsync(tokens);
@@ -107,7 +107,9 @@ public class FileTokenStoreTests : IDisposable
         try
         {
             if (File.Exists(this._testStoragePath))
+            {
                 File.Delete(this._testStoragePath);
+            }
         }
         catch
         {
