@@ -1,0 +1,13 @@
+{
+  "$schema": "../ext/Lidarr.Plugin.Common/schemas/test-runner-allowlist.schema.json",
+  "description": "Permanent allowlist for raw dotnet test calls - Tidalarr fully migrated to unified runner",
+  "lastReviewed": "2026-01-27",
+  "patterns": [
+    {
+      "file": "*.yml",
+      "line_pattern": "--list-tests",
+      "reason": "Test discovery for reporting, not execution",
+      "owner": "infrastructure"
+    }
+  ]
+}

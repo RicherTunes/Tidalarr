@@ -1,0 +1,23 @@
+name: Weekly Quarantine Review
+
+on:
+  schedule:
+    # Run every Monday at 07:00 UTC
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  review:
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/quarantine-review-reusable.yml@main
+    with:
+      test_project: 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+      max_quarantined: 20
+      dotnet_version: '8.0.x'
+      submodule_path: 'ext/Lidarr.Plugin.Common'
+      additional_properties: '["SkipHostBridge=true"]'
+    secrets:
+      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}

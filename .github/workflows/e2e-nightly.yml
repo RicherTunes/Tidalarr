@@ -1,0 +1,63 @@
+# Nightly E2E with live APIs - comprehensive, requires credentials
+# Runs: all gates including golden-persist and authfail-redaction
+# Schedule: 04:00 UTC (off-peak, staggered from Qobuzarr at 03:00)
+
+name: E2E Nightly
+
+on:
+  schedule:
+    # Run at 04:00 UTC daily (staggered from Qobuzarr)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      run_canary:
+        description: "Also run against pr-plugins tag (allowed to fail)"
+        type: boolean
+        required: false
+        default: true
+      grab_timeout_seconds:
+        description: "Grab gate timeout (nightly can be longer)"
+        type: string
+        required: false
+        default: "600"
+
+# Prevent overlapping nightly runs (don't cancel - let them complete)
+concurrency:
+  group: e2e-nightly-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  live-e2e:
+    name: Live E2E (Full Suite)
+    timeout-minutes: 45
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/e2e-nightly-live.yml@main
+    with:
+      test_plugins: 'qobuzarr,tidalarr'
+      run_canary: ${{ inputs.run_canary || true }}
+      grab_timeout_seconds: ${{ inputs.grab_timeout_seconds || '600' }}
+    secrets:
+      CROSS_REPO_PAT: ${{ secrets.CROSS_REPO_PAT }}
+      # Tidal credentials
+      TIDALARR_REDIRECT_URL: ${{ secrets.TIDALARR_REDIRECT_URL }}
+      TIDALARR_MARKET: ${{ secrets.TIDALARR_MARKET }}
+      TIDAL_REDIRECT_URL: ${{ secrets.TIDAL_REDIRECT_URL }}
+      TIDAL_MARKET: ${{ secrets.TIDAL_MARKET }}
+      # Qobuz credentials (for multi-plugin coexistence)
+      QOBUZARR_EMAIL: ${{ secrets.QOBUZARR_EMAIL }}
+      QOBUZARR_PASSWORD: ${{ secrets.QOBUZARR_PASSWORD }}
+      QOBUZARR_USER_ID: ${{ secrets.QOBUZARR_USER_ID }}
+      QOBUZARR_AUTH_TOKEN: ${{ secrets.QOBUZARR_AUTH_TOKEN }}
+      QOBUZARR_APP_ID: ${{ secrets.QOBUZARR_APP_ID }}
+      QOBUZARR_APP_SECRET: ${{ secrets.QOBUZARR_APP_SECRET }}
+      QOBUZARR_COUNTRY_CODE: ${{ secrets.QOBUZARR_COUNTRY_CODE }}
+      QOBUZ_EMAIL: ${{ secrets.QOBUZ_EMAIL }}
+      QOBUZ_PASSWORD: ${{ secrets.QOBUZ_PASSWORD }}
+      QOBUZ_USER_ID: ${{ secrets.QOBUZ_USER_ID }}
+      QOBUZ_AUTH_TOKEN: ${{ secrets.QOBUZ_AUTH_TOKEN }}
+      QOBUZ_APP_ID: ${{ secrets.QOBUZ_APP_ID }}
+      QOBUZ_APP_SECRET: ${{ secrets.QOBUZ_APP_SECRET }}
+      QOBUZ_COUNTRY_CODE: ${{ secrets.QOBUZ_COUNTRY_CODE }}

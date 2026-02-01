@@ -26,20 +26,29 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
 
-      - name: Assert Common submodule initialized
+      - name: Assert Common submodule initialized and pinned
         shell: bash
         run: |
+          set -euo pipefail
           if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
             echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
             exit 1
           fi
           SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
           echo "✓ Common submodule initialized at $SHA"
+
+          # Strict SHA pinning: unified runner is critical infrastructure
           if [ -f ext-common-sha.txt ]; then
             EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
             if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
-              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+              echo "::error::Submodule SHA mismatch: got $SHA, expected $EXPECTED"
+              echo "The unified test runner (scripts/test.ps1) is critical infrastructure."
+              echo "Update ext-common-sha.txt or sync submodule to the pinned commit."
+              exit 1
             fi
+            echo "✓ Submodule SHA matches pinned ($EXPECTED)"
+          else
+            echo "::warning::No ext-common-sha.txt found - consider pinning for reproducibility"
           fi
 
       - name: Show Common submodule SHA
@@ -61,6 +70,26 @@ jobs:
             exit 1
           }
           & $script -Mode ci -RepoPath .
+
+      - name: Lint Test Categories
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/lint-test-categories.ps1"
+          if (-not (Test-Path $script)) {
+            Write-Error "FATAL: lint-test-categories.ps1 not found at $script - submodule likely not initialized"
+            exit 1
+          }
+          & $script -Path . -CI
+
+      - name: Lint Unified Runner Adoption
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/lint-ci-uses-runner.ps1"
+          if (-not (Test-Path $script)) {
+            Write-Warning "lint-ci-uses-runner.ps1 not found - skipping (Common submodule may need update)"
+            exit 0
+          }
+          & $script -Path . -CI
 
   build:
     runs-on: ubuntu-latest

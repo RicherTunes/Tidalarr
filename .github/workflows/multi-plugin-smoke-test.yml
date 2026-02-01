@@ -1,5 +1,10 @@
-name: 🔥 Multi-Plugin Smoke Test
-# Triggered by push/PR or manual dispatch
+# PR E2E - hermetic mode with authfail-redaction gate
+# Fast, cheap, no live credentials required
+# Runs: basic gate + authfail-redaction gate
+# Does NOT run: medium, search, grab, golden-persist (require live credentials)
+# See e2e-nightly.yml for full live E2E suite
+
+name: E2E PR Check
 
 on:
   push:
@@ -13,21 +18,24 @@ on:
       - 'src/Tidalarr/**'
       - '.github/workflows/multi-plugin-smoke-test.yml'
   workflow_dispatch:
-  schedule:
-    # Run weekly on Sundays at 2 AM UTC
-    - cron: '0 2 * * 0'
+
+# Prevent multiple PR E2E runs from piling up (billing control)
+concurrency:
+  group: e2e-pr-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  smoke-test:
-    name: 🔥 Plugin Co-existence
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/multi-plugin-smoke-test.yml@main
+  hermetic-e2e:
+    name: Hermetic E2E
+    timeout-minutes: 20
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/e2e-pr-hermetic.yml@main
     with:
-      caller_plugin: tidalarr
-      test_plugins: 'brainarr,qobuzarr,tidalarr'
+      test_plugins: 'qobuzarr,tidalarr'
+      caller_plugin: 'tidalarr'
       lidarr_tag: 'pr-plugins-3.1.1.4884'
-    secrets: inherit
-
-
+    secrets:
+      CROSS_REPO_PAT: ${{ secrets.CROSS_REPO_PAT }}
