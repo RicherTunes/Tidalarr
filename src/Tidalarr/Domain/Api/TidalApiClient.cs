@@ -42,7 +42,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["countryCode"] = tokens.CountryCode
         };
         if (this._cache?.Get<TidalTrackDto>(endpoint, parameters) is { } cachedTrack)
+        {
             return MapToTidalTrackInfo(cachedTrack);
+        }
+
         HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
@@ -56,8 +59,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
-        TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content);
-        if (dto == null) throw new InvalidOperationException("Failed to parse track response");
+        TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content) ?? throw new InvalidOperationException("Failed to parse track response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(1));
         return MapToTidalTrackInfo(dto);
     }
@@ -72,7 +74,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["countryCode"] = tokens.CountryCode
         };
         if (this._cache?.Get<TidalAlbumDto>(endpoint, parameters) is { } cachedAlbum)
+        {
             return MapToTidalAlbumInfo(cachedAlbum);
+        }
+
         HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
@@ -86,8 +91,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw2.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
-        TidalAlbumDto? dto = JsonSerializer.Deserialize<TidalAlbumDto>(content);
-        if (dto == null) throw new InvalidOperationException("Failed to parse album response");
+        TidalAlbumDto? dto = JsonSerializer.Deserialize<TidalAlbumDto>(content) ?? throw new InvalidOperationException("Failed to parse album response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(2));
         return MapToTidalAlbumInfo(dto);
     }
@@ -103,7 +107,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["limit"] = TidalConstants.DEFAULT_ITEM_LIMIT.ToString()
         };
         if (this._cache?.Get<TidalAlbumTracksDto>(endpoint, parameters) is { } cached)
+        {
             return [.. (cached.items ?? []).Select(MapToTidalTrackInfo)];
+        }
+
         HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
@@ -117,10 +124,12 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw3.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
-        TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content);
-        if (dto == null) throw new InvalidOperationException("Failed to parse album tracks response");
+        TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
         if (dto.items == null)
+        {
             throw new InvalidOperationException("Album tracks response missing items collection.");
+        }
+
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(2));
         return [.. (dto.items ?? []).Select(MapToTidalTrackInfo)];
     }
@@ -152,7 +161,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["countryCode"] = tokens.CountryCode
         };
         if (this._cache?.Get<TidalSearchResponseDto>(endpoint, parameters) is { } cached)
+        {
             return MapToTidalSearchResults(cached);
+        }
+
         HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
@@ -166,8 +178,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._logger.LogApiCallComplete(endpoint, correlationId, (int)response.StatusCode, sw4.ElapsedMilliseconds);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
-        TidalSearchResponseDto? dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content);
-        if (dto == null) throw new InvalidOperationException("Failed to parse search response");
+        TidalSearchResponseDto? dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content) ?? throw new InvalidOperationException("Failed to parse search response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromMinutes(5));
         return MapToTidalSearchResults(dto);
     }
@@ -192,8 +203,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
-        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
-        if (dto == null) throw new InvalidOperationException("Failed to parse playback info");
+        TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content) ?? throw new InvalidOperationException("Failed to parse playback info");
         string? encryptionType = dto.encryptionType;
         bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
         string? securityToken = dto.securityToken;
@@ -265,20 +275,31 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static TidalTrackInfo MapToTidalTrackInfo(TidalTrackDto dto)
     {
         if (dto.album == null)
+        {
             throw new InvalidOperationException("Track response missing album information.");
+        }
+
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
+        {
             artistNames.Add(dto.artist!.name!);
+        }
+
         if (dto.artists != null)
         {
             foreach (TidalArtistDto artist in dto.artists)
             {
                 if (!string.IsNullOrWhiteSpace(artist?.name))
+                {
                     artistNames.Add(artist!.name!);
+                }
             }
         }
         if (artistNames.Count == 0)
+        {
             artistNames.Add("Unknown Artist");
+        }
+
         string albumId = dto.album?.id.ToString() ?? string.Empty;
         string albumTitle = dto.album?.title ?? string.Empty;
         // Extract primary artist ID when available (> 0)
@@ -304,7 +325,9 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
 
         // First try singular artist (from album detail responses)
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
+        {
             artistNames.Add(dto.artist!.name!);
+        }
 
         // Then add from artists array (from search results and detail responses)
         if (dto.artists != null)
@@ -312,12 +335,16 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             foreach (TidalArtistDto artist in dto.artists)
             {
                 if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name))
+                {
                     artistNames.Add(artist!.name!);
+                }
             }
         }
 
         if (artistNames.Count == 0)
+        {
             artistNames.Add("Unknown Artist");
+        }
         // Extract primary artist ID when available (> 0)
         long? primaryArtistId = dto.artist?.id > 0 ? dto.artist.id : null;
         return new TidalAlbumInfo(
@@ -334,7 +361,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static TidalSearchResults MapToTidalSearchResults(TidalSearchResponseDto dto)
     {
         if (dto.albums?.items == null || dto.tracks?.items == null)
+        {
             throw new ArgumentNullException(nameof(dto), "Search response missing album or track collections.");
+        }
+
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
         List<TidalArtistDto> artistDtos = dto.artists?.items ?? [];

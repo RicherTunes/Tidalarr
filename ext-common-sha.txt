@@ -1,4 +1,1 @@
-# Expected Common submodule SHA
-# This file must match the gitlink in ext/Lidarr.Plugin.Common
-# CI will fail if they differ - prevents submodule drift
-e87426eae9bbdaebfc42fac6a0a47b6cec37a72f
+8b538e7a5ee5f286c08e34261e30c9a1ac57f24e

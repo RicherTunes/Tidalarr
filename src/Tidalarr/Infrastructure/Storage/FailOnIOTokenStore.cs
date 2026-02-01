@@ -1,4 +1,3 @@
-using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Infrastructure.Storage;

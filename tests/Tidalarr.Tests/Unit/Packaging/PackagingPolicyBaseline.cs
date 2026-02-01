@@ -40,9 +40,9 @@ internal sealed partial record PackagingPolicyBaseline(
             return Default;
         }
 
-        HashSet<string> required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        HashSet<string> optional = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        HashSet<string> forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> required = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> optional = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> forbidden = new(StringComparer.OrdinalIgnoreCase);
 
         Mode mode = Mode.None;
         foreach (string rawLine in File.ReadAllLines(baselinePath))
@@ -107,9 +107,9 @@ internal sealed partial record PackagingPolicyBaseline(
         return required.Count == 0 && optional.Count == 0 && forbidden.Count == 0
             ? Default
             : new PackagingPolicyBaseline(
-            RequiredAssemblies: required.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(),
-            OptionalAssemblies: optional.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(),
-            ForbiddenAssemblies: forbidden.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray());
+            RequiredAssemblies: [.. required.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)],
+            OptionalAssemblies: [.. optional.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)],
+            ForbiddenAssemblies: [.. forbidden.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)]);
     }
 
     private enum Mode

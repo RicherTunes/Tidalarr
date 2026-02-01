@@ -41,16 +41,14 @@ public static class PackagingTestPaths
     public static string RequirePackagePath()
     {
         string? path = TryFindPackagePath();
-        return path != null
-            ? path
-            : throw new InvalidOperationException(
+        return path ?? throw new InvalidOperationException(
             "Tidalarr package not found. Run `./build.ps1 -Package -Configuration Release` " +
             "or set `TIDALARR_PACKAGE_PATH` to a package zip.");
     }
 
     public static string? TryFindRepoRoot()
     {
-        DirectoryInfo? current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        DirectoryInfo? current = new(Directory.GetCurrentDirectory());
         for (int i = 0; i < 8 && current != null; i++, current = current.Parent)
         {
             if (File.Exists(Path.Combine(current.FullName, "Tidalarr.sln")))
@@ -81,10 +79,9 @@ public static class PackagingTestPaths
 
     private static bool IsTruthy(string? value)
     {
-        return string.IsNullOrWhiteSpace(value)
-            ? false
-            : string.Equals(value, "1", StringComparison.Ordinal)
-               || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        return !string.IsNullOrWhiteSpace(value)
+&& (string.Equals(value, "1", StringComparison.Ordinal)
+               || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
     }
 }
 

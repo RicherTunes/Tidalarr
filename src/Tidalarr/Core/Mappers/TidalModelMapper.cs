@@ -193,7 +193,7 @@ public class TidalModelMapper
                     ["tidal_id"] = album.Id ?? string.Empty,
                     ["tidal_type"] = "album",
                     ["available_qualities"] = album.AvailableQualities != null ? string.Join(",", album.AvailableQualities) : string.Empty,
-                    ["is_hires"] = album.AvailableQualities != null && album.AvailableQualities.Contains(Tidalarr.Core.Models.TidalQuality.HiRes)
+                    ["is_hires"] = album.AvailableQualities != null && album.AvailableQualities.Contains(TidalQuality.HiRes)
                 }
             }));
         }
@@ -216,7 +216,7 @@ public class TidalModelMapper
                     ["tidal_id"] = track.Id ?? string.Empty,
                     ["tidal_type"] = "track",
                     ["quality"] = track.Quality.ToString(),
-                    ["is_hires"] = track.Quality == Tidalarr.Core.Models.TidalQuality.HiRes
+                    ["is_hires"] = track.Quality == TidalQuality.HiRes
                 }
             }));
         }

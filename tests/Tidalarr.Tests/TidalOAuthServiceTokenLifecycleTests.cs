@@ -13,7 +13,7 @@ public class TidalOAuthServiceTokenLifecycleTests
     {
         TidalTokens expired = new("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
         MemoryTokenStorage storage = new(expired);
-        Domain.Authentication.TidalTokenResponse refreshResponse = new Domain.Authentication.TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new TidalUserResponse("sess2", "US", 123));
+        Domain.Authentication.TidalTokenResponse refreshResponse = new("new_access", "new_refresh", "Bearer", 3600, new TidalUserResponse("sess2", "US", 123));
         HttpClient http = new(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
         TidalOAuthService svc = new(http, storage);

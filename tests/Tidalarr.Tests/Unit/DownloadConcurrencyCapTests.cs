@@ -1,5 +1,4 @@
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -17,7 +16,7 @@ public class DownloadConcurrencyCapTests
     [InlineData(3, 8, 2)]
     public void GetEffectiveMaxConcurrentChunkDownloads_ClampsToCombinedCap(int tracks, int chunks, int expectedEffectiveChunks)
     {
-        var settings = new TidalDownloadClientSettings
+        TidalDownloadClientSettings settings = new()
         {
             MaxConcurrentTrackDownloads = tracks,
             MaxConcurrentChunkDownloads = chunks

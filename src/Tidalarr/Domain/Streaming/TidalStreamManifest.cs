@@ -176,9 +176,13 @@ public class StreamManifest
         // Tidal always delivers in M4A containers, regardless of codec inside
         // FLAC codec is inside M4A container
         if (codecsAttr.Contains("flac"))
+        {
             return ".m4a"; // FLAC inside M4A - will extract later if needed
+        }
         else
+        {
             return ".m4a"; // AAC inside M4A
+        }
     }
 }
 

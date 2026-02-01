@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;
 
@@ -7,14 +6,9 @@ namespace Tidalarr.Tests.Unit;
 
 public class TidalChunkDownloaderFileBackedTests
 {
-    private sealed class StubHandler : HttpMessageHandler
+    private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> handler) : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> handler;
-
-        public StubHandler(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> handler)
-        {
-            this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
-        }
+        private readonly Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> handler = handler ?? throw new ArgumentNullException(nameof(handler));
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -31,30 +25,27 @@ public class TidalChunkDownloaderFileBackedTests
             "http://example.test/chunk/2"
         ];
 
-        var chunkMap = new Dictionary<string, byte[]>
+        Dictionary<string, byte[]> chunkMap = new()
         {
             [urls[0]] = [1, 2, 3],
             [urls[1]] = [4, 5]
         };
 
-        var handler = new StubHandler((req, _) =>
+        StubHandler handler = new((req, _) =>
         {
-            var url = req.RequestUri?.ToString() ?? string.Empty;
-            if (!chunkMap.TryGetValue(url, out var payload))
-            {
-                return new HttpResponseMessage(HttpStatusCode.NotFound);
-            }
-
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new ByteArrayContent(payload)
-            };
+            string url = req.RequestUri?.ToString() ?? string.Empty;
+            return !chunkMap.TryGetValue(url, out byte[]? payload)
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(payload)
+                };
         });
 
-        using var httpClient = new HttpClient(handler);
-        var downloader = new TidalChunkDownloader(httpClient);
+        using HttpClient httpClient = new(handler);
+        TidalChunkDownloader downloader = new(httpClient);
 
-        var manifest = new TidalManifest(
+        TidalManifest manifest = new(
             ChunkUrls: urls,
             Codec: "AAC",
             MimeType: "audio/mp4",
@@ -65,13 +56,13 @@ public class TidalChunkDownloaderFileBackedTests
             SecurityToken: null);
 
         string? filePath = null;
-        await using (var stream = await downloader.DownloadAndAssembleToFileStreamAsync(manifest, chunkDelayMs: 0))
+        await using (Stream stream = await downloader.DownloadAndAssembleToFileStreamAsync(manifest, chunkDelayMs: 0))
         {
-            var fileStream = Assert.IsType<FileStream>(stream);
+            FileStream fileStream = Assert.IsType<FileStream>(stream);
             filePath = fileStream.Name;
             Assert.True(File.Exists(filePath));
 
-            using var ms = new MemoryStream();
+            using MemoryStream ms = new();
             await stream.CopyToAsync(ms);
             Assert.Equal([1, 2, 3, 4, 5], ms.ToArray());
         }
@@ -90,17 +81,17 @@ public class TidalChunkDownloaderFileBackedTests
             "http://example.test/chunk/3"
         ];
 
-        var chunkMap = new Dictionary<string, (byte[] payload, int delayMs)>
+        Dictionary<string, (byte[] payload, int delayMs)> chunkMap = new()
         {
             [urls[0]] = ([1], 150),
             [urls[1]] = ([2], 0),
             [urls[2]] = ([3], 50)
         };
 
-        var handler = new DelayedHandler(async (req, ct) =>
+        DelayedHandler handler = new(async (req, ct) =>
         {
-            var url = req.RequestUri?.ToString() ?? string.Empty;
-            if (!chunkMap.TryGetValue(url, out var entry))
+            string url = req.RequestUri?.ToString() ?? string.Empty;
+            if (!chunkMap.TryGetValue(url, out (byte[] payload, int delayMs) entry))
             {
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
             }
@@ -116,10 +107,10 @@ public class TidalChunkDownloaderFileBackedTests
             };
         });
 
-        using var httpClient = new HttpClient(handler);
-        var downloader = new TidalChunkDownloader(httpClient);
+        using HttpClient httpClient = new(handler);
+        TidalChunkDownloader downloader = new(httpClient);
 
-        var manifest = new TidalManifest(
+        TidalManifest manifest = new(
             ChunkUrls: urls,
             Codec: "AAC",
             MimeType: "audio/mp4",
@@ -129,20 +120,15 @@ public class TidalChunkDownloaderFileBackedTests
             KeyId: null,
             SecurityToken: null);
 
-        await using var stream = await downloader.DownloadAndAssembleToFileStreamAsync(manifest, chunkDelayMs: 0, maxConcurrentChunkDownloads: 3);
-        using var ms = new MemoryStream();
+        await using Stream stream = await downloader.DownloadAndAssembleToFileStreamAsync(manifest, chunkDelayMs: 0, maxConcurrentChunkDownloads: 3);
+        using MemoryStream ms = new();
         await stream.CopyToAsync(ms);
         Assert.Equal([1, 2, 3], ms.ToArray());
     }
 
-    private sealed class DelayedHandler : HttpMessageHandler
+    private sealed class DelayedHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler) : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler;
-
-        public DelayedHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-        {
-            this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
-        }
+        private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler = handler ?? throw new ArgumentNullException(nameof(handler));
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

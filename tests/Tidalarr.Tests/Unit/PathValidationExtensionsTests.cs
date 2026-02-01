@@ -1,4 +1,3 @@
-using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Tidalarr.Tests.Unit;
@@ -9,7 +8,7 @@ public class PathValidationExtensionsTests
     public void IsReasonablePath_OsNativeTempPath_ReturnsTrue()
     {
         // Use OS-native temp path - works on both Windows and Linux
-        var path = Path.Combine(Path.GetTempPath(), "test", "file.txt");
+        string path = Path.Combine(Path.GetTempPath(), "test", "file.txt");
         Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 
@@ -17,7 +16,7 @@ public class PathValidationExtensionsTests
     public void IsReasonablePath_OsNativeAbsolutePath_ReturnsTrue()
     {
         // Use OS-appropriate absolute path
-        var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        string path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? @"C:\temp\file.txt"
             : "/tmp/file.txt";
         Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
@@ -42,8 +41,8 @@ public class PathValidationExtensionsTests
         // - Does NOT enforce OS-specific rules (avoids host dependencies)
         // 
         // Therefore, Windows drive paths are considered "reasonable" on all platforms
-        var path = "C:/temp/file.txt";
-        
+        string path = "C:/temp/file.txt";
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path),
@@ -68,7 +67,7 @@ public class PathValidationExtensionsTests
         //
         // Therefore, UNC paths are considered "reasonable" on all platforms
         string unc = "\\\\server\\share\\folder";
-        
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc),
@@ -88,7 +87,7 @@ public class PathValidationExtensionsTests
     {
         // Use OS-appropriate long path
         string longSegment = new('a', 200);
-        var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        string path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? $"C:/{longSegment}/file"
             : $"/tmp/{longSegment}/file";
 

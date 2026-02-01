@@ -96,7 +96,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
     }
 
     /// <summary>
-    /// File-backed variant of <see cref="DownloadAndAssembleAsync(TidalManifest,int,System.IProgress{ChunkDownloadProgress}?,System.Threading.CancellationToken)"/>
+    /// File-backed variant of <see cref="DownloadAndAssembleAsync(TidalManifest,int,System.IProgress{ChunkDownloadProgress}?,CancellationToken)"/>
     /// intended for use by streaming orchestrators to avoid assembling full tracks in memory.
     /// </summary>
     public async Task<Stream> DownloadAndAssembleToFileStreamAsync(
@@ -154,12 +154,12 @@ public class TidalChunkDownloader(HttpClient httpClient)
             else
             {
                 string chunkDir = Path.Combine(Path.GetTempPath(), $"tidalarr_chunks_{Guid.NewGuid():N}");
-                Directory.CreateDirectory(chunkDir);
+                _ = Directory.CreateDirectory(chunkDir);
 
-                var chunkPaths = new string[manifest.ChunkUrls.Length];
-                var tasks = new Task[manifest.ChunkUrls.Length];
-                var semaphore = new SemaphoreSlim(maxConcurrentChunkDownloads, maxConcurrentChunkDownloads);
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                string[] chunkPaths = new string[manifest.ChunkUrls.Length];
+                Task[] tasks = new Task[manifest.ChunkUrls.Length];
+                SemaphoreSlim semaphore = new(maxConcurrentChunkDownloads, maxConcurrentChunkDownloads);
+                using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
                 try
                 {
@@ -285,12 +285,12 @@ public class TidalChunkDownloader(HttpClient httpClient)
             else
             {
                 string chunkDir = Path.Combine(Path.GetTempPath(), $"tidalarr_chunks_{Guid.NewGuid():N}");
-                Directory.CreateDirectory(chunkDir);
+                _ = Directory.CreateDirectory(chunkDir);
 
-                var chunkPaths = new string[streamInfo.ChunkUrls.Length];
-                var tasks = new Task[streamInfo.ChunkUrls.Length];
-                var semaphore = new SemaphoreSlim(maxConcurrentChunkDownloads, maxConcurrentChunkDownloads);
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                string[] chunkPaths = new string[streamInfo.ChunkUrls.Length];
+                Task[] tasks = new Task[streamInfo.ChunkUrls.Length];
+                SemaphoreSlim semaphore = new(maxConcurrentChunkDownloads, maxConcurrentChunkDownloads);
+                using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
                 try
                 {
@@ -373,7 +373,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
         }
         finally
         {
-            semaphore.Release();
+            _ = semaphore.Release();
         }
     }
 
@@ -399,7 +399,9 @@ public class TidalChunkDownloader(HttpClient httpClient)
         try
         {
             if (chunkUrls.Length == 0)
+            {
                 return false;
+            }
 
             using HttpResponseMessage response = await this._httpClient.GetAsync(chunkUrls[0], HttpCompletionOption.ResponseHeadersRead);
             return response.IsSuccessStatusCode;

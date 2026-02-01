@@ -88,7 +88,10 @@ public sealed class TidalarrPlugin : IPlugin
     {
         const string OK = "CFG000";
         PluginOperationResult<Dictionary<string, string>> check = ValidateSettingsWithDiagnostics(settings);
-        if (!check.IsSuccess) return check;
+        if (!check.IsSuccess)
+        {
+            return check;
+        }
 
         this._settings = MapToSettings(settings);
         RebuildServiceProvider();
@@ -136,9 +139,21 @@ public sealed class TidalarrPlugin : IPlugin
     private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
     {
         TidalarrSettings s = new();
-        if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out object? cp) && cp is string cpStr) s.ConfigPath = cpStr;
-        if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out object? ru) && ru is string ruStr) s.RedirectUrl = ruStr;
-        if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out object? dp) && dp is string dpStr) s.DownloadPath = dpStr;
+        if (map.TryGetValue(nameof(TidalarrSettings.ConfigPath), out object? cp) && cp is string cpStr)
+        {
+            s.ConfigPath = cpStr;
+        }
+
+        if (map.TryGetValue(nameof(TidalarrSettings.RedirectUrl), out object? ru) && ru is string ruStr)
+        {
+            s.RedirectUrl = ruStr;
+        }
+
+        if (map.TryGetValue(nameof(TidalarrSettings.DownloadPath), out object? dp) && dp is string dpStr)
+        {
+            s.DownloadPath = dpStr;
+        }
+
         if (map.TryGetValue(nameof(TidalarrSettings.PreferredQuality), out object? pq))
         {
             if (pq is string pqStr && Enum.TryParse(pqStr, ignoreCase: true, out Core.Models.TidalQuality parsedEnum))

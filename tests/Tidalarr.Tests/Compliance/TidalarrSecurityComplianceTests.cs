@@ -31,7 +31,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Credentials_NoHardcodedSecrets()
     {
         if (this._sourceCodePath == null)
+        {
             return; // Skip if source code not available
+        }
 
         string[] credentialPatterns =
         [
@@ -51,7 +53,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
             // Skip test files
             if (fileName.Contains("Test", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             foreach (string? pattern in credentialPatterns)
             {
@@ -103,7 +107,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Network_UsesHttpsForExternalCommunication()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         Regex httpPattern = MyRegex();
@@ -116,7 +122,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
 
             // Skip test files
             if (fileName.Contains("Test", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             MatchCollection matches = httpPattern.Matches(content);
             foreach (Match match in matches)
@@ -137,7 +145,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Network_NoCertificateValidationBypass()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         string[] unsafePatterns =
@@ -181,7 +191,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void InputValidation_NoSqlInjectionVulnerabilities()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         Regex sqlPattern = MyRegex1();
@@ -203,7 +215,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void InputValidation_PathValidation()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         Regex pathPattern = new(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
@@ -238,7 +252,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Logging_NoSensitiveDataInLogs()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         string[] logPatterns =
@@ -278,7 +294,9 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Tidal_NoApiKeysInUrls()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
         List<string> issues = [];
@@ -306,11 +324,15 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Tidal_UsesHttpsForApi()
     {
         if (this._sourceCodePath == null)
+        {
             return;
+        }
 
         string constantsFile = Path.Combine(this._sourceCodePath, "Core", "Constants", "TidalConstants.cs");
         if (!File.Exists(constantsFile))
+        {
             return;
+        }
 
         string content = File.ReadAllText(constantsFile);
 
