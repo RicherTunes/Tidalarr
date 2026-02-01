@@ -16,7 +16,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_settings.ExtractFlac)
+        if (!this._settings.ExtractFlac)
         {
             return filePath;
         }

@@ -7,7 +7,7 @@ public class TidalDownloadClientHostSettingsParityTests
     [Fact]
     public void ToCore_Should_Map_All_UserVisible_Fields()
     {
-        var host = new TidalDownloadClientHostSettings
+        TidalDownloadClientHostSettings host = new()
         {
             PreferredQuality = TidalQualityHost.HiRes,
             DownloadPath = "C:/out",
@@ -21,7 +21,7 @@ public class TidalDownloadClientHostSettingsParityTests
             MaxConcurrentChunkDownloads = 2
         };
 
-        var core = host.ToCore();
+        Integration.TidalDownloadClientSettings core = host.ToCore();
 
         Assert.Equal(Core.Models.TidalQuality.HiRes, core.PreferredQuality);
         Assert.Equal(host.DownloadPath, core.DownloadPath);

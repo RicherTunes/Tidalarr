@@ -109,7 +109,10 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         {
             TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumAsync(albumId);
             StreamingAlbum mapped = this._mapper.ToStreamingAlbum(tidalAlbum);
-            if (mapped != null) return mapped;
+            if (mapped != null)
+            {
+                return mapped;
+            }
         }
         catch (Exception ex)
         {
@@ -128,9 +131,15 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         ValidationResult result = new();
         if (string.IsNullOrEmpty(settings.TidalMarket))
+        {
             result.Errors.Add(new ValidationFailure("TidalMarket", "Tidal market is required"));
+        }
+
         if (string.IsNullOrEmpty(settings.ConfigPath))
+        {
             result.Errors.Add(new ValidationFailure("ConfigPath", "Config path is required"));
+        }
+
         return result;
     }
 

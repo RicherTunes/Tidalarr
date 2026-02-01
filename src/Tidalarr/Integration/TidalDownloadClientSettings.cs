@@ -47,12 +47,7 @@ public class TidalDownloadClientSettings : BaseStreamingSettings
         int tracks = Math.Max(1, MaxConcurrentTrackDownloads);
         int chunks = Math.Max(1, MaxConcurrentChunkDownloads);
 
-        if (tracks * chunks <= MaxCombinedDownloadConcurrency)
-        {
-            return chunks;
-        }
-
-        return Math.Max(1, MaxCombinedDownloadConcurrency / tracks);
+        return tracks * chunks <= MaxCombinedDownloadConcurrency ? chunks : Math.Max(1, MaxCombinedDownloadConcurrency / tracks);
     }
 
     public override string BaseUrl { get; set; } = "https://api.tidal.com";

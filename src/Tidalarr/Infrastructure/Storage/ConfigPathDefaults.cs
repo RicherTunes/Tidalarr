@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-
 namespace Tidalarr.Infrastructure.Storage;
 
 internal static class ConfigPathDefaults

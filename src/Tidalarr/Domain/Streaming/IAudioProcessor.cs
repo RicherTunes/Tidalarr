@@ -22,7 +22,11 @@ public class SystemAudioProcessor : IAudioProcessor
             CreateNoWindow = true
         };
         using Process? p = Process.Start(psi);
-        if (p == null) return (-1, string.Empty, "failed to start ffmpeg");
+        if (p == null)
+        {
+            return (-1, string.Empty, "failed to start ffmpeg");
+        }
+
         Task<string> stdOutTask = p.StandardOutput.ReadToEndAsync();
         Task<string> stdErrTask = p.StandardError.ReadToEndAsync();
         await p.WaitForExitAsync(ct);
@@ -41,7 +45,11 @@ public class SystemAudioProcessor : IAudioProcessor
             CreateNoWindow = true
         };
         using Process? p = Process.Start(psi);
-        if (p == null) return (-1, string.Empty, "failed to start ffprobe");
+        if (p == null)
+        {
+            return (-1, string.Empty, "failed to start ffprobe");
+        }
+
         p.WaitForExit();
         string stdout = p.StandardOutput.ReadToEnd();
         string stderr = p.StandardError.ReadToEnd();

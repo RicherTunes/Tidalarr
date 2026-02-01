@@ -8,14 +8,14 @@ public class PKCEStateStoreTests
     [Fact]
     public void IsCallbackStateMatch_WhenStateMatches_ReturnsTrue()
     {
-        var state = new PKCEState("url", "verifier", "abc", "key", DateTime.UtcNow);
+        PKCEState state = new("url", "verifier", "abc", "key", DateTime.UtcNow);
         Assert.True(PKCEStateStore.IsCallbackStateMatch(state, "abc"));
     }
 
     [Fact]
     public void IsCallbackStateMatch_WhenStateDiffers_ReturnsFalse()
     {
-        var state = new PKCEState("url", "verifier", "abc", "key", DateTime.UtcNow);
+        PKCEState state = new("url", "verifier", "abc", "key", DateTime.UtcNow);
         Assert.False(PKCEStateStore.IsCallbackStateMatch(state, "def"));
     }
 
@@ -24,7 +24,7 @@ public class PKCEStateStoreTests
     [InlineData(" ")]
     public void IsCallbackStateMatch_WhenCallbackStateMissing_ReturnsFalse(string callbackState)
     {
-        var state = new PKCEState("url", "verifier", "abc", "key", DateTime.UtcNow);
+        PKCEState state = new("url", "verifier", "abc", "key", DateTime.UtcNow);
         Assert.False(PKCEStateStore.IsCallbackStateMatch(state, callbackState));
     }
 
