@@ -11,6 +11,15 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
 - Be aware that this project shares a common library with http://github.com/RicherTunes/Lidarr.Plugin.Common so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
 
+## 🎯 Lidarr Runtime Requirements (Verified 2026-02-01)
+
+| Branch | .NET Version | Docker Image | Lidarr Version |
+|--------|--------------|--------------|----------------|
+| **nightly** (plugins merged) | **.NET 8.0** | `ghcr.io/hotio/lidarr:nightly` | 3.1.2.4914+ |
+| ~~pr-plugins-2.14.x~~ | ~~.NET 6.0~~ | ~~`ghcr.io/hotio/lidarr:pr-plugins-2.14.2.4786`~~ | ~~2.14.x~~ (OUTDATED) |
+
+**CRITICAL**: As of Lidarr 3.1.x, the plugins/nightly branch runs on **.NET 8.0**. The plugin **MUST** target `net8.0`.
+
 ## Build Commands
 
 ### **Development Builds (with CLI tools)**
