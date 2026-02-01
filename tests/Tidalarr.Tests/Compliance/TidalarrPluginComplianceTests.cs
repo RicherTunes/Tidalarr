@@ -9,8 +9,7 @@ namespace Tidalarr.Tests.Compliance;
 /// Plugin compliance tests for Tidalarr.
 /// These tests verify the plugin meets the minimum quality bar for Lidarr plugins.
 /// </summary>
-[Trait("Category", "Compliance")]
-[Trait("Category", "Plugin")]
+[Trait("Area", "Compliance/Plugin")]
 public class TidalarrPluginComplianceTests : IDisposable
 {
     private readonly Assembly _pluginAssembly;

@@ -51,7 +51,7 @@ public class TidalIndexerAuthExceptionTests
     {
         TidalIndexerSettings settings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
         ThrowAuthCore core = new();
-        TidalIndexer indexer = new(new TidalSearchService(core, new Domain.Quality.TidalQualityDetector()), core, settings, NullLogger.Instance);
+        TidalIndexer indexer = new(new TidalSearchService(core, new Domain.Quality.TidalQualityDetector(), null), core, settings, NullLogger.Instance);
         FluentValidation.Results.ValidationResult res = await indexer.InitializeAsync();
         Assert.False(res.IsValid);
     }

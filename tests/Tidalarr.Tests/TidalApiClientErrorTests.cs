@@ -15,7 +15,7 @@ public class TidalApiClientErrorTests
     {
         HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.BadRequest));
         MockAuth auth = new();
-        TidalApiClient client = new(httpClient, auth);
+        TidalApiClient client = new(httpClient, auth, null);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetTrackAsync("123"));
     }
@@ -25,7 +25,7 @@ public class TidalApiClientErrorTests
     {
         HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.BadGateway));
         MockAuth auth = new();
-        TidalApiClient client = new(httpClient, auth);
+        TidalApiClient client = new(httpClient, auth, null);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAlbumAsync("al1"));
     }
@@ -35,7 +35,7 @@ public class TidalApiClientErrorTests
     {
         HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.ServiceUnavailable));
         MockAuth auth = new();
-        TidalApiClient client = new(httpClient, auth);
+        TidalApiClient client = new(httpClient, auth, null);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAlbumTracksAsync("al1"));
     }
@@ -45,7 +45,7 @@ public class TidalApiClientErrorTests
     {
         HttpClient httpClient = new(new ApiMockHttpMessageHandler("", HttpStatusCode.GatewayTimeout));
         MockAuth auth = new();
-        TidalApiClient client = new(httpClient, auth);
+        TidalApiClient client = new(httpClient, auth, null);
 
         _ = await Assert.ThrowsAsync<HttpRequestException>(() => client.SearchAsync("abc"));
     }
@@ -55,7 +55,7 @@ public class TidalApiClientErrorTests
     {
         HttpClient httpClient = new(new ApiMockHttpMessageHandler("not-json", HttpStatusCode.OK));
         MockAuth auth = new();
-        TidalApiClient client = new(httpClient, auth);
+        TidalApiClient client = new(httpClient, auth, null);
 
         _ = await Assert.ThrowsAsync<JsonException>(() => client.GetTrackAsync("123"));
     }

@@ -9,8 +9,7 @@ namespace Tidalarr.Tests.Compliance;
 /// Security compliance tests for Tidalarr.
 /// These tests scan for common security vulnerabilities and best practice violations.
 /// </summary>
-[Trait("Category", "Compliance")]
-[Trait("Category", "Security")]
+[Trait("Area", "Compliance/Security")]
 public partial class TidalarrSecurityComplianceTests : IDisposable
 {
     private readonly Assembly _pluginAssembly;

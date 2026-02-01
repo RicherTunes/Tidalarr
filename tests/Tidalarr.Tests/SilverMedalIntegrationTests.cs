@@ -55,8 +55,7 @@ public class SilverMedalIntegrationTests
         TidalDownloadClientSettings downloadSettings = CreateValidDownloadSettings();
 
         HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
+        TidalOAuthService authService = new(httpClient);
 
         TidalAuthUrl authUrl = await authService.GenerateAuthUrlAsync();
         Assert.NotNull(authUrl);
@@ -93,7 +92,7 @@ public class SilverMedalIntegrationTests
         Assert.Contains(TidalarrValidationCodes.RedirectRequired, errorCodes);
         Assert.Contains(TidalarrValidationCodes.ConfigPathRequired, errorCodes);
 
-        TidalOAuthService authService = new(new HttpClient(), new PKCEGenerator());
+        TidalOAuthService authService = new(new HttpClient());
 
         TidalCallbackResult invalidCallback1 = authService.ParseCallbackUrl("not-a-url");
         Assert.False(invalidCallback1.IsSuccess);
@@ -149,8 +148,7 @@ public class SilverMedalIntegrationTests
     private static async Task<TidalAuthUrl> SimulateOAuthFlow()
     {
         HttpClient httpClient = new();
-        PKCEGenerator pkceGenerator = new();
-        TidalOAuthService authService = new(httpClient, pkceGenerator);
+        TidalOAuthService authService = new(httpClient);
 
         return await authService.GenerateAuthUrlAsync();
     }

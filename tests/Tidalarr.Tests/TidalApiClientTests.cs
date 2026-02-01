@@ -23,7 +23,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockSearchResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth, null);
 
         // Act
         TidalSearchResults results = await apiClient.SearchAsync("test query");
@@ -53,7 +53,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockTrackResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth, null);
 
         // Act
         TidalTrackInfo track = await apiClient.GetTrackAsync("123");
@@ -80,7 +80,7 @@ public class TidalApiClientTests
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockStreamResponse));
         ITidalAuth mockAuth = CreateAuthenticatedMockAuth();
-        TidalApiClient apiClient = new(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth, null);
 
         // Act
         TidalStreamInfo streamInfo = await apiClient.GetStreamInfoAsync("123", TidalQuality.Lossless);
@@ -98,7 +98,7 @@ public class TidalApiClientTests
         // Arrange
         HttpClient httpClient = new();
         ITidalAuth mockAuth = CreateNotAuthenticatedMockAuth();
-        TidalApiClient apiClient = new(httpClient, mockAuth);
+        TidalApiClient apiClient = new(httpClient, mockAuth, null);
 
         // Act & Assert
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>

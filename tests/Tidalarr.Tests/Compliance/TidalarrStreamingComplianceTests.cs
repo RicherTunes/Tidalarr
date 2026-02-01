@@ -8,8 +8,7 @@ namespace Tidalarr.Tests.Compliance;
 /// Streaming service compliance tests for Tidalarr.
 /// These tests verify Tidalarr implements all required streaming service patterns.
 /// </summary>
-[Trait("Category", "Compliance")]
-[Trait("Category", "Streaming")]
+[Trait("Area", "Compliance/Streaming")]
 public class TidalarrStreamingComplianceTests : IDisposable
 {
     private readonly Assembly _pluginAssembly;
