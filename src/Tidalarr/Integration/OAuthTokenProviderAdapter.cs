@@ -18,7 +18,11 @@ namespace Tidalarr.Integration
             try
             {
                 Core.Models.TidalTokens tokens = await this._auth.GetValidTokensAsync();
-                if (string.IsNullOrEmpty(tokens.RefreshToken)) return string.Empty;
+                if (string.IsNullOrEmpty(tokens.RefreshToken))
+                {
+                    return string.Empty;
+                }
+
                 Core.Models.TidalTokens refreshed = await this._auth.RefreshTokensAsync(tokens.RefreshToken);
                 return refreshed.AccessToken;
             }

@@ -20,6 +20,15 @@ public sealed class FlexibleLongJsonConverter : JsonConverter<long>
                 ? value
                 : 0,
             JsonTokenType.Null => 0,
+            JsonTokenType.None => throw new NotImplementedException(),
+            JsonTokenType.StartObject => throw new NotImplementedException(),
+            JsonTokenType.EndObject => throw new NotImplementedException(),
+            JsonTokenType.StartArray => throw new NotImplementedException(),
+            JsonTokenType.EndArray => throw new NotImplementedException(),
+            JsonTokenType.PropertyName => throw new NotImplementedException(),
+            JsonTokenType.Comment => throw new NotImplementedException(),
+            JsonTokenType.True => throw new NotImplementedException(),
+            JsonTokenType.False => throw new NotImplementedException(),
             _ => throw new JsonException($"Unexpected token {reader.TokenType} when parsing a long value.")
         };
     }

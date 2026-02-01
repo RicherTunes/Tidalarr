@@ -29,7 +29,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     {
         (string codeVerifier, string codeChallenge) = this._pkceGenerator.GeneratePair();
         string state = GenerateSecureState();
-        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);        
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
         string authUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey, TidalConstants.OAUTH_SCOPE);
         return Task.FromResult(new TidalAuthUrl(authUrl, codeVerifier, state, clientUniqueKey));
     }
@@ -42,8 +42,8 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     protected override Task<string> BuildAuthorizationUrlAsync(string codeChallenge, string state, string redirectUri, IEnumerable<string> scopes)
     {
-        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);        
-        string scopeString = string.Join(' ', scopes ?? Array.Empty<string>()).Trim();
+        string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
+        string scopeString = string.Join(' ', scopes ?? []).Trim();
         return Task.FromResult(BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey, scopeString));
     }
 
@@ -91,7 +91,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request));
 
         if (!success || response == null)
+        {
             throw new InvalidOperationException("Failed to exchange authorization code");
+        }
 
         if (!response.IsSuccessStatusCode)
         {
@@ -100,10 +102,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         }
 
         string content = await response.Content.ReadAsStringAsync();
-        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
-        if (tokenData == null)
-            throw new InvalidOperationException("Failed to parse token response");
-
+        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
         this._currentTokens = MapToTidalTokens(tokenData);
         await this._tokenStorage.SaveTokensAsync(this._currentTokens);
         return this._currentTokens;
@@ -121,10 +120,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         }
 
         string content = await response.Content.ReadAsStringAsync();
-        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content);
-        if (tokenData == null)
-            throw new InvalidOperationException("Failed to parse refresh token response");
-
+        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         this._currentTokens = MapToTidalTokens(tokenData);
         await this._tokenStorage.SaveTokensAsync(this._currentTokens);
         return this._currentTokens;
@@ -141,23 +137,33 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         try
         {
             if (string.IsNullOrEmpty(callbackUrl))
+            {
                 return TidalCallbackResult.Failure("Callback URL is empty");
+            }
 
             if (!Uri.TryCreate(callbackUrl, UriKind.Absolute, out Uri? uri))
+            {
                 return TidalCallbackResult.Failure("Invalid URL format");
+            }
 
             if (!uri.Host.Equals("tidal.com", StringComparison.OrdinalIgnoreCase))
+            {
                 return TidalCallbackResult.Failure("Invalid callback domain");
+            }
 
             System.Collections.Specialized.NameValueCollection queryParams = HttpUtility.ParseQueryString(uri.Query);
 
             string? error = queryParams.Get("error");
             if (!string.IsNullOrEmpty(error))
+            {
                 return TidalCallbackResult.Failure($"OAuth error: {error}");
+            }
 
             string? authCode = queryParams.Get("code");
             if (string.IsNullOrEmpty(authCode))
+            {
                 return TidalCallbackResult.Failure("Authorization code not found in callback URL");
+            }
 
             string? state = queryParams.Get("state");
             return string.IsNullOrEmpty(state)
@@ -278,7 +284,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     public async Task<TidalTokens> GetValidTokensAsync()
     {
         if (this._currentTokens != null && !this._currentTokens.IsExpired)
+        {
             return this._currentTokens;
+        }
 
         TidalTokens? stored = await this._tokenStorage.LoadTokensAsync();
         if (stored != null && !stored.IsExpired)
@@ -291,7 +299,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             }
 
             if (string.IsNullOrWhiteSpace(normalized.SessionId))
+            {
                 throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+            }
 
             if (!stored.Equals(normalized))
             {
@@ -307,7 +317,9 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
             TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
             if (string.IsNullOrWhiteSpace(normalized.SessionId))
+            {
                 throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+            }
 
             if (!refreshed.Equals(normalized))
             {
@@ -340,7 +352,11 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         try
         {
             TidalTokens? stored = this._currentTokens ?? await this._tokenStorage.LoadTokensAsync();
-            if (stored == null || string.IsNullOrEmpty(stored.RefreshToken)) return string.Empty;
+            if (stored == null || string.IsNullOrEmpty(stored.RefreshToken))
+            {
+                return string.Empty;
+            }
+
             TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
             return refreshed.AccessToken;
         }
@@ -352,7 +368,11 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     public Task<bool> ValidateTokenAsync(string token)
     {
-        if (string.IsNullOrEmpty(token)) return Task.FromResult(false);
+        if (string.IsNullOrEmpty(token))
+        {
+            return Task.FromResult(false);
+        }
+
         bool valid = this._currentTokens != null && !this._currentTokens.IsExpired && this._currentTokens.AccessToken == token;
         return Task.FromResult(valid);
     }
@@ -396,10 +416,16 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
     private static string? TryGetJwtStringClaim(string? jwt, string claimName)
     {
-        if (string.IsNullOrWhiteSpace(jwt)) return null;
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            return null;
+        }
 
         string[] parts = jwt.Split('.');
-        if (parts.Length < 2) return null;
+        if (parts.Length < 2)
+        {
+            return null;
+        }
 
         string payloadJson;
         try
@@ -429,9 +455,19 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     {
         string padded = base64Url.Replace('-', '+').Replace('_', '/');
         int mod = padded.Length % 4;
-        if (mod == 2) padded += "==";
-        else if (mod == 3) padded += "=";
-        else if (mod != 0) throw new FormatException("Invalid base64url length");
+        if (mod == 2)
+        {
+            padded += "==";
+        }
+        else if (mod == 3)
+        {
+            padded += "=";
+        }
+        else if (mod != 0)
+        {
+            throw new FormatException("Invalid base64url length");
+        }
+
         return Convert.FromBase64String(padded);
     }
 }
