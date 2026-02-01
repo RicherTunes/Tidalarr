@@ -243,6 +243,10 @@ sample-downloads/
 plugin-test/
 test-plugin/
 
+# Plugin packaging and distribution (do not commit)
+plugin-dist/
+wiki-content/
+
 ## Keep Important Files
 # Keep documentation
 !README.md

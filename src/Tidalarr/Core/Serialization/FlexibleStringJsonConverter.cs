@@ -19,16 +19,9 @@ public sealed class FlexibleStringJsonConverter : JsonConverter<string>
                 ? value.ToString(CultureInfo.InvariantCulture)
                 : reader.GetDouble().ToString(CultureInfo.InvariantCulture),
             JsonTokenType.Null => string.Empty,
-            JsonTokenType.None => throw new NotImplementedException(),
-            JsonTokenType.StartObject => throw new NotImplementedException(),
-            JsonTokenType.EndObject => throw new NotImplementedException(),
-            JsonTokenType.StartArray => throw new NotImplementedException(),
-            JsonTokenType.EndArray => throw new NotImplementedException(),
-            JsonTokenType.PropertyName => throw new NotImplementedException(),
-            JsonTokenType.Comment => throw new NotImplementedException(),
-            JsonTokenType.True => throw new NotImplementedException(),
-            JsonTokenType.False => throw new NotImplementedException(),
-            _ => throw new JsonException($"Unexpected token {reader.TokenType} when parsing a string value.")
+            JsonTokenType.True => "true",
+            JsonTokenType.False => "false",
+            _ => throw new JsonException($"Cannot convert {reader.TokenType} to string. Expected String, Number, Null, True, or False.")
         };
     }
 
