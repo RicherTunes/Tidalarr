@@ -8,7 +8,7 @@ public class TidalLidarrIndexerSizeEstimationTests
     [Fact]
     public void ConvertToReleaseInfoStatic_WhenTracksEmpty_DefaultsToNonZeroEstimate()
     {
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: "123",
             Title: "Test Album",
             Artists: ["Test Artist"],
@@ -28,7 +28,7 @@ public class TidalLidarrIndexerSizeEstimationTests
     [Fact]
     public void ConvertToReleaseInfoStatic_SetsDownloadProtocol()
     {
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: "123",
             Title: "Test Album",
             Artists: ["Test Artist"],
@@ -54,7 +54,7 @@ public class TidalLidarrIndexerSizeEstimationTests
             new TidalTrackInfo("t3", "Three", ["Test Artist"], "123", "Test Album", 3, 1, TidalQuality.Lossless, true, new DateTime(2020, 1, 1)),
         ];
 
-        TidalAlbumInfo album = new TidalAlbumInfo(
+        TidalAlbumInfo album = new(
             Id: "123",
             Title: "Test Album",
             Artists: ["Test Artist"],

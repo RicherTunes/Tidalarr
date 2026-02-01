@@ -10,7 +10,10 @@ public class CLIArgParsingTests
             DirectoryInfo dir = new(Directory.GetCurrentDirectory());
             for (int i = 0; i < 7 && dir != null; i++, dir = dir.Parent!)
             {
-                if (File.Exists(Path.Combine(dir.FullName, "Tidalarr.sln"))) return dir.FullName;
+                if (File.Exists(Path.Combine(dir.FullName, "Tidalarr.sln")))
+                {
+                    return dir.FullName;
+                }
             }
             return Directory.GetCurrentDirectory();
         }

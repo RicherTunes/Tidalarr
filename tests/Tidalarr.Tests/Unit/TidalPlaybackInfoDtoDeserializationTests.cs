@@ -22,7 +22,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_NumericTrackId_DeserializesCorrectly()
     {
         // Arrange - Real-world JSON with numeric trackId (not quoted string)
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 2178486,
             "assetPresentation": "FULL",
@@ -43,7 +43,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_ReplayGainAsFloat_DeserializesCorrectly()
     {
         // Arrange - Real-world JSON with float replayGain values
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 123456,
             "albumReplayGain": -5.3,
@@ -64,7 +64,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_PeakAmplitudeAsFloat_DeserializesCorrectly()
     {
         // Arrange - Real-world JSON with float peakAmplitude values
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 789012,
             "albumPeakAmplitude": 0.987654,
@@ -85,7 +85,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_NullableFieldsAsNull_DeserializesCorrectly()
     {
         // Arrange - Minimal JSON with only required field
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 111222
         }
@@ -109,7 +109,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_BitDepthAndSampleRate_DeserializesCorrectly()
     {
         // Arrange - JSON with audio technical specs
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 333444,
             "bitDepth": 24,
@@ -130,7 +130,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_FullResponse_DeserializesCorrectly()
     {
         // Arrange - Realistic full playback info response
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 2178486,
             "assetPresentation": "FULL",
@@ -172,7 +172,7 @@ public class TidalPlaybackInfoDtoDeserializationTests
     public void TidalPlaybackInfoDto_ReplayGainAsInteger_DeserializesCorrectly()
     {
         // Arrange - Edge case: API might return integer where double expected
-        const string json = """
+        const string json = /*lang=json,strict*/ """
         {
             "trackId": 555666,
             "albumReplayGain": -5,

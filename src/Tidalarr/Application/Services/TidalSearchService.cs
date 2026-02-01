@@ -220,7 +220,10 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
 
     private static double CalculateRelevanceScore(TidalSearchResults results)
     {
-        if (results.TotalCount == 0) return 0.0;
+        if (results.TotalCount == 0)
+        {
+            return 0.0;
+        }
 
         // Simple relevance scoring based on result count and diversity
         double albumScore = results.Albums.Count * 0.6;

@@ -47,11 +47,14 @@ public class TidalLidarrDownloadClient(
     /// </summary>
     private void EnsureServicesInitialized()
     {
-        if (this._servicesInitialized) return;
+        if (this._servicesInitialized)
+        {
+            return;
+        }
 
         try
         {
-            ServiceCollection services = new ServiceCollection();
+            ServiceCollection services = new();
 
             // Use the ToTidalSettings() method for proper conversion
             TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
@@ -60,7 +63,7 @@ public class TidalLidarrDownloadClient(
             // Create TidalarrSettings from Lidarr-native settings.
             // RedirectUrl is empty - download client uses tokens from shared ConfigPath
             // (authentication is done via the indexer, not the download client).
-            TidalarrSettings tidalarrSettings = new TidalarrSettings
+            TidalarrSettings tidalarrSettings = new()
             {
                 ConfigPath = Settings.ConfigPath,
                 RedirectUrl = string.Empty,
@@ -112,7 +115,7 @@ public class TidalLidarrDownloadClient(
             string outputPath = BuildOutputPath(remoteAlbum);
 
             // Create download item for tracking
-            TidalDownloadItem downloadItem = new TidalDownloadItem
+            TidalDownloadItem downloadItem = new()
             {
                 DownloadId = downloadId,
                 AlbumId = albumId,
@@ -134,7 +137,7 @@ public class TidalLidarrDownloadClient(
                     this._logger.Debug("Starting async download for album {0}", albumId);
 
                     // Create progress reporter to update download item
-                    Progress<DownloadProgress> progressReporter = new Progress<DownloadProgress>(p =>
+                    Progress<DownloadProgress> progressReporter = new(p =>
                     {
                         if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                         {
@@ -205,7 +208,7 @@ public class TidalLidarrDownloadClient(
 
     public override IEnumerable<DownloadClientItem> GetItems()
     {
-        List<DownloadClientItem> result = new List<DownloadClientItem>();
+        List<DownloadClientItem> result = [];
 
         // Best-effort cleanup to prevent unbounded growth if Lidarr doesn't call RemoveItem.
         DateTime now = DateTime.UtcNow;
@@ -364,12 +367,7 @@ public class TidalLidarrDownloadClient(
 
         // Format: tidal:album:12345678
         string[] parts = normalizedGuid.Split(':');
-        if (parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase))
-        {
-            return parts[2];
-        }
-
-        return null;
+        return parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase) ? parts[2] : null;
     }
 
     private static string? ExtractAlbumIdFromInfoUrl(string? infoUrl)
@@ -382,7 +380,7 @@ public class TidalLidarrDownloadClient(
         try
         {
             // Try to extract from URL: https://tidal.com/browse/album/12345678
-            Uri uri = new Uri(infoUrl);
+            Uri uri = new(infoUrl);
             string[] segments = uri.AbsolutePath.Split('/');
             int albumIndex = Array.IndexOf(segments, "album");
             if (albumIndex >= 0 && albumIndex < segments.Length - 1)
@@ -409,8 +407,12 @@ public class TidalLidarrDownloadClient(
 
     private static string SanitizeFileName(string fileName)
     {
-        if (string.IsNullOrEmpty(fileName)) return "Unknown";
-        var sanitized = Sanitize.PathSegment(fileName);
+        if (string.IsNullOrEmpty(fileName))
+        {
+            return "Unknown";
+        }
+
+        string sanitized = Sanitize.PathSegment(fileName);
         return string.IsNullOrEmpty(sanitized) ? "Unknown" : sanitized;
     }
 }

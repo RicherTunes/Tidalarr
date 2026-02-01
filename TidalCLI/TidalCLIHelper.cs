@@ -94,7 +94,11 @@ public static class TidalCLIHelper
 
             Console.WriteLine("\n?? Step 5: Saving assembled audio file...");
             string fileName = Sanitize.PathSegment($"{artist} - {title}");
-            if (string.IsNullOrEmpty(fileName)) fileName = "Unknown";
+            if (string.IsNullOrEmpty(fileName))
+            {
+                fileName = "Unknown";
+            }
+
             string outputPath = Path.Combine(Path.GetTempPath(), $"tidalarr_{fileName}{manifest.FileExtension}");
 
             await using (FileStream fileStream = new(outputPath, FileMode.Create, FileAccess.Write))

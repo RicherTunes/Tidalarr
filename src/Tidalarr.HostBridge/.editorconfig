@@ -1,0 +1,9 @@
+# EditorConfig for HostBridge project
+# Suppress IDE0005 (unnecessary using) as the analyzer incorrectly flags
+# usings that ARE needed (NzbDrone.Core.Annotations, etc.)
+# This is a CI vs local environment difference in how the analyzer resolves types.
+
+[*.cs]
+# Suppress unnecessary using directive warnings
+# These usings ARE required for FieldDefinition, FieldType, FieldOption, etc.
+dotnet_diagnostic.IDE0005.severity = none

@@ -170,7 +170,10 @@ public class TidalDownloadClient(
             if (finalPath != outputPath)
             {
                 if (File.Exists(outputPath))
+                {
                     File.Delete(outputPath);
+                }
+
                 File.Move(finalPath, outputPath);
                 finalPath = outputPath;
             }
@@ -259,7 +262,11 @@ public class TidalDownloadClient(
             }
             catch
             {
-                if (File.Exists(outputPath)) File.Delete(outputPath);
+                if (File.Exists(outputPath))
+                {
+                    File.Delete(outputPath);
+                }
+
                 File.Move(tempPath, outputPath);
             }
 
