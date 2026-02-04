@@ -23,7 +23,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_StringId_DeserializesToLong()
     {
         // Arrange - API returns ID as string instead of number
-        const string json = """{ "id": "123456789" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "123456789" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -37,7 +37,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_NumericId_DeserializesToLong()
     {
         // Arrange - Normal number case
-        const string json = """{ "id": 987654321 }""";
+        const string json = /*lang=json,strict*/ """{ "id": 987654321 }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -51,7 +51,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_NullId_ReturnsZero()
     {
         // Arrange - Null value should default to 0
-        const string json = """{ "id": null }""";
+        const string json = /*lang=json,strict*/ """{ "id": null }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -65,7 +65,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_MaxLongValue_DeserializesCorrectly()
     {
         // Arrange - Edge case: maximum long value
-        const string json = """{ "id": "9223372036854775807" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "9223372036854775807" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -79,7 +79,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_NegativeNumber_DeserializesCorrectly()
     {
         // Arrange - Negative number (unlikely for IDs but should work)
-        const string json = """{ "id": -12345 }""";
+        const string json = /*lang=json,strict*/ """{ "id": -12345 }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -93,7 +93,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_EmptyString_ReturnsZero()
     {
         // Arrange - Empty string should parse to 0
-        const string json = """{ "id": "" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -107,7 +107,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_MalformedString_ReturnsZero()
     {
         // Arrange - Non-numeric string should return 0
-        const string json = """{ "id": "not_a_number" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "not_a_number" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -121,7 +121,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_DecimalString_TruncatesToLong()
     {
         // Arrange - String with decimal should parse using Integer styles
-        const string json = """{ "id": "123.456" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "123.456" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -136,7 +136,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_WhitespaceString_ReturnsZero()
     {
         // Arrange - Whitespace-only string
-        const string json = """{ "id": "   " }""";
+        const string json = /*lang=json,strict*/ """{ "id": "   " }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -150,7 +150,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_ZeroString_ParsesToZero()
     {
         // Arrange - String "0"
-        const string json = """{ "id": "0" }""";
+        const string json = /*lang=json,strict*/ """{ "id": "0" }""";
 
         // Act
         TestLongDto? result = JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions);
@@ -164,7 +164,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_SerializedLong_WritesAsNumber()
     {
         // Arrange - DTO with long value
-        var dto = new TestLongDto { Id = 123456789L };
+        TestLongDto dto = new() { Id = 123456789L };
 
         // Act
         string json = JsonSerializer.Serialize(dto, JsonOptions);
@@ -177,10 +177,10 @@ public class FlexibleJsonConverterTests
     public void FlexibleLongJsonConverter_InvalidTokenType_ThrowsNotImplementedException()
     {
         // Arrange - Boolean token is invalid for long conversion
-        const string json = """{ "id": true }""";
+        const string json = /*lang=json,strict*/ """{ "id": true }""";
 
         // Act & Assert - The converter throws NotImplementedException for unsupported token types
-        Assert.Throws<NotImplementedException>(
+        _ = Assert.Throws<NotImplementedException>(
             () => JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions)
         );
     }
@@ -193,7 +193,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_NumberValue_DeserializesToString()
     {
         // Arrange - API returns number instead of string
-        const string json = """{ "value": 12345 }""";
+        const string json = /*lang=json,strict*/ """{ "value": 12345 }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -207,7 +207,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_StringValue_DeserializesToString()
     {
         // Arrange - Normal string case
-        const string json = """{ "value": "hello world" }""";
+        const string json = /*lang=json,strict*/ """{ "value": "hello world" }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -222,7 +222,7 @@ public class FlexibleJsonConverterTests
     {
         // Arrange - Null token is handled specially by System.Text.Json
         // The converter's Read method is not called for null values when using [JsonConverter] attribute
-        const string json = """{ "value": null }""";
+        const string json = /*lang=json,strict*/ """{ "value": null }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -238,7 +238,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_LargeNumber_DeserializesToString()
     {
         // Arrange - Large number that exceeds int range
-        const string json = """{ "value": 9223372036854775807 }""";
+        const string json = /*lang=json,strict*/ """{ "value": 9223372036854775807 }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -252,7 +252,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_NegativeNumber_DeserializesToString()
     {
         // Arrange - Negative number
-        const string json = """{ "value": -9999 }""";
+        const string json = /*lang=json,strict*/ """{ "value": -9999 }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -266,7 +266,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_FloatNumber_DeserializesToString()
     {
         // Arrange - Floating point number
-        const string json = """{ "value": 123.456 }""";
+        const string json = /*lang=json,strict*/ """{ "value": 123.456 }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -280,7 +280,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_ZeroNumber_DeserializesToString()
     {
         // Arrange - Number zero
-        const string json = """{ "value": 0 }""";
+        const string json = /*lang=json,strict*/ """{ "value": 0 }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -294,7 +294,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_EmptyString_ReturnsEmptyString()
     {
         // Arrange - Empty string
-        const string json = """{ "value": "" }""";
+        const string json = /*lang=json,strict*/ """{ "value": "" }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -308,7 +308,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_SpecialCharacters_PreservesCorrectly()
     {
         // Arrange - String with special characters
-        const string json = """{ "value": "hello\u0020world!@#$%" }""";
+        const string json = /*lang=json,strict*/ """{ "value": "hello\u0020world!@#$%" }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -322,7 +322,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_UnicodeCharacters_PreservesCorrectly()
     {
         // Arrange - String with Unicode characters
-        const string json = """{ "value": "Hello 世界 🌊" }""";
+        const string json = /*lang=json,strict*/ """{ "value": "Hello 世界 🌊" }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -336,7 +336,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_SerializedString_WritesAsString()
     {
         // Arrange - DTO with string value
-        var dto = new TestStringDto { Value = "test value" };
+        TestStringDto dto = new() { Value = "test value" };
 
         // Act
         string json = JsonSerializer.Serialize(dto, JsonOptions);
@@ -349,7 +349,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_BooleanTrue_ConvertsToString()
     {
         // Arrange - Boolean true converts to "true" string
-        const string json = """{ "value": true }""";
+        const string json = /*lang=json,strict*/ """{ "value": true }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -363,7 +363,7 @@ public class FlexibleJsonConverterTests
     public void FlexibleStringJsonConverter_BooleanFalse_ConvertsToString()
     {
         // Arrange - Boolean false converts to "false" string
-        const string json = """{ "value": false }""";
+        const string json = /*lang=json,strict*/ """{ "value": false }""";
 
         // Act
         TestStringDto? result = JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions);
@@ -374,25 +374,25 @@ public class FlexibleJsonConverterTests
     }
 
     [Fact]
-    public void FlexibleStringJsonConverter_ArrayToken_ThrowsJsonException()
+    public void FlexibleStringJsonConverter_ArrayToken_ThrowsNotImplementedException()
     {
         // Arrange - Array token cannot be converted to string
-        const string json = """{ "value": [1, 2, 3] }""";
+        const string json = /*lang=json,strict*/ """{ "value": [1, 2, 3] }""";
 
-        // Act & Assert
-        Assert.Throws<JsonException>(
+        // Act & Assert - Converter throws NotImplementedException for unsupported token types
+        _ = Assert.Throws<NotImplementedException>(
             () => JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions)
         );
     }
 
     [Fact]
-    public void FlexibleStringJsonConverter_ObjectToken_ThrowsJsonException()
+    public void FlexibleStringJsonConverter_ObjectToken_ThrowsNotImplementedException()
     {
         // Arrange - Object token cannot be converted to string
-        const string json = """{ "value": {} }""";
+        const string json = /*lang=json,strict*/ """{ "value": {} }""";
 
-        // Act & Assert
-        Assert.Throws<JsonException>(
+        // Act & Assert - Converter throws NotImplementedException for unsupported token types
+        _ = Assert.Throws<NotImplementedException>(
             () => JsonSerializer.Deserialize<TestStringDto>(json, JsonOptions)
         );
     }

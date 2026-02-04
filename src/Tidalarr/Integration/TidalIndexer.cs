@@ -249,7 +249,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     /// </summary>
     public async Task<ProviderHealthResult> TestConnectionAsync()
     {
-        var startTime = DateTime.UtcNow;
+        DateTime startTime = DateTime.UtcNow;
 
         try
         {
@@ -257,8 +257,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             ValidationResult validation = ValidateSettings(Settings);
             if (!validation.IsValid)
             {
-                var errorCode = validation.Errors.FirstOrDefault()?.ErrorCode ?? "INVALID_SETTINGS";
-                var statusMessage = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage));
+                string errorCode = validation.Errors.FirstOrDefault()?.ErrorCode ?? "INVALID_SETTINGS";
+                string statusMessage = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage));
 
                 return ProviderHealthResult.Unhealthy(
                     $"Settings validation failed: {statusMessage}",
@@ -314,8 +314,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     public List<ValidationFailure> Test(List<ValidationFailure> failures)
     {
         // This is a wrapper around ValidateSettings for backward compatibility
-        var validation = ValidateSettings(Settings);
-        return validation.Errors.ToList();
+        ValidationResult validation = ValidateSettings(Settings);
+        return [.. validation.Errors];
     }
 }
 

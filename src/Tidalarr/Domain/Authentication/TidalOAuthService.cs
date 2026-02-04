@@ -16,20 +16,12 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>, ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null, ILogger<TidalOAuthService>? logger = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
-    private readonly HttpClient _httpClient;
-    private readonly ITokenStorage _tokenStorage;
-    private readonly ILogger<TidalOAuthService> _logger;
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FailOnIOTokenStore();
+    private readonly ILogger<TidalOAuthService> _logger = logger ?? NullLogger<TidalOAuthService>.Instance;
     private TidalTokens? _currentTokens;
-
-    public TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null, ILogger<TidalOAuthService>? logger = null)
-        : base(new PKCEGenerator())
-    {
-        this._httpClient = httpClient;
-        this._tokenStorage = tokenStorage ?? new FailOnIOTokenStore();
-        this._logger = logger ?? NullLogger<TidalOAuthService>.Instance;
-    }
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)

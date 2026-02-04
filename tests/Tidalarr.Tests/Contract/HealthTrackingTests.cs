@@ -1,22 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Lidarr.Plugin.Common.Abstractions.Llm;
 using Microsoft.Extensions.Logging;
-using Xunit;
-using Tidalarr.Infrastructure.Logging;
 
 namespace Tidalarr.Tests.Contract
 {
     /// <summary>
     /// Simple rate limit exception for testing.
     /// </summary>
-    internal class RateLimitException : Exception
+    internal class RateLimitException(string message) : Exception(message)
     {
-        public RateLimitException(string message) : base(message) { }
     }
 
     /// <summary>
@@ -27,18 +19,11 @@ namespace Tidalarr.Tests.Contract
     [Trait("Target", "Provider")]
     public class HealthTrackingTests
     {
-        private sealed class MockTidalProvider : ITidalProvider
+        private sealed class MockTidalProvider(ILogger logger, bool simulateFailure = false, bool simulateRateLimit = false) : ITidalProvider
         {
-            private readonly ILogger _logger;
-            private readonly bool _simulateFailure;
-            private readonly bool _simulateRateLimit;
-
-            public MockTidalProvider(ILogger logger, bool simulateFailure = false, bool simulateRateLimit = false)
-            {
-                _logger = logger;
-                _simulateFailure = simulateFailure;
-                _simulateRateLimit = simulateRateLimit;
-            }
+            private readonly ILogger _logger = logger;
+            private readonly bool _simulateFailure = simulateFailure;
+            private readonly bool _simulateRateLimit = simulateRateLimit;
 
             public string ProviderName => "MockTidalProvider";
 
@@ -47,12 +32,12 @@ namespace Tidalarr.Tests.Contract
                 LogHealthCheckStart();
                 try
                 {
-                    if (_simulateFailure)
+                    if (this._simulateFailure)
                     {
                         LogHealthCheckFail("Test failed due to simulated failure");
                         return Task.FromResult(ProviderHealthResult.Unhealthy("TestConnectionAsync failed"));
                     }
-                    else if (_simulateRateLimit)
+                    else if (this._simulateRateLimit)
                     {
                         LogRateLimited("Simulated rate limit");
                         return Task.FromResult(ProviderHealthResult.Unhealthy("Rate limited"));
@@ -71,30 +56,32 @@ namespace Tidalarr.Tests.Contract
             }
 
             public Task<ProviderHealthResult> TestConnectionAsync(CancellationToken cancellationToken)
-                => TestConnectionAsync();
+            {
+                return TestConnectionAsync();
+            }
 
             private void LogHealthCheckStart()
             {
-                var correlationId = Guid.NewGuid().ToString("N");
-                _logger.LogInformation("[{Provider}] Health check started - {Operation}", ProviderName, "TestConnection");
+                _ = Guid.NewGuid().ToString("N");
+                this._logger.LogInformation("[{Provider}] Health check started - {Operation}", ProviderName, "TestConnection");
             }
 
             private void LogHealthCheckPass(string message)
             {
-                var correlationId = Guid.NewGuid().ToString("N");
-                _logger.LogInformation("[{Provider}] Health check passed - {Message}", ProviderName, message);
+                _ = Guid.NewGuid().ToString("N");
+                this._logger.LogInformation("[{Provider}] Health check passed - {Message}", ProviderName, message);
             }
 
             private void LogHealthCheckFail(string message)
             {
-                var correlationId = Guid.NewGuid().ToString("N");
-                _logger.LogError("[{Provider}] Health check failed - {Message}", ProviderName, message);
+                _ = Guid.NewGuid().ToString("N");
+                this._logger.LogError("[{Provider}] Health check failed - {Message}", ProviderName, message);
             }
 
             private void LogRateLimited(string message)
             {
-                var correlationId = Guid.NewGuid().ToString("N");
-                _logger.LogWarning("[{Provider}] Rate limit detected - {Message}", ProviderName, message);
+                _ = Guid.NewGuid().ToString("N");
+                this._logger.LogWarning("[{Provider}] Rate limit detected - {Message}", ProviderName, message);
             }
         }
 
@@ -102,149 +89,149 @@ namespace Tidalarr.Tests.Contract
         public async Task Provider_LogsHealthCheckPass_WhenConnectionSucceeds()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: false, simulateRateLimit: false);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: false, simulateRateLimit: false);
 
             // Act
-            var result = await provider.TestConnectionAsync();
+            ProviderHealthResult result = await provider.TestConnectionAsync();
 
             // Assert
-            var entries = testLogger.Entries;
-            entries.Should().NotBeEmpty();
-            entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Health check passed"));
+            List<TestLogger.LogEntry> entries = testLogger.Entries;
+            _ = entries.Should().NotBeEmpty();
+            _ = entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Health check passed"));
 
-            var passEntry = entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? passEntry = entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check passed"));
-            passEntry.Should().NotBeNull();
-            passEntry.Message.Should().Contain("Provider connected successfully");
+            _ = passEntry.Should().NotBeNull();
+            _ = passEntry.Message.Should().Contain("Provider connected successfully");
         }
 
         [Fact]
         public async Task Provider_LogsHealthCheckFail_WhenConnectionFails()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: true, simulateRateLimit: false);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: true, simulateRateLimit: false);
 
             // Act
-            var result = await provider.TestConnectionAsync();
+            ProviderHealthResult result = await provider.TestConnectionAsync();
 
             // Assert
-            var entries = testLogger.Entries;
-            entries.Should().NotBeEmpty();
-            entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Health check failed"));
+            List<TestLogger.LogEntry> entries = testLogger.Entries;
+            _ = entries.Should().NotBeEmpty();
+            _ = entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Health check failed"));
 
-            var failEntry = entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? failEntry = entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check failed"));
-            failEntry.Should().NotBeNull();
-            failEntry.Message.Should().Contain("simulated failure");
+            _ = failEntry.Should().NotBeNull();
+            _ = failEntry.Message.Should().Contain("simulated failure");
         }
 
         [Fact]
         public async Task Provider_LogsRateLimited_WhenRateLimitDetected()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: false, simulateRateLimit: true);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: false, simulateRateLimit: true);
 
             // Act
-            var result = await provider.TestConnectionAsync();
+            ProviderHealthResult result = await provider.TestConnectionAsync();
 
             // Assert
-            var entries = testLogger.Entries;
-            entries.Should().NotBeEmpty();
-            entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Rate limit detected"));
+            List<TestLogger.LogEntry> entries = testLogger.Entries;
+            _ = entries.Should().NotBeEmpty();
+            _ = entries.Should().Contain(e => e.Message.Contains("MockTidalProvider") && e.Message.Contains("Rate limit detected"));
 
-            var rateEntry = entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? rateEntry = entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Rate limit detected"));
-            rateEntry.Should().NotBeNull();
-            rateEntry.Message.Should().Contain("Simulated rate limit");
+            _ = rateEntry.Should().NotBeNull();
+            _ = rateEntry.Message.Should().Contain("Simulated rate limit");
         }
 
         [Fact]
         public async Task Provider_LogsHealthCheckStart_BeforeCheckCompletes()
         {
             // Arrange
-            var testLogger = new TestLogger();
+            TestLogger testLogger = new();
             testLogger.ClearEntries();
 
-            var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+            MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
             // Act
-            await provider.TestConnectionAsync();
+            _ = await provider.TestConnectionAsync();
 
             // Assert - verify start and complete events are logged
-            var allLogs = testLogger.Entries;
-            var startEntry = allLogs.FirstOrDefault(e =>
+            List<TestLogger.LogEntry> allLogs = testLogger.Entries;
+            TestLogger.LogEntry? startEntry = allLogs.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check started"));
 
-            startEntry.Should().NotBeNull();
-            var passEntry = allLogs.FirstOrDefault(e =>
+            _ = startEntry.Should().NotBeNull();
+            TestLogger.LogEntry? passEntry = allLogs.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check passed"));
 
-            passEntry.Should().NotBeNull();
+            _ = passEntry.Should().NotBeNull();
         }
 
         [Fact]
         public async Task Provider_LogsHealthCheckWithRequiredFields()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
             // Act - must call the method to generate log entries
-            await provider.TestConnectionAsync();
+            _ = await provider.TestConnectionAsync();
 
-            var entry = testLogger.Entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? entry = testLogger.Entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check passed"));
 
             // Assert
-            entry.Should().NotBeNull();
-            entry!.Message.Should().Contain("MockTidalProvider");
+            _ = entry.Should().NotBeNull();
+            _ = entry!.Message.Should().Contain("MockTidalProvider");
         }
 
         [Fact]
         public async Task Provider_LogsHealthCheckFailWithRequiredFields()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: true);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: true);
 
             // Act - must call the method to generate log entries
-            await provider.TestConnectionAsync();
+            _ = await provider.TestConnectionAsync();
 
-            var entry = testLogger.Entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? entry = testLogger.Entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Health check failed"));
 
             // Assert
-            entry.Should().NotBeNull();
-            entry!.Message.Should().Contain("MockTidalProvider");
+            _ = entry.Should().NotBeNull();
+            _ = entry!.Message.Should().Contain("MockTidalProvider");
         }
 
         [Fact]
         public async Task Provider_LogsRateLimitedWithRequiredFields()
         {
             // Arrange
-            var testLogger = new TestLogger();
-            var provider = new MockTidalProvider(testLogger, simulateFailure: false, simulateRateLimit: true);
+            TestLogger testLogger = new();
+            MockTidalProvider provider = new(testLogger, simulateFailure: false, simulateRateLimit: true);
 
             // Act - must call the method to generate log entries
-            await provider.TestConnectionAsync();
+            _ = await provider.TestConnectionAsync();
 
-            var entry = testLogger.Entries.FirstOrDefault(e =>
+            TestLogger.LogEntry? entry = testLogger.Entries.FirstOrDefault(e =>
                 e.Message.Contains("MockTidalProvider") &&
                 e.Message.Contains("Rate limit detected"));
 
             // Assert
-            entry.Should().NotBeNull();
-            entry!.Message.Should().Contain("MockTidalProvider");
+            _ = entry.Should().NotBeNull();
+            _ = entry!.Message.Should().Contain("MockTidalProvider");
         }
 
         [Fact]
@@ -258,16 +245,16 @@ namespace Tidalarr.Tests.Contract
             // - LogRateLimited: For rate limit scenarios
 
             // Document the required health tracking logging methods
-            var methodNames = new[]
-            {
+            string[] methodNames =
+            [
                 "LogHealthCheckStart",
                 "LogHealthCheckPass",
                 "LogHealthCheckFail",
                 "LogRateLimited"
-            };
+            ];
 
             // If we got here without exceptions, the contract exists
-            methodNames.Should().NotBeNull();
+            _ = methodNames.Should().NotBeNull();
         }
 
         /// <summary>
@@ -275,11 +262,17 @@ namespace Tidalarr.Tests.Contract
         /// </summary>
         private class TestLogger : ILogger
         {
-            public List<LogEntry> Entries { get; } = new();
+            public List<LogEntry> Entries { get; } = [];
 
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+            {
+                return null;
+            }
 
-            public bool IsEnabled(LogLevel logLevel) => true;
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             {

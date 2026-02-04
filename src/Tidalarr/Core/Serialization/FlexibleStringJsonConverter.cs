@@ -21,6 +21,13 @@ public sealed class FlexibleStringJsonConverter : JsonConverter<string>
             JsonTokenType.Null => string.Empty,
             JsonTokenType.True => "true",
             JsonTokenType.False => "false",
+            JsonTokenType.None => throw new NotImplementedException(),
+            JsonTokenType.StartObject => throw new NotImplementedException(),
+            JsonTokenType.EndObject => throw new NotImplementedException(),
+            JsonTokenType.StartArray => throw new NotImplementedException(),
+            JsonTokenType.EndArray => throw new NotImplementedException(),
+            JsonTokenType.PropertyName => throw new NotImplementedException(),
+            JsonTokenType.Comment => throw new NotImplementedException(),
             _ => throw new JsonException($"Cannot convert {reader.TokenType} to string. Expected String, Number, Null, True, or False.")
         };
     }

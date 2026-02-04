@@ -2,16 +2,9 @@
 // Copyright (c) RicherTunes. All rights reserved.
 // </copyright>
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Lidarr.Plugin.Common.Abstractions.Llm;
-using Lidarr.Plugin.Common.Observability;
 using Microsoft.Extensions.Logging;
-using Tidalarr.Infrastructure.Logging;
-using Xunit;
 
 namespace Tidalarr.Tests.Contract;
 
@@ -30,37 +23,30 @@ public class ProviderLifecycleTests
     /// <summary>
     /// Mock Tidal provider for testing lifecycle logging.
     /// </summary>
-    private sealed class MockTidalProvider : ITidalProvider
+    private sealed class MockTidalProvider(ILogger logger, bool simulateFailure = false, int resultCount = 1) : ITidalProvider
     {
-        private readonly ILogger _logger;
-        private readonly bool _simulateFailure;
-        private readonly int _resultCount;
-
-        public MockTidalProvider(ILogger logger, bool simulateFailure = false, int resultCount = 1)
-        {
-            _logger = logger;
-            _simulateFailure = simulateFailure;
-            _resultCount = resultCount;
-        }
+        private readonly ILogger _logger = logger;
+        private readonly bool _simulateFailure = simulateFailure;
+        private readonly int _resultCount = resultCount;
 
         public string ProviderNameValue => ProviderName;
 
         public async Task<ProviderHealthResult> TestConnectionAsync()
         {
-            var correlationId = Guid.NewGuid().ToString("N");
+            string correlationId = Guid.NewGuid().ToString("N");
 
             // Log request start using Common library extension
-            Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestStart(_logger, PluginName, ProviderName, "TestConnection", correlationId, "health_check", 1);
+            Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestStart(this._logger, PluginName, ProviderName, "TestConnection", correlationId, "health_check", 1);
 
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
-                if (_simulateFailure)
+                if (this._simulateFailure)
                 {
                     stopwatch.Stop();
                     Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestError(
-                        _logger,
+                        this._logger,
                         PluginName,
                         ProviderName,
                         "TestConnection",
@@ -77,7 +63,7 @@ public class ProviderLifecycleTests
 
                 // Log request complete using Common library extension
                 Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestComplete(
-                    _logger,
+                    this._logger,
                     PluginName,
                     ProviderName,
                     "TestConnection",
@@ -92,7 +78,7 @@ public class ProviderLifecycleTests
             {
                 stopwatch.Stop();
                 Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestError(
-                    _logger,
+                    this._logger,
                     PluginName,
                     ProviderName,
                     "TestConnection",
@@ -105,22 +91,24 @@ public class ProviderLifecycleTests
             }
         }
 
-        public Task<ProviderHealthResult> TestConnectionAsync(System.Threading.CancellationToken cancellationToken)
-            => TestConnectionAsync();
+        public Task<ProviderHealthResult> TestConnectionAsync(CancellationToken cancellationToken)
+        {
+            return TestConnectionAsync();
+        }
 
         public Task<string> SearchAsync(string query, int count = 10)
         {
-            var correlationId = Guid.NewGuid().ToString("N");
+            string correlationId = Guid.NewGuid().ToString("N");
 
             // Use Common library extension explicitly
-            Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestStart(_logger, PluginName, ProviderName, "Search", correlationId, "search", 1);
+            Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestStart(this._logger, PluginName, ProviderName, "Search", correlationId, "search", 1);
 
             try
             {
-                if (_simulateFailure)
+                if (this._simulateFailure)
                 {
                     Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestError(
-                        _logger,
+                        this._logger,
                         PluginName,
                         ProviderName,
                         "Search",
@@ -129,25 +117,25 @@ public class ProviderLifecycleTests
                         "Search API failed",
                         new InvalidOperationException("API unavailable"));
 
-                    return Task.FromResult<string>(string.Empty);
+                    return Task.FromResult(string.Empty);
                 }
 
                 Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestComplete(
-                    _logger,
+                    this._logger,
                     PluginName,
                     ProviderName,
                     "Search",
                     correlationId,
                     150,
                     0,
-                    _resultCount);
+                    this._resultCount);
 
-                return Task.FromResult($"{{\"results\":[{string.Join(",", Enumerable.Range(1, _resultCount))}]}}");
+                return Task.FromResult($"{{\"results\":[{string.Join(",", Enumerable.Range(1, this._resultCount))}]}}");
             }
             catch (Exception ex)
             {
                 Lidarr.Plugin.Common.Observability.LlmLoggerExtensions.LogRequestError(
-                    _logger,
+                    this._logger,
                     PluginName,
                     ProviderName,
                     "Search",
@@ -156,7 +144,7 @@ public class ProviderLifecycleTests
                     ex.Message,
                     ex);
 
-                return Task.FromResult<string>(string.Empty);
+                return Task.FromResult(string.Empty);
             }
         }
     }
@@ -165,169 +153,169 @@ public class ProviderLifecycleTests
     public async Task Provider_LogsStartEvent_WhenOperationBegins()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        entries.Should().NotBeEmpty();
-        entries.Should().Contain(e =>
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        _ = entries.Should().NotBeEmpty();
+        _ = entries.Should().Contain(e =>
             e.Message.Contains("Request started") &&
             e.Message.Contains(PluginName) &&
             e.Message.Contains(ProviderName) &&
             e.Message.Contains("TestConnection"));
 
-        var startEntry = entries.FirstOrDefault(e =>
+        TestLogger.LogEntry? startEntry = entries.FirstOrDefault(e =>
             e.Message.Contains("Request started") &&
             e.Message.Contains("TestConnection"));
-        startEntry.Should().NotBeNull();
+        _ = startEntry.Should().NotBeNull();
         // The Common library uses structured logging: "Request started: Tidalarr MockTidalProvider TestConnection {CorrelationId} Model=..."
         // The correlation ID appears as a GUID value in the message
-        startEntry.Message.Should().Match("*Request started: Tidalarr MockTidalProvider TestConnection *");
+        _ = startEntry.Message.Should().Match("*Request started: Tidalarr MockTidalProvider TestConnection *");
     }
 
     [Fact]
     public async Task Provider_LogsCompleteEvent_WhenOperationSucceeds()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        entries.Should().Contain(e =>
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        _ = entries.Should().Contain(e =>
             e.Message.Contains("Request completed") &&
             e.Message.Contains(PluginName) &&
             e.Message.Contains(ProviderName) &&
             e.Message.Contains("TestConnection"));
 
-        var completeEntry = entries.FirstOrDefault(e =>
+        TestLogger.LogEntry? completeEntry = entries.FirstOrDefault(e =>
             e.Message.Contains("Request completed") &&
             e.Message.Contains("TestConnection"));
-        completeEntry.Should().NotBeNull();
-        completeEntry.Message.Should().Contain("ElapsedMs=");
+        _ = completeEntry.Should().NotBeNull();
+        _ = completeEntry.Message.Should().Contain("ElapsedMs=");
     }
 
     [Fact]
     public async Task Provider_LogsErrorEvent_WhenOperationFails()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: true);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: true);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        entries.Should().Contain(e =>
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        _ = entries.Should().Contain(e =>
             e.Message.Contains("Request error") &&
             e.Message.Contains(PluginName) &&
             e.Message.Contains(ProviderName) &&
             e.Message.Contains("TestConnection"));
 
-        var errorEntry = entries.FirstOrDefault(e =>
+        TestLogger.LogEntry? errorEntry = entries.FirstOrDefault(e =>
             e.Message.Contains("Request error") &&
             e.Message.Contains("TestConnection"));
-        errorEntry.Should().NotBeNull();
-        errorEntry.Message.Should().Contain("ErrorCode=");
-        errorEntry.Message.Should().Contain("AUTH_FAILED");
+        _ = errorEntry.Should().NotBeNull();
+        _ = errorEntry.Message.Should().Contain("ErrorCode=");
+        _ = errorEntry.Message.Should().Contain("AUTH_FAILED");
     }
 
     [Fact]
     public async Task Provider_LogsBothStartAndComplete_WhenOperationSucceeds()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        var startEntry = entries.FirstOrDefault(e => e.Message.Contains("Request started"));
-        var completeEntry = entries.FirstOrDefault(e => e.Message.Contains("Request completed"));
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        TestLogger.LogEntry? startEntry = entries.FirstOrDefault(e => e.Message.Contains("Request started"));
+        TestLogger.LogEntry? completeEntry = entries.FirstOrDefault(e => e.Message.Contains("Request completed"));
 
-        startEntry.Should().NotBeNull();
-        completeEntry.Should().NotBeNull();
+        _ = startEntry.Should().NotBeNull();
+        _ = completeEntry.Should().NotBeNull();
 
         // Verify ordering: start should come before complete
-        entries.IndexOf(startEntry).Should().BeLessThan(entries.IndexOf(completeEntry));
+        _ = entries.IndexOf(startEntry).Should().BeLessThan(entries.IndexOf(completeEntry));
     }
 
     [Fact]
     public async Task Provider_LogsRequiredFields_WhenEventEmitted()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: false);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: false);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        var startEntry = entries.FirstOrDefault(e => e.Message.Contains("Request started"));
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        TestLogger.LogEntry? startEntry = entries.FirstOrDefault(e => e.Message.Contains("Request started"));
 
-        startEntry.Should().NotBeNull();
-        startEntry.Message.Should().Contain(PluginName);
-        startEntry.Message.Should().Contain(ProviderName);
-        startEntry.Message.Should().Contain("TestConnection");
+        _ = startEntry.Should().NotBeNull();
+        _ = startEntry.Message.Should().Contain(PluginName);
+        _ = startEntry.Message.Should().Contain(ProviderName);
+        _ = startEntry.Message.Should().Contain("TestConnection");
         // The Common library uses structured logging: correlation ID is embedded as GUID value
         // Verify the log format matches: "Request started: Tidalarr MockTidalProvider TestConnection {guid} Model=..."
-        startEntry.Message.Should().Match("*Request started: Tidalarr MockTidalProvider TestConnection * Model=*");
+        _ = startEntry.Message.Should().Match("*Request started: Tidalarr MockTidalProvider TestConnection * Model=*");
     }
 
     [Fact]
     public async Task Provider_LogsCompleteWithCorrectItemCount_WhenMultipleResultsReturned()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: false, resultCount: 5);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: false, resultCount: 5);
 
         // Act
-        await provider.SearchAsync("test query", 10);
+        _ = await provider.SearchAsync("test query", 10);
 
         // Assert
-        var entries = testLogger.Entries;
-        var completeEntry = entries.FirstOrDefault(e =>
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        TestLogger.LogEntry? completeEntry = entries.FirstOrDefault(e =>
             e.Message.Contains("Request completed") &&
             e.Message.Contains("Search"));
 
-        completeEntry.Should().NotBeNull();
-        completeEntry.Message.Should().Contain("OutputTokens=5");
+        _ = completeEntry.Should().NotBeNull();
+        _ = completeEntry.Message.Should().Contain("OutputTokens=5");
     }
 
     [Fact]
     public async Task Provider_LogsErrorWithExceptionDetails_WhenOperationFails()
     {
         // Arrange
-        var testLogger = new TestLogger();
-        var provider = new MockTidalProvider(testLogger, simulateFailure: true);
+        TestLogger testLogger = new();
+        MockTidalProvider provider = new(testLogger, simulateFailure: true);
 
         // Act
-        await provider.TestConnectionAsync();
+        _ = await provider.TestConnectionAsync();
 
         // Assert
-        var entries = testLogger.Entries;
-        var errorEntry = entries.FirstOrDefault(e => e.Message.Contains("Request error"));
+        List<TestLogger.LogEntry> entries = testLogger.Entries;
+        TestLogger.LogEntry? errorEntry = entries.FirstOrDefault(e => e.Message.Contains("Request error"));
 
-        errorEntry.Should().NotBeNull();
-        errorEntry.Message.Should().Contain("ErrorCode=AUTH_FAILED");
-        errorEntry.Message.Should().Contain("Error=");
+        _ = errorEntry.Should().NotBeNull();
+        _ = errorEntry.Message.Should().Contain("ErrorCode=AUTH_FAILED");
+        _ = errorEntry.Message.Should().Contain("Error=");
 
         // Verify exception is captured (not null)
-        var errorWithException = entries.FirstOrDefault(e =>
+        TestLogger.LogEntry? errorWithException = entries.FirstOrDefault(e =>
             e.Message.Contains("Request error") &&
             e.Exception != null);
-        errorWithException.Should().NotBeNull();
+        _ = errorWithException.Should().NotBeNull();
     }
 
     /// <summary>
@@ -336,11 +324,17 @@ public class ProviderLifecycleTests
     /// </summary>
     private class TestLogger : ILogger
     {
-        public List<LogEntry> Entries { get; } = new();
+        public List<LogEntry> Entries { get; } = [];
 
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            return null;
+        }
 
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
@@ -373,7 +367,7 @@ public class ProviderLifecycleTests
     public interface ITidalProvider
     {
         string ProviderNameValue { get; }
-        Task<ProviderHealthResult> TestConnectionAsync(System.Threading.CancellationToken cancellationToken = default);
+        Task<ProviderHealthResult> TestConnectionAsync(CancellationToken cancellationToken = default);
         Task<string> SearchAsync(string query, int count = 10);
     }
 }

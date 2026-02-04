@@ -2,13 +2,9 @@
 // Copyright (c) RicherTunes. All rights reserved.
 // </copyright>
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Lidarr.Plugin.Common.Abstractions.Llm;
 using Tidalarr.Integration;
-using Xunit;
 
 namespace Tidalarr.Tests.Contract;
 
@@ -21,21 +17,21 @@ public class DiagnosticsTidalarrTests
     [Fact]
     public void TestConnectionResult_Serialization_Format_StandardizedJsonStructure()
     {
-        var result = TestConnectionResult.Success("tidal", "oauth", "quality_detect", 123);
+        TestConnectionResult result = TestConnectionResult.Success("tidal", "oauth", "quality_detect", 123);
 
-        var json = result.ToJson();
+        string json = result.ToJson();
 
-        json.Should().Contain("\"provider\":\"tidal\"");
-        json.Should().Contain("\"authMethod\":\"oauth\"");
-        json.Should().Contain("\"model\":\"quality_detect\"");
-        json.Should().Contain("\"latencyMs\":123");
-        json.Should().Contain("\"isHealthy\":true");
+        _ = json.Should().Contain("\"provider\":\"tidal\"");
+        _ = json.Should().Contain("\"authMethod\":\"oauth\"");
+        _ = json.Should().Contain("\"model\":\"quality_detect\"");
+        _ = json.Should().Contain("\"latencyMs\":123");
+        _ = json.Should().Contain("\"isHealthy\":true");
     }
 
     [Fact]
     public void TestConnectionResult_FromProviderHealthResult_Sets_Diag02_Fields()
     {
-        var healthResult = ProviderHealthResult.Healthy(TimeSpan.FromMilliseconds(150))
+        ProviderHealthResult healthResult = ProviderHealthResult.Healthy(TimeSpan.FromMilliseconds(150))
         with
         {
             Provider = "tidal",
@@ -43,52 +39,52 @@ public class DiagnosticsTidalarrTests
             Model = "quality_detect"
         };
 
-        var result = TestConnectionResult.FromProviderHealthResult(healthResult);
+        TestConnectionResult result = TestConnectionResult.FromProviderHealthResult(healthResult);
 
-        result.Provider.Should().Be("tidal");
-        result.AuthMethod.Should().Be("oauth");
-        result.Model.Should().Be("quality_detect");
-        result.IsHealthy.Should().Be(true);
-        result.StatusMessage.Should().BeNull();
-        result.LatencyMs.Should().Be(150);
+        _ = result.Provider.Should().Be("tidal");
+        _ = result.AuthMethod.Should().Be("oauth");
+        _ = result.Model.Should().Be("quality_detect");
+        _ = result.IsHealthy.Should().Be(true);
+        _ = result.StatusMessage.Should().BeNull();
+        _ = result.LatencyMs.Should().Be(150);
     }
 
     [Fact]
     public void TestConnectionResult_Failure_Sets_ErrorCode_Field()
     {
-        var result = TestConnectionResult.Failure("tidal", "oauth", "AUTH_FAILED", "Authentication failed", 100);
+        TestConnectionResult result = TestConnectionResult.Failure("tidal", "oauth", "AUTH_FAILED", "Authentication failed", 100);
 
-        result.Provider.Should().Be("tidal");
-        result.AuthMethod.Should().Be("oauth");
-        result.ErrorCode.Should().Be("AUTH_FAILED");
-        result.IsHealthy.Should().Be(false);
-        result.StatusMessage.Should().Be("Authentication failed");
+        _ = result.Provider.Should().Be("tidal");
+        _ = result.AuthMethod.Should().Be("oauth");
+        _ = result.ErrorCode.Should().Be("AUTH_FAILED");
+        _ = result.IsHealthy.Should().Be(false);
+        _ = result.StatusMessage.Should().Be("Authentication failed");
     }
 
     [Fact]
     public void TestConnectionResult_Success_Fields_NotNull()
     {
-        var result = TestConnectionResult.Success("tidal", "oauth", "hi_res", 200);
+        TestConnectionResult result = TestConnectionResult.Success("tidal", "oauth", "hi_res", 200);
 
-        result.Provider.Should().NotBeNullOrEmpty();
-        result.AuthMethod.Should().NotBeNullOrEmpty();
-        result.LatencyMs.Should().BeGreaterThan(0);
-        result.IsHealthy.Should().Be(true);
-        result.ErrorCode.Should().BeNull();
+        _ = result.Provider.Should().NotBeNullOrEmpty();
+        _ = result.AuthMethod.Should().NotBeNullOrEmpty();
+        _ = result.LatencyMs.Should().BeGreaterThan(0);
+        _ = result.IsHealthy.Should().Be(true);
+        _ = result.ErrorCode.Should().BeNull();
     }
 
     [Fact]
     public void TestConnectionResult_EscapeJson_PreservesSpecialCharacters()
     {
-        var result = TestConnectionResult.Success("tidal", "oauth", "quality", 100);
+        TestConnectionResult result = TestConnectionResult.Success("tidal", "oauth", "quality", 100);
 
-        var json = result.ToJson();
+        string json = result.ToJson();
 
-        json.Should().Contain("\"provider\":\"tidal\"");
-        json.Should().Contain("\"authMethod\":\"oauth\"");
-        json.Should().Contain("\"model\":\"quality\"");
-        json.Should().Contain("\"latencyMs\":100");
-        json.Should().Contain("\"isHealthy\":true");
+        _ = json.Should().Contain("\"provider\":\"tidal\"");
+        _ = json.Should().Contain("\"authMethod\":\"oauth\"");
+        _ = json.Should().Contain("\"model\":\"quality\"");
+        _ = json.Should().Contain("\"latencyMs\":100");
+        _ = json.Should().Contain("\"isHealthy\":true");
     }
 
     [Theory]
@@ -100,29 +96,25 @@ public class DiagnosticsTidalarrTests
     [InlineData("Unknown error message", "UNKNOWN_ERROR")]
     public void TestConnectionResult_ErrorCode_Maps_Correctly(string errorMessage, string expectedErrorCode)
     {
-        var errorCode = MapErrorToErrorCode(errorMessage);
+        string errorCode = MapErrorToErrorCode(errorMessage);
 
-        errorCode.Should().Be(expectedErrorCode);
+        _ = errorCode.Should().Be(expectedErrorCode);
     }
 
     private string MapErrorToErrorCode(string errorMessage)
     {
         if (string.IsNullOrWhiteSpace(errorMessage))
+        {
             return "UNKNOWN_ERROR";
+        }
 
-        var lowerMsg = errorMessage.ToLowerInvariant();
+        string lowerMsg = errorMessage.ToLowerInvariant();
 
-        if (lowerMsg.Contains("authentication"))
-            return "AUTH_FAILED";
-        if (lowerMsg.Contains("token"))
-            return "TOKEN_EXPIRED";
-        if (lowerMsg.Contains("rate limit") || lowerMsg.Contains("429"))
-            return "RATE_LIMIT_EXCEEDED";
-        if (lowerMsg.Contains("network") || lowerMsg.Contains("connection"))
-            return "NETWORK_ERROR";
-        if (lowerMsg.Contains("api"))
-            return "API_ERROR";
-
-        return "UNKNOWN_ERROR";
+        return lowerMsg.Contains("authentication") ? "AUTH_FAILED"
+            : lowerMsg.Contains("token") ? "TOKEN_EXPIRED"
+            : lowerMsg.Contains("rate limit") || lowerMsg.Contains("429") ? "RATE_LIMIT_EXCEEDED"
+            : lowerMsg.Contains("network") || lowerMsg.Contains("connection") ? "NETWORK_ERROR"
+            : lowerMsg.Contains("api") ? "API_ERROR"
+            : "UNKNOWN_ERROR";
     }
 }

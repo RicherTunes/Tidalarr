@@ -13,20 +13,12 @@ using Tidalarr.Infrastructure.Logging;
 
 namespace Tidalarr.Application.Services;
 
-public class TidalSearchService
+public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null, ILogger<TidalSearchService>? logger = null)
 {
-    private readonly ITidalCore _apiClient;
-    private readonly TidalQualityDetector _qualityDetector;
-    private readonly IQueryOptimizer? _queryOptimizer;
-    private readonly ILogger<TidalSearchService> _logger;
-
-    public TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null, ILogger<TidalSearchService>? logger = null)
-    {
-        this._apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
-        this._qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
-        this._queryOptimizer = queryOptimizer;
-        this._logger = logger ?? NullLogger<TidalSearchService>.Instance;
-    }
+    private readonly ITidalCore _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+    private readonly TidalQualityDetector _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
+    private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
+    private readonly ILogger<TidalSearchService> _logger = logger ?? NullLogger<TidalSearchService>.Instance;
 
     public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless)
     {
@@ -167,12 +159,7 @@ public class TidalSearchService
         (bool success, TidalAlbumInfo album) = await SafeOperationExecutor.TryExecuteAsync<TidalAlbumInfo>(() =>
             this._apiClient.GetAlbumWithTracksAsync(albumId));
 
-        if (!success || album == null)
-        {
-            throw new InvalidOperationException($"Failed to retrieve album with ID: {albumId}");
-        }
-
-        return album;
+        return !success || album == null ? throw new InvalidOperationException($"Failed to retrieve album with ID: {albumId}") : album;
     }
 
     private TidalAlbumInfo EnhanceAlbumWithQuality(TidalAlbumInfo album, TidalQuality preferredQuality)

@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using Tidalarr.Domain.Streaming;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -60,7 +59,7 @@ public class TidalAudioFormatHandlerTests
         bool result = AudioFormatHandler.IsFFmpegAvailable();
 
         // Assert - Just verify it returns a boolean without throwing
-        Assert.IsType<bool>(result);
+        _ = Assert.IsType<bool>(result);
     }
 
     #endregion
@@ -648,13 +647,13 @@ public class TidalAudioFormatHandlerTests
         try
         {
             MockAudioProcessor processor = new();
-            var cts = new CancellationTokenSource();
+            CancellationTokenSource cts = new();
             cts.Cancel();
 
             // Act & Assert
-            await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            _ = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             {
-                await AudioFormatHandler.ProcessAudioFileAsync(
+                _ = await AudioFormatHandler.ProcessAudioFileAsync(
                     tempFile,
                     codecs: "FLAC",
                     extractFlac: true,
@@ -674,7 +673,7 @@ public class TidalAudioFormatHandlerTests
     {
         // Arrange
         string tempFile = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}.m4a");
-        File.WriteAllBytes(tempFile, Array.Empty<byte>());
+        File.WriteAllBytes(tempFile, []);
 
         try
         {

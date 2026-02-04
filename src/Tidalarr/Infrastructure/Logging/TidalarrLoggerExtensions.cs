@@ -1,4 +1,3 @@
-using System;
 using Microsoft.Extensions.Logging;
 
 namespace Tidalarr.Infrastructure.Logging;
@@ -33,7 +32,9 @@ internal static partial class TidalarrLoggerExtensions
         string correlationId,
         string? context = null,
         int attempt = 1)
-        => LogRequestStart(logger, PluginName, service, operation, correlationId, context ?? "default", attempt);
+    {
+        LogRequestStart(logger, PluginName, service, operation, correlationId, context ?? "default", attempt);
+    }
 
     [LoggerMessage(
         EventId = 3001,
@@ -55,7 +56,9 @@ internal static partial class TidalarrLoggerExtensions
         string correlationId,
         long elapsedMs,
         int? itemCount = null)
-        => LogRequestComplete(logger, PluginName, service, operation, correlationId, elapsedMs, itemCount ?? 0);
+    {
+        LogRequestComplete(logger, PluginName, service, operation, correlationId, elapsedMs, itemCount ?? 0);
+    }
 
     [LoggerMessage(
         EventId = 3002,
@@ -93,7 +96,7 @@ internal static partial class TidalarrLoggerExtensions
         string errorMessage,
         Exception? exception = null)
     {
-        var redacted = RedactSensitive(errorMessage);
+        string redacted = RedactSensitive(errorMessage);
         if (exception != null)
         {
             LogRequestErrorWithException(logger, exception, PluginName, service, operation, correlationId, errorCode, redacted);
@@ -118,7 +121,9 @@ internal static partial class TidalarrLoggerExtensions
         string correlationId);
 
     public static void LogAuthSuccess(this ILogger logger, string correlationId)
-        => LogAuthSuccess(logger, PluginName, correlationId);
+    {
+        LogAuthSuccess(logger, PluginName, correlationId);
+    }
 
     [LoggerMessage(
         EventId = 3011,
@@ -131,7 +136,9 @@ internal static partial class TidalarrLoggerExtensions
         string reason);
 
     public static void LogAuthFail(this ILogger logger, string correlationId, string reason)
-        => LogAuthFail(logger, PluginName, correlationId, RedactSensitive(reason));
+    {
+        LogAuthFail(logger, PluginName, correlationId, RedactSensitive(reason));
+    }
 
     [LoggerMessage(
         EventId = 3012,
@@ -144,7 +151,9 @@ internal static partial class TidalarrLoggerExtensions
         double expiresInMinutes);
 
     public static void LogTokenRefreshSuccess(this ILogger logger, string correlationId, TimeSpan? expiresIn = null)
-        => LogTokenRefreshSuccess(logger, PluginName, correlationId, expiresIn?.TotalMinutes ?? -1);
+    {
+        LogTokenRefreshSuccess(logger, PluginName, correlationId, expiresIn?.TotalMinutes ?? -1);
+    }
 
     [LoggerMessage(
         EventId = 3013,
@@ -157,7 +166,9 @@ internal static partial class TidalarrLoggerExtensions
         string reason);
 
     public static void LogTokenRefreshFail(this ILogger logger, string correlationId, string reason)
-        => LogTokenRefreshFail(logger, PluginName, correlationId, RedactSensitive(reason));
+    {
+        LogTokenRefreshFail(logger, PluginName, correlationId, RedactSensitive(reason));
+    }
 
     #endregion
 
@@ -175,7 +186,9 @@ internal static partial class TidalarrLoggerExtensions
         double retryAfterMs);
 
     public static void LogRateLimited(this ILogger logger, string service, string correlationId, TimeSpan? retryAfter = null)
-        => LogRateLimited(logger, PluginName, service, correlationId, retryAfter?.TotalMilliseconds ?? -1);
+    {
+        LogRateLimited(logger, PluginName, service, correlationId, retryAfter?.TotalMilliseconds ?? -1);
+    }
 
     [LoggerMessage(
         EventId = 3021,
@@ -189,7 +202,9 @@ internal static partial class TidalarrLoggerExtensions
         int totalAttempts);
 
     public static void LogRateLimitRecovered(this ILogger logger, string service, string correlationId, int totalAttempts)
-        => LogRateLimitRecovered(logger, PluginName, service, correlationId, totalAttempts);
+    {
+        LogRateLimitRecovered(logger, PluginName, service, correlationId, totalAttempts);
+    }
 
     #endregion
 
@@ -208,7 +223,9 @@ internal static partial class TidalarrLoggerExtensions
         string quality);
 
     public static void LogDownloadStart(this ILogger logger, string correlationId, string albumId, int trackCount, string? quality = null)
-        => LogDownloadStart(logger, PluginName, correlationId, albumId, trackCount, quality ?? "default");
+    {
+        LogDownloadStart(logger, PluginName, correlationId, albumId, trackCount, quality ?? "default");
+    }
 
     [LoggerMessage(
         EventId = 3031,
@@ -224,7 +241,9 @@ internal static partial class TidalarrLoggerExtensions
         long elapsedMs);
 
     public static void LogDownloadComplete(this ILogger logger, string correlationId, string albumId, int successCount, int failCount, long elapsedMs)
-        => LogDownloadComplete(logger, PluginName, correlationId, albumId, successCount, failCount, elapsedMs);
+    {
+        LogDownloadComplete(logger, PluginName, correlationId, albumId, successCount, failCount, elapsedMs);
+    }
 
     [LoggerMessage(
         EventId = 3032,
@@ -240,7 +259,9 @@ internal static partial class TidalarrLoggerExtensions
         string status);
 
     public static void LogTrackProgress(this ILogger logger, string correlationId, string trackId, int trackNumber, int totalTracks, string status)
-        => LogTrackProgress(logger, PluginName, correlationId, trackId, trackNumber, totalTracks, status);
+    {
+        LogTrackProgress(logger, PluginName, correlationId, trackId, trackNumber, totalTracks, status);
+    }
 
     [LoggerMessage(
         EventId = 3033,
@@ -255,7 +276,9 @@ internal static partial class TidalarrLoggerExtensions
         long bytesReceived);
 
     public static void LogChunkDownloaded(this ILogger logger, string correlationId, int chunkIndex, int totalChunks, long bytesReceived)
-        => LogChunkDownloaded(logger, PluginName, correlationId, chunkIndex, totalChunks, bytesReceived);
+    {
+        LogChunkDownloaded(logger, PluginName, correlationId, chunkIndex, totalChunks, bytesReceived);
+    }
 
     #endregion
 
@@ -272,7 +295,9 @@ internal static partial class TidalarrLoggerExtensions
         long elapsedMs);
 
     public static void LogHealthCheckPass(this ILogger logger, string service, long elapsedMs)
-        => LogHealthCheckPass(logger, PluginName, service, elapsedMs);
+    {
+        LogHealthCheckPass(logger, PluginName, service, elapsedMs);
+    }
 
     [LoggerMessage(
         EventId = 3041,
@@ -285,7 +310,9 @@ internal static partial class TidalarrLoggerExtensions
         string reason);
 
     public static void LogHealthCheckFail(this ILogger logger, string service, string reason)
-        => LogHealthCheckFail(logger, PluginName, service, RedactSensitive(reason));
+    {
+        LogHealthCheckFail(logger, PluginName, service, RedactSensitive(reason));
+    }
 
     #endregion
 
@@ -303,7 +330,9 @@ internal static partial class TidalarrLoggerExtensions
         string correlationId);
 
     public static void LogApiCallStart(this ILogger logger, string endpoint, string correlationId, string? method = null)
-        => LogApiCallStart(logger, PluginName, method ?? "GET", endpoint, correlationId);
+    {
+        LogApiCallStart(logger, PluginName, method ?? "GET", endpoint, correlationId);
+    }
 
     [LoggerMessage(
         EventId = 3051,
@@ -358,7 +387,9 @@ internal static partial class TidalarrLoggerExtensions
         long elapsedMs);
 
     public static void LogSearch(this ILogger logger, string correlationId, string query, int resultCount, long elapsedMs)
-        => LogSearch(logger, PluginName, correlationId, TruncateQuery(query), resultCount, elapsedMs);
+    {
+        LogSearch(logger, PluginName, correlationId, TruncateQuery(query), resultCount, elapsedMs);
+    }
 
     #endregion
 
@@ -406,10 +437,7 @@ internal static partial class TidalarrLoggerExtensions
 
     private static string TruncateQuery(string query)
     {
-        if (string.IsNullOrEmpty(query))
-            return "[empty]";
-
-        return query.Length > 50 ? query[..47] + "..." : query;
+        return string.IsNullOrEmpty(query) ? "[empty]" : query.Length > 50 ? query[..47] + "..." : query;
     }
 
     #endregion
