@@ -60,13 +60,19 @@ try {
     }
 
     $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+
+    # Build test project separately with SkipHostBridge since unified runner doesn't pass
+    # Properties to its build step (only to dotnet test)
+    Write-Host "Building test project with SkipHostBridge..." -ForegroundColor Cyan
+    dotnet build $testProject -c Release --no-restore -v minimal `
+        -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
+        -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+
     $testArgs = @{
         TestProject = $testProject
         Configuration = 'Release'
         CI = $true
-        # SkipHostBridge excludes LidarrNative files requiring Lidarr host assemblies
-        # ExcludeHostBridge excludes HostBridge project
-        Properties = @('SkipHostBridge=true', 'ExcludeHostBridge=true')
+        NoBuild = $true  # Already built above with SkipHostBridge
     }
 
     if ($IncludeCliTests) {
