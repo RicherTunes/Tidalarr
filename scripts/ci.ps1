@@ -35,7 +35,8 @@ try {
     dotnet restore "$repoRoot/Tidalarr.sln"
 
     Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
-    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false
+    # SkipHostBridge excludes LidarrNative files that require Lidarr host assemblies
+    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false -SkipHostBridge
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
     try {
