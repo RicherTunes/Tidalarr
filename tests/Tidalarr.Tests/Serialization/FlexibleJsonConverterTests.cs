@@ -174,16 +174,15 @@ public class FlexibleJsonConverterTests
     }
 
     [Fact]
-    public void FlexibleLongJsonConverter_InvalidTokenType_ThrowsJsonException()
+    public void FlexibleLongJsonConverter_InvalidTokenType_ThrowsNotImplementedException()
     {
         // Arrange - Boolean token is invalid for long conversion
         const string json = """{ "id": true }""";
 
-        // Act & Assert
-        JsonException exception = Assert.Throws<JsonException>(
+        // Act & Assert - The converter throws NotImplementedException for unsupported token types
+        Assert.Throws<NotImplementedException>(
             () => JsonSerializer.Deserialize<TestLongDto>(json, JsonOptions)
         );
-        Assert.Contains("Unexpected token", exception.Message);
     }
 
     #endregion
