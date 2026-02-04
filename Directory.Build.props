@@ -14,9 +14,9 @@
 
   <!-- SkipHostBridge: Exclude Lidarr-native files in hostless/CI builds -->
   <PropertyGroup Condition="'$(SkipHostBridge)' == 'true'">
-    <!-- Exclude LidarrNative folder from compilation (must be set before SDK implicit includes) -->
-    <!-- Use multiple patterns to ensure cross-platform matching -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);src/Tidalarr/Integration/LidarrNative/**;**/LidarrNative/**</DefaultItemExcludes>
+    <!-- Exclude LidarrNative folder from compilation (must be set before SDK implicit includes)
+         Pattern is relative to each project's directory, not to this props file -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/LidarrNative/**;Integration/LidarrNative/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Version Management -->

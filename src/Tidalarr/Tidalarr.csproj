@@ -16,22 +16,9 @@
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
   </PropertyGroup>
 
-  <!-- Hostless/CI builds: explicitly remove Lidarr-native files before compilation -->
-  <!-- This Target runs immediately before CoreCompile to ensure removals stick -->
-  <Target Name="RemoveLidarrNativeFiles" BeforeTargets="CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
-    <!-- Log current compile items for diagnostics -->
-    <Message Importance="High" Text="[SkipHostBridge] Before removal: @(Compile->Count()) compile items" />
-    <ItemGroup>
-      <!-- Remove using relative path globs (matches how SDK includes files) -->
-      <Compile Remove="Integration/LidarrNative/*.cs" />
-      <Compile Remove="Integration/LidarrNative/**/*.cs" />
-      <Compile Remove="Integration\LidarrNative\*.cs" />
-      <Compile Remove="Integration\LidarrNative\**\*.cs" />
-      <!-- Also try with wildcard prefix for any nesting -->
-      <Compile Remove="**/LidarrNative/*.cs" />
-      <Compile Remove="**/LidarrNative/**/*.cs" />
-    </ItemGroup>
-    <Message Importance="High" Text="[SkipHostBridge] After removal: @(Compile->Count()) compile items" />
+  <!-- SkipHostBridge diagnostic: confirm LidarrNative exclusion is working -->
+  <Target Name="SkipHostBridgeDiagnostic" BeforeTargets="CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
+    <Message Importance="High" Text="[SkipHostBridge] Compile items: @(Compile->Count())" />
   </Target>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
