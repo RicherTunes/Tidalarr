@@ -50,22 +50,32 @@ try {
         if ($IncludeCliTests) { throw }
     }
 
-    Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
-    # Build tests first since build.ps1 only builds the plugin project
-    # ExcludeHostBridge=true skips HostBridge project that requires full Lidarr assemblies
-    Write-Host "Building test project..." -ForegroundColor Cyan
-    dotnet build "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-restore -v minimal `
-        -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
-        -p:ExcludeHostBridge=true
+    Write-Host "Running tests (Release configuration) via unified runner" -ForegroundColor Cyan
+
+    # Use the unified test runner from Common
+    $unifiedRunner = Join-Path $commonScripts 'test.ps1'
+    if (-not (Test-Path $unifiedRunner)) {
+        throw "Unified test runner not found at: $unifiedRunner"
+    }
+
+    $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+    $testArgs = @{
+        TestProject = $testProject
+        Configuration = 'Release'
+        CI = $true
+        Properties = @('ExcludeHostBridge=true')
+    }
 
     if ($IncludeCliTests) {
         Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+        # No additional filter - run all tests
     }
     else {
         Write-Host "Excluding CLI-scope tests (scope=cli) for PR/CI runs" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build --filter "scope!=cli"
+        $testArgs['AdditionalFilter'] = 'scope!=cli'
     }
+
+    & $unifiedRunner @testArgs
 
     if (-not $SkipPackage) {
         $artifactsDir = Join-Path $repoRoot 'artifacts'
