@@ -12,9 +12,19 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- SkipHostBridge default value - actual file exclusion is in Directory.Build.props -->
+    <!-- SkipHostBridge default value -->
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
   </PropertyGroup>
+
+  <!-- Hostless/CI builds: explicitly remove Lidarr-native files before compilation -->
+  <!-- This Target runs early and is more reliable than DefaultItemExcludes for conditional exclusion -->
+  <Target Name="RemoveLidarrNativeFiles" BeforeTargets="BeforeBuild;CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
+    <ItemGroup>
+      <Compile Remove="Integration/LidarrNative/**/*.cs" />
+      <Compile Remove="Integration\LidarrNative\**\*.cs" />
+    </ItemGroup>
+    <Message Importance="High" Text="[SkipHostBridge] Excluded LidarrNative files from compilation" />
+  </Target>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
