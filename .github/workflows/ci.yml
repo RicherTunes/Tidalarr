@@ -126,7 +126,8 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
-          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
+          # Exclude LidarrNative files - they reference host types not available in clean checkout
+          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative'
 
       - name: Run unified plugin pipeline
         shell: pwsh
