@@ -59,6 +59,8 @@
   <ItemGroup Condition="'$(ExcludeHostBridge)' == 'true'">
     <!-- HostBridge tests require full Lidarr assemblies -->
     <Compile Remove="Unit\HostBridgeMappingTests.cs" />
+    <Compile Remove="Unit\TidalDownloadClientHostSettingsParityTests.cs" />
+    <Compile Remove="Unit\TidalQualityEnumParityTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
     <!-- Lidarr-native download client types require Lidarr.Core -->
     <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
