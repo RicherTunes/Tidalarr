@@ -52,19 +52,6 @@ jobs:
           cache-dependency-path: |
             **/*.csproj
 
-      - name: Prepare host stub assemblies
-        shell: pwsh
-        run: |
-          $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
-          $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
-          $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
-          if (Test-Path $prepareStub) {
-            Write-Host "Generating host stub assemblies..."
-            & $prepareStub -OutputPath $hostOutput
-          } else {
-            Write-Warning "prepare-host-stub.ps1 not found - skipping stub generation"
-          }
-
       - name: Formatting check (repo-only)
         shell: pwsh
         continue-on-error: ${{ github.event_name != 'pull_request' }}
@@ -75,11 +62,12 @@ jobs:
       - name: Build (Release)
         shell: pwsh
         run: |
-          # Build only plugin projects, exclude HostBridge which requires full Lidarr assemblies
+          # Build plugin with SkipHostBridge=true to exclude LidarrNative files that require host assemblies
           dotnet build src/Tidalarr/Tidalarr.csproj -c Release -v minimal `
             -p:RunAnalyzersDuringBuild=false `
             -p:EnableNETAnalyzers=false `
-            -p:TreatWarningsAsErrors=false
+            -p:TreatWarningsAsErrors=false `
+            -p:SkipHostBridge=true
           dotnet build TidalCLI/TidalCLI.csproj -c Release -v minimal `
             -p:RunAnalyzersDuringBuild=false `
             -p:EnableNETAnalyzers=false `
