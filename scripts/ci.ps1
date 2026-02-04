@@ -96,7 +96,8 @@ try {
         $packageName = "Tidalarr-$($manifest.version).zip"
         $packagePath = Join-Path $artifactsDir $packageName
 
-        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin/Release/net8.0'
+        # Tidalarr uses OutputPath=bin\ without configuration subdirectory
+        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin'
         $payload = @(
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.dll'
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.pdb'
