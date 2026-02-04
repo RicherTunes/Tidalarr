@@ -17,13 +17,21 @@
   </PropertyGroup>
 
   <!-- Hostless/CI builds: explicitly remove Lidarr-native files before compilation -->
-  <!-- This Target runs early and is more reliable than DefaultItemExcludes for conditional exclusion -->
-  <Target Name="RemoveLidarrNativeFiles" BeforeTargets="BeforeBuild;CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
+  <!-- This Target runs immediately before CoreCompile to ensure removals stick -->
+  <Target Name="RemoveLidarrNativeFiles" BeforeTargets="CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
+    <!-- Log current compile items for diagnostics -->
+    <Message Importance="High" Text="[SkipHostBridge] Before removal: @(Compile->Count()) compile items" />
     <ItemGroup>
+      <!-- Remove using relative path globs (matches how SDK includes files) -->
+      <Compile Remove="Integration/LidarrNative/*.cs" />
       <Compile Remove="Integration/LidarrNative/**/*.cs" />
+      <Compile Remove="Integration\LidarrNative\*.cs" />
       <Compile Remove="Integration\LidarrNative\**\*.cs" />
+      <!-- Also try with wildcard prefix for any nesting -->
+      <Compile Remove="**/LidarrNative/*.cs" />
+      <Compile Remove="**/LidarrNative/**/*.cs" />
     </ItemGroup>
-    <Message Importance="High" Text="[SkipHostBridge] Excluded LidarrNative files from compilation" />
+    <Message Importance="High" Text="[SkipHostBridge] After removal: @(Compile->Count()) compile items" />
   </Target>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
