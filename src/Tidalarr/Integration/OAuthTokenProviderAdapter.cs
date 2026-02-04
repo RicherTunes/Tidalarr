@@ -36,7 +36,10 @@ namespace Tidalarr.Integration
 
         public DateTime? GetTokenExpiration(string token)
         {
-            try { Core.Models.TidalTokens t = this._auth.GetValidTokensAsync().GetAwaiter().GetResult(); return t.AccessToken == token ? t.ExpiresAt : null; } catch { return null; }
+            // NOTE: This method is synchronous due to IStreamingTokenProvider interface constraint.
+            // The .GetAwaiter().GetResult() pattern can cause deadlocks in UI/ASP.NET contexts.
+            // TODO: Consider making IStreamingTokenProvider.GetTokenExpiration async in a future release.
+            try { Core.Models.TidalTokens t = this._auth.GetValidTokensAsync().ConfigureAwait(false).GetAwaiter().GetResult(); return t.AccessToken == token ? t.ExpiresAt : null; } catch { return null; }
         }
 
         public void ClearAuthenticationCache() { /* no-op for adapter */ }

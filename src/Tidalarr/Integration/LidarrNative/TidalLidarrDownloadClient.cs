@@ -311,7 +311,9 @@ public class TidalLidarrDownloadClient(
             {
                 try
                 {
-                    authManager.EnsureValidSessionAsync().GetAwaiter().GetResult();
+                    // NOTE: Test() is synchronous due to Lidarr's DownloadClientBase interface constraint.
+                    // Using .ConfigureAwait(false) to mitigate deadlock risk in sync-over-async pattern.
+                    authManager.EnsureValidSessionAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                     this._logger.Debug("Tidal authentication session is valid");
                 }
                 catch (Exception authEx)

@@ -1,6 +1,7 @@
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
+using Lidarr.Plugin.Common.Abstractions.Llm;
 using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
@@ -239,6 +240,82 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     protected override HttpClient GetHttpClient()
     {
         return this._httpClient;
+    }
+
+    // DIAG-02: Standardized test connection method returning ProviderHealthResult
+    /// <summary>
+    /// Performs a test connection check with extended diagnostics fields.
+    /// Returns ProviderHealthResult with provider, authMethod, model, and errorCode fields.
+    /// </summary>
+    public async Task<ProviderHealthResult> TestConnectionAsync()
+    {
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            // Validate settings first
+            ValidationResult validation = ValidateSettings(Settings);
+            if (!validation.IsValid)
+            {
+                var errorCode = validation.Errors.FirstOrDefault()?.ErrorCode ?? "INVALID_SETTINGS";
+                var statusMessage = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage));
+
+                return ProviderHealthResult.Unhealthy(
+                    $"Settings validation failed: {statusMessage}",
+                    DateTime.UtcNow - startTime,
+                    "tidal",
+                    "oauth",
+                    "quality_detect",
+                    errorCode
+                );
+            }
+
+            // Authenticate with Tidal service
+            bool isAuthenticated = await this._apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
+
+            if (!isAuthenticated)
+            {
+                return ProviderHealthResult.Unhealthy(
+                    "Authentication failed - Tidal API returned unauthenticated response",
+                    DateTime.UtcNow - startTime,
+                    "tidal",
+                    "oauth",
+                    "quality_detect",
+                    "AUTH_FAILED"
+                );
+            }
+
+            // Test connection successful
+            return ProviderHealthResult.Healthy(
+                DateTime.UtcNow - startTime,
+                "tidal",
+                "oauth",
+                "quality_detect"
+            );
+        }
+        catch (Exception ex)
+        {
+            return ProviderHealthResult.Unhealthy(
+                $"Test connection failed with exception: {ex.Message}",
+                DateTime.UtcNow - startTime,
+                "tidal",
+                "oauth",
+                "quality_detect",
+                "EXCEPTION"
+            );
+        }
+    }
+
+    // Backward compatibility: Original Test(List<ValidationFailure>) pattern
+    /// <summary>
+    /// Original test pattern for backward compatibility with Lidarr integration.
+    /// Returns IndexerEstablishConnectionTestResult with validation failures.
+    /// </summary>
+    public List<ValidationFailure> Test(List<ValidationFailure> failures)
+    {
+        // This is a wrapper around ValidateSettings for backward compatibility
+        var validation = ValidateSettings(Settings);
+        return validation.Errors.ToList();
     }
 }
 

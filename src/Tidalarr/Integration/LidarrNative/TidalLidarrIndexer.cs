@@ -473,9 +473,11 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 return releases;
             }
 
-            // Execute search synchronously (we're in a sync context)
+            // Execute search synchronously (we're in a sync context from IParseIndexerResponse.ParseResponse)
+            // NOTE: Using .ConfigureAwait(false) to mitigate deadlock risk in sync-over-async pattern.
+            // This is necessary because Lidarr's IParseIndexerResponse interface is synchronous.
             Task<TidalSearchResults> searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
-            TidalSearchResults searchResults = searchTask.GetAwaiter().GetResult();
+            TidalSearchResults searchResults = searchTask.ConfigureAwait(false).GetAwaiter().GetResult();
 
             if (searchResults.Albums == null || searchResults.Albums.Count == 0)
             {

@@ -23,7 +23,7 @@ namespace Tidalarr.Tests.Contract
     /// Health tracking logging contract tests validating that Tidalarr providers emit
     /// correct health tracking events: check pass, check fail, rate limited, recover.
     /// </summary>
-    [Trait("Category", "Contract")]
+    [Trait("Area", "Contract")]
     [Trait("Target", "Provider")]
     public class HealthTrackingTests
     {

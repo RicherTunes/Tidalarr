@@ -18,6 +18,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="FluentAssertions" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Xunit.SkippableFact" />
@@ -64,6 +65,9 @@
     <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
+    <Compile Include="Contract\DiagnosticsTidalarrTests.cs" />
+    <Compile Include="Contract\HealthTrackingTests.cs" />
+    <Compile Include="Unit\Logging\ProviderLifecycleTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
     <!-- TidalLidarrParser returns ReleaseInfo from Lidarr.Core -->
     <Compile Remove="Unit\TidalLidarrIndexerSizeEstimationTests.cs" />
