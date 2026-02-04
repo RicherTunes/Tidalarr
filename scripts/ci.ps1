@@ -64,7 +64,9 @@ try {
         TestProject = $testProject
         Configuration = 'Release'
         CI = $true
-        Properties = @('ExcludeHostBridge=true')
+        # SkipHostBridge excludes LidarrNative files requiring Lidarr host assemblies
+        # ExcludeHostBridge excludes HostBridge project
+        Properties = @('SkipHostBridge=true', 'ExcludeHostBridge=true')
     }
 
     if ($IncludeCliTests) {
