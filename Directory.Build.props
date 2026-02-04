@@ -12,6 +12,12 @@
     <ILRepackEnabled>false</ILRepackEnabled>
   </PropertyGroup>
 
+  <!-- SkipHostBridge: Exclude Lidarr-native files in hostless/CI builds -->
+  <PropertyGroup Condition="'$(SkipHostBridge)' == 'true'">
+    <!-- Exclude LidarrNative folder from compilation (must be set before SDK implicit includes) -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/Integration/LidarrNative/**</DefaultItemExcludes>
+  </PropertyGroup>
+
   <!-- Version Management -->
   <PropertyGroup>
     <!-- Read version from VERSION file if it exists -->

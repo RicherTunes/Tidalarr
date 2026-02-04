@@ -12,9 +12,8 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- SkipHostBridge default value - actual file exclusion is in Directory.Build.props -->
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
-    <!-- Hostless/CI builds: exclude Lidarr-native wrappers via DefaultItemExcludes (evaluated before implicit includes) -->
-    <DefaultItemExcludes Condition="'$(SkipHostBridge)' == 'true'">$(DefaultItemExcludes);Integration/LidarrNative/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
