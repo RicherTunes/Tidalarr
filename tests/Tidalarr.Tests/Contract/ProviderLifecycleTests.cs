@@ -20,7 +20,7 @@ namespace Tidalarr.Tests.Contract;
 /// correct request lifecycle events using Common library LlmLoggerExtensions.
 /// Tests verify LogRequestStart, LogRequestComplete, and LogRequestError events.
 /// </summary>
-[Trait("Category", "Contract")]
+[Trait("Area", "Contract")]
 [Trait("Target", "Provider")]
 public class ProviderLifecycleTests
 {
