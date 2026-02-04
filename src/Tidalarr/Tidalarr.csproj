@@ -17,8 +17,9 @@
 
   <!-- Hostless/CI builds: exclude Lidarr-native wrappers that require Lidarr host assemblies -->
   <ItemGroup Condition="'$(SkipHostBridge)' == 'true'">
-    <Compile Remove="Integration\\LidarrNative\\**\\*.cs" />
-    <None Remove="Integration\\LidarrNative\\**\\*" />
+    <!-- Use forward slashes for cross-platform glob compatibility (works on Linux CI and Windows) -->
+    <Compile Remove="Integration/LidarrNative/**/*.cs" />
+    <None Remove="Integration/LidarrNative/**/*" />
   </ItemGroup>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
