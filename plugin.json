@@ -10,6 +10,7 @@
   "license": "MIT",
   "tags": ["music", "tidal", "hi-res", "lossless", "oauth"],
   "minHostVersion": "3.0.0.4855",
+  "minimumVersion": "3.0.0.4855",
   "targetFramework": "net8.0",
   "main": "Lidarr.Plugin.Tidalarr.dll",
   "rootNamespace": "Tidalarr"

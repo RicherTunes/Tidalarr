@@ -12,6 +12,19 @@
     <ILRepackEnabled>false</ILRepackEnabled>
   </PropertyGroup>
 
+  <!-- SkipHostBridge: Exclude Lidarr-native files in hostless/CI builds.
+       Auto-detect: when host stub assemblies are not present, skip host bridge automatically.
+       This allows PluginPack (packaging-gates CI) to build without prepare-host-stub.ps1.
+       Explicit -p:SkipHostBridge=true/false always takes precedence. -->
+  <PropertyGroup>
+    <SkipHostBridge Condition="'$(SkipHostBridge)' == '' AND !Exists('$(MSBuildThisFileDirectory)ext\Lidarr\_output\net8.0\Lidarr.dll')">true</SkipHostBridge>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SkipHostBridge)' == 'true'">
+    <!-- Exclude LidarrNative folder from compilation (must be set before SDK implicit includes)
+         Pattern is relative to each project's directory, not to this props file -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/LidarrNative/**;Integration/LidarrNative/**</DefaultItemExcludes>
+  </PropertyGroup>
+
   <!-- Version Management -->
   <PropertyGroup>
     <!-- Read version from VERSION file if it exists -->

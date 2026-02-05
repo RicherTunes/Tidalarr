@@ -12,14 +12,14 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- SkipHostBridge default value -->
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
   </PropertyGroup>
 
-  <!-- Hostless/CI builds: exclude Lidarr-native wrappers that require Lidarr host assemblies -->
-  <ItemGroup Condition="'$(SkipHostBridge)' == 'true'">
-    <Compile Remove="Integration\\LidarrNative\\**\\*.cs" />
-    <None Remove="Integration\\LidarrNative\\**\\*" />
-  </ItemGroup>
+  <!-- SkipHostBridge diagnostic: confirm LidarrNative exclusion is working -->
+  <Target Name="SkipHostBridgeDiagnostic" BeforeTargets="CoreCompile" Condition="'$(SkipHostBridge)' == 'true'">
+    <Message Importance="High" Text="[SkipHostBridge] Compile items: @(Compile->Count())" />
+  </Target>
 
   <!-- Dual-path Common wiring: submodule by default; packages when UseInRepoCommon=false -->
   <PropertyGroup>
@@ -82,8 +82,8 @@
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Text.Json" />
-    <!-- Only use NuGet NLog when Lidarr's copy is unavailable -->
-    <PackageReference Include="NLog" Condition="!Exists('$(LidarrAssembliesPath)\NLog.dll')" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
+    <!-- Use NuGet NLog when Lidarr's copy is unavailable OR when SkipHostBridge is enabled -->
+    <PackageReference Include="NLog" Condition="!Exists('$(LidarrAssembliesPath)\NLog.dll') OR '$(SkipHostBridge)' == 'true'" ExcludeAssets="runtime;native;contentfiles;analyzers;build;buildtransitive" />
     <!-- ILRepack for merging dependencies into single plugin DLL.
          ExcludeAssets="build" prevents NuGet's automatic target; we use PluginPackaging.targets instead.
          GeneratePathProperty="true" provides $(PkgILRepack_Lib_MSBuild_Task) for the task import. -->

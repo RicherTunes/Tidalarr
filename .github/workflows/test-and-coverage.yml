@@ -90,25 +90,22 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
-      - name: Build tests
-        shell: bash
+      - name: Run tests with coverage (unified runner)
+        shell: pwsh
         run: |
-          dotnet restore tests/Tidalarr.Tests/Tidalarr.Tests.csproj -p:SkipHostBridge=true
-          dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj --configuration Release --no-restore \
-            -p:SkipHostBridge=true -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
-
-      - name: Run tests with coverage
-        shell: bash
-        run: |
-          mkdir -p TestResults
-          dotnet test tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
-            --configuration Release \
-            --no-build \
-            --collect "XPlat Code Coverage" \
-            --logger "trx;LogFileName=test-results.trx" \
-            --results-directory TestResults/ \
-            --filter "scope!=cli" \
-            -p:SkipHostBridge=true
+          $runner = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts/test.ps1'
+          if (-not (Test-Path $runner)) {
+            Write-Error "Unified test runner not found at: $runner"
+            exit 1
+          }
+          & $runner `
+            -TestProject 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj' `
+            -Configuration Release `
+            -Coverage `
+            -CI `
+            -OutputDir 'TestResults' `
+            -AdditionalFilter 'scope!=cli' `
+            -Properties @('SkipHostBridge=true')
 
       - name: Install ReportGenerator
         shell: bash
