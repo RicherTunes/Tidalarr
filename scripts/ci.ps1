@@ -35,7 +35,8 @@ try {
     dotnet restore "$repoRoot/Tidalarr.sln"
 
     Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
-    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false
+    # SkipHostBridge excludes LidarrNative files that require Lidarr host assemblies
+    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false -SkipHostBridge
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
     try {
@@ -50,22 +51,40 @@ try {
         if ($IncludeCliTests) { throw }
     }
 
-    Write-Host "Running tests (Release configuration)" -ForegroundColor Cyan
-    # Build tests first since build.ps1 only builds the plugin project
-    # ExcludeHostBridge=true skips HostBridge project that requires full Lidarr assemblies
-    Write-Host "Building test project..." -ForegroundColor Cyan
-    dotnet build "$repoRoot/tests/Tidalarr.Tests/Tidalarr.Tests.csproj" -c Release --no-restore -v minimal `
+    Write-Host "Running tests (Release configuration) via unified runner" -ForegroundColor Cyan
+
+    # Use the unified test runner from Common
+    $unifiedRunner = Join-Path $commonScripts 'test.ps1'
+    if (-not (Test-Path $unifiedRunner)) {
+        throw "Unified test runner not found at: $unifiedRunner"
+    }
+
+    $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+
+    # Build test project separately with SkipHostBridge since unified runner doesn't pass
+    # Properties to its build step (only to dotnet test)
+    Write-Host "Building test project with SkipHostBridge..." -ForegroundColor Cyan
+    dotnet build $testProject -c Release --no-restore -v minimal `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
-        -p:ExcludeHostBridge=true
+        -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+
+    $testArgs = @{
+        TestProject = $testProject
+        Configuration = 'Release'
+        CI = $true
+        NoBuild = $true  # Already built above with SkipHostBridge
+    }
 
     if ($IncludeCliTests) {
         Write-Host "Including CLI-scope tests (scope=cli)" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build
+        # No additional filter - run all tests
     }
     else {
         Write-Host "Excluding CLI-scope tests (scope=cli) for PR/CI runs" -ForegroundColor Yellow
-        dotnet test "$repoRoot/Tidalarr.sln" -c Release --no-build --filter "scope!=cli"
+        $testArgs['AdditionalFilter'] = 'scope!=cli'
     }
+
+    & $unifiedRunner @testArgs
 
     if (-not $SkipPackage) {
         $artifactsDir = Join-Path $repoRoot 'artifacts'
@@ -77,7 +96,8 @@ try {
         $packageName = "Tidalarr-$($manifest.version).zip"
         $packagePath = Join-Path $artifactsDir $packageName
 
-        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin/Release/net8.0'
+        # Tidalarr uses OutputPath=bin\ without configuration subdirectory
+        $outputDir = Join-Path $repoRoot 'src/Tidalarr/bin'
         $payload = @(
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.dll'
             Join-Path $outputDir 'Lidarr.Plugin.Tidalarr.pdb'

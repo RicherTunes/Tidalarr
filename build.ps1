@@ -12,6 +12,7 @@ param(
     [switch]$VerboseOutput,
     [switch]$UsePrebuiltAssemblies,
     [string]$LidarrVersion = "2.13.2.4685",
+    [switch]$SkipHostBridge,
     [switch]$Help
 )
 
@@ -119,6 +120,11 @@ if (-not $NoBuild) {
         "-p:EnableNETAnalyzers=false",
         "-p:TreatWarningsAsErrors=false"
     )
+
+    if ($SkipHostBridge) {
+        $buildParams += "-p:SkipHostBridge=true"
+        Write-Host "⚠️ SkipHostBridge enabled - LidarrNative integration layer excluded" -ForegroundColor Yellow
+    }
 
     if (-not $UsePrebuiltAssemblies -and (Test-Path "ext/Lidarr-source/src/Directory.Build.props")) {
         $buildParams += "-p:LidarrAssemblyVersion=$LidarrVersion"
