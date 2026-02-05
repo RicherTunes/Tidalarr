@@ -21,7 +21,7 @@ on:
 
 jobs:
   packaging-gates:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@64b458ac44d14394caf84754f81730837dbdd88d
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@d48e61764ea87457533d4189caf4faced7545c9f
     with:
       common-path: ext/Lidarr.Plugin.Common
       plugin-csproj: src/Tidalarr/Tidalarr.csproj
