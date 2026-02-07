@@ -117,6 +117,23 @@ jobs:
           # they use host types not available in clean checkout
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
 
+      - name: Sync-over-async guard
+        shell: bash
+        run: |
+          echo "Checking for .GetAwaiter().GetResult() in product code..."
+          # Whitelist Category A files (Lidarr host forces sync entry points)
+          MATCHES=$(grep -rn "\.GetAwaiter()\.GetResult()" src/ --include="*.cs" \
+            | grep -v "TidalLidarrIndexer.cs" \
+            | grep -v "TidalLidarrDownloadClient.cs" \
+            | grep -v "OAuthTokenProviderAdapter.cs" \
+            || true)
+          if [ -n "$MATCHES" ]; then
+            echo "Found sync-over-async usages outside whitelisted Category A files:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "[OK] No unexpected sync-over-async patterns"
+
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
