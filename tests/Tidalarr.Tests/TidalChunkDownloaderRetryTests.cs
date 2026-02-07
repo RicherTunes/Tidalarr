@@ -14,11 +14,12 @@ public class TidalChunkDownloaderRetryTests
     private class SuccessHandler(byte[] payload) : HttpMessageHandler
     {
         private readonly byte[] _payload = payload;
-        public int Attempts { get; private set; }
+        private int _attempts;
+        public int Attempts => _attempts;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Attempts++;
+            Interlocked.Increment(ref _attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(this._payload)
@@ -28,11 +29,12 @@ public class TidalChunkDownloaderRetryTests
 
     private class FailingHandler : HttpMessageHandler
     {
-        public int Attempts { get; private set; }
+        private int _attempts;
+        public int Attempts => _attempts;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Attempts++;
+            Interlocked.Increment(ref _attempts);
             // Return 500 to trigger retry behavior in the Common library
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
             {
@@ -70,17 +72,18 @@ public class TidalChunkDownloaderRetryTests
     [Fact]
     public async Task DownloadAndAssembleAsync_MultipleChunks_AssemblesInOrder()
     {
-        // Arrange
-        byte[] chunk1 = [1, 2];
-        byte[] chunk2 = [3, 4];
-        byte[] chunk3 = [5, 6];
-
-        int chunkIndex = 0;
-        byte[][] chunks = [chunk1, chunk2, chunk3];
+        // Arrange — use URL-keyed lookup instead of a shared mutable index
+        // to eliminate the non-atomic chunkIndex++ race condition.
+        Dictionary<string, byte[]> chunkMap = new()
+        {
+            ["https://chunk1"] = [1, 2],
+            ["https://chunk2"] = [3, 4],
+            ["https://chunk3"] = [5, 6],
+        };
 
         HttpMessageHandler handler = new DelegatingHandlerImpl((req, ct) =>
         {
-            byte[] data = chunks[chunkIndex++];
+            byte[] data = chunkMap[req.RequestUri!.ToString()];
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(data)

@@ -48,6 +48,7 @@ public class TidalSearchServiceOptimizerTests
 
     private class OptimizerStub : IQueryOptimizer
     {
+        private readonly TaskCompletionSource _learnCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<string> Learned = [];
         public Task<OptimizedQuery> OptimizeQueryAsync(string originalQuery, QueryContext? context = null)
         {
@@ -55,7 +56,21 @@ public class TidalSearchServiceOptimizerTests
         }
 
         public Task LearnFromResultsAsync(string query, QueryResults results, QueryFeedback userFeedback)
-        { this.Learned.Add(query); return Task.CompletedTask; }
+        {
+            this.Learned.Add(query);
+            this._learnCompleted.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Waits for the fire-and-forget learning callback to complete,
+        /// replacing brittle Task.Delay-based polling.
+        /// </summary>
+        public Task WaitForLearnAsync(TimeSpan timeout)
+        {
+            return Task.WhenAny(this._learnCompleted.Task, Task.Delay(timeout));
+        }
+
         public Task<OptimizationMetrics> GetMetricsAsync()
         {
             return Task.FromResult(new OptimizationMetrics());
@@ -74,11 +89,9 @@ public class TidalSearchServiceOptimizerTests
         TidalSearchService svc = new(new CoreFake(), new TidalQualityDetector(), optimizer);
         TidalSearchResults results = await svc.SearchWithQualityDetectionAsync("query", TidalQuality.Lossless);
         Assert.NotEmpty(results.Albums);
-        // learning happens fire-and-forget; wait briefly
-        for (int i = 0; i < 10 && optimizer.Learned.Count == 0; i++)
-        {
-            await Task.Delay(20);
-        }
+        // Learning happens fire-and-forget via Task.Run(); use a
+        // TaskCompletionSource-based waiter instead of brittle Task.Delay polling.
+        await optimizer.WaitForLearnAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(optimizer.Learned.Count > 0);
         Assert.Contains("query optimized", optimizer.Learned[0]);
