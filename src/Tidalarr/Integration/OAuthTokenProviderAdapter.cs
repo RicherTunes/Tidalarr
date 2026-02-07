@@ -34,6 +34,7 @@ namespace Tidalarr.Integration
             try { return !string.IsNullOrEmpty(token) && (await this._auth.GetValidTokensAsync()).AccessToken == token; } catch { return false; }
         }
 
+        // SYNC-OVER-ASYNC: IStreamingTokenProvider.GetTokenExpiration is a synchronous interface contract.
         public DateTime? GetTokenExpiration(string token)
         {
             try { Core.Models.TidalTokens t = this._auth.GetValidTokensAsync().GetAwaiter().GetResult(); return t.AccessToken == token ? t.ExpiresAt : null; } catch { return null; }
