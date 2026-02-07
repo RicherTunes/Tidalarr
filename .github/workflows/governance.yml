@@ -54,7 +54,7 @@ jobs:
 
         FAILED=0
 
-        for f in .github/sha-pin-allowlist.json; do
+        for f in .github/sha-pin-allowlist.json .github/sync-over-async-allowlist.json; do
           if [ ! -f "$f" ]; then
             echo "Skipping $f (not found)"
             continue
