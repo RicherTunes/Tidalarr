@@ -89,6 +89,14 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
+      - name: Build test project (exclude HostBridge)
+        shell: bash
+        run: |
+          dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
+            --configuration Release --no-restore -v minimal \
+            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
+            -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+
       - name: Run tests with coverage (unified runner)
         shell: pwsh
         run: |
@@ -102,6 +110,7 @@ jobs:
             -Configuration Release `
             -Coverage `
             -CI `
+            -NoBuild `
             -OutputDir 'TestResults' `
             -AdditionalFilter 'scope!=cli' `
             -Properties @('SkipHostBridge=true')
