@@ -1,0 +1,20 @@
+{
+  "$schema": "Allowlist for sync-over-async lint. Category: A=host-required, B=avoidable, C=test/helper",
+  "entries": [
+    {
+      "path": "src/Tidalarr/Integration/OAuthTokenProviderAdapter.cs",
+      "category": "A",
+      "reason": "IStreamingTokenProvider.GetTokenExpiration is a synchronous interface contract"
+    },
+    {
+      "path": "src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs",
+      "category": "A",
+      "reason": "DownloadClientBase.Test() is a synchronous Lidarr host contract"
+    },
+    {
+      "path": "src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs",
+      "category": "A",
+      "reason": "IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract"
+    }
+  ]
+}
