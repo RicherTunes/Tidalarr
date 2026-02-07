@@ -89,6 +89,10 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
+      # Pre-build with HostBridge exclusion: the unified runner (test.ps1)
+      # only passes -Properties to dotnet test, not to the build phase.
+      # Without this step, HostBridge tries to resolve Lidarr.Core host
+      # assemblies that aren't present with stub-only setup.
       - name: Build test project (exclude HostBridge)
         shell: bash
         run: |
@@ -105,6 +109,7 @@ jobs:
             Write-Error "Unified test runner not found at: $runner"
             exit 1
           }
+          # -NoBuild: relies on the pre-build step above (do not remove it)
           & $runner `
             -TestProject 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj' `
             -Configuration Release `
