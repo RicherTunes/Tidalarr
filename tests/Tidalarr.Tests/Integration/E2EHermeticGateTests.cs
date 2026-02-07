@@ -146,7 +146,7 @@ public class E2EHermeticGateTests
             manifestMimeType = "application/dash+xml",
             manifest = manifestB64,
             encryptionType = encrypted ? "AES128" : "NONE",
-            securityToken = encrypted ? "sec-tok-123" : (string?)null,
+            securityToken = encrypted ? "sec-tok-123" : null,
             bitDepth = 16,
             sampleRate = 44100
         };
@@ -161,22 +161,34 @@ public class E2EHermeticGateTests
         public bool IsAuthenticated => true;
 
         public Task<TidalAuthUrl> GenerateAuthUrlAsync()
-            => Task.FromResult(new TidalAuthUrl("https://login.tidal.com", "verifier", "state123", "cuk"));
+        {
+            return Task.FromResult(new TidalAuthUrl("https://login.tidal.com", "verifier", "state123", "cuk"));
+        }
 
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
-            => Task.FromResult(MakeTokens());
+        {
+            return Task.FromResult(MakeTokens());
+        }
 
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
-            => Task.FromResult(MakeTokens());
+        {
+            return Task.FromResult(MakeTokens());
+        }
 
         public Task<TidalTokens> GetValidTokensAsync()
-            => Task.FromResult(MakeTokens());
+        {
+            return Task.FromResult(MakeTokens());
+        }
 
         public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
-            => TidalCallbackResult.Failure("Not implemented in test stub");
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
 
         private static TidalTokens MakeTokens()
-            => new("valid-access-token", "valid-refresh-token", "Bearer", DateTime.UtcNow.AddHours(1), "sess-42", "US", "user-1");
+        {
+            return new("valid-access-token", "valid-refresh-token", "Bearer", DateTime.UtcNow.AddHours(1), "sess-42", "US", "user-1");
+        }
     }
 
     /// <summary>
@@ -187,19 +199,29 @@ public class E2EHermeticGateTests
         public bool IsAuthenticated => false;
 
         public Task<TidalAuthUrl> GenerateAuthUrlAsync()
-            => Task.FromResult(new TidalAuthUrl("https://login.tidal.com", "verifier", "state123", "cuk"));
+        {
+            return Task.FromResult(new TidalAuthUrl("https://login.tidal.com", "verifier", "state123", "cuk"));
+        }
 
         public Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
-            => throw new InvalidOperationException("Token exchange failed: auth code expired");
+        {
+            throw new InvalidOperationException("Token exchange failed: auth code expired");
+        }
 
         public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
-            => throw new InvalidOperationException("Refresh token expired or revoked");
+        {
+            throw new InvalidOperationException("Refresh token expired or revoked");
+        }
 
         public Task<TidalTokens> GetValidTokensAsync()
-            => throw new InvalidOperationException("OAuth session expired. Please re-authenticate.");
+        {
+            throw new InvalidOperationException("OAuth session expired. Please re-authenticate.");
+        }
 
         public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
-            => TidalCallbackResult.Failure("Not implemented in test stub");
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -223,8 +245,8 @@ public class E2EHermeticGateTests
 
         // Assert
         Assert.NotNull(results);
-        Assert.Single(results.Albums);
-        Assert.Single(results.Tracks);
+        _ = Assert.Single(results.Albums);
+        _ = Assert.Single(results.Tracks);
         Assert.Equal("Kind of Blue", results.Albums[0].Title);
         Assert.Equal("So What", results.Tracks[0].Title);
         Assert.Contains("Miles Davis", results.Albums[0].Artists);
@@ -333,7 +355,7 @@ public class E2EHermeticGateTests
         TidalSearchResults results = await searchService.SearchWithQualityDetectionAsync("Miles Davis", TidalQuality.Lossless);
 
         // Assert: albums should have quality info preserved from API
-        Assert.Single(results.Albums);
+        _ = Assert.Single(results.Albums);
         TidalAlbumInfo album = results.Albums[0];
         Assert.NotEmpty(album.AvailableQualities);
         // LOSSLESS means Low, High, and Lossless should all be available (all <= Lossless)
@@ -378,7 +400,7 @@ public class E2EHermeticGateTests
         TidalSearchResults results = await apiClient.SearchAsync("high-res test");
 
         // Assert: track and album should report HiRes quality
-        Assert.Single(results.Tracks);
+        _ = Assert.Single(results.Tracks);
         Assert.Equal(TidalQuality.HiRes, results.Tracks[0].Quality);
         Assert.Contains(TidalQuality.HiRes, results.Albums[0].AvailableQualities);
     }
@@ -387,6 +409,10 @@ public class E2EHermeticGateTests
     // Auth-fail path: Expired OAuth token -> graceful error, no crash
     // ---------------------------------------------------------------------------
 
+    private static readonly string UnauthorizedJson = JsonSerializer.Serialize(new { error = "unauthorized" });
+    private static readonly string ServerErrorJson = JsonSerializer.Serialize(new { error = "internal server error" });
+    private static readonly string TokenRevokedJson = JsonSerializer.Serialize(new { status = 401, subStatus = 6001, error = "Token has been revoked" });
+
     [Fact]
     [Trait("Category", "Integration")]
     [Trait("Area", "E2E/Hermetic")]
@@ -394,7 +420,7 @@ public class E2EHermeticGateTests
     {
         // Arrange: expired auth will throw on GetValidTokensAsync
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "unauthorized"}""", HttpStatusCode.Unauthorized);
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
@@ -413,7 +439,7 @@ public class E2EHermeticGateTests
     {
         // Arrange: expired auth
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "unauthorized"}""", HttpStatusCode.Unauthorized);
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
@@ -432,7 +458,7 @@ public class E2EHermeticGateTests
     {
         // Arrange: expired auth
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "unauthorized"}""", HttpStatusCode.Unauthorized);
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
@@ -451,7 +477,7 @@ public class E2EHermeticGateTests
     {
         // Arrange: expired auth - IsAuthenticatedAsync should NOT throw, it should return false
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "unauthorized"}""", HttpStatusCode.Unauthorized);
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
@@ -470,7 +496,7 @@ public class E2EHermeticGateTests
     {
         // Arrange: expired auth with SearchByTypeAsync (uses SafeOperationExecutor)
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "unauthorized"}""", HttpStatusCode.Unauthorized);
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
@@ -497,13 +523,13 @@ public class E2EHermeticGateTests
     {
         // Arrange: server returns 500
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"error": "internal server error"}""", HttpStatusCode.InternalServerError);
+            .MapAny(ServerErrorJson, HttpStatusCode.InternalServerError);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ValidAuth());
 
         // Act & Assert: EnsureSuccessStatusCode will throw HttpRequestException
-        await Assert.ThrowsAsync<HttpRequestException>(
+        _ = await Assert.ThrowsAsync<HttpRequestException>(
             () => apiClient.SearchAsync("anything"));
     }
 
@@ -514,13 +540,13 @@ public class E2EHermeticGateTests
     {
         // Arrange: auth succeeds (returns valid tokens) but API rejects with 401 (e.g. token revoked server-side)
         RoutingHandler handler = new RoutingHandler()
-            .MapAny("""{"status":401,"subStatus":6001,"error":"Token has been revoked"}""", HttpStatusCode.Unauthorized);
+            .MapAny(TokenRevokedJson, HttpStatusCode.Unauthorized);
 
         HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
         TidalApiClient apiClient = new(httpClient, new ValidAuth());
 
         // Act & Assert: even with locally valid auth, server 401 should propagate
-        await Assert.ThrowsAsync<HttpRequestException>(
+        _ = await Assert.ThrowsAsync<HttpRequestException>(
             () => apiClient.GetTrackAsync("222"));
     }
 
