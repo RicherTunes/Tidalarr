@@ -93,7 +93,7 @@ jobs:
         shell: bash
         run: |
           dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
-            --configuration Release --no-restore -v minimal \
+            --configuration Release -v minimal \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
             -p:SkipHostBridge=true -p:ExcludeHostBridge=true
 
