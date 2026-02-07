@@ -19,7 +19,7 @@ public class TidalChunkDownloaderRetryTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Interlocked.Increment(ref _attempts);
+            _ = Interlocked.Increment(ref this._attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(this._payload)
@@ -34,7 +34,7 @@ public class TidalChunkDownloaderRetryTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Interlocked.Increment(ref _attempts);
+            _ = Interlocked.Increment(ref this._attempts);
             // Return 500 to trigger retry behavior in the Common library
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
             {

@@ -58,7 +58,7 @@ public class TidalSearchServiceOptimizerTests
         public Task LearnFromResultsAsync(string query, QueryResults results, QueryFeedback userFeedback)
         {
             this.Learned.Add(query);
-            this._learnCompleted.TrySetResult();
+            _ = this._learnCompleted.TrySetResult();
             return Task.CompletedTask;
         }
 

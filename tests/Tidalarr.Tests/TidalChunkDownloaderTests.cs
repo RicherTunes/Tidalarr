@@ -204,17 +204,13 @@ public class MockChunkHttpMessageHandler(byte[][] chunks) : HttpMessageHandler
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        int index = Interlocked.Increment(ref _chunkIndex);
-        HttpResponseMessage response = new(HttpStatusCode.OK);
-        // Return chunks in order
-        if (index < this._chunks.Length)
+        int index = Interlocked.Increment(ref this._chunkIndex);
+        HttpResponseMessage response = new(HttpStatusCode.OK)
         {
-            response.Content = new ByteArrayContent(this._chunks[index]);
-        }
-        else
-        {
-            response.Content = new ByteArrayContent([]);
-        }
+            Content = index < this._chunks.Length
+                ? new ByteArrayContent(this._chunks[index])
+                : new ByteArrayContent([])
+        };
 
         return Task.FromResult(response);
     }
