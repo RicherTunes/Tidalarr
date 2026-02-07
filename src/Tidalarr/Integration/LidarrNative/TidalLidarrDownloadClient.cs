@@ -311,6 +311,7 @@ public class TidalLidarrDownloadClient(
             {
                 try
                 {
+                    // SYNC-OVER-ASYNC: DownloadClientBase.Test() is a synchronous Lidarr host contract.
                     authManager.EnsureValidSessionAsync().GetAwaiter().GetResult();
                     this._logger.Debug("Tidal authentication session is valid");
                 }
