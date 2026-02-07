@@ -15,7 +15,7 @@ public class TidalChunkDownloaderRetryTests
     {
         private readonly byte[] _payload = payload;
         private int _attempts;
-        public int Attempts => _attempts;
+        public int Attempts => this._attempts;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -30,7 +30,7 @@ public class TidalChunkDownloaderRetryTests
     private class FailingHandler : HttpMessageHandler
     {
         private int _attempts;
-        public int Attempts => _attempts;
+        public int Attempts => this._attempts;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
