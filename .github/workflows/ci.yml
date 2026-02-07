@@ -118,21 +118,10 @@ jobs:
           dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
 
       - name: Sync-over-async guard
-        shell: bash
+        shell: pwsh
         run: |
-          echo "Checking for .GetAwaiter().GetResult() in product code..."
-          # Whitelist Category A files (Lidarr host forces sync entry points)
-          MATCHES=$(grep -rn "\.GetAwaiter()\.GetResult()" src/ --include="*.cs" \
-            | grep -v "TidalLidarrIndexer.cs" \
-            | grep -v "TidalLidarrDownloadClient.cs" \
-            | grep -v "OAuthTokenProviderAdapter.cs" \
-            || true)
-          if [ -n "$MATCHES" ]; then
-            echo "Found sync-over-async usages outside whitelisted Category A files:"
-            echo "$MATCHES"
-            exit 1
-          fi
-          echo "[OK] No unexpected sync-over-async patterns"
+          $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
+          ./scripts/lint-sync-over-async.ps1 -Mode $mode
 
       - name: Run unified plugin pipeline
         shell: pwsh
