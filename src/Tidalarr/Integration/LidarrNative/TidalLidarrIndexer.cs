@@ -473,7 +473,9 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 return releases;
             }
 
-            // Execute search synchronously (we're in a sync context)
+            // SYNC-OVER-ASYNC: IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract.
+            // FetchReleases (async override) is the primary path; this parser is a fallback used by
+            // base-class code paths that process the tidal:// placeholder URLs.
             Task<TidalSearchResults> searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
             TidalSearchResults searchResults = searchTask.GetAwaiter().GetResult();
 
