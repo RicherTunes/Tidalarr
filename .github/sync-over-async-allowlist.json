@@ -1,20 +1,36 @@
 {
-  "$schema": "Allowlist for sync-over-async lint. Category: A=host-required, B=avoidable, C=test/helper",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Allowlist of intentional sync-over-async (.GetAwaiter().GetResult()) call-sites. Category A = host requires synchronous entry-point; Category B = avoidable (never listed here). Review entries when they expire -- if the host constraint still exists, renew the date.",
   "entries": [
     {
-      "path": "src/Tidalarr/Integration/OAuthTokenProviderAdapter.cs",
+      "file": "src/Tidalarr/Integration/OAuthTokenProviderAdapter.cs",
+      "line": 40,
+      "pattern": "GetValidTokensAsync().GetAwaiter().GetResult()",
+      "method": "OAuthTokenProviderAdapter.GetTokenExpiration()",
       "category": "A",
-      "reason": "IStreamingTokenProvider.GetTokenExpiration is a synchronous interface contract"
+      "reason": "IStreamingTokenProvider.GetTokenExpiration is a synchronous interface contract from Common library.",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
     },
     {
-      "path": "src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs",
+      "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs",
+      "line": 315,
+      "pattern": "EnsureValidSessionAsync().GetAwaiter().GetResult()",
+      "method": "TidalLidarrDownloadClient.Test()",
       "category": "A",
-      "reason": "DownloadClientBase.Test() is a synchronous Lidarr host contract"
+      "reason": "DownloadClientBase.Test() is a synchronous Lidarr host contract; cannot be made async.",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
     },
     {
-      "path": "src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs",
+      "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs",
+      "line": 480,
+      "pattern": "searchTask.GetAwaiter().GetResult()",
+      "method": "TidalLidarrIndexer.ParseResponse()",
       "category": "A",
-      "reason": "IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract"
+      "reason": "IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract; async FetchReleases is the primary path.",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
     }
   ]
 }
