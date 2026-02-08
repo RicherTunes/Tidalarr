@@ -149,12 +149,16 @@ jobs:
           if ($output -match 'Failed:\s*(\d+)') { $failed = [int]$Matches[1] }
           if ($total -eq 0) { $zeroTests = "true" }
 
+          # Count inconclusive (rate-limited) tests
+          $inconclusive = ([regex]::Matches(($output -join "`n"), '\[INCONCLUSIVE:RATE_LIMITED\]')).Count
+
           echo "test-exit-code=$exitCode" >> $env:GITHUB_OUTPUT
           echo "test-total=$total" >> $env:GITHUB_OUTPUT
           echo "test-failed=$failed" >> $env:GITHUB_OUTPUT
+          echo "test-inconclusive=$inconclusive" >> $env:GITHUB_OUTPUT
           echo "zero-tests=$zeroTests" >> $env:GITHUB_OUTPUT
 
-          Write-Host "::notice::Test results: total=$total failed=$failed exit=$exitCode zero=$zeroTests"
+          Write-Host "::notice::Test results: total=$total failed=$failed inconclusive=$inconclusive exit=$exitCode zero=$zeroTests"
 
       - name: Guard — fail if secrets present but 0 tests ran
         if: steps.run-tests.outputs.zero-tests == 'true'
@@ -162,6 +166,12 @@ jobs:
         run: |
           Write-Host "::error::Secrets configured but 0 live tests executed. Add tests with [Trait('Area', 'E2E/Live')] or [Trait('Category', 'LiveIntegration')]."
           exit 1
+
+      - name: Warn if tests were inconclusive (rate-limited)
+        if: steps.run-tests.outputs.test-inconclusive != '0' && steps.run-tests.outputs.test-inconclusive != ''
+        shell: pwsh
+        run: |
+          Write-Host "::warning::${{ steps.run-tests.outputs.test-inconclusive }} test(s) were rate-limited and classified as inconclusive. If this persists nightly, check credential quotas or rate limits."
 
       - name: Upload test results
         if: always()
