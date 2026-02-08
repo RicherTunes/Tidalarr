@@ -1,0 +1,138 @@
+name: Nightly Live
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      has-credentials: ${{ steps.check.outputs.has-credentials }}
+    steps:
+      - name: Check for Tidal credentials
+        id: check
+        env:
+          HAS_CLIENT_ID: ${{ secrets.TIDAL_CLIENT_ID != '' }}
+          HAS_TOKEN: ${{ secrets.TIDAL_ACCESS_TOKEN != '' }}
+        run: |
+          if [[ "$HAS_CLIENT_ID" == "true" ]] || [[ "$HAS_TOKEN" == "true" ]]; then
+            echo "has-credentials=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tidal credentials configured; live tests will run"
+          else
+            echo "has-credentials=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Tidal credentials configured; skipping live tests"
+          fi
+
+  live-tests:
+    runs-on: windows-latest
+    needs: gate
+    if: needs.gate.outputs.has-credentials == 'true'
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Prepare host stub assemblies
+        shell: pwsh
+        run: |
+          $repoRoot = $PWD
+          $commonScripts = Join-Path $repoRoot 'ext/Lidarr.Plugin.Common/scripts'
+          $hostOutput = Join-Path $repoRoot 'ext/Lidarr/_output/net8.0'
+
+          if (-not (Test-Path $commonScripts)) {
+            throw "Lidarr.Plugin.Common scripts directory not found at $commonScripts"
+          }
+
+          $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
+
+          Write-Host "Generating host stub assemblies at $hostOutput" -ForegroundColor Cyan
+          & $prepareStub -OutputPath $hostOutput
+
+      - name: Restore solution
+        shell: pwsh
+        run: dotnet restore "$PWD/Tidalarr.sln"
+
+      - name: Build plugin
+        shell: pwsh
+        run: |
+          $repoRoot = $PWD
+          # SkipHostBridge excludes LidarrNative files that require Lidarr host assemblies
+          dotnet build "$repoRoot/Tidalarr.sln" -c Release --no-restore `
+            -p:PluginPackagingDisable=true `
+            -p:SkipHostBridge=true `
+            -p:ExcludeHostBridge=true `
+            -v minimal
+
+      - name: Build test project
+        shell: pwsh
+        run: |
+          $repoRoot = $PWD
+          $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+
+          Write-Host "Building test project with SkipHostBridge..." -ForegroundColor Cyan
+          dotnet build $testProject -c Release --no-restore -v minimal `
+            -p:RunAnalyzersDuringBuild=false `
+            -p:EnableNETAnalyzers=false `
+            -p:TreatWarningsAsErrors=false `
+            -p:SkipHostBridge=true `
+            -p:ExcludeHostBridge=true `
+            -p:PluginPackagingDisable=true
+
+      - name: Run live integration tests
+        shell: pwsh
+        env:
+          TIDAL_CLIENT_ID: ${{ secrets.TIDAL_CLIENT_ID }}
+          TIDAL_CLIENT_SECRET: ${{ secrets.TIDAL_CLIENT_SECRET }}
+          TIDAL_ACCESS_TOKEN: ${{ secrets.TIDAL_ACCESS_TOKEN }}
+        run: |
+          $repoRoot = $PWD
+          $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
+
+          Write-Host "Running live integration tests..." -ForegroundColor Cyan
+
+          # Run tests with live integration filter
+          $testOutput = dotnet test $testProject `
+            --configuration Release `
+            --no-build `
+            --logger "trx;LogFileName=live-test-results.trx" `
+            --filter "Area=E2E/Live|Category=LiveIntegration" `
+            2>&1
+
+          $exitCode = $LASTEXITCODE
+
+          # Check if no tests matched the filter
+          if ($testOutput -match "No test matches the given testcase filter") {
+            Write-Host "::notice::No live integration tests found - tests not yet implemented" -ForegroundColor Yellow
+            exit 0
+          }
+
+          # Otherwise preserve the exit code from dotnet test
+          exit $exitCode
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-test-results
+          path: |
+            **/TestResults/*.trx
+            **/TestResults/*.xml
+          if-no-files-found: ignore
