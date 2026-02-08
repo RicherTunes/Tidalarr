@@ -1,8 +1,5 @@
-using System;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Abstractions.Diagnostics;
 using Tidalarr.Diagnostics;
-using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
@@ -18,7 +15,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public async Task CheckAuthAsync_Authenticated_ReturnsHealthy()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true));
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true));
 
         Assert.True(result.IsHealthy);
         Assert.Equal("tidal", result.Provider);
@@ -32,16 +29,16 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public async Task CheckAuthAsync_Authenticated_PopulatesResponseTime()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true));
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true));
 
-        Assert.NotNull(result.ResponseTime);
+        _ = Assert.NotNull(result.ResponseTime);
         Assert.True(result.ResponseTime!.Value >= TimeSpan.Zero);
     }
 
     [Fact]
     public async Task CheckAuthAsync_NotAuthenticated_ReturnsUnhealthyWithAuthFailed()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false));
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false));
 
         Assert.False(result.IsHealthy);
         Assert.Equal("AUTH_FAILED", result.ErrorCode);
@@ -55,16 +52,16 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public async Task CheckAuthAsync_NotAuthenticated_PopulatesResponseTime()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false));
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false));
 
-        Assert.NotNull(result.ResponseTime);
+        _ = Assert.NotNull(result.ResponseTime);
         Assert.True(result.ResponseTime!.Value >= TimeSpan.Zero);
     }
 
     [Fact]
     public async Task CheckAuthAsync_ThrowsException_ReturnsUnhealthyWithConnectionFailed()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(
             () => throw new InvalidOperationException("Network error"));
 
         Assert.False(result.IsHealthy);
@@ -78,17 +75,17 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public async Task CheckAuthAsync_ThrowsException_PopulatesResponseTime()
     {
-        var result = await TidalHealthDiagnostics.CheckAuthAsync(
+        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(
             () => throw new InvalidOperationException("Timeout"));
 
-        Assert.NotNull(result.ResponseTime);
+        _ = Assert.NotNull(result.ResponseTime);
         Assert.True(result.ResponseTime!.Value >= TimeSpan.Zero);
     }
 
     [Fact]
     public async Task CheckAuthAsync_OperationCancelled_Rethrows()
     {
-        await Assert.ThrowsAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(
             () => TidalHealthDiagnostics.CheckAuthAsync(
                 () => throw new OperationCanceledException()));
     }
@@ -100,7 +97,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void CheckStreamAccess_Accessible_ReturnsHealthy()
     {
-        var result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true);
 
         Assert.True(result.IsHealthy);
         Assert.Equal("tidal", result.Provider);
@@ -114,8 +111,8 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void CheckStreamAccess_Accessible_WithElapsed_SetsResponseTime()
     {
-        var elapsed = TimeSpan.FromMilliseconds(250);
-        var result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true, elapsed: elapsed);
+        TimeSpan elapsed = TimeSpan.FromMilliseconds(250);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true, elapsed: elapsed);
 
         Assert.Equal(elapsed, result.ResponseTime);
     }
@@ -123,7 +120,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void CheckStreamAccess_Inaccessible_ReturnsUnhealthy()
     {
-        var result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false);
 
         Assert.False(result.IsHealthy);
         Assert.Equal("CONNECTION_FAILED", result.ErrorCode);
@@ -136,7 +133,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void CheckStreamAccess_Inaccessible_WithCustomError_UsesCustomMessage()
     {
-        var result = TidalHealthDiagnostics.CheckStreamAccess(
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(
             chunksAccessible: false,
             errorDetail: "Geo-blocked region");
 
@@ -147,8 +144,8 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void CheckStreamAccess_Inaccessible_WithElapsed_SetsResponseTime()
     {
-        var elapsed = TimeSpan.FromSeconds(5);
-        var result = TidalHealthDiagnostics.CheckStreamAccess(
+        TimeSpan elapsed = TimeSpan.FromSeconds(5);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(
             chunksAccessible: false,
             elapsed: elapsed);
 
@@ -159,7 +156,7 @@ public class TidalHealthDiagnosticsTests
     public void CheckStreamAccess_Inaccessible_DoesNotSetAuthMethod()
     {
         // When chunks are inaccessible, authMethod is not set (per factory call)
-        var result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false);
 
         Assert.Null(result.AuthMethod);
     }
@@ -171,7 +168,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_IX000_ReturnsHealthyAuthValidate()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("IX000");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("IX000");
 
         Assert.True(result.IsHealthy);
         Assert.Equal("tidal", result.Provider);
@@ -184,7 +181,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_DL000_ReturnsHealthyStreamProbe()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("DL000");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("DL000");
 
         Assert.True(result.IsHealthy);
         Assert.Equal("tidal", result.Provider);
@@ -201,7 +198,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_IX100_ReturnsUnhealthyValidationFailed()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("IX100");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("IX100");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("VALIDATION_FAILED", result.ErrorCode);
@@ -214,7 +211,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_IX200_ReturnsUnhealthyAuthFailed()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("IX200");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("IX200");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("AUTH_FAILED", result.ErrorCode);
@@ -227,7 +224,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_DL001_ReturnsUnhealthyConnectionFailed()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("DL001");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("DL001");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("CONNECTION_FAILED", result.ErrorCode);
@@ -240,7 +237,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_DL100_ReturnsUnhealthyConnectionFailed()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("DL100");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("DL100");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("CONNECTION_FAILED", result.ErrorCode);
@@ -256,7 +253,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_UnknownCode_ReturnsUnhealthyWithCodeAsErrorCode()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("ZZ999");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("ZZ999");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("ZZ999", result.ErrorCode);
@@ -267,7 +264,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_UnknownCode_WithCustomMessage_UsesCustomMessage()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("ZZ999", message: "Custom error detail");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("ZZ999", message: "Custom error detail");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("ZZ999", result.ErrorCode);
@@ -281,7 +278,7 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_IX100_WithCustomMessage_OverridesDefault()
     {
-        var result = TidalHealthDiagnostics.FromStableCode("IX100", message: "Market field is empty");
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("IX100", message: "Market field is empty");
 
         Assert.False(result.IsHealthy);
         Assert.Equal("VALIDATION_FAILED", result.ErrorCode);
@@ -291,8 +288,8 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_IX000_WithElapsed_SetsResponseTime()
     {
-        var elapsed = TimeSpan.FromMilliseconds(42);
-        var result = TidalHealthDiagnostics.FromStableCode("IX000", elapsed: elapsed);
+        TimeSpan elapsed = TimeSpan.FromMilliseconds(42);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("IX000", elapsed: elapsed);
 
         Assert.True(result.IsHealthy);
         Assert.Equal(elapsed, result.ResponseTime);
@@ -301,8 +298,8 @@ public class TidalHealthDiagnosticsTests
     [Fact]
     public void FromStableCode_DL001_WithElapsed_SetsResponseTime()
     {
-        var elapsed = TimeSpan.FromSeconds(3);
-        var result = TidalHealthDiagnostics.FromStableCode("DL001", elapsed: elapsed);
+        TimeSpan elapsed = TimeSpan.FromSeconds(3);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("DL001", elapsed: elapsed);
 
         Assert.False(result.IsHealthy);
         Assert.Equal(elapsed, result.ResponseTime);
@@ -321,7 +318,7 @@ public class TidalHealthDiagnosticsTests
     [InlineData("DL100")]
     public void FromStableCode_AllCodes_HaveProviderTidal(string code)
     {
-        var result = TidalHealthDiagnostics.FromStableCode(code);
+        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode(code);
         Assert.Equal("tidal", result.Provider);
     }
 

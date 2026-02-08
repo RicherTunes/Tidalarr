@@ -1,7 +1,4 @@
-using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Abstractions.Diagnostics;
 
 namespace Tidalarr.Diagnostics;
@@ -26,10 +23,10 @@ internal static class TidalHealthDiagnostics
         Func<Task<bool>> isAuthenticated,
         CancellationToken cancellationToken = default)
     {
-        var sw = Stopwatch.StartNew();
+        Stopwatch sw = Stopwatch.StartNew();
         try
         {
-            var authed = await isAuthenticated().ConfigureAwait(false);
+            bool authed = await isAuthenticated().ConfigureAwait(false);
             sw.Stop();
 
             return authed
