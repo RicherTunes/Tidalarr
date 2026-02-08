@@ -23,15 +23,42 @@ jobs:
       - name: Check for Tidal credentials
         id: check
         env:
-          HAS_CLIENT_ID: ${{ secrets.TIDAL_CLIENT_ID != '' }}
-          HAS_TOKEN: ${{ secrets.TIDAL_ACCESS_TOKEN != '' }}
+          # Secret values for placeholder detection; GitHub auto-masks in logs
+          CLIENT_ID_VAL: ${{ secrets.TIDAL_CLIENT_ID }}
+          TOKEN_VAL: ${{ secrets.TIDAL_ACCESS_TOKEN }}
         run: |
-          if [[ "$HAS_CLIENT_ID" == "true" || "$HAS_TOKEN" == "true" ]]; then
+          is_valid() {
+            local val="$1"
+            [[ -z "$val" ]] && return 1
+            local lower="${val,,}"
+            case "$lower" in
+              changeme*|todo*|example*|placeholder*|xxx*|test123*|your_*|your-*|insert*|replace*) return 1 ;;
+            esac
+            [[ ${#val} -lt 10 ]] && return 1
+            return 0
+          }
+
+          has_cred="false"
+          if is_valid "$CLIENT_ID_VAL"; then
+            has_cred="true"
+            echo "::notice::TIDAL_CLIENT_ID validated"
+          elif [[ -n "$CLIENT_ID_VAL" ]]; then
+            echo "::warning::TIDAL_CLIENT_ID looks like a placeholder; not counting"
+          fi
+
+          if is_valid "$TOKEN_VAL"; then
+            has_cred="true"
+            echo "::notice::TIDAL_ACCESS_TOKEN validated"
+          elif [[ -n "$TOKEN_VAL" ]]; then
+            echo "::warning::TIDAL_ACCESS_TOKEN looks like a placeholder; not counting"
+          fi
+
+          if [[ "$has_cred" == "true" ]]; then
             echo "has-credentials=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Tidal credentials configured; live tests will run"
+            echo "::notice::Tidal credentials validated; live tests will run"
           else
             echo "has-credentials=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Tidal credentials configured; skipping live tests. Set TIDAL_CLIENT_ID or TIDAL_ACCESS_TOKEN."
+            echo "::notice::No valid Tidal credentials found; skipping live tests. Set TIDAL_CLIENT_ID or TIDAL_ACCESS_TOKEN."
           fi
 
   live-tests:
@@ -158,24 +185,41 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Get default branch for scoping
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const defaultBranch = repo.default_branch;
+
             const { data: runs } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner, repo: context.repo.repo,
-              workflow_id: 'nightly-live.yml', status: 'completed', per_page: 4,
+              workflow_id: 'nightly-live.yml', status: 'completed',
+              branch: defaultBranch, per_page: 4,
             });
             const previous = runs.workflow_runs.slice(1, 4);
             const consecutiveFailures = previous.filter(r => r.conclusion === 'failure').length;
-            console.log(`Previous runs: ${previous.map(r => r.conclusion).join(', ')}`);
+            console.log(`Branch: ${defaultBranch}`);
+            console.log(`Previous ${previous.length} runs: ${previous.map(r => `${r.event}:${r.conclusion}`).join(', ')}`);
 
             if (consecutiveFailures >= 2) {
               const title = 'Nightly live tests: 3+ consecutive failures';
+              const currentRunUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
               const body = [
                 '## Nightly Live Test Failures',
-                '', `Failed **${consecutiveFailures + 1} consecutive times**.`,
-                '', '### Action needed',
+                '',
+                `Failed **${consecutiveFailures + 1} consecutive times** on \`${defaultBranch}\`.`,
+                '',
+                '### Recent runs',
+                ...previous.map(r => `- ${r.created_at}: **${r.conclusion}** ([run](${r.html_url}))`),
+                `- ${new Date().toISOString().split('T')[0]}: **failure** ([current](${currentRunUrl}))`,
+                '',
+                '### Action needed',
                 '- Check if Tidal credentials are still valid',
                 '- Check if Tidal API has changed',
                 '- Check if test filter or build is misconfigured',
-                '', '> Auto-created by nightly-live workflow.',
+                '',
+                `> Auto-created by nightly-live workflow. Scoped to \`${defaultBranch}\` branch.`,
               ].join('\n');
 
               const { data: issues } = await github.rest.issues.listForRepo({
@@ -185,15 +229,20 @@ jobs:
               const existing = issues.find(i => i.title === title);
 
               if (existing) {
+                const recentConclusions = previous.map(r => r.conclusion).join(' → ');
                 await github.rest.issues.createComment({
                   owner: context.repo.owner, repo: context.repo.repo,
                   issue_number: existing.number,
-                  body: `Still failing as of ${new Date().toISOString().split('T')[0]}. Consecutive: ${consecutiveFailures + 1}.`,
+                  body: `Still failing as of ${new Date().toISOString().split('T')[0]}.\n\n**Current run**: [#${context.runNumber}](${currentRunUrl})\n**Last 3**: ${recentConclusions}\n**Total consecutive**: ${consecutiveFailures + 1}`,
                 });
+                console.log(`Updated existing issue #${existing.number}`);
               } else {
                 await github.rest.issues.create({
                   owner: context.repo.owner, repo: context.repo.repo,
                   title, body, labels: ['ci', 'nightly-live'],
                 });
+                console.log('Created new tracking issue');
               }
+            } else {
+              console.log('Not enough consecutive failures yet — no issue needed');
             }
