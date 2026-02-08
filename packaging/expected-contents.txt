@@ -1,4 +1,4 @@
-# Tidalarr Plugin Package — Expected Contents
+# Tidalarr Plugin Package -- Expected Contents
 # This file is the source of truth for what the plugin ZIP must contain.
 # CI compares actual package contents against this manifest.
 # To add a new file, update this manifest AND the code in the same PR.
@@ -11,7 +11,7 @@ Lidarr.Plugin.Abstractions.dll
 plugin.json
 
 [FORBIDDEN]
-# Host-provided contract assemblies — including these causes type-identity conflicts
+# Host-provided contract assemblies -- including these causes type-identity conflicts
 FluentValidation.dll
 Microsoft.Extensions.DependencyInjection.Abstractions.dll
 Microsoft.Extensions.Logging.Abstractions.dll
