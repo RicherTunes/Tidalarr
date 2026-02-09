@@ -16,6 +16,7 @@ namespace Tidalarr.Tests.Integration;
 /// using mocked HTTP responses via RoutingHandler. No real Tidal API calls are made.
 /// </summary>
 [Trait("Category", "Integration")]
+[Trait("Category", "E2E")]
 [Trait("Area", "E2E/Hermetic")]
 public class E2EHermeticGateTests
 {
@@ -576,5 +577,77 @@ public class E2EHermeticGateTests
         Assert.Empty(results.Albums);
         Assert.Empty(results.Tracks);
         Assert.Equal(0, results.TotalCount);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Credential redaction: tokens must not leak into error/exception messages
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Category", "E2E")]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task AuthFail_CredentialRedaction_TokenNotLeakedInException()
+    {
+        // Arrange: expired auth throws InvalidOperationException on GetValidTokensAsync
+        RoutingHandler handler = new RoutingHandler()
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
+
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
+        TidalApiClient apiClient = new(httpClient, new ExpiredAuth());
+
+        // Act: trigger the auth failure
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => apiClient.SearchAsync("Miles Davis"));
+
+        // Assert: the known token values from ValidAuth/ExpiredAuth must NOT appear in messages
+        Assert.DoesNotContain("valid-access-token", ex.Message);
+        Assert.DoesNotContain("valid-refresh-token", ex.Message);
+        Assert.DoesNotContain("sess-42", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Category", "E2E")]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task AuthFail_CredentialRedaction_Http401ResponseDoesNotLeakToken()
+    {
+        // Arrange: valid auth succeeds locally, but server returns 401 (token revoked server-side)
+        RoutingHandler handler = new RoutingHandler()
+            .MapAny(TokenRevokedJson, HttpStatusCode.Unauthorized);
+
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
+        TidalApiClient apiClient = new(httpClient, new ValidAuth());
+
+        // Act: the 401 response should propagate as HttpRequestException
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(
+            () => apiClient.SearchAsync("Miles Davis"));
+
+        // Assert: the access token must not appear in the exception message
+        Assert.DoesNotContain("valid-access-token", ex.Message);
+        Assert.DoesNotContain("valid-refresh-token", ex.Message);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Rate limiting: 429 response -> graceful error, no crash/hang
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Category", "E2E")]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task Edge_RateLimit429_ThrowsHttpRequestException()
+    {
+        // Arrange: all endpoints return 429 Too Many Requests
+        string rateLimitJson = JsonSerializer.Serialize(new { error = "rate limit exceeded" });
+        RoutingHandler handler = new RoutingHandler()
+            .MapAny(rateLimitJson, (HttpStatusCode)429);
+
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
+        TidalApiClient apiClient = new(httpClient, new ValidAuth());
+
+        // Act & Assert: 429 should produce HttpRequestException, not crash or hang
+        _ = await Assert.ThrowsAsync<HttpRequestException>(
+            () => apiClient.SearchAsync("anything"));
     }
 }
