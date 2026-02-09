@@ -333,3 +333,17 @@ This section tracks technical debt items that should be addressed but are not bl
 | Item | Priority | File | Description |
 |------|----------|------|-------------|
 | None identified | - | - | Tidalarr has relatively clean architecture with good separation of concerns |
+
+## Flaky Tests Policy
+
+**Flaky tests are priority tech debt that must be paid immediately.** A test that passes sometimes and fails sometimes erodes trust in the entire test suite. When a flaky test is discovered:
+
+1. **Fix it before starting new feature work** — flaky tests block reliable CI
+2. **Document the root cause** in a commit message so the pattern is not repeated
+3. **Never skip or disable** a flaky test without a tracking issue
+
+### Known Flaky Tests (Tidalarr)
+
+| Test | Root Cause | Fix |
+|------|-----------|-----|
+| `HostVersionCouplingTests.DirectoryPackagesProps_Should_Match_HostVersions_For_Coupled_Dependencies` | Test reads FluentValidation.dll from `ext/Lidarr/_output` which may not exist in all dev environments (Docker-only assembly) | Guard with `Skip` when assembly directory is missing, or document required setup |
