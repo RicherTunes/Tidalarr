@@ -1,12 +1,16 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Lidarr.Plugin.Common.TestKit.Assertions;
+using Lidarr.Plugin.Common.TestKit.Hosting;
+using Microsoft.Extensions.Logging;
 using tests_Tidalarr_Tests_Utils;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Api;
 using Tidalarr.Domain.Quality;
+using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Tests.Integration;
 
@@ -649,5 +653,62 @@ public class E2EHermeticGateTests
         // Act & Assert: 429 should produce HttpRequestException, not crash or hang
         _ = await Assert.ThrowsAsync<HttpRequestException>(
             () => apiClient.SearchAsync("anything"));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Log-capture redaction: secrets must not leak into structured log output
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Category", "E2E")]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task LogRedaction_AuthFail_NoSecretsInLogs()
+    {
+        // Arrange: use TestLoggerFactory to capture all log output
+        using var loggerFactory = new TestLoggerFactory();
+        RoutingHandler handler = new RoutingHandler()
+            .MapAny(UnauthorizedJson, HttpStatusCode.Unauthorized);
+
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
+        TidalApiClient apiClient = new(
+            httpClient, new ExpiredAuth(), new TidalManifestParser(),
+            cache: null, logger: loggerFactory.CreateLogger<TidalApiClient>());
+
+        // Act: trigger the auth failure (exception is expected)
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => apiClient.SearchAsync("Miles Davis"));
+
+        // Assert: no secrets leaked into captured logs
+        LogAssertions.AssertNoSecretsInLogs(loggerFactory.Sink,
+            "valid-access-token", "valid-refresh-token", "sess-42");
+        LogAssertions.AssertNoBearerTokensInLogs(loggerFactory.Sink);
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    [Trait("Category", "E2E")]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task LogRedaction_RateLimit429_NoSecretsInLogs()
+    {
+        // Arrange: use TestLoggerFactory to capture all log output
+        using var loggerFactory = new TestLoggerFactory();
+        string rateLimitJson = JsonSerializer.Serialize(new { error = "rate limit exceeded" });
+        RoutingHandler handler = new RoutingHandler()
+            .MapAny(rateLimitJson, (HttpStatusCode)429);
+
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.tidal.com") };
+        TidalApiClient apiClient = new(
+            httpClient, new ValidAuth(), new TidalManifestParser(),
+            cache: null, logger: loggerFactory.CreateLogger<TidalApiClient>());
+
+        // Act: trigger rate limit (exception is expected)
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => apiClient.SearchAsync("anything"));
+
+        // Assert: no secrets leaked into captured logs
+        LogAssertions.AssertNoSecretsInLogs(loggerFactory.Sink,
+            "valid-access-token", "valid-refresh-token", "sess-42");
+        LogAssertions.AssertNoBearerTokensInLogs(loggerFactory.Sink);
     }
 }
