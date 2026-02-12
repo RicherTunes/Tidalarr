@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Lidarr.Plugin.Common.Abstractions.Diagnostics;
+using Codes = Lidarr.Plugin.Common.Abstractions.Diagnostics.DiagnosticErrorCodes;
 
 namespace Tidalarr.Diagnostics;
 
@@ -14,13 +15,14 @@ internal static class TidalHealthDiagnostics
     private const string AuthMethodName = "oauth";
 
     /// <summary>
-    /// Well-known error codes emitted by Tidal diagnostics.
+    /// Delegates to <see cref="Codes"/> for ecosystem-wide parity.
+    /// Local alias kept to minimize downstream churn.
     /// </summary>
     public static class ErrorCodes
     {
-        public const string AuthFailed = "AUTH_FAILED";
-        public const string ConnectionFailed = "CONNECTION_FAILED";
-        public const string ValidationFailed = "VALIDATION_FAILED";
+        public const string AuthFailed = Codes.AuthFailed;
+        public const string ConnectionFailed = Codes.ConnectionFailed;
+        public const string ValidationFailed = Codes.ValidationFailed;
     }
 
     /// <summary>
