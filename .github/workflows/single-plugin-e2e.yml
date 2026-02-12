@@ -52,7 +52,7 @@ jobs:
     with:
       test_plugins: 'tidalarr'
       caller_plugin: 'tidalarr'
-      lidarr_tag: 'pr-plugins-3.1.1.4884'
+      lidarr_tag: 'pr-plugins-3.1.2.4913'
       # For PRs, prefer the head commit SHA (merge commits may not be fetchable by cross-repo checkout).
       tidalarr_ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       # Credless baseline: schema-only by default. Flip these to true only when secrets exist.
