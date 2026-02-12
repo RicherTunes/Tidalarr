@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built using the Lidarr.Plugin.Common shared library architecture. It provides both indexing and download capabilities for high-quality audio content from Tidal.
 
+## Runtime & Docker Image Requirements (CRITICAL)
+
+**Target framework**: `net8.0` — this plugin MUST target .NET 8.
+
+**Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
+```
+LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
+```
+- Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
+
+**NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
+
+When bumping the Docker image tag, search the entire repo for the old tag string and update all hits (workflows, scripts, docs).
+
 **ALWAYS**:
 - Use constants from `TidalConstants.cs` rather than hardcoding.
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
