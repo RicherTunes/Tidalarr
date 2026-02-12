@@ -7,7 +7,7 @@
     Validates that plugin package pins match host assembly versions.
 
 .PARAMETER ExtractFrom
-    Docker image tag to extract assemblies from (e.g., "pr-plugins-3.2.0.5000").
+    Docker image tag to extract assemblies from (e.g., "pr-plugins-3.1.2.4913").
     If specified, extracts fresh assemblies before checking.
 
 .PARAMETER HostAssembliesDir
@@ -30,7 +30,7 @@
     .\scripts\check-host-versions.ps1
 
 .EXAMPLE
-    .\scripts\check-host-versions.ps1 -ExtractFrom "pr-plugins-3.2.0.5000"
+    .\scripts\check-host-versions.ps1 -ExtractFrom "pr-plugins-3.1.2.4913"
 
 .EXAMPLE
     .\scripts\check-host-versions.ps1 -Strict -Format Json
