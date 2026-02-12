@@ -10,7 +10,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
     private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private static bool? _ffmpegAvailable;
+    private static readonly Lazy<bool> _ffmpegAvailable = new(() => AudioFormatHandler.IsFFmpegAvailable());
 
     public async Task<string> PostProcessAsync(string filePath, StreamingTrack track, StreamingQuality? quality, CancellationToken cancellationToken)
     {
@@ -32,14 +32,10 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
             return filePath;
         }
 
-        if (_ffmpegAvailable != true)
+        if (!_ffmpegAvailable.Value)
         {
-            _ffmpegAvailable ??= AudioFormatHandler.IsFFmpegAvailable();
-            if (_ffmpegAvailable != true)
-            {
-                Logger.Warn("Extract FLAC is enabled but ffmpeg/ffprobe is not available; keeping original file: {0}", filePath);
-                return filePath;
-            }
+            Logger.Warn("Extract FLAC is enabled but ffmpeg/ffprobe is not available; keeping original file: {0}", filePath);
+            return filePath;
         }
 
         string codecs = AudioFormatHandler.DetectCodecs(filePath);
