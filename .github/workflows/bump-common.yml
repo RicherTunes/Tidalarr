@@ -17,9 +17,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-          # PAT required: --update-pins modifies .github/workflows/ files,
-          # which GITHUB_TOKEN cannot push.
-          token: ${{ secrets.CI_PAT || github.token }}
 
       - name: Update Common submodule to latest main
         shell: pwsh
@@ -35,7 +32,9 @@ jobs:
 
           # Use canonical repin script
           $commonPath = "ext/Lidarr.Plugin.Common"
-          & "$commonPath/scripts/repin-common-submodule.ps1" -ShaFromSubmoduleHead -Stage -UpdatePins -SubmodulePath $commonPath
+          # Note: -UpdatePins omitted because GITHUB_TOKEN cannot push
+          # .github/workflows/ changes. Stale pins are advisory (-VerifyOnly warns).
+          & "$commonPath/scripts/repin-common-submodule.ps1" -ShaFromSubmoduleHead -Stage -SubmodulePath $commonPath
           & "$commonPath/scripts/repin-common-submodule.ps1" -VerifyOnly -SubmodulePath $commonPath
           if ((git status --porcelain) -ne "") {
             $branch = "chore/bump-ext-common"
