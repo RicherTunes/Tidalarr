@@ -23,9 +23,17 @@ jobs:
         run: |
           git -C ext/Lidarr.Plugin.Common fetch origin main
           $newSha = git -C ext/Lidarr.Plugin.Common rev-parse origin/main
+          $currentSha = git -C ext/Lidarr.Plugin.Common rev-parse HEAD
+          if ($newSha -eq $currentSha) {
+              Write-Host "No changes in submodule; skipping."
+              exit 0
+          }
           git -C ext/Lidarr.Plugin.Common checkout $newSha
-          Set-Content -Path ext-common-sha.txt -Value $newSha
-          git add ext/Lidarr.Plugin.Common ext-common-sha.txt
+
+          # Use canonical repin script
+          $commonPath = "ext/Lidarr.Plugin.Common"
+          & "$commonPath/scripts/repin-common-submodule.ps1" -ShaFromSubmoduleHead -Stage -UpdatePins -SubmodulePath $commonPath
+          & "$commonPath/scripts/repin-common-submodule.ps1" -VerifyOnly -SubmodulePath $commonPath
           if ((git status --porcelain) -ne "") {
             $branch = "chore/bump-ext-common"
             git config user.email "actions@github.com"
