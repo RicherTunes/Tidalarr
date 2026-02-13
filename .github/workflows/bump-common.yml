@@ -17,6 +17,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+          # PAT required: --update-pins modifies .github/workflows/ files,
+          # which GITHUB_TOKEN cannot push.
+          token: ${{ secrets.CI_PAT || github.token }}
 
       - name: Update Common submodule to latest main
         shell: pwsh
