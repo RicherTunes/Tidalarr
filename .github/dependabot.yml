@@ -23,11 +23,21 @@ updates:
       prefix-development: "deps-dev"
       include: "scope"
     ignore:
-      # Ignore major version updates for stable dependencies
-      - dependency-name: "Microsoft.Extensions.*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.*"
-        update-types: ["version-update:semver-major"]
+      # Host-boundary packages: types cross plugin<->host boundary via NzbDrone APIs.
+      # Bumping major versions causes type-identity conflicts at runtime.
+      # Only bump when the Lidarr host itself upgrades first.
+      - dependency-name: "NLog"
+        versions: [">=6.0.0"]
+      - dependency-name: "FluentValidation"
+        versions: [">=12.0.0"]
+      - dependency-name: "Microsoft.Extensions.DependencyInjection"
+        versions: [">=9.0.0"]
+      - dependency-name: "Microsoft.Extensions.DependencyInjection.Abstractions"
+        versions: [">=9.0.0"]
+      - dependency-name: "Microsoft.Extensions.Logging.Abstractions"
+        versions: [">=9.0.0"]
+      - dependency-name: "System.Text.Json"
+        versions: [">=9.0.0"]
     allow:
       # Allow all dependency types
       - dependency-type: "direct"
