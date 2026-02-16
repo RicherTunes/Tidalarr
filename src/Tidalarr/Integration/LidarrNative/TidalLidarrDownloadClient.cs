@@ -2,9 +2,9 @@ using System.Collections.Concurrent;
 using FluentValidation.Results;
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
-using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
+using Lidarr.Plugin.Common.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Disk;
@@ -400,21 +400,10 @@ public class TidalLidarrDownloadClient(
     private string BuildOutputPath(RemoteAlbum remoteAlbum)
     {
         string basePath = Settings.DownloadPath;
-        string artistName = SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
-        string albumTitle = SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
+        string artistName = FileSystemUtilities.SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
+        string albumTitle = FileSystemUtilities.SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
 
         return Path.Combine(basePath, artistName, albumTitle);
-    }
-
-    private static string SanitizeFileName(string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName))
-        {
-            return "Unknown";
-        }
-
-        string sanitized = Sanitize.PathSegment(fileName);
-        return string.IsNullOrEmpty(sanitized) ? "Unknown" : sanitized;
     }
 }
 
