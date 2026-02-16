@@ -21,7 +21,7 @@ public class TidalDownloadClientHostSettingsParityTests
             MaxConcurrentChunkDownloads = 2
         };
 
-        Integration.TidalDownloadClientSettings core = host.ToCore();
+        Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
 
         Assert.Equal(Core.Models.TidalQuality.HiRes, core.PreferredQuality);
         Assert.Equal(host.DownloadPath, core.DownloadPath);
@@ -35,4 +35,3 @@ public class TidalDownloadClientHostSettingsParityTests
         Assert.Equal(host.MaxConcurrentChunkDownloads, core.MaxConcurrentChunkDownloads);
     }
 }
-

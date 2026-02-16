@@ -21,7 +21,7 @@ public class HostBridgeMappingTests
             BaseUrl = "https://api.tidal.com"
         };
 
-        Integration.TidalarrSettings core = host.ToCore();
+        Tidalarr.Integration.TidalarrSettings core = host.ToCore();
         Assert.Equal(host.ConfigPath, core.ConfigPath);
         Assert.Equal(host.RedirectUrl, core.RedirectUrl);
         Assert.Equal(host.TidalMarket, core.TidalMarket);
@@ -40,7 +40,7 @@ public class HostBridgeMappingTests
             RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y",
             TidalMarket = "FR"
         };
-        Integration.TidalIndexerSettings core = host.ToCore();
+        Tidalarr.Integration.TidalIndexerSettings core = host.ToCore();
         Assert.Equal(host.ConfigPath, core.ConfigPath);
         Assert.Equal(host.RedirectUrl, core.RedirectUrl);
         Assert.Equal(host.TidalMarket, core.TidalMarket);
@@ -57,7 +57,7 @@ public class HostBridgeMappingTests
             MaxConcurrentTrackDownloads = 2,
             MaxConcurrentChunkDownloads = 3
         };
-        Integration.TidalDownloadClientSettings core = host.ToCore();
+        Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
         Assert.Equal(Core.Models.TidalQuality.HiRes, core.PreferredQuality);
         Assert.Equal(host.DownloadPath, core.DownloadPath);
         Assert.Equal(host.DownloadDelay, core.DownloadDelay);
