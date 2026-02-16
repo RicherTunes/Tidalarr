@@ -9,7 +9,7 @@ public class PathValidationExtensionsTests
     {
         // Use OS-native temp path - works on both Windows and Linux
         string path = Path.Combine(Path.GetTempPath(), "test", "file.txt");
-        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 
     [Fact]
@@ -19,7 +19,7 @@ public class PathValidationExtensionsTests
         string path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? @"C:\temp\file.txt"
             : "/tmp/file.txt";
-        Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 
     [Theory]
@@ -29,7 +29,7 @@ public class PathValidationExtensionsTests
     [InlineData("relative/path")]
     public void IsReasonablePath_Invalid_ReturnsFalse(string? path)
     {
-        Assert.False(Integration.PathValidationExtensions.IsReasonablePath(path));
+        Assert.False(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 
     [Fact]
@@ -45,14 +45,14 @@ public class PathValidationExtensionsTests
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path),
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path),
                 "Windows drive path should be reasonable on Windows (permissive check)");
         }
         else
         {
             // On non-Windows, Common's permissive check still accepts drive paths
             // (no OS-specific filtering in IsReasonablePath())
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path),
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path),
                 "Permissive validation accepts drive paths on non-Windows");
         }
     }
@@ -70,14 +70,14 @@ public class PathValidationExtensionsTests
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc),
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc),
                 "UNC path should be reasonable on Windows (permissive check)");
         }
         else
         {
             // On non-Windows, Common's permissive check still accepts UNC paths
             // (no OS-specific filtering in IsReasonablePath())
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(unc),
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc),
                 "Permissive validation accepts UNC paths on non-Windows");
         }
     }
@@ -93,12 +93,12 @@ public class PathValidationExtensionsTests
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
         }
         else
         {
             // Long paths should still be valid on Linux
-            Assert.True(Integration.PathValidationExtensions.IsReasonablePath(path));
+            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
         }
     }
 }
