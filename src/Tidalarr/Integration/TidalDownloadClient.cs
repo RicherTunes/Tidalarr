@@ -1,4 +1,5 @@
 using System.Text;
+using System.Globalization;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
@@ -93,17 +94,15 @@ public class TidalDownloadClient(
         int trackNumber = track.TrackNumber ?? 0;
         int discNumber = track.DiscNumber.GetValueOrDefault();
         discNumber = discNumber > 0 ? discNumber : 1;
-        string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
-        string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
-        string title = FileNameSanitizer.SanitizeFileName(baseTitle);
-        string artist = FileNameSanitizer.SanitizeFileName(baseArtist);
-        string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
-
-        string prefix = discNumber > 1
-            ? $"D{discNumber:00}T{tn}"
-            : tn;
+        int totalDiscs = ResolveTotalDiscs(album, discNumber);
         string extension = Settings.ExtractFlac ? "flac" : "m4a";
-        return $"{prefix} - {artist} - {title}.{extension}";
+
+        return FileSystemUtilities.CreateTrackFileName(
+            title: track.Title ?? "Unknown Track",
+            trackNumber: trackNumber,
+            extension: extension,
+            discNumber: discNumber,
+            totalDiscs: totalDiscs);
     }
 
     /// <summary>
@@ -369,6 +368,30 @@ public class TidalDownloadClient(
             "HI_RES" => TidalQuality.HiRes,
             _ => TidalQuality.Lossless
         };
+    }
+
+    private static int ResolveTotalDiscs(StreamingAlbum? album, int discNumber)
+    {
+        int totalDiscs = 1;
+        object? raw = null;
+
+        if (album?.Metadata?.TryGetValue(StreamingMetadataKeys.TotalDiscs, out raw) == true)
+        {
+            switch (raw)
+            {
+                case int value when value > 0:
+                    totalDiscs = value;
+                    break;
+                case long value when value > 0 && value <= int.MaxValue:
+                    totalDiscs = (int)value;
+                    break;
+                case string value when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0:
+                    totalDiscs = parsed;
+                    break;
+            }
+        }
+
+        return Math.Max(totalDiscs, discNumber);
     }
 
     // Legacy support methods
