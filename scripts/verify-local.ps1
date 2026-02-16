@@ -40,6 +40,8 @@ try {
         BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:PluginPackagingDisable=true')
         TestProjects         = @('tests/Tidalarr.Tests/Tidalarr.Tests.csproj')
         ExpectedContentsFile = 'packaging/expected-contents.txt'
+        WarningBudget        = 100
+        WarningBudgetEnforce = $false
     }
 
     $runner = Join-Path $config.CommonPath 'scripts/local-ci.ps1'
