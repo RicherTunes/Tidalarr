@@ -1,4 +1,6 @@
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.Utilities;
+using System.Collections.Generic;
 using System.Text;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Quality;
@@ -64,19 +66,24 @@ public class TidalDownloadClientFileNameTests
     }
 
     [Theory]
-    [InlineData("CON", "Artist", "00 - Artist - Track.flac")] // Reserved name becomes sanitized
-    [InlineData("AUX?*|\"", "Art:ist", "00 - Art-ist - AUX' .flac")] // Odd chars sanitized
-    [InlineData("Title. ", "Artist ", "00 - Artist - Title.flac")] // Trim trailing dot/space
-    [InlineData("  T  I  T  L  E  ", "  A  R  T  I  S  T  ", "00 - A  R  T  I  S  T  - T  I  T  L  E.flac")] // Multiple spaces preserved in middle
-    public void GenerateFileName_SanitizesReservedAndInvalidCharacters(string title, string artist, string expectedEndsWith)
+    [InlineData("CON")]
+    [InlineData("AUX?*|\"")]
+    [InlineData("Title. ")]
+    [InlineData("  T  I  T  L  E  ")]
+    [InlineData("Cafe\u0301")]
+    public void GenerateFileName_ShouldMatchCommonTrackFileNameContract(string title)
     {
         ExposedDownloadClient client = new();
-        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = artist } };
-        StreamingTrack track = new() { Title = title, Artist = new StreamingArtist { Name = artist }, TrackNumber = 0 };
+        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Art:ist" } };
+        StreamingTrack track = new() { Title = title, Artist = new StreamingArtist { Name = "Art:ist" }, TrackNumber = 0 };
 
         string fileName = client.ExposeGenerateFileName(track, album);
+        string expected = FileSystemUtilities.CreateTrackFileName(title, 0, "flac", 1, 1);
+
+        Assert.Equal(expected, fileName);
         Assert.EndsWith(".flac", fileName);
         Assert.Contains(" - ", fileName);
+        Assert.DoesNotContain("Art", fileName, StringComparison.Ordinal);
 
         // Ensure illegal characters are removed
         char[] illegalChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
@@ -86,9 +93,6 @@ public class TidalDownloadClientFileNameTests
         string baseName = Path.GetFileNameWithoutExtension(fileName);
         string lastComponent = baseName.Split(" - ").Last();
         Assert.False(string.Equals("CON", lastComponent, StringComparison.OrdinalIgnoreCase));
-
-        // Use parameter to satisfy analyzer, without enforcing exact output
-        Assert.NotNull(expectedEndsWith);
     }
 
     [Fact]
@@ -106,7 +110,11 @@ public class TidalDownloadClientFileNameTests
     public void GenerateFileName_WithDiscNumberGreaterThanOne_IncludesDiscPrefix()
     {
         ExposedDownloadClient client = new();
-        StreamingAlbum album = new() { Artist = new StreamingArtist { Name = "Artist" } };
+        StreamingAlbum album = new()
+        {
+            Artist = new StreamingArtist { Name = "Artist" },
+            Metadata = new Dictionary<string, object> { [StreamingMetadataKeys.TotalDiscs] = 2 }
+        };
         StreamingTrack track = new()
         {
             Title = "Title",
@@ -132,11 +140,11 @@ public class TidalDownloadClientFileNameTests
         };
 
         string fileName = client.ExposeGenerateFileName(track, album);
+        string expected = FileSystemUtilities.CreateTrackFileName("Cafe\u0301 Title", 1, "flac", 1, 1);
 
+        Assert.Equal(expected, fileName);
         Assert.True(fileName.IsNormalized(NormalizationForm.FormC));
         Assert.Contains("Café", fileName, StringComparison.Ordinal);
     }
 }
-
-
 
