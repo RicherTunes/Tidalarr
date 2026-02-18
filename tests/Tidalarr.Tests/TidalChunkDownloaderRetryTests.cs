@@ -74,11 +74,13 @@ public class TidalChunkDownloaderRetryTests
     {
         // Arrange — use URL-keyed lookup instead of a shared mutable index
         // to eliminate the non-atomic chunkIndex++ race condition.
+        // Keys must include trailing slash — HttpClient normalizes bare-authority
+        // URIs like "https://chunk1" to "https://chunk1/" before sending.
         Dictionary<string, byte[]> chunkMap = new()
         {
-            ["https://chunk1"] = [1, 2],
-            ["https://chunk2"] = [3, 4],
-            ["https://chunk3"] = [5, 6],
+            ["https://chunk1/"] = [1, 2],
+            ["https://chunk2/"] = [3, 4],
+            ["https://chunk3/"] = [5, 6],
         };
 
         HttpMessageHandler handler = new DelegatingHandlerImpl((req, ct) =>
