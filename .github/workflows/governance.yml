@@ -182,7 +182,7 @@ jobs:
         echo "Quarantined test count: $COUNT"
 
     - name: Upload quarantine results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       if: always()
       with:
         name: governance-quarantine-results
