@@ -1,0 +1,9 @@
+* @richertunes
+
+/src/ @richertunes
+/plugin.json @richertunes
+/.github/ @richertunes
+/Directory.Build.props @richertunes
+/tests/ @richertunes
+/ext/ @richertunes
+/LICENSE @richertunes

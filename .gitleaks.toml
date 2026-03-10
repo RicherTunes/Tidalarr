@@ -1,0 +1,27 @@
+title = "Tidalarr Security Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow test files, documentation, and CI scripts"
+paths = [
+    '''\.claude/''',
+    '''docs/''',
+    '''wiki/''',
+    '''README\.md''',
+    '''tests/.*\.cs''',
+    '''tests/.*\.json''',
+    '''\.github/.*''',
+    '''scripts/.*''',
+    '''.*\.ps1''',
+    '''.*\.sh''',
+]
+regexes = [
+    '''(test_password|example_password|dummy_secret|placeholder_key)''',
+    '''your_app_(id|secret)|your@email\.com|your_password''',
+    '''TIDAL_(CLIENT_ID|CLIENT_SECRET)''',
+    '''user_auth_token=(test|fake|REDACTED|mock)''',
+    '''LIDARR_CACHE_KEY''',
+    '''LIDARR_API_KEY''',
+]
