@@ -15,6 +15,7 @@ using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 using Tidalarr.Core.Mappers;
+using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -103,12 +104,14 @@ public class TidalLidarrDownloadClient(
 
             this._logger.Info("Starting Tidal download: {0} - {1}", artistName, albumTitle);
 
-            // Extract album ID from release
+            // Extract album ID and requested quality from release
             string albumId = ExtractAlbumIdFromRelease(remoteAlbum.Release);
             if (string.IsNullOrWhiteSpace(albumId))
             {
                 throw new InvalidOperationException("Could not extract album ID from release");
             }
+
+            TidalQuality? releaseQuality = ExtractQualityFromRelease(remoteAlbum.Release);
 
             // Generate unique download ID
             string downloadId = Guid.NewGuid().ToString("N");
@@ -145,9 +148,11 @@ public class TidalLidarrDownloadClient(
                         }
                     });
 
-                    StreamingQuality desiredQuality = this._serviceProvider
-                        .GetRequiredService<TidalModelMapper>()
-                        .ToStreamingQuality(Settings.PreferredQuality);
+                    // Honor quality from the release the user selected; fall back to settings
+                    TidalModelMapper mapper = this._serviceProvider.GetRequiredService<TidalModelMapper>();
+                    StreamingQuality desiredQuality = releaseQuality.HasValue
+                        ? mapper.ToStreamingQuality(releaseQuality.Value)
+                        : mapper.ToStreamingQuality(Settings.PreferredQuality);
 
                     DownloadResult result = await this._orchestrator.DownloadAlbumAsync(
                         albumId,
@@ -347,8 +352,37 @@ public class TidalLidarrDownloadClient(
     }
 
     /// <summary>
-    /// Extracts album ID from GUID, handling both prefixed (e.g., "2_tidal:album:12345678")
-    /// and unprefixed (e.g., "tidal:album:12345678") formats.
+    /// Extracts quality from a release's DownloadUrl (?quality=Lossless) or GUID (tidal:album:ID:Quality).
+    /// Returns null if no quality is encoded, falling back to user's PreferredQuality setting.
+    /// </summary>
+    internal static TidalQuality? ExtractQualityFromRelease(ReleaseInfo? release)
+    {
+        // Try DownloadUrl first: tidal://album/{id}?quality={quality}
+        if (!string.IsNullOrWhiteSpace(release?.DownloadUrl) && Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out Uri? uri))
+        {
+            string? qualityParam = System.Web.HttpUtility.ParseQueryString(uri.Query)["quality"];
+            if (Enum.TryParse<TidalQuality>(qualityParam, ignoreCase: true, out TidalQuality q))
+            {
+                return q;
+            }
+        }
+
+        // Fallback: parse from GUID 4th segment (tidal:album:ID:Quality)
+        if (!string.IsNullOrWhiteSpace(release?.Guid))
+        {
+            string[] parts = release.Guid.Split(':');
+            if (parts.Length >= 4 && Enum.TryParse<TidalQuality>(parts[3], ignoreCase: true, out TidalQuality gq))
+            {
+                return gq;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extracts album ID from GUID, handling prefixed ("2_tidal:album:12345678"),
+    /// unprefixed ("tidal:album:12345678"), and quality-suffixed ("tidal:album:12345678:Lossless") formats.
     /// </summary>
     internal static string? ExtractAlbumIdFromGuid(string? guid)
     {
