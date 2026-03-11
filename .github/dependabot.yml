@@ -24,10 +24,10 @@ updates:
       include: "scope"
     ignore:
       # Host-boundary packages: types cross plugin<->host boundary via NzbDrone APIs.
-      # Bumping major versions causes type-identity conflicts at runtime.
+      # ANY version change causes type-identity conflicts at runtime.
       # Only bump when the Lidarr host itself upgrades first.
       - dependency-name: "NLog"
-        versions: [">=6.0.0"]
+        versions: [">=5.5.0"]
       - dependency-name: "FluentValidation"
         versions: [">=12.0.0"]
       - dependency-name: "Microsoft.Extensions.DependencyInjection"
