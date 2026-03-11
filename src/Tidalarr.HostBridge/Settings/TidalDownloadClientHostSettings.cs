@@ -10,14 +10,29 @@ public class TidalDownloadClientHostSettings
     [FieldDefinition(Integration.SettingsDisplay.Download.DownloadPathOrder, Label = Integration.SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests used for throttling.")]
-    public int DownloadDelay { get; set; } = 1000;
+    [FieldDefinition(Integration.SettingsDisplay.Download.IncludeMqaOrder, Label = Integration.SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Allow Master (MQA) releases when available.")]
+    public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayMinOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayMinLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayMinUnit, Advanced = true)]
-    public int DownloadDelayMin { get; set; } = 500;
+    [FieldDefinition(Integration.SettingsDisplay.Download.ExtractFlacOrder, Label = Integration.SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Convert M4A containers to FLAC when possible.")]
+    public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayMaxOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayMaxLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayMaxUnit, Advanced = true)]
-    public int DownloadDelayMax { get; set; } = 2000;
+    [FieldDefinition(Integration.SettingsDisplay.Download.ReEncodeAACOrder, Label = Integration.SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.")]
+    public bool ReEncodeAAC { get; set; } = false;
+
+    [FieldDefinition(Integration.SettingsDisplay.Download.SaveSyncedLyricsOrder, Label = Integration.SettingsDisplay.Download.SaveSyncedLyricsLabel, Type = FieldType.Checkbox, Advanced = true)]
+    public bool SaveSyncedLyrics { get; set; } = true;
+
+    [FieldDefinition(Integration.SettingsDisplay.Download.UseLrclibOrder, Label = Integration.SettingsDisplay.Download.UseLrclibLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
+    public bool UseLRCLIB { get; set; } = false;
+
+    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    public int DownloadDelay { get; set; } = 0;
+
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
+
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
 
     public Integration.TidalDownloadClientSettings ToCore()
     {
@@ -25,9 +40,14 @@ public class TidalDownloadClientHostSettings
         {
             PreferredQuality = MapQuality(PreferredQuality),
             DownloadPath = DownloadPath,
+            IncludeMqa = IncludeMqa,
+            ExtractFlac = ExtractFlac,
+            ReEncodeAAC = ReEncodeAAC,
+            SaveSyncedLyrics = SaveSyncedLyrics,
+            UseLRCLIB = UseLRCLIB,
             DownloadDelay = DownloadDelay,
-            DownloadDelayMin = DownloadDelayMin,
-            DownloadDelayMax = DownloadDelayMax
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads,
+            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads
         };
     }
 

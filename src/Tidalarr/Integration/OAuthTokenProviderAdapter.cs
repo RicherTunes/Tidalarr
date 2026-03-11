@@ -8,9 +8,29 @@ namespace Tidalarr.Integration
     {
         private readonly ITidalAuth _auth = auth;
 
+        // Thread-safety note: _cachedToken and _cachedExpiry are written by the async token
+        // operations (GetAccessTokenAsync, RefreshTokenAsync, ValidateTokenAsync) via CacheExpiry(),
+        // and read synchronously by GetTokenExpiration() and ClearAuthenticationCache().
+        //
+        // This is intentionally unsynchronized. Lidarr's plugin lifecycle is single-threaded per
+        // session, so a genuine data race cannot occur in production. In the unlikely event of a
+        // concurrent read during a write (e.g., during unit-test parallelism), the worst outcome is
+        // a stale cache miss: GetTokenExpiration() returns null and the caller retries the token
+        // fetch — fully safe and self-healing.
+        //
+        // A lock or Interlocked swap would be the correct fix if thread safety were ever required.
+        private string? _cachedToken;
+        private DateTime? _cachedExpiry;
+
         public async Task<string> GetAccessTokenAsync()
         {
-            try { return (await this._auth.GetValidTokensAsync()).AccessToken; } catch { return string.Empty; }
+            try
+            {
+                Core.Models.TidalTokens t = await this._auth.GetValidTokensAsync();
+                CacheExpiry(t);
+                return t.AccessToken;
+            }
+            catch { return string.Empty; }
         }
 
         public async Task<string> RefreshTokenAsync()
@@ -18,8 +38,13 @@ namespace Tidalarr.Integration
             try
             {
                 Core.Models.TidalTokens tokens = await this._auth.GetValidTokensAsync();
-                if (string.IsNullOrEmpty(tokens.RefreshToken)) return string.Empty;
+                if (string.IsNullOrEmpty(tokens.RefreshToken))
+                {
+                    return string.Empty;
+                }
+
                 Core.Models.TidalTokens refreshed = await this._auth.RefreshTokensAsync(tokens.RefreshToken);
+                CacheExpiry(refreshed);
                 return refreshed.AccessToken;
             }
             catch { return string.Empty; }
@@ -27,18 +52,34 @@ namespace Tidalarr.Integration
 
         public async Task<bool> ValidateTokenAsync(string token)
         {
-            try { return !string.IsNullOrEmpty(token) && (await this._auth.GetValidTokensAsync()).AccessToken == token; } catch { return false; }
+            try
+            {
+                Core.Models.TidalTokens t = await this._auth.GetValidTokensAsync();
+                CacheExpiry(t);
+                return !string.IsNullOrEmpty(token) && t.AccessToken == token;
+            }
+            catch { return false; }
         }
 
         public DateTime? GetTokenExpiration(string token)
         {
-            try { Core.Models.TidalTokens t = this._auth.GetValidTokensAsync().GetAwaiter().GetResult(); return t.AccessToken == token ? t.ExpiresAt : null; } catch { return null; }
+            return token == _cachedToken ? _cachedExpiry : null;
         }
 
-        public void ClearAuthenticationCache() { /* no-op for adapter */ }
+        public void ClearAuthenticationCache()
+        {
+            _cachedToken = null;
+            _cachedExpiry = null;
+        }
 
         public bool SupportsRefresh => true;
         public string ServiceName => "Tidal";
+
+        private void CacheExpiry(Core.Models.TidalTokens tokens)
+        {
+            _cachedToken = tokens.AccessToken;
+            _cachedExpiry = tokens.ExpiresAt;
+        }
     }
 }
 

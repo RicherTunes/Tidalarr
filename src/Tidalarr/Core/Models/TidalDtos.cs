@@ -1,15 +1,17 @@
-namespace Tidalarr.Core.Models;
-
 using System.Text.Json.Serialization;
-using Tidalarr.Core.Json;
+using Tidalarr.Core.Serialization;
+
+namespace Tidalarr.Core.Models;
 
 /// <summary>
 /// DTO for Tidal artist from API response.
+/// Note: Tidal API typically returns numeric IDs, but some endpoints/markets may return strings.
+/// FlexibleLongJsonConverter handles both cases for resilience.
 /// </summary>
 public class TidalArtistDto
 {
-    [JsonConverter(typeof(JsonStringOrNumberConverter))]
-    public string? id { get; set; }
+    [JsonConverter(typeof(FlexibleLongJsonConverter))]
+    public long id { get; set; }
     public string? name { get; set; }
 
     public TidalArtistDto() { }
@@ -17,17 +19,19 @@ public class TidalArtistDto
     public TidalArtistDto(string? name, string? id)
     {
         this.name = name;
-        this.id = id;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
     }
 }
 
 /// <summary>
 /// DTO for Tidal album from API response.
+/// Note: Tidal API typically returns numeric IDs, but some endpoints/markets may return strings.
+/// FlexibleLongJsonConverter handles both cases for resilience.
 /// </summary>
 public class TidalAlbumDto
 {
-    [JsonConverter(typeof(JsonStringOrNumberConverter))]
-    public string id { get; set; } = string.Empty;
+    [JsonConverter(typeof(FlexibleLongJsonConverter))]
+    public long id { get; set; }
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
     public List<TidalArtistDto>? artists { get; set; }
@@ -41,7 +45,7 @@ public class TidalAlbumDto
 
     public TidalAlbumDto(string id, string title, TidalArtistDto? artist, string? releaseDate, int numberOfTracks, int duration, bool streamReady, string? cover, string? audioQuality = null)
     {
-        this.id = id;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.releaseDate = releaseDate;
@@ -55,11 +59,13 @@ public class TidalAlbumDto
 
 /// <summary>
 /// DTO for Tidal track from API response.
+/// Note: Tidal API typically returns numeric IDs, but some endpoints/markets may return strings.
+/// FlexibleLongJsonConverter handles both cases for resilience.
 /// </summary>
 public class TidalTrackDto
 {
-    [JsonConverter(typeof(JsonStringOrNumberConverter))]
-    public string id { get; set; } = string.Empty;
+    [JsonConverter(typeof(FlexibleLongJsonConverter))]
+    public long id { get; set; }
     public string title { get; set; } = string.Empty;
     public TidalArtistDto? artist { get; set; }
     public List<TidalArtistDto>? artists { get; set; }
@@ -74,7 +80,7 @@ public class TidalTrackDto
 
     public TidalTrackDto(string id, string title, TidalArtistDto? artist, TidalAlbumDto? album, int trackNumber, int duration, bool streamReady, string? audioQuality)
     {
-        this.id = id;
+        this.id = long.TryParse(id, out long parsed) ? parsed : 0;
         this.title = title;
         this.artist = artist;
         this.album = album;
@@ -100,7 +106,7 @@ public class TidalPagedItemsDto<T>
     public TidalPagedItemsDto(List<T>? items)
     {
         this.items = items;
-        this.totalNumberOfItems = items?.Count ?? 0;
+        totalNumberOfItems = items?.Count ?? 0;
     }
 }
 
@@ -145,7 +151,7 @@ public class TidalSearchResponseDto
 /// </summary>
 public class TidalPlaybackInfoDto
 {
-    public string? trackId { get; set; }
+    public long trackId { get; set; }
     public string? assetPresentation { get; set; }
     public string? audioQuality { get; set; }
     public string? audioMode { get; set; }
@@ -153,10 +159,12 @@ public class TidalPlaybackInfoDto
     public string? manifest { get; set; }
     public string? encryptionType { get; set; }
     public string? securityToken { get; set; }
-    public int? albumPeakAmplitude { get; set; }
-    public int? albumReplayGain { get; set; }
-    public int? trackPeakAmplitude { get; set; }
-    public int? trackReplayGain { get; set; }
+    public double? albumPeakAmplitude { get; set; }
+    public double? albumReplayGain { get; set; }
+    public double? trackPeakAmplitude { get; set; }
+    public double? trackReplayGain { get; set; }
+    public int? bitDepth { get; set; }
+    public int? sampleRate { get; set; }
 
     public TidalPlaybackInfoDto() { }
 

@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built using the Lidarr.Plugin.Common shared library architecture. It provides both indexing and download capabilities for high-quality audio content from Tidal.
 
+## Runtime & Docker Image Requirements (CRITICAL)
+
+**Target framework**: `net8.0` — this plugin MUST target .NET 8.
+
+**Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
+```
+LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
+```
+- Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
+
+**NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
+
+When bumping the Docker image tag, search the entire repo for the old tag string and update all hits (workflows, scripts, docs).
+
 **ALWAYS**:
 - Use constants from `TidalConstants.cs` rather than hardcoding.
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
@@ -169,6 +183,41 @@ Tidalarr integrates with `Lidarr.Plugin.Common` v1.1.0+ for:
 - Settings handled by `TidalSettings` extending `BaseStreamingSettings`
 - OAuth authentication managed by `TidalOAuthService`
 
+### **OAuth Authorization URL Field (Do Not Remove)**
+
+Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the indexer and download client settings:
+
+- **Location**: `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs` and `TidalLidarrDownloadClientSettings.cs`
+- **Property**: `OAuthAuthUrl` with `[FieldDefinition(0, ...)]`
+
+**Why it exists**:
+- Reduces OAuth setup friction and support/debug time
+- Lidarr's UI does not reliably live-update computed fields inside the settings modal after `Test()`. This field exists so users can copy the auth URL without digging through logs, and so we have a reliable “plugin is loaded” signal in `/api/v1/*/schema`.
+- The value is derived from `${ConfigPath}/pkce_state.json`. If missing/expired, the getter creates a fresh PKCE state file and returns the new URL (safe for schema rendering: best-effort, no throws).
+- The field is intentionally derived/read-only (setter is a no-op)
+
+**Regression history** (DO NOT REPEAT):
+- ❌ Removed in `ff0cf39` ("remove non-functional OAuthAuthUrl field")
+- ✅ Restored in `2b4225c` ("restore OAuthAuthUrl field with file-based implementation")
+
+**When the field appears empty**:
+- The `ConfigPath` is not set or is invalid
+- You changed `ConfigPath` but haven’t saved/re-opened the modal yet (Lidarr typically evaluates computed fields when the modal is opened, not live while editing)
+- Lidarr may not refresh this computed field inside the modal after clicking `Test()`. If you click Test and immediately need the URL, copy it from the validation error message, then refresh/re-open the settings modal to see the field populated.
+
+**Redirect URL lifecycle (important)**:
+- The OAuth Redirect URL is a one-time input used to exchange an auth code for tokens.
+- Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored Redirect URL value.
+- If tokens expire and you see a state mismatch, the stored Redirect URL is stale. You do not need to clear it first; paste the NEW redirect URL from your most recent OAuth login (overwrite) and click Test again.
+
+**When the field is missing entirely** (triage steps):
+1. Confirm plugin is loaded: check `/api/v1/indexer/schema` for Tidalarr
+2. Check Lidarr logs for plugin load errors
+3. Multi-plugin runs can be affected by the upstream Lidarr AssemblyLoadContext lifecycle bug
+4. Verify you're running the build with the field restored (`2b4225c` or later)
+
+**Security**: `pkce_state.json` contains a PKCE `code_verifier`; never commit it or include it in logs/artifacts.
+
 ### **CLI Configuration**
 ```bash
 # Configure authentication
@@ -180,15 +229,25 @@ dotnet run -- config set-quality --preferred Lossless
 
 ## Testing
 
+**IMPORTANT**: Always use the test runner script to ensure proper build flags:
+
+```powershell
+# Run all tests (recommended)
+./scripts/test.ps1
+
+# Run with filter
+./scripts/test.ps1 -Filter "FullyQualifiedName~TidalApiClient"
+
+# CI mode (excludes HostBridge tests)
+./scripts/test.ps1 -ExcludeHostBridge
+```
+
+**Why not `dotnet test` directly?**
+ILRepack merges dependencies with `Internalize=true`, making types like `IStreamingResponseCache` internal. Tests built without `-p:PluginPackagingDisable=true` will fail with `MissingMethodException`. The test script handles this automatically.
+
 ```bash
-# Run all tests
-dotnet test
-
-# Run specific test project  
-dotnet test tests/Tidalarr.Tests/
-
-# Development build tests (with CLI)
-dotnet test -p:IncludeCLIFramework=true
+# Development build tests (with CLI framework)
+dotnet test -p:IncludeCLIFramework=true -p:PluginPackagingDisable=true
 ```
 
 ## Troubleshooting
@@ -208,6 +267,15 @@ dotnet test -p:IncludeCLIFramework=true
 **CLI commands not working**:
 - Ensure CLI build: `dotnet build TidalCLI/ -p:IncludeCLIFramework=true`
 - Verify CLI project references main plugin correctly
+
+### **Multi-Plugin Testing**
+
+**Intermittent failures on :8691 (multi-plugin instance)**:
+- Root cause: Upstream Lidarr AssemblyLoadContext lifecycle bug
+- Symptoms: Missing schemas after restart, type identity errors, non-deterministic test failures
+- Workaround: Use dedicated single-plugin instance `:8690` for reliable Tidalarr E2E
+- Status: `:8691` is "best-effort" until Lidarr ALC fix lands
+- See: `ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_ROADMAP.md` for details
 
 ## Version Management
 
@@ -260,3 +328,52 @@ git submodule update --remote ext/Lidarr.Plugin.Common
 ```
 
 This architecture ensures Tidalarr remains developer-friendly while providing production-ready, scalable deployments suitable for enterprise environments and external adoption.
+
+---
+
+## Technical Debt
+
+This section tracks technical debt items that should be addressed but are not blocking current development. Technical debt is automatically prioritized and should never be put under the rug.
+
+### Completed Items
+
+| Item | Priority | Date | Description |
+|------|----------|------|-------------|
+| Quality Detection Enhancement | MEDIUM | 2025-01-25 | Fixed TidalSearchService to preserve API-detected qualities from audioQuality field; improved TidalApiClient.DetectAlbumQualities parsing |
+| Artist ID Plumbing | LOW | 2024-12-XX | Added PrimaryArtistId to TidalTrackInfo and TidalAlbumInfo with fallback to name |
+
+### Pending Items
+
+| Item | Priority | File | Description |
+|------|----------|------|-------------|
+| None identified | - | - | Tidalarr has relatively clean architecture with good separation of concerns |
+
+## Local Verification (Billing-Blocked CI)
+
+When GitHub Actions billing is blocked, run the merge-critical verification pipeline locally:
+
+```bash
+pwsh scripts/verify-local.ps1                    # Full pipeline (extract + build + package + closure + E2E)
+pwsh scripts/verify-local.ps1 -SkipExtract       # Fast rerun (reuse cached host assemblies)
+pwsh scripts/verify-local.ps1 -SkipTests         # Build + packaging closure only
+pwsh scripts/verify-local.ps1 -NoRestore         # Skip dotnet restore (fast iteration)
+pwsh scripts/verify-local.ps1 -IncludeSmoke      # + Docker smoke test (mounts plugin in Lidarr)
+```
+
+**Prerequisites**: PowerShell 7+ (`pwsh`), .NET 8 SDK, Docker (for extract/smoke stages).
+
+The script delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`, which orchestrates the same gates as CI: host assembly extraction with .NET 8 + FV 9.5.4 guardrails, plugin packaging via `New-PluginPackage`, and packaging closure validation via `generate-expected-contents.ps1 -Check`.
+
+## Flaky Tests Policy
+
+**Flaky tests are priority tech debt that must be paid immediately.** A test that passes sometimes and fails sometimes erodes trust in the entire test suite. When a flaky test is discovered:
+
+1. **Fix it before starting new feature work** — flaky tests block reliable CI
+2. **Document the root cause** in a commit message so the pattern is not repeated
+3. **Never skip or disable** a flaky test without a tracking issue
+
+### Known Flaky Tests (Tidalarr)
+
+| Test | Root Cause | Fix |
+|------|-----------|-----|
+| `HostVersionCouplingTests.DirectoryPackagesProps_Should_Match_HostVersions_For_Coupled_Dependencies` | Test reads FluentValidation.dll from `ext/Lidarr/_output` which may not exist in all dev environments (Docker-only assembly) | Guard with `Skip` when assembly directory is missing, or document required setup |

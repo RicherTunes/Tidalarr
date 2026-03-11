@@ -55,6 +55,11 @@ public class TidalApiClientAlbumQualityTests
             return Task.FromResult(Default());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
@@ -76,7 +81,6 @@ public class TidalApiClientAlbumQualityTests
         }
     }
 }
-
 
 
 

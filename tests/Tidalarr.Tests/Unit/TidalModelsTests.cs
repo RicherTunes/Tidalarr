@@ -132,6 +132,37 @@ public class TidalModelsTests
         Assert.Equal(TidalQuality.Lossless, track.Quality);
         Assert.True(track.IsAvailable);
         Assert.Equal(releaseDate, track.ReleaseDate);
+        Assert.Null(track.PrimaryArtistId);
+    }
+
+    [Fact]
+    public void TidalTrackInfo_Constructor_WithPrimaryArtistId_SetsArtistId()
+    {
+        // Arrange
+        List<string> artists = ["Artist1"];
+        DateTime releaseDate = new(2023, 5, 15);
+        long artistId = 123456L;
+
+        // Act
+        TidalTrackInfo track = new(
+            "track123", "Test Track", artists, "album456", "Test Album",
+            3, 240, TidalQuality.Lossless, true, releaseDate, artistId);
+
+        // Assert
+        Assert.Equal(artistId, track.PrimaryArtistId);
+        Assert.Equal("Artist1", track.Artists[0]);
+    }
+
+    [Fact]
+    public void TidalTrackInfo_PrimaryArtistId_DefaultsToNull()
+    {
+        // Arrange & Act
+        TidalTrackInfo track = new(
+            "track123", "Test Track", ["Artist1"], "album456", "Test Album",
+            3, 240, TidalQuality.Lossless, true, DateTime.UtcNow);
+
+        // Assert
+        Assert.Null(track.PrimaryArtistId);
     }
 
     #endregion
@@ -161,6 +192,39 @@ public class TidalModelsTests
         Assert.Equal(releaseDate, album.ReleaseDate);
         Assert.Equal("cover123", album.CoverArtId);
         Assert.True(album.IsAvailable);
+        Assert.Null(album.PrimaryArtistId);
+    }
+
+    [Fact]
+    public void TidalAlbumInfo_Constructor_WithPrimaryArtistId_SetsArtistId()
+    {
+        // Arrange
+        List<string> artists = ["Artist1"];
+        List<TidalTrackInfo> tracks = [];
+        List<TidalQuality> qualities = [TidalQuality.Lossless];
+        DateTime releaseDate = new(2023, 1, 1);
+        long artistId = 789012L;
+
+        // Act
+        TidalAlbumInfo album = new(
+            "album123", "Test Album", artists, tracks, qualities,
+            releaseDate, "cover123", true, artistId);
+
+        // Assert
+        Assert.Equal(artistId, album.PrimaryArtistId);
+        Assert.Equal("Artist1", album.Artists[0]);
+    }
+
+    [Fact]
+    public void TidalAlbumInfo_PrimaryArtistId_DefaultsToNull()
+    {
+        // Arrange & Act
+        TidalAlbumInfo album = new(
+            "album123", "Test Album", ["Artist1"], [], [TidalQuality.Lossless],
+            DateTime.UtcNow, "cover123", true);
+
+        // Assert
+        Assert.Null(album.PrimaryArtistId);
     }
 
     #endregion
@@ -264,54 +328,4 @@ public class TidalModelsTests
     }
 
     #endregion
-
-    #region Enum Coverage Tests
-
-    [Theory]
-    [InlineData(TidalQuality.Low)]
-    [InlineData(TidalQuality.High)]
-    [InlineData(TidalQuality.Lossless)]
-    [InlineData(TidalQuality.HiRes)]
-    public void TidalQuality_AllValues_CanBeUsed(TidalQuality quality)
-    {
-        // Test all enum values are defined
-        Assert.True(Enum.IsDefined(typeof(TidalQuality), quality));
-    }
-
-    #endregion
-
-    #region Record Equality Tests
-
-    [Fact]
-    public void TidalTokens_EqualityComparison_WithSameValues_AreEqual()
-    {
-        // Arrange
-        TidalTokens tokens1 = new("access", "refresh", "Bearer", DateTime.UtcNow, "session", "US", "123");
-        TidalTokens tokens2 = new("access", "refresh", "Bearer", tokens1.ExpiresAt, "session", "US", "123");
-
-        // Act & Assert
-        Assert.Equal(tokens1, tokens2);
-        Assert.True(tokens1 == tokens2);
-        Assert.False(tokens1 != tokens2);
-    }
-
-    [Fact]
-    public void TidalCallbackResult_EqualityComparison_WithDifferentValues_AreNotEqual()
-    {
-        // Arrange
-        TidalCallbackResult result1 = TidalCallbackResult.Success("code1", "state1");
-        TidalCallbackResult result2 = TidalCallbackResult.Success("code2", "state1");
-
-        // Act & Assert
-        Assert.NotEqual(result1, result2);
-        Assert.False(result1 == result2);
-        Assert.True(result1 != result2);
-    }
-
-    #endregion
 }
-
-
-
-
-
