@@ -74,4 +74,112 @@ public class HostBridgeMappingTests
         IHostSettingsMapper mapper = provider.GetRequiredService<IHostSettingsMapper>();
         Assert.NotNull(mapper);
     }
+
+    // --- Edge-case / null / default tests (issue #4) ---
+
+    [Fact]
+    public void TidalarrHostSettings_NullInput_MapperReturnsDefaults()
+    {
+        HostSettingsMapper mapper = new();
+        Tidalarr.Integration.TidalarrSettings core = mapper.ToCore((TidalarrHostSettings?)null);
+        Assert.NotNull(core);
+        Assert.Equal(string.Empty, core.ConfigPath);
+        Assert.Equal(string.Empty, core.RedirectUrl);
+        Assert.Equal("US", core.TidalMarket);
+        Assert.Equal(30, core.EarlyReleaseLimit);
+        Assert.False(core.EnableCache);
+        Assert.Equal(7, core.CacheDuration);
+    }
+
+    [Fact]
+    public void TidalIndexerHostSettings_NullInput_MapperReturnsDefaults()
+    {
+        HostSettingsMapper mapper = new();
+        Tidalarr.Integration.TidalIndexerSettings core = mapper.ToCore((TidalIndexerHostSettings?)null);
+        Assert.NotNull(core);
+        Assert.Equal(string.Empty, core.ConfigPath);
+        Assert.Equal(string.Empty, core.RedirectUrl);
+        Assert.Equal("US", core.TidalMarket);
+    }
+
+    [Fact]
+    public void TidalDownloadClientHostSettings_NullInput_MapperReturnsDefaults()
+    {
+        HostSettingsMapper mapper = new();
+        Tidalarr.Integration.TidalDownloadClientSettings core = mapper.ToCore((TidalDownloadClientHostSettings?)null);
+        Assert.NotNull(core);
+        Assert.Equal(Core.Models.TidalQuality.Lossless, core.PreferredQuality);
+        Assert.Equal(string.Empty, core.DownloadPath);
+        Assert.Equal(0, core.DownloadDelay);
+        Assert.Equal(2, core.MaxConcurrentTrackDownloads);
+        Assert.Equal(2, core.MaxConcurrentChunkDownloads);
+    }
+
+    [Fact]
+    public void TidalarrHostSettings_DefaultConstructor_ProducesExpectedDefaults()
+    {
+        TidalarrHostSettings host = new();
+        Tidalarr.Integration.TidalarrSettings core = host.ToCore();
+        Assert.Equal(string.Empty, core.ConfigPath);
+        Assert.Equal(string.Empty, core.RedirectUrl);
+        Assert.Equal("US", core.TidalMarket);
+        Assert.Equal(30, core.EarlyReleaseLimit);
+        Assert.False(core.EnableCache);
+        Assert.Equal(7, core.CacheDuration);
+        Assert.Equal("https://api.tidal.com", core.BaseUrl);
+    }
+
+    [Fact]
+    public void TidalarrHostSettings_NullEarlyReleaseLimit_MapsToNull()
+    {
+        TidalarrHostSettings host = new() { EarlyReleaseLimit = null };
+        Tidalarr.Integration.TidalarrSettings core = host.ToCore();
+        Assert.Null(core.EarlyReleaseLimit);
+    }
+
+    [Fact]
+    public void TidalarrHostSettings_ZeroEarlyReleaseLimit_MapsToZero()
+    {
+        TidalarrHostSettings host = new() { EarlyReleaseLimit = 0 };
+        Tidalarr.Integration.TidalarrSettings core = host.ToCore();
+        Assert.Equal(0, core.EarlyReleaseLimit);
+    }
+
+    [Theory]
+    [InlineData(TidalQualityHost.Low, Core.Models.TidalQuality.Low)]
+    [InlineData(TidalQualityHost.High, Core.Models.TidalQuality.High)]
+    [InlineData(TidalQualityHost.Lossless, Core.Models.TidalQuality.Lossless)]
+    [InlineData(TidalQualityHost.HiRes, Core.Models.TidalQuality.HiRes)]
+    public void TidalDownloadClientHostSettings_QualityEnum_MapsCorrectly(
+        TidalQualityHost hostQuality, Core.Models.TidalQuality expectedQuality)
+    {
+        TidalDownloadClientHostSettings host = new() { PreferredQuality = hostQuality };
+        Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
+        Assert.Equal(expectedQuality, core.PreferredQuality);
+    }
+
+    [Fact]
+    public void TidalDownloadClientHostSettings_InvalidQualityEnum_FallsBackToLossless()
+    {
+        TidalDownloadClientHostSettings host = new() { PreferredQuality = (TidalQualityHost)999 };
+        Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
+        Assert.Equal(Core.Models.TidalQuality.Lossless, core.PreferredQuality);
+    }
+
+    [Fact]
+    public void TidalDownloadClientHostSettings_DefaultConstructor_ProducesExpectedDefaults()
+    {
+        TidalDownloadClientHostSettings host = new();
+        Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
+        Assert.Equal(Core.Models.TidalQuality.Lossless, core.PreferredQuality);
+        Assert.Equal(string.Empty, core.DownloadPath);
+        Assert.True(core.IncludeMqa);
+        Assert.True(core.ExtractFlac);
+        Assert.False(core.ReEncodeAAC);
+        Assert.True(core.SaveSyncedLyrics);
+        Assert.False(core.UseLRCLIB);
+        Assert.Equal(0, core.DownloadDelay);
+        Assert.Equal(2, core.MaxConcurrentTrackDownloads);
+        Assert.Equal(2, core.MaxConcurrentChunkDownloads);
+    }
 }
