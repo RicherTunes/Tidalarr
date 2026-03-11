@@ -286,7 +286,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         {
             foreach (TidalArtistDto artist in dto.artists)
             {
-                if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name))
+                if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name, StringComparer.OrdinalIgnoreCase))
                 {
                     artistNames.Add(artist!.name!);
                 }
@@ -331,7 +331,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         {
             foreach (TidalArtistDto artist in dto.artists)
             {
-                if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name))
+                if (!string.IsNullOrWhiteSpace(artist?.name) && !artistNames.Contains(artist.name, StringComparer.OrdinalIgnoreCase))
                 {
                     artistNames.Add(artist!.name!);
                 }
