@@ -7,6 +7,18 @@ namespace Tidalarr.Integration
     internal class OAuthTokenProviderAdapter(ITidalAuth auth) : IStreamingTokenProvider
     {
         private readonly ITidalAuth _auth = auth;
+
+        // Thread-safety note: _cachedToken and _cachedExpiry are written by the async token
+        // operations (GetAccessTokenAsync, RefreshTokenAsync, ValidateTokenAsync) via CacheExpiry(),
+        // and read synchronously by GetTokenExpiration() and ClearAuthenticationCache().
+        //
+        // This is intentionally unsynchronized. Lidarr's plugin lifecycle is single-threaded per
+        // session, so a genuine data race cannot occur in production. In the unlikely event of a
+        // concurrent read during a write (e.g., during unit-test parallelism), the worst outcome is
+        // a stale cache miss: GetTokenExpiration() returns null and the caller retries the token
+        // fetch — fully safe and self-healing.
+        //
+        // A lock or Interlocked swap would be the correct fix if thread safety were ever required.
         private string? _cachedToken;
         private DateTime? _cachedExpiry;
 
