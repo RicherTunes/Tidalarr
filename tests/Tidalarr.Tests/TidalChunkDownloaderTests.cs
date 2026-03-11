@@ -192,24 +192,25 @@ public class TidalChunkDownloaderTests
     }
 }
 
+/// <summary>
+/// Thread-safe mock handler that returns chunks in order.
+/// Uses Interlocked.Increment to avoid race conditions if
+/// the downloader or its retry logic issues concurrent requests.
+/// </summary>
 public class MockChunkHttpMessageHandler(byte[][] chunks) : HttpMessageHandler
 {
     private readonly byte[][] _chunks = chunks;
-    private int _chunkIndex = 0;
+    private int _chunkIndex = -1;
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        HttpResponseMessage response = new(HttpStatusCode.OK);
-        // Return chunks in order
-        if (this._chunkIndex < this._chunks.Length)
+        int index = Interlocked.Increment(ref this._chunkIndex);
+        HttpResponseMessage response = new(HttpStatusCode.OK)
         {
-            response.Content = new ByteArrayContent(this._chunks[this._chunkIndex]);
-            this._chunkIndex++;
-        }
-        else
-        {
-            response.Content = new ByteArrayContent([]);
-        }
+            Content = index < this._chunks.Length
+                ? new ByteArrayContent(this._chunks[index])
+                : new ByteArrayContent([])
+        };
 
         return Task.FromResult(response);
     }

@@ -12,6 +12,7 @@ param(
     [switch]$VerboseOutput,
     [switch]$UsePrebuiltAssemblies,
     [string]$LidarrVersion = "2.13.2.4685",
+    [switch]$SkipHostBridge,
     [switch]$Help
 )
 
@@ -120,6 +121,11 @@ if (-not $NoBuild) {
         "-p:TreatWarningsAsErrors=false"
     )
 
+    if ($SkipHostBridge) {
+        $buildParams += "-p:SkipHostBridge=true"
+        Write-Host "⚠️ SkipHostBridge enabled - LidarrNative integration layer excluded" -ForegroundColor Yellow
+    }
+
     if (-not $UsePrebuiltAssemblies -and (Test-Path "ext/Lidarr-source/src/Directory.Build.props")) {
         $buildParams += "-p:LidarrAssemblyVersion=$LidarrVersion"
     }
@@ -165,17 +171,41 @@ if (-not $NoBuild) {
         $modulePath = Join-Path $scriptRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $scriptRoot 'plugin.json'
-        $packagePath = New-PluginPackage -Csproj $pluginProject -Manifest $manifestPath -Framework 'net8.0' -Configuration $Configuration
+
+        # Canonical Abstractions injection + entrypoint validation
+        $packagePath = New-PluginPackage `
+            -Csproj $pluginProject `
+            -Manifest $manifestPath `
+            -Framework 'net8.0' `
+            -Configuration $Configuration `
+            -RequireCanonicalAbstractions `
+            -ResolveEntryPoints
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 
         try {
-            $pluginAssemblyPath = Join-Path $scriptRoot "src/Tidalarr/bin/$Configuration/net8.0/Lidarr.Plugin.Tidalarr.dll"
-            if (Test-Path $pluginAssemblyPath) {
-                try { Add-Type -Path $pluginAssemblyPath -ErrorAction Stop } catch {}
-            }
-            $metadata = [Tidalarr.Integration.PackagingHelper]::WritePackagingMetadata($packagePath, 'net8.0', $Configuration)
-            Write-Host "Package metadata: $($metadata.MetadataPath)" -ForegroundColor Gray
-            Write-Host "Package hash: $($metadata.HashPath)" -ForegroundColor Gray
+            $hashPath = "$packagePath.sha256"
+            $metadataPath = "$packagePath.metadata.json"
+
+            # Compute SHA256 hash
+            $hash = (Get-FileHash -Path $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            Set-Content -Path $hashPath -Value $hash -Encoding UTF8
+
+            # Extract assembly list from package
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+            $dlls = $zip.Entries | Where-Object { $_.Name -like '*.dll' } | ForEach-Object { $_.Name }
+            $zip.Dispose()
+
+            # Create metadata JSON
+            $metadata = @{
+                packageName = [System.IO.Path]::GetFileName($packagePath)
+                sha256 = $hash
+                assemblies = $dlls
+                createdAt = (Get-Date -Format 'o')
+            } | ConvertTo-Json -Depth 3
+            Set-Content -Path $metadataPath -Value $metadata -Encoding UTF8
+
+            Write-Host "📝 Hash written to: $hashPath" -ForegroundColor Gray
+            Write-Host "📝 Metadata written to: $metadataPath" -ForegroundColor Gray
         }
         catch {
             Write-Host "Failed to write packaging metadata: $_" -ForegroundColor Yellow

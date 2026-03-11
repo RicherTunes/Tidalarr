@@ -5,17 +5,26 @@ namespace Tidalarr.Core.Mappers;
 
 public class TidalModelMapper
 {
+    private const string UnknownArtist = "Unknown Artist";
     public StreamingTrack ToStreamingTrack(TidalTrackInfo track)
     {
         // Create a non-null StreamingTrack even if inputs are sparse
-        string artistName = string.Join(", ", track.Artists ?? []);
+        // Filter null/empty entries before joining to avoid ", , " garbage
+        List<string> validArtists = [.. (track.Artists ?? []).Where(a => !string.IsNullOrWhiteSpace(a))];
+        string artistName = validArtists.Count > 0 ? string.Join(", ", validArtists) : UnknownArtist;
+        // Use PrimaryArtistId when available, fallback to primary artist name
+        string primaryArtistId = track.PrimaryArtistId > 0
+            ? track.PrimaryArtistId.Value.ToString()
+            : validArtists.FirstOrDefault() ?? UnknownArtist;
+        string primaryArtistName = validArtists.FirstOrDefault() ?? UnknownArtist;
+
         StreamingTrack streaming = new()
         {
             Id = track.Id ?? string.Empty,
             Title = track.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = track.Artists?.FirstOrDefault() ?? string.Empty,
+                Id = primaryArtistId,
                 Name = artistName
             },
             Album = new StreamingAlbum
@@ -24,7 +33,7 @@ public class TidalModelMapper
                 Title = track.AlbumTitle ?? string.Empty,
                 Artist = new StreamingArtist
                 {
-                    Id = track.Artists?.FirstOrDefault() ?? string.Empty,
+                    Id = primaryArtistId,
                     Name = artistName
                 }
             },
@@ -54,14 +63,21 @@ public class TidalModelMapper
 
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
-        string artistName = string.Join(", ", album.Artists ?? []);
+        // Filter null/empty entries before joining to avoid ", , " garbage
+        List<string> validArtists = [.. (album.Artists ?? []).Where(a => !string.IsNullOrWhiteSpace(a))];
+        string artistName = validArtists.Count > 0 ? string.Join(", ", validArtists) : UnknownArtist;
+        // Use PrimaryArtistId when available, fallback to primary artist name
+        string primaryArtistId = album.PrimaryArtistId > 0
+            ? album.PrimaryArtistId.Value.ToString()
+            : validArtists.FirstOrDefault() ?? UnknownArtist;
+
         StreamingAlbum streaming = new()
         {
             Id = album.Id ?? string.Empty,
             Title = album.Title ?? string.Empty,
             Artist = new StreamingArtist
             {
-                Id = album.Artists?.FirstOrDefault() ?? string.Empty,
+                Id = primaryArtistId,
                 Name = artistName
             },
             AdditionalArtists = [],
@@ -175,7 +191,9 @@ public class TidalModelMapper
                 Metadata = new Dictionary<string, object>
                 {
                     ["tidal_id"] = album.Id ?? string.Empty,
-                    ["tidal_type"] = "album"
+                    ["tidal_type"] = "album",
+                    ["available_qualities"] = album.AvailableQualities != null ? string.Join(",", album.AvailableQualities) : string.Empty,
+                    ["is_hires"] = album.AvailableQualities != null && album.AvailableQualities.Contains(TidalQuality.HiRes)
                 }
             }));
         }
@@ -196,7 +214,9 @@ public class TidalModelMapper
                 Metadata = new Dictionary<string, object>
                 {
                     ["tidal_id"] = track.Id ?? string.Empty,
-                    ["tidal_type"] = "track"
+                    ["tidal_type"] = "track",
+                    ["quality"] = track.Quality.ToString(),
+                    ["is_hires"] = track.Quality == TidalQuality.HiRes
                 }
             }));
         }

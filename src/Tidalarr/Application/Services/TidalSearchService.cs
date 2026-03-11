@@ -37,21 +37,9 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             optimizedQuery = optimization.Query;
         }
 
-        // Execute search with safe error handling
+        // Execute search
         Stopwatch stopwatch = Stopwatch.StartNew();
-        (bool success, TidalSearchResults searchResults) = await SafeOperationExecutor.TryExecuteAsync<TidalSearchResults>(() =>
-            this._apiClient.SearchAsync(optimizedQuery));
-
-        if (!success || searchResults == null)
-        {
-            return new TidalSearchResults(
-                Albums: [],
-                Tracks: [],
-                Artists: [],
-                TotalCount: 0,
-                HasMore: false
-            );
-        }
+        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery);
 
         stopwatch.Stop();
 
@@ -176,18 +164,32 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
 
     private TidalAlbumInfo EnhanceAlbumWithQuality(TidalAlbumInfo album, TidalQuality preferredQuality)
     {
-        // For now, assume all albums have the basic qualities
-        // TODO: Enhance with actual quality detection from API
-        List<TidalQuality> enhancedQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless];
+        // Preserve API-detected qualities from audioQuality field
+        // TidalApiClient.DetectAlbumQualities() already parses the audioQuality string
+        // Only use fallback if no qualities were detected
+        if (album.AvailableQualities != null && album.AvailableQualities.Count > 0)
+        {
+            return album; // Quality already detected from API response
+        }
 
-        return album with { AvailableQualities = enhancedQualities };
+        // Fallback: assume basic qualities if detection failed
+        List<TidalQuality> fallbackQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless];
+        return album with { AvailableQualities = fallbackQualities };
     }
 
     private TidalTrackInfo EnhanceTrackWithQuality(TidalTrackInfo track, TidalQuality preferredQuality)
     {
-        // Select best available quality for the track
-        TidalQuality[] availableQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless];
-        TidalQuality bestQuality = this._qualityDetector.SelectBestQuality(availableQualities, preferredQuality);
+        // Preserve API-detected quality from audioQuality field
+        // TidalApiClient.MapToTidalTrackInfo() already parses audioQuality
+        // Only override if the detected quality is invalid (High = 1, which is the default fallback)
+        if (track.Quality != TidalQuality.High || track.Quality == preferredQuality)
+        {
+            return track; // Quality already detected from API response
+        }
+
+        // Fallback: use detector to select best quality from assumed availability
+        TidalQuality[] assumedQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless];
+        TidalQuality bestQuality = this._qualityDetector.SelectBestQuality(assumedQualities, preferredQuality);
 
         return track with { Quality = bestQuality };
     }
@@ -218,7 +220,10 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
 
     private static double CalculateRelevanceScore(TidalSearchResults results)
     {
-        if (results.TotalCount == 0) return 0.0;
+        if (results.TotalCount == 0)
+        {
+            return 0.0;
+        }
 
         // Simple relevance scoring based on result count and diversity
         double albumScore = results.Albums.Count * 0.6;

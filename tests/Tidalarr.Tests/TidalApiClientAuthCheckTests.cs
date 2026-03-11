@@ -28,6 +28,11 @@ public class TidalApiClientAuthCheckTests
         {
             throw new InvalidOperationException("not authenticated");
         }
+
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
     }
 
     [Fact]
@@ -38,7 +43,6 @@ public class TidalApiClientAuthCheckTests
         Assert.False(ok);
     }
 }
-
 
 
 

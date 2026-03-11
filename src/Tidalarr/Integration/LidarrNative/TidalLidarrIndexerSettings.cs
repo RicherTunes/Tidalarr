@@ -2,6 +2,7 @@ using FluentValidation;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Validation;
+using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -12,10 +13,12 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrIndexerSettings : IIndexerSettings
 {
     private static readonly TidalLidarrIndexerSettingsValidator Validator = new();
+    private static readonly string DefaultConfigPath = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
 
     public TidalLidarrIndexerSettings()
     {
         BaseUrl = "https://api.tidal.com";
+        ConfigPath = DefaultConfigPath;
         TidalMarket = "US";
         EarlyReleaseLimit = 14;
         EnableCache = true;
@@ -24,12 +27,20 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
 
     public string BaseUrl { get; set; }
 
+    [FieldDefinition(0, Label = "OAuth Authorization URL", Type = FieldType.Textbox, Section = "Authentication",
+        HelpText = "Convenience field derived from Config Path. If empty, set Config Path to a writable directory. Lidarr may not refresh this field inside the modal after clicking Test; copy the URL from the validation error message if needed. Changes to this field are ignored.")]
+    public string OAuthAuthUrl
+    {
+        get => PKCEStateStore.TryGetOrCreateAuthorizationUrl(ConfigPath) ?? string.Empty;
+        set { }
+    }
+
     [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens.")]
-    public string ConfigPath { get; set; } = string.Empty;
+        HelpText = "Directory used to persist Tidal authentication tokens. Defaults to /config/Tidalarr in Docker, otherwise AppData/Tidalarr (~/.config/Tidalarr on Linux).")]
+    public string ConfigPath { get; set; } = DefaultConfigPath;
 
     [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "OAuth redirect URL captured after completing the Tidal login flow. Open the auth URL and paste the redirect URL here.")]
+        HelpText = "Paste the redirect URL you are sent to after completing the OAuth login in your browser. If the stored redirect URL is stale, click Test and overwrite it with the NEW redirect URL (no need to clear first).")]
     public string RedirectUrl { get; set; } = string.Empty;
 
     [FieldDefinition(3, Label = "Market", Type = FieldType.Textbox, Section = "Authentication", Advanced = true,
@@ -76,23 +87,24 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
 
     public TidalLidarrIndexerSettingsValidator()
     {
-        RuleFor(x => x.ConfigPath)
+        _ = RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
-        RuleFor(x => x.RedirectUrl)
-            .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication")
-            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL");
+        // RedirectUrl validation: only validate format when provided (not required during initial setup)
+        _ = RuleFor(x => x.RedirectUrl)
+            .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
+            .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
-        RuleFor(x => x.TidalMarket)
+        _ = RuleFor(x => x.TidalMarket)
             .Must(market => SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase))
             .WithMessage("Unsupported market. Supported values: US, UK, DE, FR, CA, AU, JP");
 
-        RuleFor(x => x.EarlyReleaseLimit)
+        _ = RuleFor(x => x.EarlyReleaseLimit)
             .InclusiveBetween(0, 365)
             .WithMessage("Early release limit must be between 0 and 365 days")
             .When(x => x.EarlyReleaseLimit.HasValue);
 
-        RuleFor(x => x.CacheDuration)
+        _ = RuleFor(x => x.CacheDuration)
             .InclusiveBetween(0, 1440)
             .WithMessage("Cache duration must be between 0 and 1440 minutes");
     }

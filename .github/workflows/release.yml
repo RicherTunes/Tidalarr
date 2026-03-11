@@ -35,7 +35,7 @@ jobs:
         submodules: recursive
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -156,7 +156,7 @@ jobs:
         echo "See [commit history](https://github.com/${{ github.repository }}/commits/v$RELEASE_VERSION) for detailed changes." >> release-notes.md
 
     - name: Create GitHub release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         name: ${{ env.PLUGIN_NAME }} v${{ env.RELEASE_VERSION }}
         body_path: release-notes.md

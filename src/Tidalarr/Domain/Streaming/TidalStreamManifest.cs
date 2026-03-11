@@ -63,9 +63,8 @@ public class StreamManifest
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"⚠️ Error parsing stream manifest: {ex.Message}");
             // Fallback to empty manifest
             ChunkUrls = [];
         }
@@ -153,10 +152,8 @@ public class StreamManifest
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"⚠️ Error parsing DASH manifest: {ex.Message}");
-            Console.WriteLine($"⚠️ Manifest content preview: {encodedManifest?[..Math.Min(200, encodedManifest?.Length ?? 0)]}...");
             ChunkUrls = [];
         }
     }
@@ -179,12 +176,14 @@ public class StreamManifest
         // Tidal always delivers in M4A containers, regardless of codec inside
         // FLAC codec is inside M4A container
         if (codecsAttr.Contains("flac"))
+        {
             return ".m4a"; // FLAC inside M4A - will extract later if needed
+        }
         else
+        {
             return ".m4a"; // AAC inside M4A
+        }
     }
 }
-
-
 
 

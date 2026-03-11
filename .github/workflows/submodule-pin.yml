@@ -19,7 +19,7 @@ jobs:
         # actions/checkout v4.3.0
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
-          submodules: true
+          submodules: false
 
       - name: Ensure Common submodule at indexed commit
         shell: pwsh
@@ -28,6 +28,22 @@ jobs:
           git config --local url.https://x-access-token:$env:GH_TOKEN@github.com/.insteadOf https://github.com/
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '[:space:]' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
 
       - name: Verify ext/Lidarr.Plugin.Common SHA or Tag
         shell: pwsh

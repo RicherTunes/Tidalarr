@@ -30,6 +30,11 @@ public class TidalApiClientMalformedAlbumTests
             return Task.FromResult(Default());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
@@ -37,13 +42,17 @@ public class TidalApiClientMalformedAlbumTests
     }
 
     [Fact]
-    public async Task GetAlbumAsync_NullArtist_MapsUnknownArtist()
+    public async Task GetAlbumAsync_NullArtist_FallsBackToUnknownArtist()
     {
         var album = new { id = "al1", title = "A", artist = (object?)null, releaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"), numberOfTracks = 1, duration = 1, streamReady = true, cover = "c" };
         string json = JsonSerializer.Serialize(album);
         TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
+
         TidalAlbumInfo result = await api.GetAlbumAsync("al1");
-        Assert.Contains("Unknown Artist", result.Artists);
+
+        Assert.NotNull(result);
+        _ = Assert.Single(result.Artists);
+        Assert.Equal("Unknown Artist", result.Artists[0]);
     }
 }
 

@@ -227,6 +227,14 @@ tidalarr.log
 tidalarr-*.log
 plugin-test.log
 
+## Packaging artifacts
+_tmp_pluginpack_test*/
+plugin-dist/
+wiki-content/
+
+# Windows redirection artifact
+nul
+
 ## Exclude from accidentally committing
 # Large files that might be created during development
 *.large

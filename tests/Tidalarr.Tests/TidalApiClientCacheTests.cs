@@ -27,13 +27,13 @@ public class TidalApiClientCacheTests
     {
         HttpClient http = new(new ThrowingHandler());
         StubAuth auth = new();
-        TidalAlbumDto dto = new("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover");
+        TidalAlbumDto dto = new("12345", "Album", new("Artist", "100"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover");
         PrepopulatedCache cache = new PrepopulatedCache()
-            .With("albums/al1", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
+            .With("albums/12345", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
 
         TidalApiClient client = new(http, auth, cache);
-        TidalAlbumInfo album = await client.GetAlbumAsync("al1");
-        Assert.Equal("al1", album.Id);
+        TidalAlbumInfo album = await client.GetAlbumAsync("12345");
+        Assert.Equal("12345", album.Id);
         Assert.Equal("Album", album.Title);
     }
 
@@ -42,15 +42,15 @@ public class TidalApiClientCacheTests
     {
         HttpClient http = new(new ThrowingHandler());
         StubAuth auth = new();
-        TidalTrackDto track = new("t1", "Song", new("Artist", "a1"), new("al1", "Album", new("Artist", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover"), 1, 180, true, "LOSSLESS");
-        TidalAlbumTracksDto dto = new(new List<TidalTrackDto> { track }, 1);
+        TidalTrackDto track = new("789", "Song", new("Artist", "100"), new("12345", "Album", new("Artist", "100"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 10, 3000, true, "cover"), 1, 180, true, "LOSSLESS");
+        TidalAlbumTracksDto dto = new([track], 1);
         PrepopulatedCache cache = new PrepopulatedCache()
-            .With("albums/al1/tracks", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" }, { "limit", "1000" } }, dto);
+            .With("albums/12345/tracks", new Dictionary<string, string> { { "sessionId", "sess" }, { "countryCode", "US" }, { "limit", "1000" } }, dto);
 
         TidalApiClient client = new(http, auth, cache);
-        List<TidalTrackInfo> tracks = await client.GetAlbumTracksAsync("al1");
+        List<TidalTrackInfo> tracks = await client.GetAlbumTracksAsync("12345");
         _ = Assert.Single(tracks);
-        Assert.Equal("t1", tracks[0].Id);
+        Assert.Equal("789", tracks[0].Id);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class TidalApiClientCacheTests
     {
         HttpClient http = new(new ThrowingHandler());
         StubAuth auth = new();
-        TidalSearchResponseDto dto = new(new(new()), new(new()));
+        TidalSearchResponseDto dto = new(new([]), new([]));
         PrepopulatedCache cache = new PrepopulatedCache()
             .With("search", new Dictionary<string, string> { { "query", "abc" }, { "types", "albums,tracks" }, { "limit", "100" }, { "sessionId", "sess" }, { "countryCode", "US" } }, dto);
 
@@ -97,6 +97,11 @@ internal class StubAuth : ITidalAuth
     public Task<TidalTokens> GetValidTokensAsync()
     {
         return Task.FromResult(Default());
+    }
+
+    public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+    {
+        return TidalCallbackResult.Failure("Not implemented in test stub");
     }
 
     private static TidalTokens Default()
@@ -157,6 +162,5 @@ internal class PrepopulatedCache : IStreamingResponseCache
     public void Clear() { }
     public void ClearEndpoint(string endpoint) { }
 }
-
 
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Lidarr.Plugin.Common.Security;
 using TidalQuality = Tidalarr.Core.Models.TidalQuality;
 using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
@@ -92,11 +93,12 @@ public static class TidalCLIHelper
             using Stream audioStream = await chunkDownloader.DownloadAndAssembleAsync(streamInfoModel, progress: null);
 
             Console.WriteLine("\n?? Step 5: Saving assembled audio file...");
-            string fileName = $"{artist} - {title}";
-            foreach (char c in Path.GetInvalidFileNameChars().Concat([':', '?', '*', '<', '>', '|']))
+            string fileName = Sanitize.PathSegment($"{artist} - {title}");
+            if (string.IsNullOrEmpty(fileName))
             {
-                fileName = fileName.Replace(c, '_');
+                fileName = "Unknown";
             }
+
             string outputPath = Path.Combine(Path.GetTempPath(), $"tidalarr_{fileName}{manifest.FileExtension}");
 
             await using (FileStream fileStream = new(outputPath, FileMode.Create, FileAccess.Write))

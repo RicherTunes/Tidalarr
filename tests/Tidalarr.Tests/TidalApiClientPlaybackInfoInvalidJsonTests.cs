@@ -31,6 +31,11 @@ public class TidalApiClientPlaybackInfoInvalidJsonTests
             return Task.FromResult(Default());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
@@ -55,7 +60,6 @@ public class TidalApiClientPlaybackInfoInvalidJsonTests
         _ = await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => client.GetStreamInfoAsync("t1", TidalQuality.Lossless));
     }
 }
-
 
 
 

@@ -2,144 +2,141 @@ namespace Tidalarr.Domain.Streaming;
 
 public static class AudioFormatHandler
 {
+    public static bool IsFFmpegAvailable(IAudioProcessor? audio = null)
+    {
+        IAudioProcessor processor = audio ?? new SystemAudioProcessor();
+
+        try
+        {
+            (int exitCode, _, _) = processor.RunFfprobe("-version");
+            if (exitCode != 0)
+            {
+                return false;
+            }
+
+            // `RunFfmpegAsync` is async; keep the availability check sync-friendly by relying on ffprobe.
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static string DetectCodecs(string filePath, IAudioProcessor? audio = null)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            return string.Empty;
+        }
+
+        IAudioProcessor processor = audio ?? new SystemAudioProcessor();
+
+        string args = $"-v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 {QuoteArg(filePath)}";
+
+        try
+        {
+            (int exitCode, string stdout, _) = processor.RunFfprobe(args);
+            if (exitCode != 0)
+            {
+                return string.Empty;
+            }
+
+            string codec = (stdout ?? string.Empty).Trim();
+            return codec.Length == 0 ? string.Empty : codec.ToUpperInvariant();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     public static async Task<string> ProcessAudioFileAsync(
         string inputPath,
         string codecs,
-        bool extractFlac = true,
-        bool keepOriginal = false,
-        IAudioProcessor? audio = null)
+        bool extractFlac,
+        bool keepOriginal,
+        IAudioProcessor? audio = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!extractFlac)
+        {
+            return inputPath;
+        }
+
+        if (string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
+        {
+            return inputPath;
+        }
+
+        if (!string.Equals(codecs, "FLAC", StringComparison.OrdinalIgnoreCase))
+        {
+            return inputPath;
+        }
+
+        // Tidal delivers FLAC audio in an M4A container; extraction only makes sense for M4A sources.
+        if (!inputPath.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase))
+        {
+            return inputPath;
+        }
+
+        IAudioProcessor processor = audio ?? new SystemAudioProcessor();
+        string outputPath = Path.ChangeExtension(inputPath, ".flac");
+
+        // Ensure we don't keep stale output around from a prior failed attempt.
+        if (File.Exists(outputPath))
+        {
+            try { File.Delete(outputPath); } catch { /* best effort */ }
+        }
+
+        string args = string.Join(" ",
+        [
+            "-y",
+            "-hide_banner",
+            "-loglevel error",
+            "-i", QuoteArg(inputPath),
+            "-map 0:a:0",
+            "-c:a copy",
+            QuoteArg(outputPath)
+        ]);
+
         try
         {
-            audio ??= new SystemAudioProcessor();
-            if (codecs == "FLAC" && extractFlac)
-            {
-                // Extract FLAC from M4A container
-                Console.WriteLine("🎵 Extracting FLAC from M4A container...");
-                string flacPath = Path.ChangeExtension(inputPath, "flac");
+            (int exitCode, _, _) = await processor.RunFfmpegAsync(args, cancellationToken).ConfigureAwait(false);
 
-                bool success = await ExtractFlacFromM4AAsync(inputPath, flacPath, audio, keepOriginal);
-                if (success)
+            if (exitCode == 0 && File.Exists(outputPath))
+            {
+                if (!keepOriginal)
                 {
-                    if (!keepOriginal && File.Exists(inputPath))
-                    {
-                        File.Delete(inputPath);
-                    }
-                    return flacPath;
+                    try { File.Delete(inputPath); } catch { /* best effort */ }
                 }
-                else
-                {
-                    Console.WriteLine("⚠️ FLAC extraction failed, keeping M4A file");
-                    return inputPath;
-                }
+
+                return outputPath;
             }
-
-            return inputPath; // Keep original M4A file
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            Console.WriteLine($"⚠️ Error processing audio file: {ex.Message}");
-            return inputPath; // Return original path on error
-        }
-    }
-
-    private static async Task<bool> ExtractFlacFromM4AAsync(string inputPath, string outputPath, IAudioProcessor audio, bool keepOriginal)
-    {
-        try
-        {
-            string ffmpegArgs = $"-i \"{inputPath}\" -c copy \"{outputPath}\"";
-            (int exitCode, string _, string stderr) = await audio.RunFfmpegAsync(ffmpegArgs);
-            bool success = exitCode == 0 && File.Exists(outputPath);
-            if (!success)
-            {
-                Console.WriteLine($"⚠️ FFmpeg error: {stderr}");
-                return !keepOriginal && TryCopyFallback(inputPath, outputPath);
-            }
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"⚠️ FFmpeg extraction failed: {ex.Message}");
-            return !keepOriginal && TryCopyFallback(inputPath, outputPath);
-        }
-    }
-
-    private static bool TryCopyFallback(string inputPath, string outputPath)
-    {
-        try
-        {
-            File.Copy(inputPath, outputPath, true);
-            Console.WriteLine("📝 Note: File copied as-is (FLAC still in M4A container)");
-            return true;
+            throw;
         }
         catch
         {
-            return false;
+            // Fall through to cleanup + return input path.
         }
+
+        // Never produce a mislabeled .flac file as a fallback; on failure keep the original file.
+        if (File.Exists(outputPath))
+        {
+            try { File.Delete(outputPath); } catch { /* best effort */ }
+        }
+
+        return inputPath;
     }
 
-
-    public static string DetectCodecs(string filePath)
+    private static string QuoteArg(string value)
     {
-        try
-        {
-            // Use ffprobe to detect codecs
-            SystemAudioProcessor ap = new();
-            (int exitCode, string stdout, string _) = ap.RunFfprobe($"-v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 \"{filePath}\"");
-            if (exitCode == 0)
-            {
-                string codec = stdout.Trim();
-                return codec.ToLowerInvariant() switch
-                {
-                    "flac" => "FLAC",
-                    "aac" => "MP4A",
-                    _ => "MP4A"
-                };
-            }
-        }
-        catch
-        {
-            // Ignore errors, return default
-        }
-
-        return "MP4A"; // Default assumption
-    }
-
-    public static bool IsFFmpegAvailable()
-    {
-        try
-        {
-            SystemAudioProcessor ap = new();
-            (int exitCode, string _, string _) = ap.RunFfprobe("-version");
-            return exitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
+        // Keep quoting predictable for ffmpeg/ffprobe across platforms.
+        return "\"" + value.Replace("\"", "\\\"") + "\"";
     }
 }
-
-public class AudioFileInfo
-{
-    public string FilePath { get; set; } = string.Empty;
-    public string Extension { get; set; } = string.Empty;
-    public string Codecs { get; set; } = string.Empty;
-    public bool IsFlacInM4A { get; set; }
-    public long FileSize { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-public class TidalDownloadResult
-{
-    public bool Success { get; set; }
-    public string TrackId { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Artist { get; set; } = string.Empty;
-    public string FilePath { get; set; } = string.Empty;
-    public AudioFileInfo FileInfo { get; set; } = new();
-    public string ErrorMessage { get; set; } = string.Empty;
-    public TimeSpan Duration { get; set; }
-    public string Quality { get; set; } = string.Empty;
-}
-

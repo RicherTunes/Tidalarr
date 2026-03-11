@@ -17,7 +17,7 @@ env:
   DOTNET_VERSION: '8.0.x'
   # Lidarr 3.x requires .NET 8 - no more net6.0 support
   # Ecosystem baseline: keep aligned with other plugins unless explicitly overridden
-  LIDARR_DOCKER_VERSION: 'pr-plugins-2.14.2.4786'
+  LIDARR_DOCKER_VERSION: 'pr-plugins-3.1.2.4913'
 
 jobs:
   screenshots:
@@ -192,7 +192,7 @@ jobs:
           exit 1
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -221,7 +221,7 @@ jobs:
             --url=http://localhost:8686
 
       - name: Upload Screenshots artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots
           path: docs/assets/screenshots/*.png

@@ -10,6 +10,58 @@ permissions:
   contents: read
 
 jobs:
+  parity-lint:
+    name: Parity Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init Common submodule
+        shell: bash
+        run: |
+          git config --local url.https://github.com/.insteadOf git@github.com:
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
+
+      - name: Show Common submodule SHA
+        run: |
+          echo "=== Submodule status ==="
+          git submodule status ext/Lidarr.Plugin.Common
+          echo ""
+          if [ -f ext-common-sha.txt ]; then
+            echo "=== ext-common-sha.txt ==="
+            cat ext-common-sha.txt
+          fi
+
+      - name: Run Parity Lint
+        shell: pwsh
+        run: |
+          $script = "ext/Lidarr.Plugin.Common/scripts/parity-lint.ps1"
+          if (-not (Test-Path $script)) {
+            Write-Error "FATAL: parity-lint.ps1 not found at $script - submodule likely not initialized"
+            exit 1
+          }
+          & $script -Mode ci -RepoPath (Resolve-Path .).Path
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -26,9 +78,25 @@ jobs:
           git submodule sync -- ext/Lidarr.Plugin.Common
           git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
 
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
+
       - name: Setup .NET SDKs
         # actions/setup-dotnet v4.3.1
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309
         with:
           dotnet-version: |
             8.0.x
@@ -45,10 +113,16 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
-          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp
+          # Exclude LidarrNative files and test files that reference them -
+          # they use host types not available in clean checkout
+          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
+
+      - name: Sync-over-async guard
+        shell: pwsh
+        run: |
+          $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
+          ./scripts/lint-sync-over-async.ps1 -Mode $mode
 
       - name: Run unified plugin pipeline
         shell: pwsh
         run: ./scripts/ci.ps1
-
-

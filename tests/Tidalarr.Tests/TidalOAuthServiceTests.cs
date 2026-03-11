@@ -32,6 +32,8 @@ public class TidalOAuthServiceTests
         Assert.Contains("client_id=6BDSRdpK9hqEBTgU", authUrl.AuthorizationUrl);
         Assert.Contains("response_type=code", authUrl.AuthorizationUrl);
         Assert.Contains("code_challenge_method=S256", authUrl.AuthorizationUrl);
+        Assert.Contains("scope=", authUrl.AuthorizationUrl);
+        Assert.Contains("offline_access", authUrl.AuthorizationUrl);
 
         // Verify PKCE format
         Assert.Equal(128, authUrl.CodeVerifier.Length);
@@ -137,12 +139,12 @@ public class TidalOAuthServiceTests
     public async Task ExchangeCodeAsync_ValidResponse_ReturnsTokens()
     {
         // Arrange
-        var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
             access_token: "test_access_token",
             refresh_token: "test_refresh_token",
             token_type: "Bearer",
             expires_in: 3600,
-            user: new Tidalarr.Domain.Authentication.TidalUserResponse("session123", "US", 12345)
+            user: new TidalUserResponse("session123", "US", 12345)
         );
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
@@ -164,15 +166,42 @@ public class TidalOAuthServiceTests
     }
 
     [Fact]
+    public async Task ExchangeCodeAsync_ValidResponseWithoutUser_UsesJwtClaimsForSessionAndCountry()
+    {
+        string accessToken = CreateJwt(new Dictionary<string, object>
+        {
+            ["sid"] = "sess-from-jwt",
+            ["cc"] = "ca"
+        });
+
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
+            access_token: accessToken,
+            refresh_token: "test_refresh_token",
+            token_type: "Bearer",
+            expires_in: 3600,
+            user: null
+        );
+
+        HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
+
+        TidalTokens tokens = await oauthService.ExchangeCodeAsync("test_auth_code", "test_verifier");
+
+        Assert.Equal("sess-from-jwt", tokens.SessionId);
+        Assert.Equal("CA", tokens.CountryCode);
+    }
+
+    [Fact]
     public async Task RefreshTokensAsync_ValidResponse_ReturnsNewTokens()
     {
         // Arrange
-        var mockResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse(
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
             access_token: "new_access_token",
             refresh_token: "new_refresh_token",
             token_type: "Bearer",
             expires_in: 3600,
-            user: new Tidalarr.Domain.Authentication.TidalUserResponse("session456", "US", 12345)
+            user: new TidalUserResponse("session456", "US", 12345)
         );
 
         HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
@@ -205,6 +234,23 @@ public class TidalOAuthServiceTests
     {
         MockHttpMessageHandler mockHandler = new(jsonResponse, statusCode);
         return new HttpClient(mockHandler);
+    }
+
+    private static string CreateJwt(Dictionary<string, object> payloadClaims)
+    {
+        string headerJson = JsonSerializer.Serialize(new Dictionary<string, object> { ["alg"] = "none", ["typ"] = "JWT" });
+        string payloadJson = JsonSerializer.Serialize(payloadClaims);
+        string header = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
+        string payload = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
+        return $"{header}.{payload}.";
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }
 
@@ -245,6 +291,4 @@ public class MockTokenStorage : ITokenStorage
         return Task.CompletedTask;
     }
 }
-
-
 

@@ -13,7 +13,7 @@ public class TidalOAuthServiceTokenLifecycleTests
     {
         TidalTokens expired = new("old", "refresh", "Bearer", DateTime.UtcNow.AddMinutes(-10), "sess", "US", "u1");
         MemoryTokenStorage storage = new(expired);
-        var refreshResponse = new Tidalarr.Domain.Authentication.TidalTokenResponse("new_access", "new_refresh", "Bearer", 3600, new Tidalarr.Domain.Authentication.TidalUserResponse("sess2", "US", 123));
+        Domain.Authentication.TidalTokenResponse refreshResponse = new("new_access", "new_refresh", "Bearer", 3600, new TidalUserResponse("sess2", "US", 123));
         HttpClient http = new(new FixedResponseHandler(JsonSerializer.Serialize(refreshResponse)));
 
         TidalOAuthService svc = new(http, storage);
@@ -30,13 +30,61 @@ public class TidalOAuthServiceTokenLifecycleTests
         TidalOAuthService svc = new(http, storage);
         _ = await Assert.ThrowsAsync<InvalidOperationException>(svc.GetValidTokensAsync);
     }
+
+    [Fact]
+    public async Task GetValidTokens_RepairsStoredTokensFromAccessTokenClaims_WhenSessionIdMissing()
+    {
+        string accessToken = CreateJwt(new Dictionary<string, object>
+        {
+            ["sid"] = "sess-from-jwt",
+            ["cc"] = "CA"
+        });
+
+        TidalTokens stored = new(accessToken, "refresh", "Bearer", DateTime.UtcNow.AddMinutes(30), "", "", "u1");
+        MemoryTokenStorage storage = new(stored);
+        HttpClient http = new(new FixedResponseHandler("", HttpStatusCode.BadRequest));
+
+        TidalOAuthService svc = new(http, storage);
+        TidalTokens tokens = await svc.GetValidTokensAsync();
+
+        Assert.Equal("sess-from-jwt", tokens.SessionId);
+        Assert.Equal("CA", tokens.CountryCode);
+        Assert.True(storage.SaveCount >= 1);
+        Assert.Equal("sess-from-jwt", storage.LastSavedTokens?.SessionId);
+    }
+
+    private static string CreateJwt(Dictionary<string, object> payloadClaims)
+    {
+        string headerJson = JsonSerializer.Serialize(new Dictionary<string, object> { ["alg"] = "none", ["typ"] = "JWT" });
+        string payloadJson = JsonSerializer.Serialize(payloadClaims);
+        string header = Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(headerJson));
+        string payload = Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(payloadJson));
+        return $"{header}.{payload}.";
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
 }
 
 internal class MemoryTokenStorage(TidalTokens? initial) : ITokenStorage
 {
     private TidalTokens? _tokens = initial;
 
-    public Task SaveTokensAsync(TidalTokens tokens) { this._tokens = tokens; return Task.CompletedTask; }
+    public int SaveCount { get; private set; }
+    public TidalTokens? LastSavedTokens { get; private set; }
+
+    public Task SaveTokensAsync(TidalTokens tokens)
+    {
+        SaveCount++;
+        LastSavedTokens = tokens;
+        this._tokens = tokens;
+        return Task.CompletedTask;
+    }
     public Task<TidalTokens?> LoadTokensAsync()
     {
         return Task.FromResult(this._tokens);
@@ -56,6 +104,5 @@ internal class FixedResponseHandler(string content, HttpStatusCode code = HttpSt
         return Task.FromResult(new HttpResponseMessage(this._code) { Content = new StringContent(this._content, System.Text.Encoding.UTF8, "application/json") });
     }
 }
-
 
 

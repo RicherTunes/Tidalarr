@@ -11,4 +11,5 @@ public record TidalAlbumInfo(
     IReadOnlyList<TidalQuality> AvailableQualities,
     DateTime ReleaseDate,
     string CoverArtId,
-    bool IsAvailable);
+    bool IsAvailable,
+    long? PrimaryArtistId = null);
