@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/RicherTunes/Tidalarr/blob/main/README.md
+    about: Read the documentation for setup and usage instructions
+  - name: Questions & Discussions
+    url: https://github.com/RicherTunes/Tidalarr/discussions
+    about: Ask questions and discuss with the community
