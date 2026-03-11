@@ -586,15 +586,15 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             PublishDate = releaseDate,
             DownloadUrl = $"tidal://album/{album.Id}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
-            Size = EstimateAlbumSize(album, bestQuality),
-            DownloadProtocol = nameof(TidalarrDownloadProtocol)
+            Size = EstimateAlbumSize(album, bestQuality)
         };
     }
 
     private static (string FormatMarker, string? ExtraMarker) DetermineTitleMarkers(TidalQuality quality)
     {
-        // Canonical bracket tokens aligned with Qobuzarr's title contract.
-        // Lidarr's release parsing is more reliable with short tokens: [FLAC] [WEB], [FLAC] [HIRES] [WEB].
+        // Canonical bracket tokens for Lidarr release parsing.
+        // Lossless format matches Qobuzarr ([FLAC] [WEB]); hi-res differs
+        // because Tidal doesn't expose bitdepth/samplerate like Qobuz does.
         return quality switch
         {
             TidalQuality.HiRes => ("FLAC", (string?)"HIRES"),
@@ -620,8 +620,8 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             TidalQuality.HiRes => 3000,    // 24-bit/96kHz FLAC
             TidalQuality.Lossless => 1000, // 16-bit/44.1kHz FLAC
             TidalQuality.High => 320,      // AAC 320kbps
-            TidalQuality.Low => throw new NotImplementedException(),
-            _ => 96                        // AAC 96kbps (Low)
+            TidalQuality.Low => 96,        // AAC 96kbps
+            _ => 96                        // AAC 96kbps (fallback)
         };
 
         return totalDurationSeconds * bitrateKbps * 125; // Convert to bytes
