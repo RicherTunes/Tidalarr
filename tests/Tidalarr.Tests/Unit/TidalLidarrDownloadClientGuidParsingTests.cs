@@ -91,6 +91,23 @@ public class TidalLidarrDownloadClientGuidParsingTests
 
         Assert.Equal(expectedAlbumId, result);
     }
+
+    [Fact]
+    public void ExtractAlbumIdFromGuid_EmptyIdSegment_ReturnsNull()
+    {
+        // "tidal:album:" has an empty 3rd segment — semantically invalid
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid("tidal:album:");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ExtractAlbumIdFromGuid_WhitespaceIdSegment_ReturnsNull()
+    {
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid("tidal:album:  ");
+
+        Assert.Null(result);
+    }
 }
 
 /// <summary>
@@ -189,5 +206,20 @@ public class TidalLidarrDownloadClientQualityExtractionTests
         TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void ExtractQualityFromRelease_MalformedDownloadUrl_DoesNotThrow()
+    {
+        ReleaseInfo release = new()
+        {
+            DownloadUrl = "not-a-valid-url",
+            Guid = "tidal:album:123:Lossless"
+        };
+
+        // Should fall through to GUID parsing without crashing
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Equal(TidalQuality.Lossless, result);
     }
 }
