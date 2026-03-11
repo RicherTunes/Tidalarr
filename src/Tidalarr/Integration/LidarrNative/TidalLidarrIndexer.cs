@@ -532,14 +532,16 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         // Create a release for each quality level
         foreach (TidalQuality quality in allQualities)
         {
-            string qualityString = DetermineQualityString(quality);
+            (string formatMarker, string? extraMarker) = DetermineTitleMarkers(quality);
             string title = $"{artistName} - {albumTitle}";
             if (year > 0)
             {
                 title += $" ({year})";
             }
 
-            title += $" [{qualityString}] [WEB]";
+            title += extraMarker == null
+                ? $" [{formatMarker}] [WEB]"
+                : $" [{formatMarker}] [{extraMarker}] [WEB]";
 
             yield return new ReleaseInfo
             {
@@ -570,12 +572,15 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
         // Determine quality from available qualities
         TidalQuality bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
-        string quality = DetermineQualityString(bestQuality);
+        (string formatMarker, string? extraMarker) = DetermineTitleMarkers(bestQuality);
 
         return new ReleaseInfo
         {
             Guid = $"tidal:album:{album.Id}",
-            Title = $"{artistName} - {albumTitle} [{quality}]",
+            DownloadProtocol = nameof(TidalarrDownloadProtocol),
+            Title = extraMarker == null
+                ? $"{artistName} - {albumTitle} [{formatMarker}] [WEB]"   
+                : $"{artistName} - {albumTitle} [{formatMarker}] [{extraMarker}] [WEB]",
             Artist = artistName,
             Album = albumTitle,
             PublishDate = releaseDate,
@@ -586,15 +591,17 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         };
     }
 
-    private static string DetermineQualityString(TidalQuality quality)
+    private static (string FormatMarker, string? ExtraMarker) DetermineTitleMarkers(TidalQuality quality)
     {
+        // Canonical bracket tokens aligned with Qobuzarr's title contract.
+        // Lidarr's release parsing is more reliable with short tokens: [FLAC] [WEB], [FLAC] [HIRES] [WEB].
         return quality switch
         {
-            TidalQuality.HiRes => "Hi-Res FLAC 24bit",
-            TidalQuality.Lossless => "FLAC 16bit",
-            TidalQuality.High => "AAC 320kbps",
-            TidalQuality.Low => "AAC 96kbps",
-            _ => "AAC 96kbps"
+            TidalQuality.HiRes => ("FLAC", (string?)"HIRES"),
+            TidalQuality.Lossless => ("FLAC", null),
+            TidalQuality.High => ("AAC", null),
+            TidalQuality.Low => ("AAC", null),
+            _ => ("AAC", null)
         };
     }
 
