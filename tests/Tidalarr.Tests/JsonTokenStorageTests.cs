@@ -85,14 +85,21 @@ public class FileTokenStoreTests : IDisposable
     [Fact]
     public async Task SaveTokens_InvalidPath_ThrowsException()
     {
-        // Arrange
-        string invalidPath = "<>|*?invalid:path";
-        FileTokenStore storage = new(invalidPath);
+        // Arrange - use path that is invalid on both platforms
+        // On Windows: invalid chars like <>|*?:"
+        // On Linux: /dev/null/file - can't create files under /dev/null device
+        string invalidPath = OperatingSystem.IsWindows()
+            ? "<>|*?invalid:path"
+            : "/dev/null/impossible_file_" + Guid.NewGuid().ToString("N");
+
         TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
 
-        // Act & Assert
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            storage.SaveTokensAsync(tokens));
+        // Act & Assert - exception may throw in constructor (EnsureStorageDirectoryExists) or SaveTokensAsync
+        _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            FileTokenStore storage = new(invalidPath);
+            await storage.SaveTokensAsync(tokens);
+        });
     }
 
     public void Dispose()
@@ -100,7 +107,9 @@ public class FileTokenStoreTests : IDisposable
         try
         {
             if (File.Exists(this._testStoragePath))
+            {
                 File.Delete(this._testStoragePath);
+            }
         }
         catch
         {

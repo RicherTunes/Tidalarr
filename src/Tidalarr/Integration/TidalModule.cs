@@ -79,18 +79,16 @@ public class TidalModule : StreamingPluginModule
         // Always prefer the user-configured ConfigPath from settings for token persistence.
         _ = services.AddSingleton<ITokenStorage>(sp =>
         {
-            var settings = sp.GetService<TidalarrSettings>();
-            var configPath = settings?.ConfigPath;
+            TidalarrSettings? settings = sp.GetService<TidalarrSettings>();
+            string? configPath = settings?.ConfigPath;
 
             if (!string.IsNullOrWhiteSpace(configPath))
             {
-                var tokenPath = Path.Combine(configPath, "tidal_tokens.json");
+                string tokenPath = Path.Combine(configPath, "tidal_tokens.json");
                 return new FileTokenStore(tokenPath);
             }
 
-            // Dev/test fallback: avoid crashing when services are constructed before settings are provided.
-            var fallbackPath = Path.Combine(Path.GetTempPath(), "Tidalarr", "tidal_tokens.json");
-            return new FileTokenStore(fallbackPath);
+            return new FailOnIOTokenStore();
         });
         _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
         _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
@@ -112,6 +110,8 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddScoped<TidalStreamService>();
         _ = services.AddScoped<TidalChunkStreamProvider>();
         _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        _ = services.AddScoped<IAudioPostProcessor, TidalAudioPostProcessor>();
+        _ = services.AddSingleton<IDownloadTelemetrySink, TidalDownloadTelemetrySink>();
 
         // Application services
         _ = services.AddScoped<TidalSearchService>();
@@ -150,8 +150,8 @@ public class TidalModule : StreamingPluginModule
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
                     DownloadDelay = s.DownloadDelay,
-                    DownloadDelayMin = s.DownloadDelayMin,
-                    DownloadDelayMax = s.DownloadDelayMax
+                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads,
+                    MaxConcurrentChunkDownloads = s.MaxConcurrentChunkDownloads
                 };
         });
 
@@ -198,20 +198,6 @@ public class TidalModule : StreamingPluginModule
         // Reserved for future auto-registration via base module
     }
 
-    public static TidalIndexer CreateIndexer(IServiceProvider serviceProvider, TidalIndexerSettings settings)
-    {
-        TidalModule module = new();
-        ServiceProvider provider = module.BuildServiceProvider(settings);
-        return provider.GetRequiredService<TidalIndexer>();
-    }
-
-    public static TidalDownloadClient CreateDownloadClient(IServiceProvider serviceProvider, TidalDownloadClientSettings settings)
-    {
-        TidalModule module = new();
-        ServiceProvider provider = module.BuildServiceProvider(settings);
-        return provider.GetRequiredService<TidalDownloadClient>();
-    }
-
     public static bool ValidateConfiguration(TidalIndexerSettings settings)
     {
         return settings.IsValid(out _);
@@ -232,6 +218,10 @@ public class TidalModule : StreamingPluginModule
         TidalModelMapper mapper = serviceProvider.GetRequiredService<TidalModelMapper>();
         TidalStreamService streamService = serviceProvider.GetRequiredService<TidalStreamService>();
         TidalChunkStreamProvider chunkProvider = serviceProvider.GetRequiredService<TidalChunkStreamProvider>();
+        IAudioPostProcessor? postProcessor = serviceProvider.GetService<IAudioPostProcessor>();
+        IDownloadTelemetrySink? telemetrySink = serviceProvider.GetService<IDownloadTelemetrySink>();
+        TidalDownloadClientSettings? downloadSettings = serviceProvider.GetService<TidalDownloadClientSettings>();
+        int maxConcurrentTracks = downloadSettings?.MaxConcurrentTrackDownloads ?? 1;
 
         // Delegates for orchestrator
         async Task<StreamingAlbum> getAlbum(string id)
@@ -265,14 +255,14 @@ public class TidalModule : StreamingPluginModule
             getTrackAsync: getTrack,
             getAlbumTrackIdsAsync: getTrackIds,
             getStreamAsync: getStream,
-            streamProvider: chunkProvider);
+            maxConcurrentTracks: maxConcurrentTracks,
+            streamProvider: chunkProvider,
+            metadataApplier: null,
+            logger: null,
+            postProcessor: postProcessor,
+            telemetrySink: telemetrySink);
     }
 }
-
-
-
-
-
 
 
 

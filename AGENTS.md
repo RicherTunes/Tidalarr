@@ -37,6 +37,25 @@ Tidalarr implements the Lidarr streaming plugin as a layered .NET solution.
 
 ## Security & Configuration Tips
 - Never commit real Tidal credentials or tokens; consume them through secure environment configuration.
+- Do not remove the `OAuth Authorization URL` settings field (`OAuthAuthUrl`); it reduces OAuth setup friction and is used as a quick "plugin loaded" triage signal. See `tidalarr/CLAUDE.md` for the exact UX constraints and expected user flow.
 - Update `plugin.json` metadata, `CHANGELOG.md`, and release notes together whenever behavior changes ship.
 - Validate new network endpoints through the resilience policies under `Infrastructure/Resilience` before exposing them in the module.
 
+## Architecture Debt: TidalarrPlugin vs StreamingPlugin<,>
+
+**Status**: TidalarrPlugin manually implements `IPlugin` instead of inheriting from `StreamingPlugin<TidalModule, TidalarrSettings>`.
+
+**Blocker**: The CLI contract. TidalarrPlugin exposes custom diagnostics methods:
+- `ValidateSettingsWithDiagnostics()` → returns `PluginOperationResult<Dictionary<string, string>>` with CFG* codes
+- `ApplySettingsWithDiagnostics()` → same return type
+
+These differ from StreamingPlugin's base `PluginValidationResult`. The CLI (Program.cs:1107-1110) directly calls these methods.
+
+**Safe Refactor Path** (do not attempt without following this sequence):
+1. Introduce `IDiagnosticsSettingsProvider` interface in Common that defines the CFG* contract
+2. Make StreamingPlugin optionally implement it via adapter pattern
+3. Migrate CLI to use the interface (not concrete TidalarrPlugin)
+4. Switch TidalarrPlugin to inherit from StreamingPlugin<,>
+5. Delete the manual IPlugin implementation
+
+**Tripwire**: `TidalModuleSurfaceTests` asserts that deleted methods don't reappear. If this test fails after a merge, someone re-added dead code.

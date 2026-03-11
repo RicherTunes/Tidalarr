@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
@@ -15,12 +14,12 @@ public class TidalDownloadClientEnhancedTests
 
         public Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalTrackInfo(trackId, "Song", new List<string> { "Artist" }, "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
+            return Task.FromResult(new TidalTrackInfo(trackId, "Song", ["Artist"], "al1", "Album", 1, 100, TidalQuality.Lossless, true, DateTime.UtcNow));
         }
 
         public Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalAlbumInfo("", "", new List<string>(), new List<TidalTrackInfo>(), new List<TidalQuality>(), DateTime.MinValue, "", true));
+            return Task.FromResult(new TidalAlbumInfo("", "", [], [], [], DateTime.MinValue, "", true));
         }
 
         public Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
@@ -35,7 +34,7 @@ public class TidalDownloadClientEnhancedTests
 
         public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(new TidalSearchResults(new List<TidalAlbumInfo>(), new List<TidalTrackInfo>(), new List<TidalArtistInfo>(), 0, false));
+            return Task.FromResult(new TidalSearchResults([], [], [], 0, false));
         }
 
         public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)

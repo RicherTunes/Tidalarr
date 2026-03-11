@@ -45,16 +45,22 @@ public class TidalQualityDetector
         List<TidalQuality> available = [.. availableQualities];
 
         if (!available.Any())
+        {
             return TidalQuality.High; // Fallback
+        }
 
         // If user preference is available, use it
         if (available.Contains(userPreference))
+        {
             return userPreference;
+        }
 
         // Find the highest quality that's not higher than user preference
         List<TidalQuality> suitableQualities = [.. available.Where(q => q <= userPreference)];
         if (suitableQualities.Any())
+        {
             return suitableQualities.Max();
+        }
 
         // If no suitable quality, use the lowest available (better than nothing)
         return available.Min();

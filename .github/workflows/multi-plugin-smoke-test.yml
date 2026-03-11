@@ -13,9 +13,6 @@ on:
       - 'src/Tidalarr/**'
       - '.github/workflows/multi-plugin-smoke-test.yml'
   workflow_dispatch:
-  schedule:
-    # Run weekly on Sundays at 2 AM UTC
-    - cron: '0 2 * * 0'
 
 permissions:
   contents: read
@@ -26,10 +23,8 @@ jobs:
     uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/multi-plugin-smoke-test.yml@main
     with:
       caller_plugin: tidalarr
-      test_plugins: 'brainarr,qobuzarr,tidalarr'
-      lidarr_docker_version: 'pr-plugins-2.14.2.4786'
-    secrets:
-      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
-
+      test_plugins: 'brainarr,qobuzarr,tidalarr,applemusicarr'
+      lidarr_tag: 'pr-plugins-3.1.2.4913'
+    secrets: inherit
 
 

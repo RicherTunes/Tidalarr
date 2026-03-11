@@ -36,6 +36,57 @@ public class TidalModelMapperTests
     }
 
     [Fact]
+    public void ToStreamingTrack_WithPrimaryArtistId_UsesArtistId_NotName()
+    {
+        // Arrange
+        TidalTrackInfo track = new(
+            Id: "t1",
+            Title: "Song",
+            Artists: ["Artist A"],
+            AlbumId: "al1",
+            AlbumTitle: "Album",
+            TrackNumber: 1,
+            Duration: 200,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: new DateTime(2020, 1, 2),
+            PrimaryArtistId: 123456L);
+
+        // Act
+        StreamingTrack st = this._mapper.ToStreamingTrack(track);
+
+        // Assert - Artist ID should be used, not name
+        Assert.Equal("123456", st.Artist.Id);
+        Assert.Equal("123456", st.Album.Artist.Id);
+        Assert.Equal("Artist A", st.Artist.Name);
+    }
+
+    [Fact]
+    public void ToStreamingTrack_WithoutPrimaryArtistId_FallsBackToArtistName()
+    {
+        // Arrange
+        TidalTrackInfo track = new(
+            Id: "t1",
+            Title: "Song",
+            Artists: ["Artist A"],
+            AlbumId: "al1",
+            AlbumTitle: "Album",
+            TrackNumber: 1,
+            Duration: 200,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: new DateTime(2020, 1, 2));
+
+        // Act
+        StreamingTrack st = this._mapper.ToStreamingTrack(track);
+
+        // Assert - Artist name should be used as ID when PrimaryArtistId is null
+        Assert.Equal("Artist A", st.Artist.Id);
+        Assert.Equal("Artist A", st.Album.Artist.Id);
+        Assert.Equal("Artist A", st.Artist.Name);
+    }
+
+    [Fact]
     public void ToStreamingAlbum_MapsQualities_CoverUrls_AndMetadata()
     {
         TidalAlbumInfo album = new(
@@ -58,12 +109,57 @@ public class TidalModelMapperTests
     }
 
     [Fact]
+    public void ToStreamingAlbum_WithPrimaryArtistId_UsesArtistId_NotName()
+    {
+        // Arrange
+        TidalAlbumInfo album = new(
+            Id: "al1",
+            Title: "Album",
+            Artists: ["Artist A"],
+            Tracks: [],
+            AvailableQualities: [TidalQuality.Lossless],
+            ReleaseDate: new DateTime(2020, 1, 3),
+            CoverArtId: "aa-bb-cc",
+            IsAvailable: true,
+            PrimaryArtistId: 789012L);
+
+        // Act
+        StreamingAlbum sa = this._mapper.ToStreamingAlbum(album);
+
+        // Assert - Artist ID should be used, not name
+        Assert.Equal("789012", sa.Artist.Id);
+        Assert.Equal("Artist A", sa.Artist.Name);
+    }
+
+    [Fact]
+    public void ToStreamingAlbum_WithoutPrimaryArtistId_FallsBackToArtistName()
+    {
+        // Arrange
+        TidalAlbumInfo album = new(
+            Id: "al1",
+            Title: "Album",
+            Artists: ["Artist A"],
+            Tracks: [],
+            AvailableQualities: [TidalQuality.Lossless],
+            ReleaseDate: new DateTime(2020, 1, 3),
+            CoverArtId: "aa-bb-cc",
+            IsAvailable: true);
+
+        // Act
+        StreamingAlbum sa = this._mapper.ToStreamingAlbum(album);
+
+        // Assert - Artist name should be used as ID when PrimaryArtistId is null
+        Assert.Equal("Artist A", sa.Artist.Id);
+        Assert.Equal("Artist A", sa.Artist.Name);
+    }
+
+    [Fact]
     public void ToStreamingSearchResults_CombinesAlbumsAndTracks()
     {
         TidalSearchResults results = new(
             Albums:
             [
-                new("al1", "A", ["X"], Array.Empty<TidalTrackInfo>(), new[] { TidalQuality.Lossless }, new DateTime(2020, 1, 1), "aa", true)
+                new("al1", "A", ["X"], [], [TidalQuality.Lossless], new DateTime(2020, 1, 1), "aa", true)
             ],
             Tracks:
             [

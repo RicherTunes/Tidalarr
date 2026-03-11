@@ -42,7 +42,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task GetAlbumTracksAsync_BuildsExpectedEndpointAndQuery()
     {
-        TidalAlbumTracksDto payload = new(new() { new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS") }, 1);
+        TidalAlbumTracksDto payload = new([new("t", "T", new("A", "a1"), new("al1", "Alb", new("A", "a1"), DateTime.UtcNow.ToString("yyyy-MM-dd"), 1, 1, true, "c"), 1, 10, true, "LOSSLESS")], 1);
         CaptureHandler capture = new(JsonSerializer.Serialize(payload));
         TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         List<TidalTrackInfo> _ = await client.GetAlbumTracksAsync("al1");
@@ -53,7 +53,7 @@ public class TidalApiClientRequestTests
     [Fact]
     public async Task SearchAsync_BuildsExpectedEndpointAndQuery()
     {
-        TidalSearchResponseDto payload = new(new(new()), new(new()));
+        TidalSearchResponseDto payload = new(new([]), new([]));
         CaptureHandler capture = new(JsonSerializer.Serialize(payload));
         TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
         TidalSearchResults _ = await client.SearchAsync("abc");
@@ -98,6 +98,11 @@ public class TidalApiClientRequestTests
             return Task.FromResult(Default());
         }
 
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
+
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
@@ -121,7 +126,6 @@ public class TidalApiClientRequestTests
         }
     }
 }
-
 
 
 

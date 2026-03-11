@@ -40,7 +40,9 @@ public class FileTokenStore : ITokenStorage
         try
         {
             if (!File.Exists(this._storagePath))
+            {
                 return null;
+            }
 
             string json = await File.ReadAllTextAsync(this._storagePath);
             return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<TidalTokens>(json, JsonOptions);
@@ -56,7 +58,9 @@ public class FileTokenStore : ITokenStorage
         try
         {
             if (File.Exists(this._storagePath))
+            {
                 File.Delete(this._storagePath);
+            }
         }
         catch
         {

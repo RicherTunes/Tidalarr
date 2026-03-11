@@ -33,10 +33,18 @@ public class TidalManifestParser
         XElement adaptationSet = doc.Descendants(ns + "AdaptationSet").FirstOrDefault()
             ?? throw new InvalidOperationException("No AdaptationSet found in DASH manifest");
 
-        string codec = adaptationSet.Attribute("codecs")?.Value ?? "unknown";
+        XElement? representation = adaptationSet.Descendants(ns + "Representation").FirstOrDefault();
+        string codecRaw =
+            representation?.Attribute("codecs")?.Value ??
+            adaptationSet.Attribute("codecs")?.Value ??
+            "unknown";
+        string codec = NormalizeCodec(codecRaw);
         int sampleRate = int.TryParse(adaptationSet.Attribute("audioSamplingRate")?.Value, out int rate) ? rate : 44100;
         string[] chunkUrls = ExtractChunkUrlsFromDash(adaptationSet, ns);
-        string fileExt = DetermineFileExtension(codec, chunkUrls.FirstOrDefault() ?? string.Empty);
+
+        // Tidal DASH streams are delivered in an MP4/M4A container (even when the codec inside is FLAC).
+        // Keep the container extension stable so downstream post-processing can safely extract/remux later.
+        string fileExt = ".m4a";
 
         return new TidalManifest(
             ChunkUrls: chunkUrls,
@@ -198,15 +206,40 @@ public class TidalManifestParser
 
     private string DetermineFileExtension(string codec, string sampleUrl)
     {
-        if (codec.Contains("flac", StringComparison.OrdinalIgnoreCase)) return ".flac";
-        if (codec.Contains("mp4a", StringComparison.OrdinalIgnoreCase)) return ".m4a";
+        if (codec.Contains("flac", StringComparison.OrdinalIgnoreCase))
+        {
+            return ".flac";
+        }
+
+        if (codec.Contains("mp4a", StringComparison.OrdinalIgnoreCase))
+        {
+            return ".m4a";
+        }
+
         if (!string.IsNullOrEmpty(sampleUrl))
         {
-            if (sampleUrl.Contains(".flac", StringComparison.OrdinalIgnoreCase)) return ".flac";
-            if (sampleUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase)) return ".m4a";
-            if (sampleUrl.Contains(".ts", StringComparison.OrdinalIgnoreCase)) return ".ts";
+            if (sampleUrl.Contains(".flac", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".flac";
+            }
+
+            if (sampleUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".m4a";
+            }
+
+            if (sampleUrl.Contains(".ts", StringComparison.OrdinalIgnoreCase))
+            {
+                return ".ts";
+            }
         }
         return ".m4a";
     }
-}
 
+    private static string NormalizeCodec(string codecRaw)
+    {
+        return codecRaw.Contains("flac", StringComparison.OrdinalIgnoreCase)
+            ? "FLAC"
+            : codecRaw.Contains("mp4a", StringComparison.OrdinalIgnoreCase) ? "MP4A" : codecRaw.Trim();
+    }
+}

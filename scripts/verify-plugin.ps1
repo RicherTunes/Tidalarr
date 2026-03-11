@@ -32,7 +32,7 @@ if (-not $moduleVersionMatch) {
 }
 $moduleVersion = $moduleVersionMatch.Matches[0].Groups['ver'].Value.Trim()
 
-$hostVersionTarget = '2.14.2.4786'
+$hostVersionTarget = '3.0.0.4855'
 $apiMajorPattern = '^1\.x$'
 
 $errors = @()

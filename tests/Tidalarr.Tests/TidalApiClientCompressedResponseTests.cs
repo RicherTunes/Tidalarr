@@ -87,8 +87,12 @@ public class TidalApiClientCompressedResponseTests
         {
             return Task.FromResult(this._tokens);
         }
+
+        public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
+        {
+            return TidalCallbackResult.Failure("Not implemented in test stub");
+        }
     }
 }
-
 
 

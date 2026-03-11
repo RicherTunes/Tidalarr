@@ -1,5 +1,5 @@
 using System.Text;
-using System.Text.Json;
+using System.Globalization;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
@@ -94,17 +94,15 @@ public class TidalDownloadClient(
         int trackNumber = track.TrackNumber ?? 0;
         int discNumber = track.DiscNumber.GetValueOrDefault();
         discNumber = discNumber > 0 ? discNumber : 1;
-        string baseTitle = (track.Title ?? "Unknown Track").Normalize(NormalizationForm.FormC);
-        string baseArtist = (track.Artist?.Name ?? album?.Artist?.Name ?? "Unknown Artist").Normalize(NormalizationForm.FormC);
-        string title = FileNameSanitizer.SanitizeFileName(baseTitle);
-        string artist = FileNameSanitizer.SanitizeFileName(baseArtist);
-        string tn = trackNumber > 0 ? trackNumber.ToString("D2") : "00";
-
-        string prefix = discNumber > 1
-            ? $"D{discNumber:00}T{tn}"
-            : tn;
+        int totalDiscs = ResolveTotalDiscs(album, discNumber);
         string extension = Settings.ExtractFlac ? "flac" : "m4a";
-        return $"{prefix} - {artist} - {title}.{extension}";
+
+        return FileSystemUtilities.CreateTrackFileName(
+            title: track.Title ?? "Unknown Track",
+            trackNumber: trackNumber,
+            extension: extension,
+            discNumber: discNumber,
+            totalDiscs: totalDiscs);
     }
 
     /// <summary>
@@ -127,8 +125,6 @@ public class TidalDownloadClient(
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
-            Console.WriteLine($"[PreDownload] track {trackId} encrypted={manifest.IsEncrypted} tokenLen={manifest.SecurityToken?.Length ?? 0} codec={manifest.Codec}");
-
             // Step 4: Download and assemble chunks
             string dir = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir);
@@ -138,7 +134,7 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, progress, cancellationToken);
+            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
@@ -173,7 +169,10 @@ public class TidalDownloadClient(
             if (finalPath != outputPath)
             {
                 if (File.Exists(outputPath))
+                {
                     File.Delete(outputPath);
+                }
+
                 File.Move(finalPath, outputPath);
                 finalPath = outputPath;
             }
@@ -204,21 +203,6 @@ public class TidalDownloadClient(
         }
     }
 
-    private async Task<JsonElement> GetStreamManifestDataAsync(string trackId, TidalQuality quality)
-    {
-        TidalStreamInfo streamInfo = await this._apiClient.GetStreamInfoAsync(trackId, quality);
-
-        // Create JsonElement from stream info for StreamManifest constructor
-        JsonElement manifestJson = JsonSerializer.SerializeToElement(new
-        {
-            manifestMimeType = streamInfo.MimeType,
-            manifest = "placeholder", // streamInfo doesn't have raw manifest - will be handled differently
-            keyId = streamInfo.SecurityToken
-        });
-
-        return manifestJson;
-    }
-
     /// <summary>
     /// Legacy download method with enhanced metadata and chunked streaming support
     /// </summary>
@@ -245,7 +229,13 @@ public class TidalDownloadClient(
             }
 
             Progress<int> progress = new();
-            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(streamInfo, progress);
+            int maxChunks = Settings.GetEffectiveMaxConcurrentChunkDownloads();
+            using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(
+                streamInfo,
+                Settings.DownloadDelay,
+                maxConcurrentChunkDownloads: maxChunks,
+                progress: progress,
+                cancellationToken: cancellationToken);
 
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
@@ -271,7 +261,11 @@ public class TidalDownloadClient(
             }
             catch
             {
-                if (File.Exists(outputPath)) File.Delete(outputPath);
+                if (File.Exists(outputPath))
+                {
+                    File.Delete(outputPath);
+                }
+
                 File.Move(tempPath, outputPath);
             }
 
@@ -374,6 +368,30 @@ public class TidalDownloadClient(
             "HI_RES" => TidalQuality.HiRes,
             _ => TidalQuality.Lossless
         };
+    }
+
+    private static int ResolveTotalDiscs(StreamingAlbum? album, int discNumber)
+    {
+        int totalDiscs = 1;
+        object? raw = null;
+
+        if (album?.Metadata?.TryGetValue(StreamingMetadataKeys.TotalDiscs, out raw) == true)
+        {
+            switch (raw)
+            {
+                case int value when value > 0:
+                    totalDiscs = value;
+                    break;
+                case long value when value > 0 && value <= int.MaxValue:
+                    totalDiscs = (int)value;
+                    break;
+                case string value when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0:
+                    totalDiscs = parsed;
+                    break;
+            }
+        }
+
+        return Math.Max(totalDiscs, discNumber);
     }
 
     // Legacy support methods

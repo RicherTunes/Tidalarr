@@ -1,9 +1,9 @@
-using System.ComponentModel;
 using FluentValidation;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.Validation;
 using Tidalarr.Core.Models;
+using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -14,42 +14,48 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrDownloadClientSettings : IProviderConfig
 {
     private static readonly TidalLidarrDownloadClientSettingsValidator Validator = new();
+    private static readonly string DefaultConfigPath = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
 
     public TidalLidarrDownloadClientSettings()
     {
+        ConfigPath = DefaultConfigPath;
         PreferredQuality = TidalQuality.Lossless;
         IncludeMqa = true;
         ExtractFlac = true;
-        DownloadDelay = 1000;
+        DownloadDelay = 0;
     }
 
-    [FieldDefinition(1, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
-        HelpText = "Directory used to persist Tidal authentication tokens. Should match the indexer config path.")]
-    public string ConfigPath { get; set; } = string.Empty;
+    [FieldDefinition(0, Label = "Config Path", Type = FieldType.Path, Section = "Authentication",
+        HelpText = "Directory containing Tidal authentication tokens. Must match the indexer's Config Path - authenticate via the indexer, then the download client uses the same tokens automatically.")]
+    public string ConfigPath { get; set; } = DefaultConfigPath;
 
-    [FieldDefinition(2, Label = "OAuth Redirect URL", Type = FieldType.Textbox, Section = "Authentication",
-        HelpText = "OAuth redirect URL captured after completing the Tidal login flow. Should match the indexer redirect URL.")]
-    public string RedirectUrl { get; set; } = string.Empty;
-
-    [FieldDefinition(3, Label = "Download Path", Type = FieldType.Path, Section = "Download",
+    [FieldDefinition(1, Label = "Download Path", Type = FieldType.Path, Section = "Download",
         HelpText = "Destination folder for downloaded albums.")]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(4, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
+    [FieldDefinition(2, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
         HelpText = "Audio quality requested from Tidal.")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
-    [FieldDefinition(5, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(3, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Allow Master (MQA) releases when available.")]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(6, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
+    [FieldDefinition(4, Label = "Extract FLAC", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
         HelpText = "Convert M4A containers to FLAC when possible.")]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(7, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
-        HelpText = "Delay between chunk requests used for throttling. Range: 0-60000, Default: 1000")]
-    public int DownloadDelay { get; set; } = 1000;
+    [FieldDefinition(5, Label = "Chunk Delay (ms)", Type = FieldType.Number, Section = "Performance", Advanced = true,
+        HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    public int DownloadDelay { get; set; } = 0;
+
+    [FieldDefinition(6, Label = "Max Concurrent Track Downloads", Type = FieldType.Number, Section = "Performance", Advanced = true,
+        HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    public int MaxConcurrentTrackDownloads { get; set; } = 2;
+
+    [FieldDefinition(7, Label = "Max Concurrent Chunk Downloads", Type = FieldType.Number, Section = "Performance", Advanced = true,
+        HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    public int MaxConcurrentChunkDownloads { get; set; } = 2;
 
     public NzbDroneValidationResult Validate()
     {
@@ -67,7 +73,9 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
             DownloadPath = DownloadPath,
             IncludeMqa = IncludeMqa,
             ExtractFlac = ExtractFlac,
-            DownloadDelay = DownloadDelay
+            DownloadDelay = DownloadDelay,
+            MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads,
+            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads
         };
     }
 }
@@ -76,21 +84,26 @@ public class TidalLidarrDownloadClientSettingsValidator : AbstractValidator<Tida
 {
     public TidalLidarrDownloadClientSettingsValidator()
     {
-        RuleFor(x => x.ConfigPath)
+        _ = RuleFor(x => x.ConfigPath)
             .NotEmpty().WithMessage("Config path is required");
 
-        RuleFor(x => x.RedirectUrl)
-            .NotEmpty().WithMessage("Redirect URL is required for OAuth authentication");
-
-        RuleFor(x => x.DownloadPath)
+        _ = RuleFor(x => x.DownloadPath)
             .NotEmpty().WithMessage("Download path is required");
 
-        RuleFor(x => x.PreferredQuality)
+        _ = RuleFor(x => x.PreferredQuality)
             .Must(quality => Enum.IsDefined(typeof(TidalQuality), quality))
             .WithMessage("Preferred quality selection is invalid");
 
-        RuleFor(x => x.DownloadDelay)
+        _ = RuleFor(x => x.DownloadDelay)
             .InclusiveBetween(0, 60000)
             .WithMessage("Chunk delay must be between 0 and 60000 milliseconds");
+
+        _ = RuleFor(x => x.MaxConcurrentTrackDownloads)
+            .InclusiveBetween(1, 3)
+            .WithMessage("Max concurrent track downloads must be between 1 and 3");
+
+        _ = RuleFor(x => x.MaxConcurrentChunkDownloads)
+            .InclusiveBetween(1, 8)
+            .WithMessage("Max concurrent chunk downloads must be between 1 and 8");
     }
 }

@@ -20,7 +20,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: recursive
+          submodules: false
+
+      - name: Init Common submodule only
+        shell: bash
+        run: |
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Assert Common submodule initialized
+        shell: bash
+        run: |
+          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
+            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
+            exit 1
+          fi
+          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
+          echo "✓ Common submodule initialized at $SHA"
+          if [ -f ext-common-sha.txt ]; then
+            EXPECTED=$(cat ext-common-sha.txt | tr -d '[:space:]' | cut -c1-7)
+            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
+              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
+            fi
+          fi
 
       - name: Install PowerShell (pwsh)
         shell: bash
@@ -67,25 +89,36 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
-      - name: Build tests
+      # Pre-build with HostBridge exclusion: the unified runner (test.ps1)
+      # only passes -Properties to dotnet test, not to the build phase.
+      # Without this step, HostBridge tries to resolve Lidarr.Core host
+      # assemblies that aren't present with stub-only setup.
+      - name: Build test project (exclude HostBridge)
         shell: bash
         run: |
-          dotnet restore tests/Tidalarr.Tests/Tidalarr.Tests.csproj -p:SkipHostBridge=true
-          dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj --configuration Release --no-restore \
-            -p:SkipHostBridge=true -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
+          dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
+            --configuration Release -v minimal \
+            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
+            -p:SkipHostBridge=true -p:ExcludeHostBridge=true
 
-      - name: Run tests with coverage
-        shell: bash
+      - name: Run tests with coverage (unified runner)
+        shell: pwsh
         run: |
-          mkdir -p TestResults
-          dotnet test tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
-            --configuration Release \
-            --no-build \
-            --collect "XPlat Code Coverage" \
-            --logger "trx;LogFileName=test-results.trx" \
-            --results-directory TestResults/ \
-            --filter "scope!=cli" \
-            -p:SkipHostBridge=true
+          $runner = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts/test.ps1'
+          if (-not (Test-Path $runner)) {
+            Write-Error "Unified test runner not found at: $runner"
+            exit 1
+          }
+          # -NoBuild: relies on the pre-build step above (do not remove it)
+          & $runner `
+            -TestProject 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj' `
+            -Configuration Release `
+            -Coverage `
+            -CI `
+            -NoBuild `
+            -OutputDir 'TestResults' `
+            -AdditionalFilter 'scope!=cli' `
+            -Properties @('SkipHostBridge=true')
 
       - name: Install ReportGenerator
         shell: bash
@@ -109,7 +142,7 @@ jobs:
 
       - name: Upload test and coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-and-coverage
           path: |
@@ -117,3 +150,69 @@ jobs:
             TestResults/**/coverage.cobertura.xml
             coverage-report/**
           retention-days: 14
+
+  e2e-gate:
+    name: E2E Gate (Hermetic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Init Common submodule only
+        shell: bash
+        run: |
+          git submodule sync -- ext/Lidarr.Plugin.Common
+          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+
+      - name: Install PowerShell (pwsh)
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          CODENAME=${VERSION_CODENAME:-"jammy"}
+          curl -fsSL "https://packages.microsoft.com/config/ubuntu/$CODENAME/packages-microsoft-prod.deb" -o packages-microsoft-prod.deb \
+            || curl -fsSL "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb" -o packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y powershell
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Prepare host stub assemblies
+        shell: pwsh
+        run: |
+          $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
+          $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
+          if (Test-Path $commonScripts) {
+            $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
+            if (Test-Path $prepareStub) {
+              Write-Host "Generating host stub assemblies..."
+              & $prepareStub -OutputPath $hostOutput
+            }
+          }
+
+      - name: Restore and build
+        shell: bash
+        run: |
+          dotnet restore src/Tidalarr/Tidalarr.csproj
+          dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
+            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
+
+      - name: Run E2E hermetic gate tests
+        shell: bash
+        run: |
+          dotnet test tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
+            --configuration Release \
+            --no-restore \
+            --verbosity normal \
+            --filter "Area=E2E/Hermetic" \
+            -p:PluginPackagingDisable=true \
+            -p:RunAnalyzersDuringBuild=false \
+            -p:EnableNETAnalyzers=false

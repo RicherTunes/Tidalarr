@@ -13,4 +13,5 @@ public record TidalTrackInfo(
     int Duration,
     TidalQuality Quality,
     bool IsAvailable,
-    DateTime ReleaseDate);
+    DateTime ReleaseDate,
+    long? PrimaryArtistId = null);

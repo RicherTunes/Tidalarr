@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Text;
 
 namespace Tidalarr.Integration;
@@ -24,7 +22,7 @@ internal static class TidalDownloadPayloadValidator
             throw new InvalidDataException("Download returned non-audio content (HTML/JSON).");
         }
 
-        var ext = NormalizeExtension(fileExtension);
+        string ext = NormalizeExtension(fileExtension);
         if (!LooksLikeAudioPayload(sample, ext, mimeType))
         {
             throw new InvalidDataException("Download returned content that does not look like audio.");
@@ -33,12 +31,7 @@ internal static class TidalDownloadPayloadValidator
 
     private static string NormalizeExtension(string? fileExtension)
     {
-        if (string.IsNullOrWhiteSpace(fileExtension))
-        {
-            return string.Empty;
-        }
-
-        return fileExtension.Trim().TrimStart('.').ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(fileExtension) ? string.Empty : fileExtension.Trim().TrimStart('.').ToLowerInvariant();
     }
 
     internal static bool LooksLikeTextPayload(ReadOnlySpan<byte> sample)
@@ -55,15 +48,15 @@ internal static class TidalDownloadPayloadValidator
             return false;
         }
 
-        var first = sample[index];
+        byte first = sample[index];
         if (first is (byte)'<' or (byte)'{' or (byte)'[')
         {
             return true;
         }
 
         // Heuristic: look for common HTML markers even if not first char
-        var max = Math.Min(sample.Length, 256);
-        var text = Encoding.UTF8.GetString(sample.Slice(0, max));
+        int max = Math.Min(sample.Length, 256);
+        string text = Encoding.UTF8.GetString(sample[..max]);
         return text.Contains("<!doctype", StringComparison.OrdinalIgnoreCase)
                || text.Contains("<html", StringComparison.OrdinalIgnoreCase)
                || text.Contains("<script", StringComparison.OrdinalIgnoreCase);
@@ -72,14 +65,14 @@ internal static class TidalDownloadPayloadValidator
     private static bool LooksLikeAudioPayload(ReadOnlySpan<byte> sample, string ext, string? mimeType)
     {
         // Signature checks (independent of extension)
-        var hasFlac = HasMagic(sample, FlacMagic, 0);
-        var hasOgg = HasMagic(sample, OggMagic, 0);
-        var hasRiff = HasMagic(sample, RiffMagic, 0);
-        var hasId3 = HasMagic(sample, Id3Magic, 0);
-        var hasMpegSync = sample.Length >= 2 && sample[0] == 0xFF && (sample[1] & 0xE0) == 0xE0;
-        var hasFtyp = HasMagic(sample, FtypMagic, 4);
+        bool hasFlac = HasMagic(sample, FlacMagic, 0);
+        bool hasOgg = HasMagic(sample, OggMagic, 0);
+        bool hasRiff = HasMagic(sample, RiffMagic, 0);
+        bool hasId3 = HasMagic(sample, Id3Magic, 0);
+        bool hasMpegSync = sample.Length >= 2 && sample[0] == 0xFF && (sample[1] & 0xE0) == 0xE0;
+        bool hasFtyp = HasMagic(sample, FtypMagic, 4);
 
-        var hasAnyAudioSignature = hasFlac || hasOgg || hasRiff || hasId3 || hasMpegSync || hasFtyp;
+        bool hasAnyAudioSignature = hasFlac || hasOgg || hasRiff || hasId3 || hasMpegSync || hasFtyp;
         if (string.IsNullOrEmpty(ext))
         {
             return hasAnyAudioSignature;
@@ -109,17 +102,7 @@ internal static class TidalDownloadPayloadValidator
 
     private static bool HasMagic(ReadOnlySpan<byte> sample, byte[] magic, int offset)
     {
-        if (offset < 0)
-        {
-            return false;
-        }
-
-        if (sample.Length < offset + magic.Length)
-        {
-            return false;
-        }
-
-        return sample.Slice(offset, magic.Length).SequenceEqual(magic);
+        return offset >= 0 && sample.Length >= offset + magic.Length && sample.Slice(offset, magic.Length).SequenceEqual(magic);
     }
 }
 

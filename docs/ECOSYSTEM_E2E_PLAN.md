@@ -7,7 +7,7 @@ Prove that **Tidalarr + Qobuzarr** can co-exist in the same Lidarr Docker instan
 3. **Download** (optional, credential-gated; verifies files appear on disk)
 
 ## Baseline
-- Lidarr Docker tag (plugins branch, net8 host): `ghcr.io/hotio/lidarr:pr-plugins-3.1.1.4884`
+- Lidarr Docker tag (plugins branch, net8 host): `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
 - Default gate for CI: **Basic gate only** (no secrets required)
 - Credential-gated: **Medium/Full gates** (require secrets; run via `workflow_dispatch`)
 
