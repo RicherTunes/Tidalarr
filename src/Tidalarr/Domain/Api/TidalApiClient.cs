@@ -275,6 +275,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             throw new InvalidOperationException("Track response missing album information.");
         }
 
+
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
         {
@@ -313,7 +314,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ReleaseDate: ParseReleaseDate(dto.album?.releaseDate),
             PrimaryArtistId: primaryArtistId);
     }
-    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
+    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)  
     {
         // Note: Search results only have 'artists' array, not singular 'artist' field
         // The singular 'artist' field is only present in album detail responses
@@ -360,6 +361,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         {
             throw new ArgumentNullException(nameof(dto), "Search response missing album or track collections.");
         }
+
 
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
@@ -505,4 +507,3 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         this._httpClient?.Dispose();
     }
 }
-
