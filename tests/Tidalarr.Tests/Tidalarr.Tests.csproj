@@ -63,8 +63,9 @@
     <Compile Remove="Unit\TidalDownloadClientHostSettingsParityTests.cs" />
     <Compile Remove="Unit\TidalQualityEnumParityTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
-    <!-- Lidarr-native download client types require Lidarr.Core -->
+    <!-- Lidarr-native types (ReleaseInfo, DownloadItemStatus) require Lidarr.Core -->
     <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
+    <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
