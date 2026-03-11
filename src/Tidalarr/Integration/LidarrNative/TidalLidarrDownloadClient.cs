@@ -29,7 +29,7 @@ public class TidalLidarrDownloadClient(
     IDiskProvider diskProvider,
     IRemotePathMappingService remotePathMappingService,
     ILocalizationService localizationService,
-    Logger logger) : DownloadClientBase<TidalLidarrDownloadClientSettings>(configService, diskProvider, remotePathMappingService, localizationService, logger)
+    Logger logger) : DownloadClientBase<TidalLidarrDownloadClientSettings>(configService, diskProvider, remotePathMappingService, localizationService, logger), IDisposable
 {
     // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
@@ -37,6 +37,7 @@ public class TidalLidarrDownloadClient(
     private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
+    private readonly object _initLock = new();
     private SimpleDownloadOrchestrator _orchestrator;
     private static readonly TimeSpan CompletedDownloadRetention = TimeSpan.FromMinutes(30);
 
@@ -45,6 +46,7 @@ public class TidalLidarrDownloadClient(
 
     /// <summary>
     /// Initialize Tidal services from TidalModule when first needed.
+    /// Thread-safe via double-checked locking to prevent duplicate ServiceProvider builds.
     /// </summary>
     private void EnsureServicesInitialized()
     {
@@ -53,43 +55,51 @@ public class TidalLidarrDownloadClient(
             return;
         }
 
-        try
+        lock (this._initLock)
         {
-            ServiceCollection services = new();
-
-            // Use the ToTidalSettings() method for proper conversion
-            TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
-            _ = services.AddSingleton(downloadSettings);
-
-            // Create TidalarrSettings from Lidarr-native settings.
-            // RedirectUrl is empty - download client uses tokens from shared ConfigPath
-            // (authentication is done via the indexer, not the download client).
-            TidalarrSettings tidalarrSettings = new()
+            if (this._servicesInitialized)
             {
-                ConfigPath = Settings.ConfigPath,
-                RedirectUrl = string.Empty,
-                DownloadPath = Settings.DownloadPath,
-                PreferredQuality = Settings.PreferredQuality,
-                IncludeMqa = Settings.IncludeMqa,
-                ExtractFlac = Settings.ExtractFlac,
-                DownloadDelay = Settings.DownloadDelay,
-                MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads,
-                MaxConcurrentChunkDownloads = Settings.MaxConcurrentChunkDownloads
-            };
-            _ = services.AddSingleton(tidalarrSettings);
+                return;
+            }
 
-            // Register all Tidal services
-            TidalModule.RegisterServices(services);
+            try
+            {
+                ServiceCollection services = new();
 
-            this._serviceProvider = services.BuildServiceProvider();
-            this._orchestrator = TidalModule.CreateOrchestrator(this._serviceProvider);
-            this._servicesInitialized = true;
-            this._logger.Debug("Tidal download services initialized successfully");
-        }
-        catch (Exception ex)
-        {
-            this._logger.Error(ex, "Failed to initialize Tidal download services");
-            throw;
+                // Use the ToTidalSettings() method for proper conversion
+                TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
+                _ = services.AddSingleton(downloadSettings);
+
+                // Create TidalarrSettings from Lidarr-native settings.
+                // RedirectUrl is empty - download client uses tokens from shared ConfigPath
+                // (authentication is done via the indexer, not the download client).
+                TidalarrSettings tidalarrSettings = new()
+                {
+                    ConfigPath = Settings.ConfigPath,
+                    RedirectUrl = string.Empty,
+                    DownloadPath = Settings.DownloadPath,
+                    PreferredQuality = Settings.PreferredQuality,
+                    IncludeMqa = Settings.IncludeMqa,
+                    ExtractFlac = Settings.ExtractFlac,
+                    DownloadDelay = Settings.DownloadDelay,
+                    MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads,
+                    MaxConcurrentChunkDownloads = Settings.MaxConcurrentChunkDownloads
+                };
+                _ = services.AddSingleton(tidalarrSettings);
+
+                // Register all Tidal services
+                TidalModule.RegisterServices(services);
+
+                this._serviceProvider = services.BuildServiceProvider();
+                this._orchestrator = TidalModule.CreateOrchestrator(this._serviceProvider);
+                this._servicesInitialized = true;
+                this._logger.Debug("Tidal download services initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                this._logger.Error(ex, "Failed to initialize Tidal download services");
+                throw;
+            }
         }
     }
 
@@ -112,6 +122,16 @@ public class TidalLidarrDownloadClient(
             }
 
             TidalQuality? releaseQuality = ExtractQualityFromRelease(remoteAlbum.Release);
+
+            // Resolve services BEFORE Task.Run so failures surface synchronously
+            // instead of leaving a phantom "Downloading" item in ActiveDownloads.
+            TidalModelMapper mapper = this._serviceProvider.GetRequiredService<TidalModelMapper>();
+            StreamingQuality desiredQuality = releaseQuality.HasValue
+                ? mapper.ToStreamingQuality(releaseQuality.Value)
+                : mapper.ToStreamingQuality(Settings.PreferredQuality);
+
+            // Capture orchestrator reference to avoid closure over `this`
+            SimpleDownloadOrchestrator orchestrator = this._orchestrator;
 
             // Generate unique download ID
             string downloadId = Guid.NewGuid().ToString("N");
@@ -144,27 +164,21 @@ public class TidalLidarrDownloadClient(
                     {
                         if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                         {
-                            item.Progress = p.PercentComplete;
+                            item.UpdateProgress(p.PercentComplete);
                         }
                     });
 
-                    // Honor quality from the release the user selected; fall back to settings
-                    TidalModelMapper mapper = this._serviceProvider.GetRequiredService<TidalModelMapper>();
-                    StreamingQuality desiredQuality = releaseQuality.HasValue
-                        ? mapper.ToStreamingQuality(releaseQuality.Value)
-                        : mapper.ToStreamingQuality(Settings.PreferredQuality);
-
-                    DownloadResult result = await this._orchestrator.DownloadAlbumAsync(
+                    DownloadResult result = await orchestrator.DownloadAlbumAsync(
                         albumId,
                         outputPath,
                         quality: desiredQuality,
                         progress: progressReporter);
 
-                    // Mark as completed
+                    // Mark as completed (thread-safe updates)
                     if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                     {
-                        item.Status = result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed;
-                        item.Progress = 100;
+                        item.UpdateStatus(result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed);
+                        item.UpdateProgress(100);
                         item.CompletedAt = DateTime.UtcNow;
 
                         // Log all track results for debugging
@@ -195,7 +209,7 @@ public class TidalLidarrDownloadClient(
                     this._logger.Error(ex, "Failed to download album {0}", albumId);
                     if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
                     {
-                        item.Status = DownloadItemStatus.Failed;
+                        item.UpdateStatus(DownloadItemStatus.Failed);
                         item.CompletedAt = DateTime.UtcNow;
                     }
                 }
@@ -220,12 +234,18 @@ public class TidalLidarrDownloadClient(
         foreach (KeyValuePair<string, TidalDownloadItem> kv in ActiveDownloads)
         {
             TidalDownloadItem item = kv.Value;
+            DownloadItemStatus status = item.GetStatus();
+            double progress = item.GetProgress();
 
-            if ((item.Status == DownloadItemStatus.Completed || item.Status == DownloadItemStatus.Failed) &&
+            if ((status == DownloadItemStatus.Completed || status == DownloadItemStatus.Failed) &&
                 item.CompletedAt.HasValue &&
                 now - item.CompletedAt.Value > CompletedDownloadRetention)
             {
-                _ = ActiveDownloads.TryRemove(kv.Key, out _);
+                if (ActiveDownloads.TryRemove(kv.Key, out _))
+                {
+                    this._logger.Debug("Evicted stale download {0} ({1}) after retention period", kv.Key, status);
+                }
+
                 continue;
             }
 
@@ -233,9 +253,9 @@ public class TidalLidarrDownloadClient(
             {
                 DownloadId = item.DownloadId,
                 Title = $"{item.Artist} - {item.Title}",
-                Status = item.Status,
+                Status = status,
                 TotalSize = item.TotalSize,
-                RemainingSize = item.TotalSize - (long)(item.TotalSize * item.Progress / 100),
+                RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
                 DownloadClientInfo = DownloadClientItemClientInfo.FromDownloadClient(this, false)
             });
@@ -400,9 +420,14 @@ public class TidalLidarrDownloadClient(
             normalizedGuid = guid[(prefixEnd + 1)..]; // Remove "2_" prefix, keep "tidal:album:12345678"
         }
 
-        // Format: tidal:album:12345678
+        // Format: tidal:album:12345678 (reject empty/whitespace ID segments)
         string[] parts = normalizedGuid.Split(':');
-        return parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase) ? parts[2] : null;
+        if (parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(parts[2]))
+        {
+            return parts[2];
+        }
+
+        return null;
     }
 
     private static string? ExtractAlbumIdFromInfoUrl(string? infoUrl)
@@ -439,21 +464,57 @@ public class TidalLidarrDownloadClient(
 
         return Path.Combine(basePath, artistName, albumTitle);
     }
+
+    public void Dispose()
+    {
+        if (this._serviceProvider is IDisposable disposable)
+        {
+            disposable.Dispose();
+            this._logger.Debug("Disposed Tidal download service provider");
+        }
+    }
 }
 
 /// <summary>
 /// Internal download item tracking for Tidal downloads.
+/// Thread-safe for concurrent reads (GetItems polling) and writes (progress callbacks).
 /// </summary>
 internal class TidalDownloadItem
 {
+    private volatile int _status = (int)DownloadItemStatus.Queued;
+    private long _progressBits; // stored as long bit pattern for atomic read/write of double
+
     public string DownloadId { get; set; } = string.Empty;
     public string AlbumId { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Artist { get; set; } = string.Empty;
-    public DownloadItemStatus Status { get; set; } = DownloadItemStatus.Queued;
-    public double Progress { get; set; }
+
+    public DownloadItemStatus Status
+    {
+        get => (DownloadItemStatus)Volatile.Read(ref this._status);
+        set => Volatile.Write(ref this._status, (int)value);
+    }
+
+    public double Progress
+    {
+        get => BitConverter.Int64BitsToDouble(Interlocked.Read(ref this._progressBits));
+        set => Interlocked.Exchange(ref this._progressBits, BitConverter.DoubleToInt64Bits(value));
+    }
+
     public long TotalSize { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public string OutputPath { get; set; } = string.Empty;
+
+    /// <summary>Thread-safe progress update.</summary>
+    public void UpdateProgress(double value) => Progress = value;
+
+    /// <summary>Thread-safe status update.</summary>
+    public void UpdateStatus(DownloadItemStatus value) => Status = value;
+
+    /// <summary>Thread-safe progress read.</summary>
+    public double GetProgress() => Progress;
+
+    /// <summary>Thread-safe status read.</summary>
+    public DownloadItemStatus GetStatus() => Status;
 }
