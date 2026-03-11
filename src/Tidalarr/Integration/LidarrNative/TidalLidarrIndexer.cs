@@ -35,9 +35,11 @@ public class TidalLidarrIndexer(
     private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
+    private readonly object _initLock = new();
 
     /// <summary>
     /// Initialize Tidal services from TidalModule when first needed.
+    /// Thread-safe via double-checked locking to prevent duplicate ServiceProvider builds.
     /// </summary>
     private void EnsureServicesInitialized()
     {
@@ -46,39 +48,47 @@ public class TidalLidarrIndexer(
             return;
         }
 
-        try
+        lock (this._initLock)
         {
-            ServiceCollection services = new();
-
-            // Register settings from Lidarr configuration
-            TidalIndexerSettings indexerSettings = new()
+            if (this._servicesInitialized)
             {
-                ConfigPath = Settings.ConfigPath,
-                RedirectUrl = Settings.RedirectUrl,
-                TidalMarket = Settings.TidalMarket,
-                EarlyReleaseLimit = Settings.EarlyReleaseLimit,
-                EnableCache = Settings.EnableCache,
-                CacheDuration = Settings.CacheDuration
-            };
-            _ = services.AddSingleton(indexerSettings);
-            _ = services.AddSingleton(new TidalarrSettings
+                return;
+            }
+
+            try
             {
-                ConfigPath = Settings.ConfigPath,
-                RedirectUrl = Settings.RedirectUrl,
-                TidalMarket = Settings.TidalMarket
-            });
+                ServiceCollection services = new();
 
-            // Register all Tidal services
-            TidalModule.RegisterServices(services);
+                // Register settings from Lidarr configuration
+                TidalIndexerSettings indexerSettings = new()
+                {
+                    ConfigPath = Settings.ConfigPath,
+                    RedirectUrl = Settings.RedirectUrl,
+                    TidalMarket = Settings.TidalMarket,
+                    EarlyReleaseLimit = Settings.EarlyReleaseLimit,
+                    EnableCache = Settings.EnableCache,
+                    CacheDuration = Settings.CacheDuration
+                };
+                _ = services.AddSingleton(indexerSettings);
+                _ = services.AddSingleton(new TidalarrSettings
+                {
+                    ConfigPath = Settings.ConfigPath,
+                    RedirectUrl = Settings.RedirectUrl,
+                    TidalMarket = Settings.TidalMarket
+                });
 
-            this._serviceProvider = services.BuildServiceProvider();
-            this._servicesInitialized = true;
-            this._logger.Debug("Tidal services initialized successfully");
-        }
-        catch (Exception ex)
-        {
-            this._logger.Error(ex, "Failed to initialize Tidal services");
-            throw;
+                // Register all Tidal services
+                TidalModule.RegisterServices(services);
+
+                this._serviceProvider = services.BuildServiceProvider();
+                this._servicesInitialized = true;
+                this._logger.Debug("Tidal services initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                this._logger.Error(ex, "Failed to initialize Tidal services");
+                throw;
+            }
         }
     }
 
@@ -437,7 +447,6 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 /// </summary>
 public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger) : IParseIndexerResponse
 {
-    private readonly TidalLidarrIndexerSettings _settings = settings;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly Logger _logger = logger;
 
@@ -476,8 +485,10 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             // SYNC-OVER-ASYNC: IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract.
             // FetchReleases (async override) is the primary path; this parser is a fallback used by
             // base-class code paths that process the tidal:// placeholder URLs.
-            Task<TidalSearchResults> searchTask = searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless);
-            TidalSearchResults searchResults = searchTask.GetAwaiter().GetResult();
+            // Wrapped in Task.Run to avoid deadlock if Lidarr's SynchronizationContext captures the thread.
+            TidalSearchResults searchResults = Task.Run(
+                () => searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless))
+                .GetAwaiter().GetResult();
 
             if (searchResults.Albums == null || searchResults.Albums.Count == 0)
             {
@@ -515,7 +526,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
     /// </summary>
     internal static IEnumerable<ReleaseInfo> ConvertToReleaseInfosStatic(TidalAlbumInfo album)
     {
-        if (album == null)
+        if (album == null || string.IsNullOrWhiteSpace(album.Id))
         {
             yield break;
         }
@@ -559,9 +570,9 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         }
     }
 
-    internal static ReleaseInfo ConvertToReleaseInfoStatic(TidalAlbumInfo album)
+    internal static ReleaseInfo? ConvertToReleaseInfoStatic(TidalAlbumInfo album)
     {
-        if (album == null)
+        if (album == null || string.IsNullOrWhiteSpace(album.Id))
         {
             return null;
         }
@@ -570,8 +581,9 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         string albumTitle = album.Title ?? "Unknown Album";
         DateTime releaseDate = album.ReleaseDate;
 
-        // Determine quality from available qualities
-        TidalQuality bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
+        // Determine quality from available qualities.
+        // DefaultIfEmpty guards against empty list — FirstOrDefault() would return Low (0), not Lossless.
+        TidalQuality bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).DefaultIfEmpty(TidalQuality.Lossless).First() ?? TidalQuality.Lossless;
         (string formatMarker, string? extraMarker) = DetermineTitleMarkers(bestQuality);
 
         int year = releaseDate.Year > 1900 ? releaseDate.Year : 0;
@@ -616,14 +628,20 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
     private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
     {
-        // Estimate size based on track count and quality
-        // Average track: 4 minutes
+        // Use actual track durations when available, else estimate from count * 4min average.
         // FLAC 16-bit/44.1kHz (Lossless): ~1000 kbps
         // FLAC 24-bit/96kHz (HiRes): ~3000 kbps (2.5-4x larger due to bit depth + sample rate)
         // AAC HQ: ~320 kbps, AAC Low: ~96 kbps
-        int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12; // Default to 12 tracks when unknown/empty
-        int avgTrackDurationSeconds = 240; // 4 minutes average
-        int totalDurationSeconds = trackCount * avgTrackDurationSeconds;
+        int totalDurationSeconds;
+        if (album.Tracks?.Count > 0 && album.Tracks.Any(t => t.Duration > 0))
+        {
+            totalDurationSeconds = album.Tracks.Sum(t => t.Duration > 0 ? t.Duration : 240);
+        }
+        else
+        {
+            int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12;
+            totalDurationSeconds = trackCount * 240;
+        }
         int bitrateKbps = quality switch
         {
             TidalQuality.HiRes => 3000,    // 24-bit/96kHz FLAC
