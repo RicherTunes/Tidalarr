@@ -357,12 +357,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalSearchResults MapToTidalSearchResults(TidalSearchResponseDto dto)
     {
-        if (dto.albums?.items == null || dto.tracks?.items == null)
-        {
-            throw new ArgumentNullException(nameof(dto), "Search response missing album or track collections.");
-        }
-
-
+        // Gracefully handle partial responses — Tidal may omit collections
         List<TidalAlbumDto> albumDtos = dto.albums?.items ?? [];
         List<TidalTrackDto> trackDtos = dto.tracks?.items ?? [];
         List<TidalArtistDto> artistDtos = dto.artists?.items ?? [];
