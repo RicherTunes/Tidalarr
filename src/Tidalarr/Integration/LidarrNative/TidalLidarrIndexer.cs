@@ -574,17 +574,26 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         TidalQuality bestQuality = album.AvailableQualities?.OrderByDescending(q => (int)q).FirstOrDefault() ?? TidalQuality.Lossless;
         (string formatMarker, string? extraMarker) = DetermineTitleMarkers(bestQuality);
 
+        int year = releaseDate.Year > 1900 ? releaseDate.Year : 0;
+        string title = $"{artistName} - {albumTitle}";
+        if (year > 0)
+        {
+            title += $" ({year})";
+        }
+
+        title += extraMarker == null
+            ? $" [{formatMarker}] [WEB]"
+            : $" [{formatMarker}] [{extraMarker}] [WEB]";
+
         return new ReleaseInfo
         {
-            Guid = $"tidal:album:{album.Id}",
+            Guid = $"tidal:album:{album.Id}:{bestQuality}",
             DownloadProtocol = nameof(TidalarrDownloadProtocol),
-            Title = extraMarker == null
-                ? $"{artistName} - {albumTitle} [{formatMarker}] [WEB]"   
-                : $"{artistName} - {albumTitle} [{formatMarker}] [{extraMarker}] [WEB]",
+            Title = title,
             Artist = artistName,
             Album = albumTitle,
             PublishDate = releaseDate,
-            DownloadUrl = $"tidal://album/{album.Id}",
+            DownloadUrl = $"tidal://album/{album.Id}?quality={bestQuality}",
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
             Size = EstimateAlbumSize(album, bestQuality)
         };
@@ -599,8 +608,8 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         {
             TidalQuality.HiRes => ("FLAC", (string?)"HIRES"),
             TidalQuality.Lossless => ("FLAC", null),
-            TidalQuality.High => ("AAC", null),
-            TidalQuality.Low => ("AAC", null),
+            TidalQuality.High => ("AAC", (string?)"320"),
+            TidalQuality.Low => ("AAC", (string?)"96"),
             _ => ("AAC", null)
         };
     }

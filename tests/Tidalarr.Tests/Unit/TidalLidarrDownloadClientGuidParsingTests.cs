@@ -1,10 +1,13 @@
+using NzbDrone.Core.Parser.Model;
+using Tidalarr.Core.Models;
 using Tidalarr.Integration.LidarrNative;
 
 namespace Tidalarr.Tests.Unit;
 
 /// <summary>
-/// Tests for GUID parsing in TidalLidarrDownloadClient.
-/// Ensures album IDs are correctly extracted from both prefixed and unprefixed GUID formats.
+/// Tests for GUID parsing and quality extraction in TidalLidarrDownloadClient.
+/// Ensures album IDs are correctly extracted from both prefixed and unprefixed GUID formats,
+/// including the 4-part quality-suffixed format (tidal:album:ID:Quality).
 /// </summary>
 public class TidalLidarrDownloadClientGuidParsingTests
 {
@@ -63,5 +66,128 @@ public class TidalLidarrDownloadClientGuidParsingTests
         string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
 
         Assert.Equal(expectedAlbumId, result);
+    }
+
+    // --- Quality-suffixed GUID format (tidal:album:ID:Quality) ---
+
+    [Theory]
+    [InlineData("tidal:album:107386922:Lossless", "107386922")]
+    [InlineData("tidal:album:12345678:HiRes", "12345678")]
+    [InlineData("tidal:album:999:Low", "999")]
+    [InlineData("tidal:album:1:High", "1")]
+    public void ExtractAlbumIdFromGuid_QualitySuffixed_ReturnsAlbumIdIgnoringQuality(string guid, string expectedAlbumId)
+    {
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+
+        Assert.Equal(expectedAlbumId, result);
+    }
+
+    [Theory]
+    [InlineData("2_tidal:album:107386922:Lossless", "107386922")]
+    [InlineData("1_tidal:album:12345678:HiRes", "12345678")]
+    public void ExtractAlbumIdFromGuid_PrefixedAndQualitySuffixed_ReturnsAlbumId(string guid, string expectedAlbumId)
+    {
+        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+
+        Assert.Equal(expectedAlbumId, result);
+    }
+}
+
+/// <summary>
+/// Tests for ExtractQualityFromRelease in TidalLidarrDownloadClient.
+/// Ensures quality is correctly extracted from both DownloadUrl and GUID fallback.
+/// </summary>
+public class TidalLidarrDownloadClientQualityExtractionTests
+{
+    [Theory]
+    [InlineData("tidal://album/123?quality=Lossless", TidalQuality.Lossless)]
+    [InlineData("tidal://album/123?quality=HiRes", TidalQuality.HiRes)]
+    [InlineData("tidal://album/123?quality=High", TidalQuality.High)]
+    [InlineData("tidal://album/123?quality=Low", TidalQuality.Low)]
+    public void ExtractQualityFromRelease_DownloadUrl_ReturnsQuality(string downloadUrl, TidalQuality expected)
+    {
+        ReleaseInfo release = new() { DownloadUrl = downloadUrl, Guid = "tidal:album:123" };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("tidal://album/123?quality=lossless", TidalQuality.Lossless)]
+    [InlineData("tidal://album/123?quality=HIRES", TidalQuality.HiRes)]
+    public void ExtractQualityFromRelease_DownloadUrl_CaseInsensitive(string downloadUrl, TidalQuality expected)
+    {
+        ReleaseInfo release = new() { DownloadUrl = downloadUrl, Guid = "tidal:album:123" };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("tidal:album:123:Lossless", TidalQuality.Lossless)]
+    [InlineData("tidal:album:123:HiRes", TidalQuality.HiRes)]
+    [InlineData("tidal:album:123:High", TidalQuality.High)]
+    [InlineData("tidal:album:123:Low", TidalQuality.Low)]
+    public void ExtractQualityFromRelease_GuidFallback_ReturnsQuality(string guid, TidalQuality expected)
+    {
+        // No DownloadUrl, so should fall back to GUID parsing
+        ReleaseInfo release = new() { Guid = guid };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ExtractQualityFromRelease_DownloadUrlTakesPrecedenceOverGuid()
+    {
+        // DownloadUrl says HiRes, GUID says Lossless — DownloadUrl should win
+        ReleaseInfo release = new()
+        {
+            DownloadUrl = "tidal://album/123?quality=HiRes",
+            Guid = "tidal:album:123:Lossless"
+        };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Equal(TidalQuality.HiRes, result);
+    }
+
+    [Fact]
+    public void ExtractQualityFromRelease_NoQualityAnywhere_ReturnsNull()
+    {
+        ReleaseInfo release = new()
+        {
+            DownloadUrl = "tidal://album/123",
+            Guid = "tidal:album:123"
+        };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ExtractQualityFromRelease_NullRelease_ReturnsNull()
+    {
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(null);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ExtractQualityFromRelease_InvalidQualityString_ReturnsNull()
+    {
+        ReleaseInfo release = new()
+        {
+            DownloadUrl = "tidal://album/123?quality=UltraHD",
+            Guid = "tidal:album:123:UltraHD"
+        };
+
+        TidalQuality? result = TidalLidarrDownloadClient.ExtractQualityFromRelease(release);
+
+        Assert.Null(result);
     }
 }
