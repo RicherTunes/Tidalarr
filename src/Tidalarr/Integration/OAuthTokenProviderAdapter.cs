@@ -7,10 +7,18 @@ namespace Tidalarr.Integration
     internal class OAuthTokenProviderAdapter(ITidalAuth auth) : IStreamingTokenProvider
     {
         private readonly ITidalAuth _auth = auth;
+        private string? _cachedToken;
+        private DateTime? _cachedExpiry;
 
         public async Task<string> GetAccessTokenAsync()
         {
-            try { return (await this._auth.GetValidTokensAsync()).AccessToken; } catch { return string.Empty; }
+            try
+            {
+                Core.Models.TidalTokens t = await this._auth.GetValidTokensAsync();
+                CacheExpiry(t);
+                return t.AccessToken;
+            }
+            catch { return string.Empty; }
         }
 
         public async Task<string> RefreshTokenAsync()
@@ -24,6 +32,7 @@ namespace Tidalarr.Integration
                 }
 
                 Core.Models.TidalTokens refreshed = await this._auth.RefreshTokensAsync(tokens.RefreshToken);
+                CacheExpiry(refreshed);
                 return refreshed.AccessToken;
             }
             catch { return string.Empty; }
@@ -31,19 +40,34 @@ namespace Tidalarr.Integration
 
         public async Task<bool> ValidateTokenAsync(string token)
         {
-            try { return !string.IsNullOrEmpty(token) && (await this._auth.GetValidTokensAsync()).AccessToken == token; } catch { return false; }
+            try
+            {
+                Core.Models.TidalTokens t = await this._auth.GetValidTokensAsync();
+                CacheExpiry(t);
+                return !string.IsNullOrEmpty(token) && t.AccessToken == token;
+            }
+            catch { return false; }
         }
 
-        // SYNC-OVER-ASYNC: IStreamingTokenProvider.GetTokenExpiration is a synchronous interface contract.
         public DateTime? GetTokenExpiration(string token)
         {
-            try { Core.Models.TidalTokens t = this._auth.GetValidTokensAsync().GetAwaiter().GetResult(); return t.AccessToken == token ? t.ExpiresAt : null; } catch { return null; }
+            return token == _cachedToken ? _cachedExpiry : null;
         }
 
-        public void ClearAuthenticationCache() { /* no-op for adapter */ }
+        public void ClearAuthenticationCache()
+        {
+            _cachedToken = null;
+            _cachedExpiry = null;
+        }
 
         public bool SupportsRefresh => true;
         public string ServiceName => "Tidal";
+
+        private void CacheExpiry(Core.Models.TidalTokens tokens)
+        {
+            _cachedToken = tokens.AccessToken;
+            _cachedExpiry = tokens.ExpiresAt;
+        }
     }
 }
 
