@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   packaging-gates:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@78229ab3c11e33079514581d14b6f53719c61c36
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@b1781427f176d1b6e9a022960bdf6e5a8e3f6369
     with:
       common-path: ext/Lidarr.Plugin.Common
       plugin-csproj: src/Tidalarr/Tidalarr.csproj
