@@ -76,8 +76,8 @@
 
   <!-- Dependencies use centralized versions from Directory.Packages.props -->
   <ItemGroup>
-    <!-- Only use NuGet FluentValidation when Lidarr's copy is unavailable -->
-    <PackageReference Include="FluentValidation" Condition="!Exists('$(LidarrAssembliesPath)\FluentValidation.dll')" />
+    <!-- Only use NuGet FluentValidation when Lidarr's copy is unavailable OR when SkipHostBridge excludes host refs -->
+    <PackageReference Include="FluentValidation" Condition="!Exists('$(LidarrAssembliesPath)\FluentValidation.dll') OR '$(SkipHostBridge)' == 'true'" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
