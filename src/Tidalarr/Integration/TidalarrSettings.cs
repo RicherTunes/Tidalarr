@@ -74,6 +74,19 @@ public class TidalarrSettings : BaseStreamingSettings
         return Validator.Validate(this);
     }
 
+    /// <summary>
+    /// Validate and return errors as simple types so callers (e.g., HostBridge) don't need a
+    /// direct FluentValidation reference. Each error is (PropertyName, ErrorMessage).
+    /// </summary>
+    public (bool IsValid, List<(string Property, string Error)> Errors) ValidateSimple()
+    {
+        ValidationResult result = Validator.Validate(this);
+        List<(string, string)> errors = result.Errors
+            .Select(e => (e.PropertyName, e.ErrorMessage))
+            .ToList();
+        return (result.IsValid, errors);
+    }
+
     private static bool IsSupportedMarket(string? market)
     {
         return !string.IsNullOrWhiteSpace(market) && SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase);

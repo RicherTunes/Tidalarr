@@ -86,9 +86,9 @@ public class HostBridgeMappingTests
         Assert.Equal(string.Empty, core.ConfigPath);
         Assert.Equal(string.Empty, core.RedirectUrl);
         Assert.Equal("US", core.TidalMarket);
-        Assert.Equal(30, core.EarlyReleaseLimit);
-        Assert.False(core.EnableCache);
-        Assert.Equal(7, core.CacheDuration);
+        Assert.Equal(14, core.EarlyReleaseLimit);
+        Assert.True(core.EnableCache);
+        Assert.Equal(15, core.CacheDuration);
     }
 
     [Fact]
@@ -123,9 +123,9 @@ public class HostBridgeMappingTests
         Assert.Equal(string.Empty, core.ConfigPath);
         Assert.Equal(string.Empty, core.RedirectUrl);
         Assert.Equal("US", core.TidalMarket);
-        Assert.Equal(30, core.EarlyReleaseLimit);
-        Assert.False(core.EnableCache);
-        Assert.Equal(7, core.CacheDuration);
+        Assert.Equal(14, core.EarlyReleaseLimit);
+        Assert.True(core.EnableCache);
+        Assert.Equal(15, core.CacheDuration);
         Assert.Equal("https://api.tidal.com", core.BaseUrl);
     }
 
