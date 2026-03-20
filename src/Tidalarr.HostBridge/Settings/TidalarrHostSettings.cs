@@ -1,4 +1,3 @@
-using FluentValidation.Results;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.ThingiProvider;
@@ -30,9 +29,17 @@ public class TidalarrHostSettings : IIndexerSettings, IProviderConfig
 
     public NzbDrone.Core.Validation.NzbDroneValidationResult Validate()
     {
-        // Delegate to core validator to shape a host result
+        // Delegate to core validator via simple types to avoid FluentValidation
+        // assembly dependency in HostBridge (host ships FV 9, Common uses FV 11).
         Integration.TidalarrSettings core = ToCore();
-        ValidationResult fluent = core.ValidateFluent();
+        (bool isValid, var errors) = core.ValidateSimple();
+
+        FluentValidation.Results.ValidationResult fluent = new();
+        foreach ((string property, string error) in errors)
+        {
+            fluent.Errors.Add(new FluentValidation.Results.ValidationFailure(property, error));
+        }
+
         return new NzbDrone.Core.Validation.NzbDroneValidationResult(fluent);
     }
 
