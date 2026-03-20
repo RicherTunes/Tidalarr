@@ -68,6 +68,7 @@ public class TidalLidarrIndexerSizeEstimationTests
 
         Assert.NotNull(release);
         Assert.True(release.Size > 0);
-        Assert.Equal(90_000_000L, release.Size);
+        // 3 tracks * 1 second each * 1000 kbps (Lossless) * 125 bytes/kbit = 375,000
+        Assert.Equal(375_000L, release.Size);
     }
 }

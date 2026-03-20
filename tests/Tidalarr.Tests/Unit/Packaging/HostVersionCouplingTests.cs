@@ -20,7 +20,8 @@ public sealed class HostVersionCouplingTests
         string packagesProps = Path.Combine(repoRoot!, "Directory.Packages.props");
         Assert.True(File.Exists(packagesProps), $"Expected {packagesProps} to exist.");
 
-        AssertPinnedMatchesHost(packagesProps, hostDir!, "FluentValidation", "FluentValidation.dll");
+        // FluentValidation is internalized by ILRepack (PrivateAssets=all in Common) so it
+        // does NOT need to match the host version. Only NLog crosses the host boundary.
         AssertPinnedMatchesHost(packagesProps, hostDir!, "NLog", "NLog.dll");
     }
 
