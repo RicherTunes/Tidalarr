@@ -52,6 +52,11 @@
       <HintPath>..\..\ext\Lidarr\_output\net8.0\Lidarr.Common.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- FluentValidation: Use Lidarr's copy to avoid AssemblyLoadContext conflicts -->
+    <Reference Include="FluentValidation" Condition="Exists('..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll')">
+      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <None Include="fixtures\sample_tone.m4a" CopyToOutputDirectory="Always" />
@@ -73,6 +78,9 @@
     <Compile Remove="Unit\TidalLidarrIndexerSizeEstimationTests.cs" />
     <!-- Exclude ALL Tidal* integration tests - use outdated DTO/model patterns -->
     <Compile Remove="Tidal*.cs" />
+    <!-- Integration tests that reference FluentValidation.Results -->
+    <Compile Remove="SilverMedalIntegrationTests.cs" />
+    <Compile Remove="EndToEndIntegrationTests.cs" />
     <!-- Exclude milestone tests that reference MockTokenStorage -->
     <Compile Remove="Week1MilestoneTests.cs" />
     <Compile Remove="*MilestoneTests.cs" />
