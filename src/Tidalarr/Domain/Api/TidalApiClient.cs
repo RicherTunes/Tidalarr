@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Globalization;
 using System.Text.Json;
+using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
@@ -22,14 +23,16 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private readonly ITidalAuth _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     private readonly Streaming.TidalManifestParser? _manifestParser;
     private readonly ILogger<TidalApiClient> _logger = NullLogger<TidalApiClient>.Instance;
+    private readonly IRateLimitReporter? _rateLimitReporter;
 
     // Overload that allows DI to provide a manifest parser without breaking existing callers
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public TidalApiClient(HttpClient httpClient, ITidalAuth authService, Streaming.TidalManifestParser manifestParser, IStreamingResponseCache? cache = null, ILogger<TidalApiClient>? logger = null)
+    public TidalApiClient(HttpClient httpClient, ITidalAuth authService, Streaming.TidalManifestParser manifestParser, IStreamingResponseCache? cache = null, ILogger<TidalApiClient>? logger = null, IRateLimitReporter? rateLimitReporter = null)
         : this(httpClient, authService, cache)
     {
         this._manifestParser = manifestParser;
         this._logger = logger ?? NullLogger<TidalApiClient>.Instance;
+        this._rateLimitReporter = rateLimitReporter;
     }
     public async Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
@@ -54,6 +57,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        await ReportRateLimitStatusAsync(response);
         sw.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
         _ = response.EnsureSuccessStatusCode();
@@ -85,6 +89,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope2 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        await ReportRateLimitStatusAsync(response);
         sw2.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
         _ = response.EnsureSuccessStatusCode();
@@ -117,6 +122,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope3 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        await ReportRateLimitStatusAsync(response);
         sw3.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
         _ = response.EnsureSuccessStatusCode();
@@ -170,6 +176,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope4 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        await ReportRateLimitStatusAsync(response);
         sw4.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
         _ = response.EnsureSuccessStatusCode();
@@ -197,6 +204,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        await ReportRateLimitStatusAsync(response);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content) ?? throw new InvalidOperationException("Failed to parse playback info");
@@ -495,6 +503,28 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static bool HasEncoding(HttpResponseMessage response, string encoding)
     {
         return response.Content?.Headers?.ContentEncoding?.Any(e => string.Equals(e, encoding, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    /// <summary>
+    /// Reports rate limit status to the bridge reporter after an HTTP response.
+    /// Called after ExecuteWithRetryAsync returns the final response.
+    /// </summary>
+    private async ValueTask ReportRateLimitStatusAsync(HttpResponseMessage response)
+    {
+        if (this._rateLimitReporter is null)
+        {
+            return;
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            TimeSpan retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(60);
+            await this._rateLimitReporter.ReportRateLimitAsync(retryAfter);
+        }
+        else if (response.IsSuccessStatusCode && this._rateLimitReporter.Status.IsRateLimited)
+        {
+            await this._rateLimitReporter.ReportRateLimitClearedAsync();
+        }
     }
 
     public void Dispose()

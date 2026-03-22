@@ -1,6 +1,7 @@
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
+using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Models;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
@@ -16,6 +17,8 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     private readonly ITidalCore _apiClient;
     private readonly TidalModelMapper _mapper;
     private readonly HttpClient _httpClient;
+    private readonly IAuthFailureHandler? _authHandler;
+    private readonly IIndexerStatusReporter? _statusReporter;
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
@@ -25,7 +28,9 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         ITidalCore apiClient,
         TidalIndexerSettings settings,
         ILogger? logger = null,
-        Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider? tokenProvider = null)
+        Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider? tokenProvider = null,
+        IAuthFailureHandler? authHandler = null,
+        IIndexerStatusReporter? statusReporter = null)
         : base(settings, logger!)
     {
         this._searchService = searchService;
@@ -49,28 +54,84 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         {
             this._httpClient = new HttpClient();
         }
+
+        this._authHandler = authHandler;
+        this._statusReporter = statusReporter;
     }
 
     protected override async Task<bool> AuthenticateAsync()
     {
-        try { return await this._apiClient.IsAuthenticatedAsync(); }
-        catch (Exception ex) { Logger?.LogError(ex, "Tidal authentication failed"); return false; }
+        try
+        {
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Authenticating);
+            }
+
+            bool result = await this._apiClient.IsAuthenticatedAsync();
+
+            if (result && this._authHandler is not null)
+            {
+                await this._authHandler.HandleSuccessAsync();
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "Tidal authentication failed");
+
+            if (this._authHandler is not null)
+            {
+                await this._authHandler.HandleFailureAsync(new AuthFailure
+                {
+                    ErrorCode = "TIDAL_AUTH",
+                    Message = ex.Message,
+                    CanReauthenticate = true
+                });
+            }
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportErrorAsync(ex);
+            }
+
+            return false;
+        }
     }
 
     protected override async Task<List<StreamingAlbum>> SearchAlbumsAsync(string searchTerm)
     {
         try
         {
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
+            }
+
             TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
-            return results.Albums?
+            List<StreamingAlbum> albums = results.Albums?
                 .Select(this._mapper.ToStreamingAlbum)
                 .Where(a => a is not null)
                 .Select(a => a!)
                 .ToList() ?? [];
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle);
+            }
+
+            return albums;
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Failed to search albums for: {Search}", searchTerm);
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportErrorAsync(ex);
+            }
+
             return [];
         }
     }
@@ -84,16 +145,34 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
+            }
+
             TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless);
-            return results.Tracks?
+            List<StreamingTrack> tracks = results.Tracks?
                 .Select(this._mapper.ToStreamingTrack)
                 .Where(t => t is not null)
                 .Select(t => t!)
                 .ToList() ?? [];
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle);
+            }
+
+            return tracks;
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Failed to search tracks for: {Search}", searchTerm);
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportErrorAsync(ex);
+            }
+
             return [];
         }
     }
