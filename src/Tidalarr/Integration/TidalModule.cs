@@ -16,6 +16,7 @@ using Tidalarr.Infrastructure.Caching;
 using Lidarr.Plugin.Common.Services.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
+using Lidarr.Plugin.Common.Extensions;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Services.Authentication;
@@ -181,9 +182,9 @@ public class TidalModule : StreamingPluginModule
         })
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
+        // Bridge runtime defaults — call LAST so plugins can override with custom implementations
+        services.AddBridgeDefaults();
     }
-
-
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
