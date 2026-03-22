@@ -62,11 +62,15 @@ try {
     $testProject = Join-Path $repoRoot 'tests/Tidalarr.Tests/Tidalarr.Tests.csproj'
 
     # Build test project separately with SkipHostBridge since unified runner doesn't pass
-    # Properties to its build step (only to dotnet test)
-    Write-Host "Building test project with SkipHostBridge..." -ForegroundColor Cyan
+    # Properties to its build step (only to dotnet test).
+    # Build hardening: -m:1 prevents parallel MSBuild nodes from file-locking shared obj/ files.
+    $env:DOTNET_CLI_DISABLE_BUILD_SERVERS = "1"
+    $env:MSBUILDDISABLENODEREUSE = "1"
+    Write-Host "Building test project with SkipHostBridge + build hardening..." -ForegroundColor Cyan
     dotnet build $testProject -c Release --no-restore -v minimal `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
-        -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+        -p:SkipHostBridge=true -p:ExcludeHostBridge=true `
+        /m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false
 
     $testArgs = @{
         TestProject = $testProject
