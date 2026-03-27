@@ -34,21 +34,7 @@ if (-not $DryRun) {
 }
 
 $issues = @(
-  @{ 
-    Title = 'tech(debt): decide Polly strategy (obsolete or remove)';
-    Body = @'
-Context: `TidalResiliencePolicy` references Polly while runtime HTTP calls use Common `ExecuteWithRetryAsync`.
-
-Acceptance:
-- [ ] Either mark `TidalResiliencePolicy` as [Obsolete] with rationale and keep Polly;
-  OR migrate remaining callsites and remove `Polly`/`Polly.Extensions.Http` from `src/Tidalarr/Tidalarr.csproj`.
-- [ ] Update or remove `TidalResiliencePolicy` unit tests accordingly.
-- [ ] Build/tests green.
-References: docs/TECH_DEBT_BACKLOG.md
-'@;
-    Labels = @('tech-debt')
-  }
-  ,@{
+  @{
     Title = 'test(hostbridge): add edge-case mapping tests (nulls/defaults)';
     Body = @'
 Context: Basic HostBridge→core mapping tests exist. Add negative/edge cases.
