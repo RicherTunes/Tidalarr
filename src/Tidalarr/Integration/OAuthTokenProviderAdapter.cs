@@ -8,7 +8,7 @@ namespace Tidalarr.Integration
     internal class OAuthTokenProviderAdapter(ITidalAuth auth) : IStreamingTokenProvider
     {
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
-        private readonly ITidalAuth _auth = auth;
+        private readonly ITidalAuth _auth = auth ?? throw new ArgumentNullException(nameof(auth));
 
         // Thread-safety note: _cachedToken and _cachedExpiry are written by the async token
         // operations (GetAccessTokenAsync, RefreshTokenAsync, ValidateTokenAsync) via CacheExpiry(),
