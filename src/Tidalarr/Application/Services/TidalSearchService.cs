@@ -16,7 +16,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
     private readonly TidalQualityDetector _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
     private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
 
-    public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless)
+    public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless, string market = "US")
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
@@ -30,7 +30,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             {
                 Type = QueryType.Album,
                 PreferredQuality = MapToStreamingQualityTier(preferredQuality),
-                Country = "US" // Could be made configurable
+                Country = market
             };
 
             OptimizedQuery optimization = await this._queryOptimizer.OptimizeQueryAsync(sanitizedQuery, context);
@@ -86,7 +86,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
         );
     }
 
-    public async Task<TidalSearchResults> SearchByTypeAsync(string query, TidalSearchType searchType, int limit = 100)
+    public async Task<TidalSearchResults> SearchByTypeAsync(string query, TidalSearchType searchType, int limit = 100, string market = "US")
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
@@ -99,7 +99,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             QueryContext context = new()
             {
                 Type = MapSearchTypeToQueryType(searchType),
-                Country = "US"
+                Country = market
             };
 
             OptimizedQuery optimization = await this._queryOptimizer.OptimizeQueryAsync(sanitizedQuery, context);

@@ -1,4 +1,5 @@
 using Lidarr.Plugin.Common.Interfaces;
+using NLog;
 using Tidalarr.Core.Interfaces;
 
 namespace Tidalarr.Integration
@@ -6,6 +7,7 @@ namespace Tidalarr.Integration
     // Adapts ITidalAuth to IStreamingTokenProvider for OAuthDelegatingHandler when a stub is used.
     internal class OAuthTokenProviderAdapter(ITidalAuth auth) : IStreamingTokenProvider
     {
+        private static readonly Logger Log = LogManager.GetCurrentClassLogger();
         private readonly ITidalAuth _auth = auth;
 
         // Thread-safety note: _cachedToken and _cachedExpiry are written by the async token
@@ -30,7 +32,11 @@ namespace Tidalarr.Integration
                 CacheExpiry(t);
                 return t.AccessToken;
             }
-            catch { return string.Empty; }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Failed to obtain Tidal access token");
+                return string.Empty;
+            }
         }
 
         public async Task<string> RefreshTokenAsync()
@@ -47,7 +53,11 @@ namespace Tidalarr.Integration
                 CacheExpiry(refreshed);
                 return refreshed.AccessToken;
             }
-            catch { return string.Empty; }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Failed to refresh Tidal token");
+                return string.Empty;
+            }
         }
 
         public async Task<bool> ValidateTokenAsync(string token)
@@ -58,7 +68,11 @@ namespace Tidalarr.Integration
                 CacheExpiry(t);
                 return !string.IsNullOrEmpty(token) && t.AccessToken == token;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Failed to validate Tidal token");
+                return false;
+            }
         }
 
         public DateTime? GetTokenExpiration(string token)
