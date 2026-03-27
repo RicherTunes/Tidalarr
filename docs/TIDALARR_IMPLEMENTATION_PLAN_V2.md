@@ -357,7 +357,7 @@ dotnet build src/Tidalarr.csproj -c $Configuration
 
 # Copy to Lidarr plugins folder for testing
 $lidarrPlugins = "$env:APPDATA\Lidarr\Plugins"
-Copy-Item "src\bin\$Configuration\net6.0\Tidalarr.dll" $lidarrPlugins
+Copy-Item "src\bin\$Configuration\net8.0\Tidalarr.dll" $lidarrPlugins
 
 Write-Host "Tidalarr built and deployed to $lidarrPlugins"
 Write-Host "Restart Lidarr to load plugin"
