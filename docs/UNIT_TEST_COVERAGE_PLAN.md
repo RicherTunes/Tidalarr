@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was a planning document for the test coverage initiative. See CLAUDE.md for current guidance.
+
 # Tidalarr 100% Unit Test Coverage Plan
 ## Ultra-Comprehensive Testing Strategy
 

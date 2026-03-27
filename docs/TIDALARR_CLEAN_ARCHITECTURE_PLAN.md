@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was written during the planning phase before implementation began. The actual codebase has evolved beyond this plan. See CLAUDE.md for current guidance.
+
 # Tidalarr Clean Architecture Implementation Plan
 ## No TidalSharp Dependency - Clean Component Design
 

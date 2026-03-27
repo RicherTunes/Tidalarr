@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It tracked tech debt from the initial v1.0 development when Tidalarr was a direct TidalSharp port. The architecture has since been rewritten to use clean components and the shared library. See CLAUDE.md for current guidance.
+
 # Technical Debt Inventory
 ## Tidalarr v1.0 - Accepted Technical Debt
 

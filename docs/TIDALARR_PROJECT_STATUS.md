@@ -1,4 +1,6 @@
-# 🏆 Tidalarr Project Status - Complete Success Summary
+> **Note:** This document is historical and may not reflect current architecture. It captures the status at the end of the initial development sprint. See CLAUDE.md for current guidance.
+
+# Tidalarr Project Status - Complete Success Summary
 ## From Planning to Production-Ready Implementation
 
 ---
