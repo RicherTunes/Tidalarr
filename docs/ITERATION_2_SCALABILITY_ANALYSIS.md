@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was written during an early iteration of performance analysis. See CLAUDE.md for current guidance.
+
 # Iteration 2: Scalability and Performance Analysis
 ## Anticipating High-Load and Multi-User Scenarios
 

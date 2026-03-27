@@ -1,6 +1,6 @@
 # Deployment & Smoke Test Playbook
 
-Use this checklist whenever you cut a new Tidalarr build. It assumes Lidarr 2.14.2.4786 and the shared library at commit 36141b7 (Lidarr.Plugin.Common 1.1.4).
+Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr plugins branch on .NET 8 (e.g., `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`). See CLAUDE.md for the current Docker image tag.
 
 ## 1. Run the unified CI pipeline locally (optional)
 
@@ -12,7 +12,7 @@ This validates host assemblies, manifest metadata, Release build and packages `a
 
 ## 2. Prepare your Lidarr container / host
 
-1. Ensure the target Lidarr instance is 2.14.2.4786.
+1. Ensure the target Lidarr instance is a .NET 8 plugins branch build (pr-plugins-3.x).
 2. Stop Lidarr or put it into maintenance mode.
 3. Locate the plugin root:
    - Docker: `/config/plugins`
