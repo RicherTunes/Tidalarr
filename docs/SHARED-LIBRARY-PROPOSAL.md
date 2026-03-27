@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. The shared library (Lidarr.Plugin.Common) has since been implemented and is actively maintained. See CLAUDE.md for current guidance.
+
 # Shared Library Proposal: Lidarr.Plugin.Common
 ## Strategic Refactoring to Reduce Technical Debt
 

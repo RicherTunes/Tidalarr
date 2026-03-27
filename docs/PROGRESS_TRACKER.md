@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It tracked progress during the initial development sprint. See CLAUDE.md for current guidance.
+
 # Tidalarr Implementation Progress Tracker
 ## Real-Time Progress Against Roadmap
 

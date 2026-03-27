@@ -1,4 +1,6 @@
-# 🏆 Tidalarr Unit Test Coverage Success Summary
+> **Note:** This document is historical and may not reflect current architecture. It captures the test coverage status at a point in time; the test suite has since been reorganized. See CLAUDE.md for current guidance.
+
+# Tidalarr Unit Test Coverage Success Summary
 ## 100% Coverage Initiative Achievement Report
 
 ---

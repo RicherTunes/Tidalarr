@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. Many of the proposed shared library contributions have since been implemented differently. See CLAUDE.md for current guidance.
+
 # Iteration 3: Shared Library Improvements and Contributions
 ## How Tidalarr Can Enhance the Ecosystem
 

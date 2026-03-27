@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was the original development roadmap; the actual implementation has evolved beyond this plan (e.g., the plugin now targets net8.0, not net6.0). See CLAUDE.md for current guidance.
+
 # Tidalarr Implementation Roadmap
 ## Phased Tidal Integration - From MVP to Excellence
 

@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It describes an early iteration plan that was superseded. See CLAUDE.md for current guidance.
+
 # Tidalarr Implementation Plan v2 - Extended
 ## Includes TidalCLI and Strategic Qobuzarr Refactoring
 

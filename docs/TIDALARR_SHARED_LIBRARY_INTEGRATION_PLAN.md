@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. The shared library integration described here has been completed and the architecture has evolved. See CLAUDE.md for current guidance.
+
 # Tidalarr Shared Library Integration Plan
 
 ## Executive Summary

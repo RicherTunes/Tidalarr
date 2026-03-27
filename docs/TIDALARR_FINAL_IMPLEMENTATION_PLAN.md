@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was one of several iteration plans created during development. See CLAUDE.md for current guidance.
+
 # Tidalarr Final Implementation Plan
 ## Using Lidarr.Plugin.Common Shared Library
 
