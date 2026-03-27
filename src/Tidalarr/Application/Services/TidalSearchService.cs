@@ -39,7 +39,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
 
         // Execute search
         Stopwatch stopwatch = Stopwatch.StartNew();
-        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery);
+        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery, limit: 100, countryCode: market);
 
         stopwatch.Stop();
 
@@ -108,7 +108,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
 
         // Execute search with error handling
         (bool success, TidalSearchResults allResults) = await SafeOperationExecutor.TryExecuteAsync<TidalSearchResults>(() =>
-            this._apiClient.SearchAsync(optimizedQuery, limit));
+            this._apiClient.SearchAsync(optimizedQuery, limit, countryCode: market));
 
         return !success || allResults == null
             ? new TidalSearchResults(
