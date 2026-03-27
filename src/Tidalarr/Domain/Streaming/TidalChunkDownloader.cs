@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Models;
 
@@ -10,9 +11,10 @@ public class ChunkDownloadProgress
     public double ProgressPercentage => TotalChunks > 0 ? (double)CompletedChunks / TotalChunks * 100 : 0;
 }
 
-public class TidalChunkDownloader(HttpClient httpClient)
+public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownloader>? logger = null)
 {
     private readonly HttpClient _httpClient = httpClient;
+    private readonly ILogger<TidalChunkDownloader>? _logger = logger;
     private const int ChunkBufferSize = 65536;
 
     /// <summary>
@@ -182,7 +184,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
                             await chunkStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
                         }
 
-                        try { File.Delete(chunkPaths[i]); } catch { /* best effort */ }
+                        try { File.Delete(chunkPaths[i]); } catch (Exception ex) { _logger?.LogDebug(ex, "Best-effort cleanup failed"); }
 
                         completedChunks++;
                         progress?.Report(new ChunkDownloadProgress
@@ -207,7 +209,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
                 finally
                 {
                     semaphore.Dispose();
-                    try { Directory.Delete(chunkDir, recursive: true); } catch { /* best effort */ }
+                    try { Directory.Delete(chunkDir, recursive: true); } catch (Exception ex) { _logger?.LogDebug(ex, "Best-effort cleanup failed"); }
                 }
             }
 
@@ -313,7 +315,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
                             await chunkStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
                         }
 
-                        try { File.Delete(chunkPaths[i]); } catch { /* best effort */ }
+                        try { File.Delete(chunkPaths[i]); } catch (Exception ex) { _logger?.LogDebug(ex, "Best-effort cleanup failed"); }
 
                         progress?.Report(i + 1);
                     }
@@ -330,7 +332,7 @@ public class TidalChunkDownloader(HttpClient httpClient)
                 finally
                 {
                     semaphore.Dispose();
-                    try { Directory.Delete(chunkDir, recursive: true); } catch { /* best effort */ }
+                    try { Directory.Delete(chunkDir, recursive: true); } catch (Exception ex) { _logger?.LogDebug(ex, "Best-effort cleanup failed"); }
                 }
             }
 
