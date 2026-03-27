@@ -8,7 +8,7 @@ namespace Tidalarr.Tests.Unit;
 public class HostBridgeMappingTests
 {
     [Fact]
-    public void TidalarrHostSettings_ToCore_MapsAllFields()
+    public void TidalarrHostSettings_ToCore_MapsIndexerFields()
     {
         TidalarrHostSettings host = new()
         {
@@ -18,7 +18,7 @@ public class HostBridgeMappingTests
             EarlyReleaseLimit = 30,
             EnableCache = false,
             CacheDuration = 7,
-            BaseUrl = "https://api.tidal.com"
+            BaseUrl = "https://custom.tidal.api"
         };
 
         Tidalarr.Integration.TidalarrSettings core = host.ToCore();
@@ -28,7 +28,10 @@ public class HostBridgeMappingTests
         Assert.Equal(host.EarlyReleaseLimit, core.EarlyReleaseLimit);
         Assert.Equal(host.EnableCache, core.EnableCache);
         Assert.Equal(host.CacheDuration, core.CacheDuration);
-        Assert.Equal(host.BaseUrl, core.BaseUrl);
+
+        // BaseUrl is intentionally NOT mapped by ToCore() — core uses its own default.
+        // This is by design: BaseUrl is host-only configuration.
+        Assert.NotEqual(host.BaseUrl, core.BaseUrl);
     }
 
     [Fact]
