@@ -13,6 +13,7 @@ public sealed class TidalarrPlugin : IPlugin
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly object _settingsLock = new();
+    private readonly TidalModule _module = new();
     private ServiceProvider? _serviceProvider;
     private IPluginContext? _context;
     private TidalarrSettings _settings = new();
@@ -161,8 +162,7 @@ public sealed class TidalarrPlugin : IPlugin
     private void RebuildServiceProvider()
     {
         this._serviceProvider?.Dispose();
-        TidalModule module = new();
-        this._serviceProvider = module.BuildServiceProvider(this._settings);
+        this._serviceProvider = this._module.BuildServiceProvider(this._settings);
     }
 
     public async ValueTask DisposeAsync()
