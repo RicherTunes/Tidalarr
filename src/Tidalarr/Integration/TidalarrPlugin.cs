@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Manifest;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 using Tidalarr.Integration.Adapters;
 using Lidarr.Plugin.Abstractions.Results;
 
@@ -8,12 +10,24 @@ namespace Tidalarr.Integration;
 
 public sealed class TidalarrPlugin : IPlugin
 {
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+
+    private readonly object _settingsLock = new();
     private ServiceProvider? _serviceProvider;
     private IPluginContext? _context;
     private TidalarrSettings _settings = new();
 
     // Non-public Services property for the test harness (accessed via reflection)
-    private IServiceProvider Services => this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
+    private IServiceProvider Services
+    {
+        get
+        {
+            lock (this._settingsLock)
+            {
+                return this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
+            }
+        }
+    }
 
     public PluginManifest Manifest
     {
@@ -25,9 +39,21 @@ public sealed class TidalarrPlugin : IPlugin
                 string manifestPath = Path.Combine(baseDir, "plugin.json");
                 return PluginManifest.Load(manifestPath);
             }
-            catch
+            catch (Exception ex) when (ex is FileNotFoundException or JsonException)
             {
-                // Fallback minimal manifest to satisfy hosts/tests if plugin.json is not adjacent
+                // Expected: plugin.json missing or malformed — fall back to minimal manifest
+                return new PluginManifest
+                {
+                    Id = "tidalarr",
+                    Name = "Tidalarr",
+                    Version = "1.0.1",
+                    ApiVersion = "1.x",
+                    RequiredSettings = ["ConfigPath", "RedirectUrl", "DownloadPath"]
+                };
+            }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Unexpected error loading plugin manifest; using fallback");
                 return new PluginManifest
                 {
                     Id = "tidalarr",
@@ -87,14 +113,30 @@ public sealed class TidalarrPlugin : IPlugin
     public PluginOperationResult<Dictionary<string, string>> ApplySettingsWithDiagnostics(IDictionary<string, object?> settings)
     {
         const string OK = "CFG000";
-        PluginOperationResult<Dictionary<string, string>> check = ValidateSettingsWithDiagnostics(settings);
-        if (!check.IsSuccess)
+        const string INVALID = "CFG100";
+
+        TidalarrSettings typed = MapToSettings(settings);
+        FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
+        if (!validation.IsValid)
         {
-            return check;
+            string[] codes = [.. validation.Errors
+                .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
+                .Select(e => e.ErrorCode)
+                .Distinct()];
+            Dictionary<string, string> meta = new()
+            {
+                ["id"] = INVALID,
+                ["errors"] = string.Join(",", codes)
+            };
+            return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(PluginErrorCode.ValidationFailed, "Settings failed validation", null, meta));
         }
 
-        this._settings = MapToSettings(settings);
-        RebuildServiceProvider();
+        lock (this._settingsLock)
+        {
+            this._settings = typed;
+            RebuildServiceProvider();
+        }
+
         return PluginOperationResult<Dictionary<string, string>>.Success(new()
         {
             ["id"] = OK,
@@ -355,8 +397,12 @@ public sealed class TidalarrPlugin : IPlugin
                 return validation.ToPluginValidationResult();
             }
 
-            this._plugin._settings = typed;
-            this._plugin.RebuildServiceProvider();
+            lock (this._plugin._settingsLock)
+            {
+                this._plugin._settings = typed;
+                this._plugin.RebuildServiceProvider();
+            }
+
             return PluginValidationResult.Success();
         }
 
