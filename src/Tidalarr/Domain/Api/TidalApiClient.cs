@@ -150,7 +150,12 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             CoverArtId: album.CoverArtId,
             IsAvailable: album.IsAvailable);
     }
-    public async Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
+    public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        return SearchAsync(query, limit, countryCode: null, cancellationToken);
+    }
+
+    public async Task<TidalSearchResults> SearchAsync(string query, int limit, string? countryCode, CancellationToken cancellationToken = default)
     {
         TidalTokens tokens = await this._authService.GetValidTokensAsync();
         string endpoint = "search";
@@ -160,7 +165,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["types"] = "albums,tracks",
             ["limit"] = limit.ToString(),
             ["sessionId"] = tokens.SessionId,
-            ["countryCode"] = tokens.CountryCode
+            ["countryCode"] = countryCode ?? tokens.CountryCode
         };
         if (this._cache?.Get<TidalSearchResponseDto>(endpoint, parameters) is { } cached)
         {
