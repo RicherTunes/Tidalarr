@@ -12,10 +12,10 @@ This document tracks actionable tech-debt items with acceptance criteria.
 
 ## High Priority (next sprint)
 1) Trim unused Polly packages (verify usage)
-- Context: `TidalResiliencePolicy` still references Polly; runtime retries now use Common `ExecuteWithRetryAsync`.
+- Context: `TidalResiliencePolicy` has been removed from source (`src/`). Runtime retries now use Common `ExecuteWithRetryAsync`. References to `TidalResiliencePolicy` remain only in docs and test artifacts (test.trx, scripts/create-tech-debt-issues.ps1).
 - Criteria:
-  - [ ] If `TidalResiliencePolicy` is kept, leave Polly refs and annotate the class `[Obsolete]` with rationale; or
-  - [ ] If removed/migrated, delete `Polly` and `Polly.Extensions.Http` from `src/Tidalarr/Tidalarr.csproj` and update tests accordingly.
+  - [ ] Verify Polly is no longer referenced in `src/Tidalarr/Tidalarr.csproj`; if still present, remove `Polly` and `Polly.Extensions.Http` PackageReferences.
+  - [ ] Clean up stale `TidalResiliencePolicy` references in docs and scripts.
   - [ ] Build/tests green.
 
 2) HostBridge → core mapping tests
@@ -30,7 +30,7 @@ This document tracks actionable tech-debt items with acceptance criteria.
 
 4) Packaging dependency-closure CI gate
 - Criteria:
-  - [ ] CI job runs `build.ps1 -Package` for net6.0.
+  - [ ] CI job runs `build.ps1 -Package` for net8.0.
   - [ ] Fails if zip contains disallowed host assemblies (allowlist: `Lidarr.Plugin.Tidalarr.dll`, `Lidarr.Plugin.Common.dll`).
 
 5) Reduce settings duplication
@@ -41,7 +41,7 @@ This document tracks actionable tech-debt items with acceptance criteria.
 
 ## Medium Priority
 - Multi-target TFMs rationale
-  - [ ] Document current choice (Core net6.0, CLI net9.0) in docs, or align TFMs.
+  - [x] Core now targets net8.0 to match the Lidarr plugins-branch host. See docs/TFM_RATIONALE.md (updated).
 - Diagnostics JSON contract
   - [ ] Add snapshot tests for CFG000/IX200/DL100 shapes.
   - [ ] Document schema fields/ids in docs.

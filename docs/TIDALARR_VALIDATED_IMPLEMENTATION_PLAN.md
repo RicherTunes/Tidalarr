@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was written during the feasibility analysis phase. See CLAUDE.md for current guidance.
+
 # Tidalarr Validated Implementation Plan
 ## Based on TidalSharp Analysis and Shared Library Integration
 

@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It describes an early "direct port" approach that was superseded by the clean architecture approach. See CLAUDE.md for current guidance.
+
 # Tidalarr Implementation Plan v2
 ## Pragmatic Approach: Port TidalSharp into Qobuzarr Architecture
 
