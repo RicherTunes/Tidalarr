@@ -156,7 +156,7 @@ dotnet run -- download-album <album-id>
 dotnet build --configuration Release
 
 # 2. Deploy plugin DLL (no CLI dependencies)
-cp bin/Release/net6.0/Lidarr.Plugin.Tidalarr.dll /path/to/lidarr/plugins/
+cp bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll /path/to/lidarr/plugins/
 ```
 
 ## Shared Library Integration
