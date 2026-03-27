@@ -39,7 +39,7 @@ public class PathValidationExtensionsTests
         // - Checks for invalid characters
         // - Checks for non-empty root
         // - Does NOT enforce OS-specific rules (avoids host dependencies)
-        // 
+        //
         // Therefore, Windows drive paths are considered "reasonable" on all platforms
         string path = "C:/temp/file.txt";
 
@@ -100,5 +100,70 @@ public class PathValidationExtensionsTests
             // Long paths should still be valid on Linux
             Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
         }
+    }
+
+    // --- Wave 2: expanded coverage ---
+
+    [Theory]
+    [Trait("Category", "Wave2")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    [InlineData("\n")]
+    public void IsReasonablePath_WhitespaceOnly_ReturnsFalse(string path)
+    {
+        Assert.False(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
+    }
+
+    [Fact]
+    [Trait("Category", "Wave2")]
+    public void IsReasonablePath_PathWithSpaces_ReturnsTrue()
+    {
+        // Paths with spaces are valid on all platforms
+        string path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? @"C:\Program Files\My App\data"
+            : "/home/user/my folder/data";
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
+    }
+
+    [Fact]
+    [Trait("Category", "Wave2")]
+    public void IsReasonablePath_DelegatesTo_CommonPathValidation()
+    {
+        // Verify the extension method and Common's PathValidation agree on all cases
+        string validPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? @"C:\temp\test"
+            : "/tmp/test";
+
+        Assert.Equal(
+            Lidarr.Plugin.Common.Utilities.PathValidation.IsReasonablePath(validPath),
+            Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(validPath));
+
+        Assert.Equal(
+            Lidarr.Plugin.Common.Utilities.PathValidation.IsReasonablePath(null),
+            Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(null));
+
+        Assert.Equal(
+            Lidarr.Plugin.Common.Utilities.PathValidation.IsReasonablePath(""),
+            Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(""));
+    }
+
+    [Fact]
+    [Trait("Category", "Wave2")]
+    public void IsReasonablePath_RootPathOnly_ReturnsTrue()
+    {
+        // A root path with no segments should still be valid
+        string root = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"C:\" : "/";
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(root));
+    }
+
+    [Fact]
+    [Trait("Category", "Wave2")]
+    public void IsReasonablePath_PathWithDotsAndHyphens_ReturnsTrue()
+    {
+        // Typical download paths with dots and hyphens
+        string path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? @"C:\music\artist-name\album-2024.01\track-01.flac"
+            : "/music/artist-name/album-2024.01/track-01.flac";
+        Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path));
     }
 }
