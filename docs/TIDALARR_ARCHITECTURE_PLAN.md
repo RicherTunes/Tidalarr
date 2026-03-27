@@ -609,7 +609,7 @@ public class TidalSecurityTests
 <!-- Tidalarr.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Tidalarr</AssemblyName>
     <RootNamespace>Tidalarr</RootNamespace>
   </PropertyGroup>
@@ -656,7 +656,7 @@ dotnet test tests/Tidalarr.Tests.csproj
 # Package plugin
 if ($Deploy) {
     $output = "dist/Tidalarr"
-    Copy-Item "src/bin/$Configuration/net6.0/*" $output -Recurse
+    Copy-Item "src/bin/$Configuration/net8.0/*" $output -Recurse
     Copy-Item "plugin.json" $output
     
     # Create deployment package
