@@ -7,7 +7,7 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly f
 - `dotnet restore Tidalarr.sln` then `dotnet build Tidalarr.sln` to ensure the solution compiles cleanly.
 - See `TidalCLI/` for manual verification helpers and CLI tooling support.
 - Host integrators: see `docs/hostbridge-integration.md` for wiring host-only settings (with NzbDrone annotations) and mapping them to core via DI.
-- For framework choices, see `docs/TFM_RATIONALE.md` (core net6.0, CLI net9.0).
+- For framework choices, see `docs/TFM_RATIONALE.md` (core net8.0, CLI net9.0).
 
 ## Contributor Resources
 - Read the [Repository Guidelines](AGENTS.md) for coding, testing, and review expectations.
