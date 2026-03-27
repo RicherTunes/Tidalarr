@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Tidalarr.Domain.Streaming;
 
 public static class AudioFormatHandler
@@ -57,6 +59,7 @@ public static class AudioFormatHandler
         bool extractFlac,
         bool keepOriginal,
         IAudioProcessor? audio = null,
+        ILogger? logger = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -88,7 +91,7 @@ public static class AudioFormatHandler
         // Ensure we don't keep stale output around from a prior failed attempt.
         if (File.Exists(outputPath))
         {
-            try { File.Delete(outputPath); } catch { /* best effort */ }
+            try { File.Delete(outputPath); } catch (Exception ex) { logger?.LogDebug(ex, "Best-effort cleanup failed"); }
         }
 
         string args = string.Join(" ",
@@ -110,7 +113,7 @@ public static class AudioFormatHandler
             {
                 if (!keepOriginal)
                 {
-                    try { File.Delete(inputPath); } catch { /* best effort */ }
+                    try { File.Delete(inputPath); } catch (Exception ex) { logger?.LogDebug(ex, "Best-effort cleanup failed"); }
                 }
 
                 return outputPath;
@@ -128,7 +131,7 @@ public static class AudioFormatHandler
         // Never produce a mislabeled .flac file as a fallback; on failure keep the original file.
         if (File.Exists(outputPath))
         {
-            try { File.Delete(outputPath); } catch { /* best effort */ }
+            try { File.Delete(outputPath); } catch (Exception ex) { logger?.LogDebug(ex, "Best-effort cleanup failed"); }
         }
 
         return inputPath;

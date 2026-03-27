@@ -65,7 +65,7 @@ public class PluginSandboxRuntimeTests
         IReadOnlyCollection<SettingDefinition> defs = sandbox.Plugin.SettingsProvider.Describe();
 
         Assert.NotNull(defs);
-        Assert.True(defs.Count >= 4, $"Expected at least 4 setting definitions, got {defs.Count}");
+        Assert.Equal(16, defs.Count);
 
         HashSet<string> keys = [.. defs.Select(d => d.Key)];
         Assert.Contains("ConfigPath", keys);
@@ -85,7 +85,7 @@ public class PluginSandboxRuntimeTests
         IReadOnlyDictionary<string, object?> defaults = sandbox.Plugin.SettingsProvider.GetDefaults();
 
         Assert.NotNull(defaults);
-        Assert.True(defaults.Count >= 4);
+        Assert.Equal(16, defaults.Count);
         Assert.True(defaults.ContainsKey("PreferredQuality"));
     }
 
