@@ -132,7 +132,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportErrorAsync(ex);
             }
 
-            return [];
+            throw;
         }
     }
 
@@ -173,7 +173,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportErrorAsync(ex);
             }
 
-            return [];
+            throw;
         }
     }
 
@@ -192,18 +192,26 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
             {
                 return mapped;
             }
+
+            // Mapping returned null — return a safe default to satisfy non-nullable contract
+            return new StreamingAlbum
+            {
+                Id = albumId,
+                Title = string.Empty,
+                Artist = new StreamingArtist { Id = string.Empty, Name = string.Empty }
+            };
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Failed to get album details for: {AlbumId}", albumId);
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportErrorAsync(ex);
+            }
+
+            throw;
         }
-        // Return a safe default to satisfy non-nullable contract
-        return new StreamingAlbum
-        {
-            Id = albumId,
-            Title = string.Empty,
-            Artist = new StreamingArtist { Id = string.Empty, Name = string.Empty }
-        };
     }
 
     protected override ValidationResult ValidateSettings(TidalIndexerSettings settings)
@@ -310,7 +318,13 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         catch (Exception ex)
         {
             Logger?.LogError(ex, "Enhanced search failed for: {Query}", query);
-            return [];
+
+            if (this._statusReporter is not null)
+            {
+                await this._statusReporter.ReportErrorAsync(ex);
+            }
+
+            throw;
         }
     }
 
