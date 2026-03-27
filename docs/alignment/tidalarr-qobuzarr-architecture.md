@@ -1,3 +1,5 @@
+> **Note:** This document is historical (dated 2025-09-26) and may not reflect current architecture. Both plugins now target net8.0 (not net6.0 as stated below). See CLAUDE.md for current guidance.
+
 # Tidalarr vs Qobuzarr Architecture Snapshot (2025-09-26)
 
 ## Repository Layout & Layering

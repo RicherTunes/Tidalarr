@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. The issues described here have been addressed. See CLAUDE.md for current guidance.
+
 # Architect Feedback Response: Critical Production Issues
 ## Immediate Action Plan for Tidalarr v1.1
 

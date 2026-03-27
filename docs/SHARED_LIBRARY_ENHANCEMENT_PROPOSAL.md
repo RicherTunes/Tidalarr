@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. Many of the proposed enhancements have since been implemented or superseded. See CLAUDE.md for current guidance.
+
 # Shared Library Enhancement Proposal
 ## Extract Qobuzarr Advanced Features to Lidarr.Plugin.Common
 

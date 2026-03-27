@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was written during the initial planning phase. The actual implementation diverged significantly (e.g., the plugin now targets net8.0, not net6.0, and uses the shared library via submodule rather than NuGet). See CLAUDE.md for current guidance.
+
 # Tidalarr Architecture Plan
 ## Complete Blueprint for Tidal Integration Following Qobuzarr Architecture
 

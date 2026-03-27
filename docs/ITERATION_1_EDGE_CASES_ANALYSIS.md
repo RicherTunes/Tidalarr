@@ -1,3 +1,5 @@
+> **Note:** This document is historical and may not reflect current architecture. It was written during an early iteration of hardening analysis. See CLAUDE.md for current guidance.
+
 # Iteration 1: Edge Cases and Error Scenarios Analysis
 ## Hardening Tidalarr Against Real-World Failures
 
