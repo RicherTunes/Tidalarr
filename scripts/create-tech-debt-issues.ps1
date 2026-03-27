@@ -64,7 +64,7 @@ References: src/Tidalarr/Integration/PathValidationExtensions.cs
 Context: Prevent host assemblies from leaking into plugin zip.
 
 Acceptance:
-- [ ] CI job runs `build.ps1 -Package` for net6.0.
+- [ ] CI job runs `build.ps1 -Package` for net8.0.
 - [ ] Fails if zip contains disallowed assemblies (allowlist: `Lidarr.Plugin.Tidalarr.dll`, `Lidarr.Plugin.Common.dll`).
 References: CLI packaging test (Trait scope=cli)
 '@;
@@ -83,7 +83,7 @@ References: src/Tidalarr/Integration/*Settings.cs, src/Tidalarr.HostBridge/Setti
     Labels = @('tech-debt')
   }
   ,@{
-    Title = 'docs(tfms): document net6.0(core) vs net9.0(cli) rationale';
+    Title = 'docs(tfms): document net8.0(core) vs net9.0(cli) rationale';
     Body = @'
 Context: Different TFMs for core and CLI.
 

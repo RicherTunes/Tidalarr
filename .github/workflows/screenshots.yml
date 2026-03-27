@@ -15,7 +15,7 @@ permissions:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  # Lidarr 3.x requires .NET 8 - no more net6.0 support
+  # Lidarr 3.x requires .NET 8
   # Ecosystem baseline: keep aligned with other plugins unless explicitly overridden
   LIDARR_DOCKER_VERSION: 'pr-plugins-3.1.2.4913'
 
