@@ -70,3 +70,25 @@ Add any relevant output or screenshots.
 - [ ] Public surface area documented if changed
 - [ ] Docs updated (e.g., HostBridge guide) if needed
 
+---
+
+## Pre-Merge Verification (CI billing blocked — manual verification required)
+
+### Required (attach evidence or explain skip)
+- [ ] `dotnet build` succeeds (0 errors)
+- [ ] `dotnet test --blame-hang-timeout 30s` — test count and failures noted below
+- [ ] Runtime sandbox tests pass (`--filter "Category=Runtime"`)
+- [ ] No new `net6.0` references introduced
+
+### If Common submodule changed
+- [ ] Common SHA matches a tagged release (e.g., v1.7.1)
+- [ ] Promotion checklist items verified per `ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PROMOTION_CHECKLIST.md`
+
+### Test Results
+- Total: ___ passed, ___ failed, ___ skipped
+- Runtime: ___ passed
+
+### Bridge Parity (streaming plugins only)
+- [ ] `AddBridgeDefaults()` called in ConfigureServices
+- [ ] No silent exception swallowing in indexer/download client paths
+
