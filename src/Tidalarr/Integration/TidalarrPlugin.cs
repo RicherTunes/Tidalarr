@@ -12,23 +12,15 @@ public sealed class TidalarrPlugin : IPlugin
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-    private readonly object _settingsLock = new();
     private readonly TidalModule _module = new();
-    private ServiceProvider? _serviceProvider;
+    private volatile ServiceProvider? _serviceProvider;
     private IPluginContext? _context;
     private TidalarrSettings _settings = new();
 
-    // Non-public Services property for the test harness (accessed via reflection)
-    private IServiceProvider Services
-    {
-        get
-        {
-            lock (this._settingsLock)
-            {
-                return this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
-            }
-        }
-    }
+    // Non-public Services property for the test harness (accessed via reflection).
+    // The volatile field gives visibility across threads; no lock needed.
+    private IServiceProvider Services =>
+        this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
 
     public PluginManifest Manifest
     {
@@ -132,11 +124,8 @@ public sealed class TidalarrPlugin : IPlugin
             return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(PluginErrorCode.ValidationFailed, "Settings failed validation", null, meta));
         }
 
-        lock (this._settingsLock)
-        {
-            this._settings = typed;
-            RebuildServiceProvider();
-        }
+        this._settings = typed;
+        RebuildServiceProvider();
 
         return PluginOperationResult<Dictionary<string, string>>.Success(new()
         {
@@ -159,9 +148,16 @@ public sealed class TidalarrPlugin : IPlugin
         return ValueTask.FromResult<IDownloadClient?>(adapter);
     }
 
+    /// <summary>
+    /// Atomically swaps the service provider. The old provider is NOT disposed because
+    /// concurrent callers (CreateIndexerAsync, CreateDownloadClientAsync) may still hold
+    /// a reference obtained from the <see cref="Services"/> getter. Disposing would cause
+    /// ObjectDisposedException. The old provider becomes unreachable once all active
+    /// operations complete and is collected by the GC. This is safe because all registered
+    /// services are managed objects with no unmanaged resource leaks.
+    /// </summary>
     private void RebuildServiceProvider()
     {
-        this._serviceProvider?.Dispose();
         this._serviceProvider = this._module.BuildServiceProvider(this._settings);
     }
 
@@ -397,11 +393,8 @@ public sealed class TidalarrPlugin : IPlugin
                 return validation.ToPluginValidationResult();
             }
 
-            lock (this._plugin._settingsLock)
-            {
-                this._plugin._settings = typed;
-                this._plugin.RebuildServiceProvider();
-            }
+            this._plugin._settings = typed;
+            this._plugin.RebuildServiceProvider();
 
             return PluginValidationResult.Success();
         }
