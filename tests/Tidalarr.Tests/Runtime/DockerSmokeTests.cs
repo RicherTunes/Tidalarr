@@ -82,6 +82,17 @@ public class DockerSmokeTests : IDisposable
         return candidates.FirstOrDefault(File.Exists);
     }
 
+    /// <summary>
+    /// Checks whether the plugin DLL was built against host assemblies (host-bridge build)
+    /// rather than with SkipHostBridge=true (which pulls FV 11.x from NuGet).
+    /// A proper host-bridge build produces Lidarr.Plugin.Abstractions.dll alongside the merged DLL.
+    /// </summary>
+    private static bool IsHostBridgeBuild(string dllPath)
+    {
+        string dir = Path.GetDirectoryName(dllPath)!;
+        return File.Exists(Path.Combine(dir, "Lidarr.Plugin.Abstractions.dll"));
+    }
+
     [SkippableFact]
     [Trait("Category", "Docker")]
     public async Task Plugin_Loads_In_Real_Lidarr_Container()
@@ -92,28 +103,26 @@ public class DockerSmokeTests : IDisposable
         Skip.If(dllPath is null,
             "Plugin DLL not found. Build with ILRepack first: dotnet build src/Tidalarr/Tidalarr.csproj -c Release");
 
+        Skip.If(!IsHostBridgeBuild(dllPath!),
+            "Plugin was built with SkipHostBridge=true (uses FV 11.x). " +
+            "Docker smoke requires a host-bridge build (FV 9.x). " +
+            "Run: pwsh scripts/verify-local.ps1 -IncludeSmoke");
+
         try
         {
             // Remove any leftover container from a previous run
             RunDocker($"rm -f {ContainerName}");
 
-            // Start Lidarr with the plugin DLL mounted into the correct plugin directory.
-            // Lidarr's plugin loader expects: /config/plugins/<owner>/<pluginName>/<dll>
-            string mountSource = dllPath!.Replace("\\", "/");
-
-            // Also mount Abstractions DLL if it exists alongside the merged DLL
-            string dllDir = Path.GetDirectoryName(dllPath)!;
-            string? abstractionsDll = Path.Combine(dllDir, "Lidarr.Plugin.Abstractions.dll");
-            bool hasAbstractions = File.Exists(abstractionsDll);
-            string abstractionsMount = hasAbstractions
-                ? $"-v \"{abstractionsDll!.Replace("\\", "/")}:/config/plugins/RicherTunes/Tidalarr/Lidarr.Plugin.Abstractions.dll\" "
-                : "";
+            // Start Lidarr with the plugin directory mounted into the correct plugin path.
+            // Lidarr's plugin loader expects: /config/plugins/<owner>/<pluginName>/
+            // Mount the entire directory so the merged DLL plus any kept-as-runtime
+            // dependencies (Abstractions, etc.) are all available to the host.
+            string pluginDir = Path.GetDirectoryName(dllPath!)!.Replace("\\", "/");
 
             string runArgs =
                 $"run -d --name {ContainerName} " +
                 $"-p {LidarrPort}:{LidarrPort} " +
-                $"-v \"{mountSource}:/config/plugins/RicherTunes/Tidalarr/Lidarr.Plugin.Tidalarr.dll\" " +
-                abstractionsMount +
+                $"-v \"{pluginDir}:/config/plugins/RicherTunes/Tidalarr\" " +
                 DockerImage;
 
             (int exitCode, string output) = RunDocker(runArgs);
