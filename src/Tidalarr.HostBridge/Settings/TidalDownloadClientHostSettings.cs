@@ -4,34 +4,34 @@ namespace Tidalarr.HostBridge.Settings;
 
 public class TidalDownloadClientHostSettings
 {
-    [FieldDefinition(Integration.SettingsDisplay.Download.PreferredQualityOrder, Label = Integration.SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQualityHost), HelpText = "Audio quality requested from Tidal.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.PreferredQualityOrder, Label = Integration.SettingsDisplay.Download.PreferredQualityLabel, Type = FieldType.Select, SelectOptions = typeof(TidalQualityHost), HelpText = Integration.SettingsDisplay.Download.PreferredQualityHelpText)]
     public TidalQualityHost PreferredQuality { get; set; } = TidalQualityHost.Lossless;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.DownloadPathOrder, Label = Integration.SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = "Destination folder for downloaded albums.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.DownloadPathOrder, Label = Integration.SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = Integration.SettingsDisplay.Download.DownloadPathHelpText)]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.IncludeMqaOrder, Label = Integration.SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Allow Master (MQA) releases when available.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.IncludeMqaOrder, Label = Integration.SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.IncludeMqaHelpText)]
     public bool IncludeMqa { get; set; } = true;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ExtractFlacOrder, Label = Integration.SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Convert M4A containers to FLAC when possible.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.ExtractFlacOrder, Label = Integration.SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.ExtractFlacHelpText)]
     public bool ExtractFlac { get; set; } = true;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ReEncodeAACOrder, Label = Integration.SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.ReEncodeAACOrder, Label = Integration.SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.ReEncodeAACHelpText)]
     public bool ReEncodeAAC { get; set; } = false;
 
     [FieldDefinition(Integration.SettingsDisplay.Download.SaveSyncedLyricsOrder, Label = Integration.SettingsDisplay.Download.SaveSyncedLyricsLabel, Type = FieldType.Checkbox, Advanced = true)]
     public bool SaveSyncedLyrics { get; set; } = true;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.UseLrclibOrder, Label = Integration.SettingsDisplay.Download.UseLrclibLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.UseLrclibOrder, Label = Integration.SettingsDisplay.Download.UseLrclibLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.UseLrclibHelpText)]
     public bool UseLRCLIB { get; set; } = false;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = "Delay between chunk requests in milliseconds. Use 0 for maximum speed, increase if rate-limited.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.ChunkDelayOrder, Label = Integration.SettingsDisplay.Download.ChunkDelayLabel, Type = FieldType.Number, Unit = Integration.SettingsDisplay.Download.ChunkDelayUnit, Advanced = true, HelpText = Integration.SettingsDisplay.Download.ChunkDelayHelpText)]
     public int DownloadDelay { get; set; } = 0;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of tracks to download concurrently. Increase cautiously: higher values may increase memory usage and can trigger rate limiting.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = Integration.SettingsDisplay.Download.MaxConcurrentTrackDownloadsHelpText)]
     public int MaxConcurrentTrackDownloads { get; set; } = 2;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
+    [FieldDefinition(Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsOrder, Label = Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsLabel, Type = FieldType.Number, Advanced = true, HelpText = Integration.SettingsDisplay.Download.MaxConcurrentChunkDownloadsHelpText)]
     public int MaxConcurrentChunkDownloads { get; set; } = 2;
 
     public Integration.TidalDownloadClientSettings ToCore()
