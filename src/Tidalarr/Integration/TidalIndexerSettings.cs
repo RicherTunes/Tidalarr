@@ -11,16 +11,16 @@ public class TidalIndexerSettings : BaseStreamingSettings
 {
     private static readonly TidalIndexerSettingsValidator Validator = new();
 
-    [FieldDefinition(SettingsDisplay.Indexer.ConfigPathOrder, Label = SettingsDisplay.Indexer.ConfigPathLabel, Type = FieldType.Textbox, HelpText = "Directory used to persist Tidal authentication tokens.")]
+    [FieldDefinition(SettingsDisplay.Indexer.ConfigPathOrder, Label = SettingsDisplay.Indexer.ConfigPathLabel, Type = FieldType.Textbox, HelpText = SettingsDisplay.Indexer.ConfigPathHelpText)]
     public string ConfigPath { get; set; } = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
 
-    [FieldDefinition(SettingsDisplay.Indexer.RedirectUrlOrder, Label = SettingsDisplay.Indexer.RedirectUrlLabel, Type = FieldType.Textbox, HelpText = "OAuth redirect URL captured after completing the Tidal login flow.")]
+    [FieldDefinition(SettingsDisplay.Indexer.RedirectUrlOrder, Label = SettingsDisplay.Indexer.RedirectUrlLabel, Type = FieldType.Textbox, HelpText = SettingsDisplay.Indexer.RedirectUrlHelpText)]
     public string RedirectUrl { get; set; } = string.Empty;
 
-    [FieldDefinition(SettingsDisplay.Indexer.MarketOrder, Label = SettingsDisplay.Indexer.MarketLabel, Type = FieldType.Textbox, HelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.MarketOrder, Label = SettingsDisplay.Indexer.MarketLabel, Type = FieldType.Textbox, HelpText = SettingsDisplay.Indexer.MarketHelpText, Advanced = true)]
     public string TidalMarket { get; set; } = "US";
 
-    [FieldDefinition(SettingsDisplay.Indexer.EarlyDownloadLimitOrder, Label = SettingsDisplay.Indexer.EarlyDownloadLimitLabel, Type = FieldType.Number, Unit = SettingsDisplay.Indexer.EarlyDownloadLimitUnit, HelpText = "Limit pre-release downloads to this many days before release.", Advanced = true)]
+    [FieldDefinition(SettingsDisplay.Indexer.EarlyDownloadLimitOrder, Label = SettingsDisplay.Indexer.EarlyDownloadLimitLabel, Type = FieldType.Number, Unit = SettingsDisplay.Indexer.EarlyDownloadLimitUnit, HelpText = SettingsDisplay.Indexer.EarlyDownloadLimitHelpText, Advanced = true)]
     public int? EarlyReleaseLimit { get; set; } = 14;
 
     [FieldDefinition(SettingsDisplay.Indexer.EnableCacheOrder, Label = SettingsDisplay.Indexer.EnableCacheLabel, Type = FieldType.Checkbox, Advanced = true)]
