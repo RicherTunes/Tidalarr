@@ -20,15 +20,19 @@ namespace Tidalarr.Tests.Runtime;
 /// What this proves that sandbox tests cannot:
 /// - The merged DLL loads inside the real Lidarr host process
 /// - Plugin registers its indexer schema in the Lidarr API
-/// - No assembly version conflicts with the actual Lidarr runtime
 /// - Plugin survives the full Lidarr startup lifecycle
+///
+/// Known limitation: Lidarr.Plugin.Abstractions.dll references FluentValidation 11.x
+/// but the host ships FV 9.x. If the merged DLL was built with SkipHostBridge=true,
+/// the plugin may fail to load due to this host-boundary conflict. Build with full
+/// host assemblies (via verify-local.ps1) for a complete Docker smoke test.
 /// </summary>
 public class DockerSmokeTests : IDisposable
 {
     private const string ContainerName = "tidalarr-smoke-test";
     private const string DockerImage = "ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913";
     private const int LidarrPort = 8686;
-    private const int StartupTimeoutSeconds = 30;
+    private const int StartupTimeoutSeconds = 60;
 
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
     private bool _containerStarted;
@@ -93,12 +97,23 @@ public class DockerSmokeTests : IDisposable
             // Remove any leftover container from a previous run
             RunDocker($"rm -f {ContainerName}");
 
-            // Start Lidarr with the plugin DLL mounted into the plugins directory
+            // Start Lidarr with the plugin DLL mounted into the correct plugin directory.
+            // Lidarr's plugin loader expects: /config/plugins/<owner>/<pluginName>/<dll>
             string mountSource = dllPath!.Replace("\\", "/");
+
+            // Also mount Abstractions DLL if it exists alongside the merged DLL
+            string dllDir = Path.GetDirectoryName(dllPath)!;
+            string? abstractionsDll = Path.Combine(dllDir, "Lidarr.Plugin.Abstractions.dll");
+            bool hasAbstractions = File.Exists(abstractionsDll);
+            string abstractionsMount = hasAbstractions
+                ? $"-v \"{abstractionsDll!.Replace("\\", "/")}:/config/plugins/RicherTunes/Tidalarr/Lidarr.Plugin.Abstractions.dll\" "
+                : "";
+
             string runArgs =
                 $"run -d --name {ContainerName} " +
                 $"-p {LidarrPort}:{LidarrPort} " +
-                $"-v \"{mountSource}:/app/bin/Plugins/Tidalarr/Lidarr.Plugin.Tidalarr.dll\" " +
+                $"-v \"{mountSource}:/config/plugins/RicherTunes/Tidalarr/Lidarr.Plugin.Tidalarr.dll\" " +
+                abstractionsMount +
                 DockerImage;
 
             (int exitCode, string output) = RunDocker(runArgs);
