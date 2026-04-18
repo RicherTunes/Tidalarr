@@ -13,7 +13,11 @@ public class FileTokenStore : ITokenStorage
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
+        WriteIndented = true,
+        Converters =
+        {
+            new LenientDateTimeConverter()
+        }
     };
 
     public FileTokenStore(string? storagePath = null)
@@ -85,4 +89,3 @@ public class FileTokenStore : ITokenStorage
         }
     }
 }
-

@@ -68,6 +68,35 @@ public class FileTokenStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadTokens_LegacyNonIsoDateFormat_LoadsSuccessfully()
+    {
+        // Arrange
+        string legacyJson =
+            """
+            {
+              "accessToken": "test_access_token",
+              "refreshToken": "test_refresh_token",
+              "tokenType": "Bearer",
+              "expiresAt": "01/05/2026 03:48:15",
+              "sessionId": "session123",
+              "countryCode": "CA",
+              "userId": "12345"
+            }
+            """;
+        await File.WriteAllTextAsync(this._testStoragePath, legacyJson);
+
+        // Act
+        TidalTokens? tokens = await this._storage.LoadTokensAsync();
+
+        // Assert
+        Assert.NotNull(tokens);
+        Assert.Equal("test_access_token", tokens.AccessToken);
+        Assert.Equal("test_refresh_token", tokens.RefreshToken);
+        Assert.Equal(DateTimeKind.Utc, tokens.ExpiresAt.Kind);
+        Assert.Equal(new DateTime(2026, 1, 5, 3, 48, 15, DateTimeKind.Utc), tokens.ExpiresAt);
+    }
+
+    [Fact]
     public async Task DeleteTokens_FileExists_RemovesFile()
     {
         // Arrange
@@ -117,6 +146,5 @@ public class FileTokenStoreTests : IDisposable
         }
     }
 }
-
 
 
