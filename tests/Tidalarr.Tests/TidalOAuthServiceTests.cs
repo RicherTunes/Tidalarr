@@ -218,6 +218,29 @@ public class TidalOAuthServiceTests
     }
 
     [Fact]
+    public async Task RefreshTokensAsync_ResponseMissingRefreshToken_RetainsExistingRefreshToken()
+    {
+        // Arrange
+        Domain.Authentication.TidalTokenResponse mockResponse = new(
+            access_token: "new_access_token",
+            refresh_token: string.Empty,
+            token_type: "Bearer",
+            expires_in: 3600,
+            user: new TidalUserResponse("session456", "US", 12345)
+        );
+
+        HttpClient httpClient = CreateMockHttpClient(JsonSerializer.Serialize(mockResponse));
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
+
+        // Act
+        TidalTokens tokens = await oauthService.RefreshTokensAsync("old_refresh_token");
+
+        // Assert
+        Assert.Equal("old_refresh_token", tokens.RefreshToken);
+    }
+
+    [Fact]
     public async Task ExchangeCodeAsync_ApiError_ThrowsException()
     {
         // Arrange
@@ -291,4 +314,3 @@ public class MockTokenStorage : ITokenStorage
         return Task.CompletedTask;
     }
 }
-

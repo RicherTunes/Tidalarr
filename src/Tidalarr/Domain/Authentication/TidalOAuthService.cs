@@ -121,7 +121,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
         string content = await response.Content.ReadAsStringAsync();
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
+        this._currentTokens = MapToTidalTokens(tokenData, fallbackRefreshToken: refreshToken);
         await this._tokenStorage.SaveTokensAsync(this._currentTokens);
         return this._currentTokens;
     }
@@ -251,7 +251,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         return Convert.ToHexString(truncated).ToLowerInvariant();
     }
 
-    private static TidalTokens MapToTidalTokens(TidalTokenResponse response)
+    private static TidalTokens MapToTidalTokens(TidalTokenResponse response, string? fallbackRefreshToken = null)
     {
         string sessionId = response.user?.sessionId ?? string.Empty;
         string countryCode = response.user?.countryCode ?? string.Empty;
@@ -271,14 +271,18 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
         countryCode = string.IsNullOrWhiteSpace(countryCode) ? "US" : countryCode.Trim().ToUpperInvariant();
 
+        string refreshToken = string.IsNullOrWhiteSpace(response.refresh_token)
+            ? (fallbackRefreshToken ?? string.Empty)
+            : response.refresh_token;
+
         return new(
-                AccessToken: response.access_token,
-                RefreshToken: response.refresh_token,
-                TokenType: response.token_type,
-                ExpiresAt: DateTime.UtcNow.AddSeconds(response.expires_in),
-                SessionId: sessionId,
-                CountryCode: countryCode,
-                UserId: userId);
+            AccessToken: response.access_token,
+            RefreshToken: refreshToken,
+            TokenType: response.token_type,
+            ExpiresAt: DateTime.UtcNow.AddSeconds(response.expires_in),
+            SessionId: sessionId,
+            CountryCode: countryCode,
+            UserId: userId);
     }
 
     public async Task<TidalTokens> GetValidTokensAsync()
