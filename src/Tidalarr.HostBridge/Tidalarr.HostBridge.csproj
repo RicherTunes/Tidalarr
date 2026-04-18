@@ -22,5 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Tidalarr\Tidalarr.csproj" />
   </ItemGroup>
-</Project>
 
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+</Project>
