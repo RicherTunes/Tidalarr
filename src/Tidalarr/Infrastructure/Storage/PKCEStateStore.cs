@@ -24,6 +24,25 @@ public class PKCEStateStore
     // In-memory cache for PKCE state, keyed by normalized config path.
     // This allows URL generation without file I/O during schema rendering.
     private static readonly ConcurrentDictionary<string, PKCEState> InMemoryCache = new();
+    private static readonly ConcurrentDictionary<string, object> CacheLocks = new();
+
+    private static string NormalizeCacheKey(string configPath)
+    {
+        string trimmed = configPath.Trim();
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(trimmed);
+        }
+        catch
+        {
+            fullPath = trimmed;
+        }
+
+        fullPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return fullPath.ToLowerInvariant();
+    }
 
     public static bool IsCallbackStateMatch(PKCEState storedState, string callbackState)
     {
@@ -82,32 +101,36 @@ public class PKCEStateStore
 
         try
         {
-            string cacheKey = configPath.ToLowerInvariant();
+            string cacheKey = NormalizeCacheKey(configPath);
+            object gate = CacheLocks.GetOrAdd(cacheKey, _ => new object());
 
-            // Check in-memory cache first (fast path, no I/O)
-            if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState) &&
-                cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+            lock (gate)
             {
-                return cachedState.AuthorizationUrl;
+                // Check in-memory cache first (fast path, no I/O)
+                if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState) &&
+                    cachedState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+                {
+                    return cachedState.AuthorizationUrl;
+                }
+
+                // Try to load from file if exists (for state continuity across restarts)
+                string storagePath = Path.Combine(configPath, "pkce_state.json");
+                PKCEState? fileState = TryReadState(storagePath);
+                if (fileState != null && fileState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
+                {
+                    InMemoryCache[cacheKey] = fileState;
+                    return fileState.AuthorizationUrl;
+                }
+
+                // Generate new state in-memory (no file I/O required)
+                PKCEState newState = CreateState();
+                InMemoryCache[cacheKey] = newState;
+
+                // Attempt to persist to file (best-effort, don't fail if directory doesn't exist)
+                TryPersistState(configPath, storagePath, newState);
+
+                return newState.AuthorizationUrl;
             }
-
-            // Try to load from file if exists (for state continuity across restarts)
-            string storagePath = Path.Combine(configPath, "pkce_state.json");
-            PKCEState? fileState = TryReadState(storagePath);
-            if (fileState != null && fileState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
-            {
-                InMemoryCache[cacheKey] = fileState;
-                return fileState.AuthorizationUrl;
-            }
-
-            // Generate new state in-memory (no file I/O required)
-            PKCEState newState = CreateState();
-            InMemoryCache[cacheKey] = newState;
-
-            // Attempt to persist to file (best-effort, don't fail if directory doesn't exist)
-            TryPersistState(configPath, storagePath, newState);
-
-            return newState.AuthorizationUrl;
         }
         catch
         {
@@ -154,7 +177,7 @@ public class PKCEStateStore
             return;
         }
 
-        string cacheKey = configPath.ToLowerInvariant();
+        string cacheKey = NormalizeCacheKey(configPath);
         PKCEState newState = CreateState();
         InMemoryCache[cacheKey] = newState;
 
@@ -179,7 +202,7 @@ public class PKCEStateStore
         try
         {
             // Update in-memory cache
-            string cacheKey = this._configPath.ToLowerInvariant();
+            string cacheKey = NormalizeCacheKey(this._configPath);
             InMemoryCache[cacheKey] = state;
 
             // Persist to disk
@@ -196,7 +219,7 @@ public class PKCEStateStore
     {
         try
         {
-            string cacheKey = this._configPath.ToLowerInvariant();
+            string cacheKey = NormalizeCacheKey(this._configPath);
 
             // Check in-memory cache first (fast path, critical for schema->validation flow)
             if (InMemoryCache.TryGetValue(cacheKey, out PKCEState? cachedState))
@@ -250,7 +273,7 @@ public class PKCEStateStore
         try
         {
             // Remove from in-memory cache
-            string cacheKey = this._configPath.ToLowerInvariant();
+            string cacheKey = NormalizeCacheKey(this._configPath);
             _ = InMemoryCache.TryRemove(cacheKey, out _);
 
             // Delete from disk

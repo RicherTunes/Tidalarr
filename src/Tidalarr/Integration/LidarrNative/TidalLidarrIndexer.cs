@@ -321,9 +321,15 @@ public class TidalLidarrIndexer(
 
             if (!PKCEStateStore.IsCallbackStateMatch(pkceState, callbackResult.State))
             {
-                this._logger.Warn("OAuth state mismatch - likely a stale URL or different browser tab. Regenerating OAuth URL.");
-                PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
-                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ");
+                string expected = pkceState.State.Length > 12 ? pkceState.State[..12] : pkceState.State;
+                string actual = callbackResult.State.Length > 12 ? callbackResult.State[..12] : callbackResult.State;
+                this._logger.Warn($"OAuth state mismatch - callback='{actual}…' expected='{expected}…'. Not regenerating; prompting for re-auth with the latest URL.");
+
+                // Important: do NOT regenerate here. If we generate a new state immediately, we can strand the user in a loop
+                // where the "expected" state changes every time they click Test while still pasting an older redirect URL.
+                failures.Add(new ValidationFailure(
+                    "RedirectUrl",
+                    $"OAuth state mismatch. Authentication required. Copy this URL, open in browser, log in, then paste the redirect URL here: {pkceState.AuthorizationUrl}"));
                 return false;
             }
 

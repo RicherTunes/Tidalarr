@@ -1,4 +1,7 @@
+using System.Linq;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Tests.Unit;
@@ -216,6 +219,47 @@ public class PKCEStateStoreTests
         finally
         {
             Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task TryGetOrCreateAuthorizationUrl_WhenCalledConcurrently_ReturnsStableUrlAndStateFile()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            const int callers = 32;
+            using ManualResetEventSlim gate = new(initialState: false);
+
+            Task<string?>[] tasks = Enumerable.Range(0, callers)
+                .Select(_ => Task.Run(() =>
+                {
+                    gate.Wait();
+                    return PKCEStateStore.TryGetOrCreateAuthorizationUrl(tempDir);
+                }))
+                .ToArray();
+
+            gate.Set();
+            string?[] results = await Task.WhenAll(tasks);
+
+            Assert.All(results, url => Assert.False(string.IsNullOrWhiteSpace(url)));
+            Assert.Single(results.Distinct());
+
+            string path = Path.Combine(tempDir, "pkce_state.json");
+            Assert.True(File.Exists(path));
+
+            string json = File.ReadAllText(path);
+            using JsonDocument document = JsonDocument.Parse(json);
+            string? persistedUrl = document.RootElement.GetProperty("authorizationUrl").GetString();
+            Assert.Equal(results[0], persistedUrl);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
         }
     }
 }
