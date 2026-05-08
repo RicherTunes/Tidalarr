@@ -81,8 +81,8 @@ public sealed class TidalarrPlugin : IPlugin
         const string INVALID = "CFG100";
 
         TidalarrSettings typed = MapToSettings(settings);
-        FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
-        if (validation.IsValid)
+        (bool isValid, var errors) = typed.ValidateSimple();
+        if (isValid)
         {
             return PluginOperationResult<Dictionary<string, string>>.Success(new()
             {
@@ -91,14 +91,11 @@ public sealed class TidalarrPlugin : IPlugin
             });
         }
 
-        string[] codes = [.. validation.Errors
-            .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
-            .Select(e => e.ErrorCode)
-            .Distinct()];
+        string[] errorMessages = [.. errors.Select(e => e.Error).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct()];
         Dictionary<string, string> meta = new()
         {
             ["id"] = INVALID,
-            ["errors"] = string.Join(",", codes)
+            ["errors"] = string.Join(",", errorMessages)
         };
         return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(PluginErrorCode.ValidationFailed, "Settings failed validation", null, meta));
     }
@@ -109,17 +106,14 @@ public sealed class TidalarrPlugin : IPlugin
         const string INVALID = "CFG100";
 
         TidalarrSettings typed = MapToSettings(settings);
-        FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
-        if (!validation.IsValid)
+        (bool isValid, var errors) = typed.ValidateSimple();
+        if (!isValid)
         {
-            string[] codes = [.. validation.Errors
-                .Where(e => !string.IsNullOrWhiteSpace(e.ErrorCode))
-                .Select(e => e.ErrorCode)
-                .Distinct()];
+            string[] errorMessages = [.. errors.Select(e => e.Error).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct()];
             Dictionary<string, string> meta = new()
             {
                 ["id"] = INVALID,
-                ["errors"] = string.Join(",", codes)
+                ["errors"] = string.Join(",", errorMessages)
             };
             return PluginOperationResult<Dictionary<string, string>>.Failure(new PluginError(PluginErrorCode.ValidationFailed, "Settings failed validation", null, meta));
         }
@@ -380,17 +374,20 @@ public sealed class TidalarrPlugin : IPlugin
         public PluginValidationResult Validate(IDictionary<string, object?> settings)
         {
             TidalarrSettings typed = MapToSettings(settings);
-            FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
-            return validation.ToPluginValidationResult();
+            (bool isValid, var errors) = typed.ValidateSimple();
+            if (isValid) return PluginValidationResult.Success();
+            string[] messages = [.. errors.Select(e => e.Error).Where(e => !string.IsNullOrWhiteSpace(e))];
+            return PluginValidationResult.Failure(messages);
         }
 
         public PluginValidationResult Apply(IDictionary<string, object?> settings)
         {
             TidalarrSettings typed = MapToSettings(settings);
-            FluentValidation.Results.ValidationResult validation = typed.ValidateFluent();
-            if (!validation.IsValid)
+            (bool isValid, var errors) = typed.ValidateSimple();
+            if (!isValid)
             {
-                return validation.ToPluginValidationResult();
+                string[] messages = [.. errors.Select(e => e.Error).Where(e => !string.IsNullOrWhiteSpace(e))];
+                return PluginValidationResult.Failure(messages);
             }
 
             this._plugin._settings = typed;
