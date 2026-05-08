@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Tidalarr.Core.Constants;
 
@@ -11,11 +12,16 @@ namespace Tidalarr.Infrastructure.Storage;
 /// Persists PKCE state (code_verifier, state, clientUniqueKey) between OAuth authorization and token exchange.
 /// Required because the PKCE flow requires the original code_verifier when exchanging the authorization code.
 /// </summary>
+/// <remarks>
+/// Persistence routes through <see cref="FileTokenStore{TSession}"/>, which encrypts the payload at rest
+/// using the platform token protector (DPAPI on Windows, Keychain on macOS, libsecret/DataProtection on Linux).
+/// The legacy plaintext format is auto-migrated on first read.
+/// </remarks>
 public class PKCEStateStore
 {
-    private readonly string _configPath;
-    private readonly string _storagePath;
+    private const string StateFileName = "pkce_state.json";
     private const int StateTtlMinutes = 30;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -26,6 +32,23 @@ public class PKCEStateStore
     // This allows URL generation without file I/O during schema rendering.
     private static readonly ConcurrentDictionary<string, PKCEState> InMemoryCache = new();
 
+    private readonly string _configPath;
+    private readonly string _storagePath;
+    private readonly FileTokenStore<PKCEState> _store;
+
+    public PKCEStateStore(string configPath)
+    {
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
+        }
+
+        this._configPath = configPath;
+        this._storagePath = Path.Combine(configPath, StateFileName);
+        EnsureStorageDirectoryExists();
+        this._store = new FileTokenStore<PKCEState>(this._storagePath);
+    }
+
     public static bool IsCallbackStateMatch(PKCEState storedState, string callbackState)
     {
         return storedState is null
@@ -34,6 +57,10 @@ public class PKCEStateStore
                string.Equals(storedState.State, callbackState, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Reads the cached authorization URL for the given config path without generating a new one.
+    /// Returns null if no state exists or the state cannot be loaded.
+    /// </summary>
     public static string? TryReadAuthorizationUrl(string? configPath)
     {
         if (string.IsNullOrWhiteSpace(configPath))
@@ -43,22 +70,14 @@ public class PKCEStateStore
 
         try
         {
-            string storagePath = Path.Combine(configPath, "pkce_state.json");
+            string storagePath = Path.Combine(configPath, StateFileName);
             if (!File.Exists(storagePath))
             {
                 return null;
             }
 
-            string json = File.ReadAllText(storagePath);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            using JsonDocument document = JsonDocument.Parse(json);
-            return !document.RootElement.TryGetProperty("authorizationUrl", out JsonElement authorizationUrlElement)
-                ? null
-                : authorizationUrlElement.GetString();
+            PKCEState? state = LoadStateFromDisk(storagePath);
+            return state?.AuthorizationUrl;
         }
         catch
         {
@@ -93,8 +112,8 @@ public class PKCEStateStore
             }
 
             // Try to load from file if exists (for state continuity across restarts)
-            string storagePath = Path.Combine(configPath, "pkce_state.json");
-            PKCEState? fileState = TryReadState(storagePath);
+            string storagePath = Path.Combine(configPath, StateFileName);
+            PKCEState? fileState = LoadStateFromDisk(storagePath);
             if (fileState != null && fileState.CreatedAt.AddMinutes(StateTtlMinutes) >= DateTime.UtcNow)
             {
                 InMemoryCache[cacheKey] = fileState;
@@ -125,27 +144,6 @@ public class PKCEStateStore
     }
 
     /// <summary>
-    /// Attempts to persist state to file. Best-effort, never throws.
-    /// </summary>
-    private static void TryPersistState(string configPath, string storagePath, PKCEState state)
-    {
-        try
-        {
-            if (!Directory.Exists(configPath))
-            {
-                _ = Directory.CreateDirectory(configPath);
-            }
-
-            string json = JsonSerializer.Serialize(state, JsonOptions);
-            File.WriteAllText(storagePath, json);
-        }
-        catch
-        {
-            // Silently ignore persistence failures - URL generation still works
-        }
-    }
-
-    /// <summary>
     /// Regenerates PKCE codes for a given config path. Call after successful token exchange.
     /// </summary>
     public static void RegenerateCodes(string? configPath)
@@ -159,20 +157,8 @@ public class PKCEStateStore
         PKCEState newState = CreateState();
         InMemoryCache[cacheKey] = newState;
 
-        string storagePath = Path.Combine(configPath, "pkce_state.json");
+        string storagePath = Path.Combine(configPath, StateFileName);
         TryPersistState(configPath, storagePath, newState);
-    }
-
-    public PKCEStateStore(string configPath)
-    {
-        if (string.IsNullOrWhiteSpace(configPath))
-        {
-            throw new ArgumentNullException(nameof(configPath), "Config path is required for PKCE state storage");
-        }
-
-        this._configPath = configPath;
-        this._storagePath = Path.Combine(configPath, "pkce_state.json");
-        EnsureStorageDirectoryExists();
     }
 
     public async Task SaveStateAsync(PKCEState state)
@@ -183,9 +169,9 @@ public class PKCEStateStore
             string cacheKey = this._configPath.ToLowerInvariant();
             InMemoryCache[cacheKey] = state;
 
-            // Persist to disk
-            string json = JsonSerializer.Serialize(state, JsonOptions);
-            await File.WriteAllTextAsync(this._storagePath, json);
+            // Persist to disk via encrypted token store
+            await this._store.SaveAsync(new TokenEnvelope<PKCEState>(state, expiresAt: state.CreatedAt.AddMinutes(StateTtlMinutes)))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -217,18 +203,12 @@ public class PKCEStateStore
                 return null;
             }
 
-            string json = await File.ReadAllTextAsync(this._storagePath);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            PKCEState? state = JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
+            PKCEState? state = LoadStateFromDisk(this._storagePath);
 
             // Check if state has expired
             if (state != null && state.CreatedAt.AddMinutes(StateTtlMinutes) < DateTime.UtcNow)
             {
-                await DeleteStateAsync();
+                await DeleteStateAsync().ConfigureAwait(false);
                 return null;
             }
 
@@ -246,7 +226,7 @@ public class PKCEStateStore
         }
     }
 
-    public Task DeleteStateAsync()
+    public async Task DeleteStateAsync()
     {
         try
         {
@@ -254,17 +234,13 @@ public class PKCEStateStore
             string cacheKey = this._configPath.ToLowerInvariant();
             _ = InMemoryCache.TryRemove(cacheKey, out _);
 
-            // Delete from disk
-            if (File.Exists(this._storagePath))
-            {
-                File.Delete(this._storagePath);
-            }
+            // Delete from disk via the store (handles cross-process locking)
+            await this._store.ClearAsync().ConfigureAwait(false);
         }
         catch
         {
             // Swallow deletion errors
         }
-        return Task.CompletedTask;
     }
 
     private void EnsureStorageDirectoryExists()
@@ -276,7 +252,10 @@ public class PKCEStateStore
         }
     }
 
-    private static PKCEState? TryReadState(string storagePath)
+    /// <summary>
+    /// Loads state from disk, transparently handling both encrypted (v=2) and legacy plaintext formats.
+    /// </summary>
+    private static PKCEState? LoadStateFromDisk(string storagePath)
     {
         try
         {
@@ -285,12 +264,74 @@ public class PKCEStateStore
                 return null;
             }
 
-            string json = File.ReadAllText(storagePath);
-            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<PKCEState>(json, JsonOptions);
+            string raw = File.ReadAllText(storagePath);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            // Detect format: v=2 protected envelope vs legacy plaintext PKCEState.
+            using JsonDocument document = JsonDocument.Parse(raw);
+            JsonElement root = document.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Object &&
+                root.TryGetProperty("v", out JsonElement vElement) &&
+                vElement.ValueKind == JsonValueKind.Number &&
+                vElement.GetInt32() == 2)
+            {
+                // Encrypted envelope — load through the store, which knows how to decrypt.
+                FileTokenStore<PKCEState> reader = new(storagePath);
+                TokenEnvelope<PKCEState>? envelope = reader.LoadAsync().GetAwaiter().GetResult();
+                return envelope?.Session;
+            }
+
+            // Legacy plaintext format: bare PKCEState fields at root.
+            PKCEState? legacy = JsonSerializer.Deserialize<PKCEState>(raw, JsonOptions);
+            if (legacy == null)
+            {
+                return null;
+            }
+
+            // Best-effort migration to encrypted format on next save (caller will trigger).
+            // We also proactively migrate here so legacy plaintext is replaced ASAP.
+            try
+            {
+                FileTokenStore<PKCEState> migrator = new(storagePath);
+                migrator.SaveAsync(new TokenEnvelope<PKCEState>(legacy, expiresAt: legacy.CreatedAt.AddMinutes(StateTtlMinutes)))
+                    .GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // Migration is best-effort; legacy file remains usable on this read.
+            }
+
+            return legacy;
         }
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to persist state to file via the encrypted token store. Best-effort, never throws.
+    /// </summary>
+    private static void TryPersistState(string configPath, string storagePath, PKCEState state)
+    {
+        try
+        {
+            if (!Directory.Exists(configPath))
+            {
+                _ = Directory.CreateDirectory(configPath);
+            }
+
+            FileTokenStore<PKCEState> store = new(storagePath);
+            store.SaveAsync(new TokenEnvelope<PKCEState>(state, expiresAt: state.CreatedAt.AddMinutes(StateTtlMinutes)))
+                .GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Silently ignore persistence failures - URL generation still works
         }
     }
 
