@@ -1,114 +1,168 @@
+using System.Text.Json;
+using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Authentication;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Tests;
 
-public class FileTokenStoreTests : IDisposable
+/// <summary>
+/// Tests for tidalarr's plaintext-to-encrypted token migration. The encrypted
+/// <see cref="FileTokenStore{TSession}"/> itself is owned and tested by Lidarr.Plugin.Common
+/// (see AtomicFileTokenStoreTests), so we focus here on the migration helper.
+/// </summary>
+public class LegacyTokenMigrationTests : IDisposable
 {
-    private readonly string _testStoragePath;
-    private readonly FileTokenStore _storage;
+    private readonly string _configPath;
+    private readonly string _legacyTokenPath;
 
-    public FileTokenStoreTests()
+    public LegacyTokenMigrationTests()
     {
-        this._testStoragePath = Path.Combine(Path.GetTempPath(), $"tidalarr_test_{Guid.NewGuid():N}.json");
-        this._storage = new FileTokenStore(this._testStoragePath);
+        this._configPath = Path.Combine(Path.GetTempPath(), $"tidalarr_legacy_{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(this._configPath);
+        this._legacyTokenPath = Path.Combine(this._configPath, "tidal_tokens.json");
     }
 
     [Fact]
-    public async Task SaveAndLoadTokens_ValidTokens_RoundTripSuccessful()
+    public async Task MigrateIfPresentAsync_NoLegacyFile_ReturnsFalse()
     {
-        // Arrange
-        TidalTokens tokens = new(
-            AccessToken: "test_access_token",
-            RefreshToken: "test_refresh_token",
+        FileTokenStore<TidalTokens> store = new(Path.Combine(this._configPath, "tidal_tokens.json"));
+
+        bool migrated = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
+
+        Assert.False(migrated);
+    }
+
+    [Fact]
+    public async Task MigrateIfPresentAsync_PlaintextFile_RewritesInPlaceAsEncrypted()
+    {
+        // Arrange: write a plaintext TidalTokens JSON file in the legacy format.
+        TidalTokens legacy = new(
+            AccessToken: "legacy_access",
+            RefreshToken: "legacy_refresh",
             TokenType: "Bearer",
             ExpiresAt: DateTime.UtcNow.AddHours(1),
-            SessionId: "session123",
+            SessionId: "sess",
             CountryCode: "US",
-            UserId: "12345"
-        );
+            UserId: "uid");
+        JsonSerializerOptions opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        await File.WriteAllTextAsync(this._legacyTokenPath, JsonSerializer.Serialize(legacy, opts));
+
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
 
         // Act
-        await this._storage.SaveTokensAsync(tokens);
-        TidalTokens? loadedTokens = await this._storage.LoadTokensAsync();
+        bool migrated = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
 
-        // Assert
-        Assert.NotNull(loadedTokens);
-        Assert.Equal(tokens.AccessToken, loadedTokens.AccessToken);
-        Assert.Equal(tokens.RefreshToken, loadedTokens.RefreshToken);
-        Assert.Equal(tokens.SessionId, loadedTokens.SessionId);
-        Assert.Equal(tokens.CountryCode, loadedTokens.CountryCode);
+        // Assert: migration succeeded; the file now exists in encrypted form at the same path
+        // (common's atomic save overwrote the plaintext in-place).
+        Assert.True(migrated);
+        Assert.True(File.Exists(this._legacyTokenPath));
+
+        // File should now be in protected envelope format (v=2), not the original plaintext layout.
+        string protectedContents = await File.ReadAllTextAsync(this._legacyTokenPath);
+        Assert.Matches(@"""v""\s*:\s*2", protectedContents);
+        Assert.DoesNotContain("legacy_access", protectedContents);
+        Assert.DoesNotContain("legacy_refresh", protectedContents);
+
+        // Re-load via the same store instance (avoids cross-protector-instance roundtrip
+        // sensitivity in environments where the protector is keyed to process state).
+        TokenEnvelope<TidalTokens>? envelope = await store.LoadAsync();
+        Assert.NotNull(envelope);
+        Assert.Equal("legacy_access", envelope!.Session.AccessToken);
+        Assert.Equal("legacy_refresh", envelope.Session.RefreshToken);
+        Assert.Equal("sess", envelope.Session.SessionId);
     }
 
     [Fact]
-    public async Task LoadTokens_NoFileExists_ReturnsNull()
+    public async Task MigrateIfPresentAsync_AlreadyEncryptedFile_NoOps()
+    {
+        // Arrange: the file already looks like common's protected envelope.
+        const string protectedJson = """{"v":2,"alg":"dpapi","payload":"abc"}""";
+        await File.WriteAllTextAsync(this._legacyTokenPath, protectedJson);
+
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
+
+        // Act
+        bool migrated = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
+
+        // Assert: helper recognises common's format and doesn't overwrite or delete it.
+        Assert.False(migrated);
+        Assert.True(File.Exists(this._legacyTokenPath));
+        Assert.Equal(protectedJson, await File.ReadAllTextAsync(this._legacyTokenPath));
+    }
+
+    [Fact]
+    public async Task MigrateIfPresentAsync_PersistedEnvelopeFormat_NoOps()
+    {
+        // Arrange: file uses common's pre-protected persisted-envelope shape.
+        const string persistedJson = """{"session":{"accessToken":"x"},"expiresAt":null,"metadata":null}""";
+        await File.WriteAllTextAsync(this._legacyTokenPath, persistedJson);
+
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
+
+        // Act
+        bool migrated = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
+
+        // Assert
+        Assert.False(migrated);
+        Assert.True(File.Exists(this._legacyTokenPath));
+    }
+
+    [Fact]
+    public async Task MigrateIfPresentAsync_CorruptedFile_LeavesInPlace()
     {
         // Arrange
-        string nonExistentPath = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.json");
-        FileTokenStore storage = new(nonExistentPath);
+        await File.WriteAllTextAsync(this._legacyTokenPath, "not valid json {");
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
 
         // Act
-        TidalTokens? tokens = await storage.LoadTokensAsync();
+        bool migrated = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
 
-        // Assert
-        Assert.Null(tokens);
+        // Assert: helper does not delete a file it can't migrate, so an operator can recover manually.
+        Assert.False(migrated);
+        Assert.True(File.Exists(this._legacyTokenPath));
     }
 
     [Fact]
-    public async Task LoadTokens_CorruptedFile_ReturnsNull()
+    public async Task MigrateIfPresentAsync_NullOrEmptyConfigPath_ReturnsFalse()
     {
-        // Arrange
-        await File.WriteAllTextAsync(this._testStoragePath, "invalid json content");
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
 
-        // Act
-        TidalTokens? tokens = await this._storage.LoadTokensAsync();
-
-        // Assert
-        Assert.Null(tokens); // Should gracefully handle corruption
+        Assert.False(await LegacyTokenMigration.MigrateIfPresentAsync(null, store));
+        Assert.False(await LegacyTokenMigration.MigrateIfPresentAsync(string.Empty, store));
+        Assert.False(await LegacyTokenMigration.MigrateIfPresentAsync("   ", store));
     }
 
     [Fact]
-    public async Task DeleteTokens_FileExists_RemovesFile()
+    public async Task MigrateIfPresentAsync_Idempotent_SecondCallNoOps()
     {
-        // Arrange
-        TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
-        await this._storage.SaveTokensAsync(tokens);
-        Assert.True(File.Exists(this._testStoragePath));
+        // After the first call rewrites the file in common's protected format, a second call
+        // must recognise that format via IsCommonFormat and skip migration.
+        TidalTokens legacy = new("a", "r", "Bearer", DateTime.UtcNow.AddHours(1), "s", "US", "u");
+        JsonSerializerOptions opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        await File.WriteAllTextAsync(this._legacyTokenPath, JsonSerializer.Serialize(legacy, opts));
 
-        // Act
-        await this._storage.DeleteTokensAsync();
+        FileTokenStore<TidalTokens> store = new(this._legacyTokenPath);
 
-        // Assert
-        Assert.False(File.Exists(this._testStoragePath));
-    }
+        bool firstRun = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
+        bool secondRun = await LegacyTokenMigration.MigrateIfPresentAsync(this._configPath, store);
 
-    [Fact]
-    public async Task SaveTokens_InvalidPath_ThrowsException()
-    {
-        // Arrange - use path that is invalid on both platforms
-        // On Windows: invalid chars like <>|*?:"
-        // On Linux: /dev/null/file - can't create files under /dev/null device
-        string invalidPath = OperatingSystem.IsWindows()
-            ? "<>|*?invalid:path"
-            : "/dev/null/impossible_file_" + Guid.NewGuid().ToString("N");
+        Assert.True(firstRun);
+        Assert.False(secondRun);
 
-        TidalTokens tokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
-
-        // Act & Assert - exception may throw in constructor (EnsureStorageDirectoryExists) or SaveTokensAsync
-        _ = await Assert.ThrowsAnyAsync<Exception>(async () =>
-        {
-            FileTokenStore storage = new(invalidPath);
-            await storage.SaveTokensAsync(tokens);
-        });
+        // File is still in encrypted form; second call did not roundtrip the plaintext through
+        // the legacy reader (which would fail).
+        string contents = await File.ReadAllTextAsync(this._legacyTokenPath);
+        Assert.Matches(@"""v""\s*:\s*2", contents);
     }
 
     public void Dispose()
     {
         try
         {
-            if (File.Exists(this._testStoragePath))
+            if (Directory.Exists(this._configPath))
             {
-                File.Delete(this._testStoragePath);
+                Directory.Delete(this._configPath, recursive: true);
             }
         }
         catch
@@ -117,6 +171,3 @@ public class FileTokenStoreTests : IDisposable
         }
     }
 }
-
-
-

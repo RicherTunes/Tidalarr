@@ -14,14 +14,14 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
     private readonly HttpClient _httpClient = httpClient;
-    private readonly ITokenStorage _tokenStorage = tokenStorage ?? new FailOnIOTokenStore();
+    private readonly ITokenStore<TidalTokens> _tokenStorage = tokenStorage ?? new FailOnIOTokenStore<TidalTokens>();
     private TidalTokens? _currentTokens;
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
-    public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStorage? tokenStorage = null)
+    public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStore<TidalTokens>? tokenStorage = null)
         : this(httpClient, tokenStorage) { }
 
     public bool IsAuthenticated => this._currentTokens != null && !this._currentTokens.IsExpired;
@@ -71,13 +71,24 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     protected override async Task CacheSessionAsync(TidalTokens session)
     {
         this._currentTokens = session;
-        await this._tokenStorage.SaveTokensAsync(session);
+        await SaveSessionAsync(session);
     }
 
     protected override async Task ClearCachedSessionAsync()
     {
         this._currentTokens = null;
-        await this._tokenStorage.DeleteTokensAsync();
+        await this._tokenStorage.ClearAsync();
+    }
+
+    private Task SaveSessionAsync(TidalTokens session)
+    {
+        return this._tokenStorage.SaveAsync(new TokenEnvelope<TidalTokens>(session, session.ExpiresAt));
+    }
+
+    private async Task<TidalTokens?> LoadStoredSessionAsync()
+    {
+        TokenEnvelope<TidalTokens>? envelope = await this._tokenStorage.LoadAsync();
+        return envelope?.Session;
     }
 
     public async Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
@@ -105,7 +116,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         string content = await response.Content.ReadAsStringAsync();
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
         this._currentTokens = MapToTidalTokens(tokenData);
-        await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+        await SaveSessionAsync(this._currentTokens);
         return this._currentTokens;
     }
 
@@ -123,14 +134,14 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         string content = await response.Content.ReadAsStringAsync();
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         this._currentTokens = MapToTidalTokens(tokenData);
-        await this._tokenStorage.SaveTokensAsync(this._currentTokens);
+        await SaveSessionAsync(this._currentTokens);
         return this._currentTokens;
     }
 
     public async Task LogoutAsync()
     {
         this._currentTokens = null;
-        await this._tokenStorage.DeleteTokensAsync();
+        await this._tokenStorage.ClearAsync();
     }
 
     public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
@@ -289,7 +300,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
             return this._currentTokens;
         }
 
-        TidalTokens? stored = await this._tokenStorage.LoadTokensAsync();
+        TidalTokens? stored = await LoadStoredSessionAsync();
         if (stored != null && !stored.IsExpired)
         {
             TidalTokens normalized = EnsureRequiredSessionFields(stored);
@@ -306,7 +317,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
             if (!stored.Equals(normalized))
             {
-                await this._tokenStorage.SaveTokensAsync(normalized);
+                await SaveSessionAsync(normalized);
             }
 
             this._currentTokens = normalized;
@@ -324,7 +335,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
 
             if (!refreshed.Equals(normalized))
             {
-                await this._tokenStorage.SaveTokensAsync(normalized);
+                await SaveSessionAsync(normalized);
             }
 
             this._currentTokens = normalized;
@@ -352,7 +363,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     {
         try
         {
-            TidalTokens? stored = this._currentTokens ?? await this._tokenStorage.LoadTokensAsync();
+            TidalTokens? stored = this._currentTokens ?? await LoadStoredSessionAsync();
             if (stored == null || string.IsNullOrEmpty(stored.RefreshToken))
             {
                 return string.Empty;
@@ -386,7 +397,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
     public void ClearAuthenticationCache()
     {
         this._currentTokens = null;
-        try { _ = this._tokenStorage.DeleteTokensAsync(); } catch { /* ignore */ }
+        try { _ = this._tokenStorage.ClearAsync(); } catch { /* ignore */ }
     }
 
     public new bool SupportsRefresh => true;

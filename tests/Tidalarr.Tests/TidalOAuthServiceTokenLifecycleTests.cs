@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using Lidarr.Plugin.Common.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
-using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Tests;
 
@@ -71,26 +71,35 @@ public class TidalOAuthServiceTokenLifecycleTests
     }
 }
 
-internal class MemoryTokenStorage(TidalTokens? initial) : ITokenStorage
+internal class MemoryTokenStorage : ITokenStore<TidalTokens>
 {
-    private TidalTokens? _tokens = initial;
+    private TokenEnvelope<TidalTokens>? _envelope;
+
+    public MemoryTokenStorage(TidalTokens? initial)
+    {
+        if (initial is not null)
+        {
+            this._envelope = new TokenEnvelope<TidalTokens>(initial, initial.ExpiresAt);
+        }
+    }
 
     public int SaveCount { get; private set; }
     public TidalTokens? LastSavedTokens { get; private set; }
 
-    public Task SaveTokensAsync(TidalTokens tokens)
+    public Task SaveAsync(TokenEnvelope<TidalTokens> envelope, CancellationToken cancellationToken = default)
     {
         SaveCount++;
-        LastSavedTokens = tokens;
-        this._tokens = tokens;
+        LastSavedTokens = envelope.Session;
+        this._envelope = envelope;
         return Task.CompletedTask;
     }
-    public Task<TidalTokens?> LoadTokensAsync()
+
+    public Task<TokenEnvelope<TidalTokens>?> LoadAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(this._tokens);
+        return Task.FromResult(this._envelope);
     }
 
-    public Task DeleteTokensAsync() { this._tokens = null; return Task.CompletedTask; }
+    public Task ClearAsync(CancellationToken cancellationToken = default) { this._envelope = null; return Task.CompletedTask; }
 }
 
 internal class FixedResponseHandler(string content, HttpStatusCode code = HttpStatusCode.OK) : HttpMessageHandler

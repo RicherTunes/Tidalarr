@@ -1,22 +1,29 @@
+using Lidarr.Plugin.Common.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
-using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Tests;
 
 public class TidalOAuthServiceLogoutTests
 {
-    private class PreloadedStorage(TidalTokens t) : ITokenStorage
+    private class PreloadedStorage : ITokenStore<TidalTokens>
     {
-        private TidalTokens? _tokens = t;
+        private TokenEnvelope<TidalTokens>? _envelope;
 
-        public Task SaveTokensAsync(TidalTokens tokens) { this._tokens = tokens; return Task.CompletedTask; }
-        public Task<TidalTokens?> LoadTokensAsync()
+        public PreloadedStorage(TidalTokens t)
         {
-            return Task.FromResult(this._tokens);
+            this._envelope = new TokenEnvelope<TidalTokens>(t, t.ExpiresAt);
         }
 
-        public Task DeleteTokensAsync() { this._tokens = null; return Task.CompletedTask; }
+        public Task SaveAsync(TokenEnvelope<TidalTokens> envelope, CancellationToken cancellationToken = default)
+        { this._envelope = envelope; return Task.CompletedTask; }
+
+        public Task<TokenEnvelope<TidalTokens>?> LoadAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(this._envelope);
+        }
+
+        public Task ClearAsync(CancellationToken cancellationToken = default) { this._envelope = null; return Task.CompletedTask; }
     }
 
     [Fact]

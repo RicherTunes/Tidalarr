@@ -27,9 +27,10 @@ public class ServiceCollectionExtensionsTests
 
         // Verify key Tidalarr-specific descriptors are present in the collection.
         // We check by service type name to avoid coupling to internal concrete types.
+        // ITokenStore`1 is the open generic name reported by Reflection for ITokenStore<TidalTokens>.
         string[] expectedTypeNames =
         [
-            "ITokenStorage",
+            "ITokenStore`1",
             "ITidalAuth",
             "IStreamingAuthManager",
             "IStreamingTokenProvider",

@@ -1,32 +1,41 @@
-using Tidalarr.Core.Models;
+using System.Threading;
+using System.Threading.Tasks;
+using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Infrastructure.Storage;
 
 /// <summary>
-/// Token storage that refuses to write/delete when no durable storage location is configured.
+/// Token store that refuses to persist or clear tokens when no durable storage location
+/// is configured.
 /// </summary>
 /// <remarks>
-/// In plugin/Docker hosts, default paths can resolve to read-only locations or ephemeral temp directories.
-/// Using this store prevents silent persistence to unexpected locations when <c>ConfigPath</c> is missing.
+/// In plugin/Docker hosts, default paths can resolve to read-only locations or ephemeral temp
+/// directories. Using this store prevents silent persistence to unexpected locations when
+/// <c>ConfigPath</c> is missing. Implements common's <see cref="ITokenStore{TSession}"/> so the
+/// runtime can inject either this fail-fast variant or a real encrypted file-backed store.
 /// </remarks>
-public sealed class FailOnIOTokenStore : ITokenStorage
+/// <typeparam name="TSession">Session representation type.</typeparam>
+public sealed class FailOnIOTokenStore<TSession> : ITokenStore<TSession>
+    where TSession : class
 {
     private const string ErrorMessage =
         "Token storage unavailable: ConfigPath is not configured. Set ConfigPath in the indexer/download client settings to enable token persistence.";
 
-    public Task SaveTokensAsync(TidalTokens tokens)
+    /// <inheritdoc />
+    public Task<TokenEnvelope<TSession>?> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<TokenEnvelope<TSession>?>(null);
+    }
+
+    /// <inheritdoc />
+    public Task SaveAsync(TokenEnvelope<TSession> envelope, CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(ErrorMessage);
     }
 
-    public Task<TidalTokens?> LoadTokensAsync()
-    {
-        return Task.FromResult<TidalTokens?>(null);
-    }
-
-    public Task DeleteTokensAsync()
+    /// <inheritdoc />
+    public Task ClearAsync(CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(ErrorMessage);
     }
 }
-

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Infrastructure.Storage;
+using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 
 namespace Tidalarr.Tests;
@@ -270,24 +271,24 @@ public class MockHttpMessageHandler(string response, HttpStatusCode statusCode =
     }
 }
 
-public class MockTokenStorage : ITokenStorage
+public class MockTokenStorage : ITokenStore<TidalTokens>
 {
-    private TidalTokens? _tokens;
+    private TokenEnvelope<TidalTokens>? _envelope;
 
-    public Task SaveTokensAsync(TidalTokens tokens)
+    public Task SaveAsync(TokenEnvelope<TidalTokens> envelope, CancellationToken cancellationToken = default)
     {
-        this._tokens = tokens;
+        this._envelope = envelope;
         return Task.CompletedTask;
     }
 
-    public Task<TidalTokens?> LoadTokensAsync()
+    public Task<TokenEnvelope<TidalTokens>?> LoadAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(this._tokens);
+        return Task.FromResult(this._envelope);
     }
 
-    public Task DeleteTokensAsync()
+    public Task ClearAsync(CancellationToken cancellationToken = default)
     {
-        this._tokens = null;
+        this._envelope = null;
         return Task.CompletedTask;
     }
 }

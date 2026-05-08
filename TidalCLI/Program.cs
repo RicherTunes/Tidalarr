@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Integration;
 using Tidalarr.Core.Interfaces;
@@ -575,8 +576,8 @@ public class Program
                 cliTokens.CountryCode,
                 cliTokens.UserId);
 
-            ITokenStorage pluginStorage = provider.GetRequiredService<ITokenStorage>();
-            await pluginStorage.SaveTokensAsync(pluginTokens);
+            ITokenStore<TidalTokens> pluginStorage = provider.GetRequiredService<ITokenStore<TidalTokens>>();
+            await pluginStorage.SaveAsync(new TokenEnvelope<TidalTokens>(pluginTokens, pluginTokens.ExpiresAt));
         }
 
         return provider;
