@@ -5,19 +5,41 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
+          <!--
+            Restrict instrumentation to Tidalarr's own production assemblies.
+            ModulePaths is a regex against the full DLL path. We want to keep
+            Lidarr.Plugin.Tidalarr.dll and Tidalarr.HostBridge.dll, while
+            dropping the host stubs (Lidarr.Common.dll / Lidarr.Core.dll /
+            Lidarr.Http.dll / Lidarr.Api.V1.dll / NzbDrone.*) and TestKit.
+          -->
           <IncludeModulePaths>
-            <IncludeModulePath>.*Tidalarr.dll</IncludeModulePath>
+            <ModulePath>.*Lidarr\.Plugin\.Tidalarr\.dll$</ModulePath>
+            <ModulePath>.*Tidalarr\.HostBridge\.dll$</ModulePath>
           </IncludeModulePaths>
+          <!--
+            Wave 14b: Coverlet's MetadataReaderProvider.FromPortablePdbStream
+            warns BadImageFormatException when it encounters non-portable
+            (Windows full) PDBs shipped with extracted Lidarr host stubs
+            (e.g. Lidarr.Common.pdb). Coverlet recovers from the exception
+            (it merely drops that one module from instrumentation), so the
+            warning is harmless. The actual root cause for Tidalarr modules
+            being missing from earlier cobertura reports was the global
+            <PathMap> in Directory.Build.props: it rewrote source paths to
+            "/src/..." so coverlet's PortablePdbHasLocalSource heuristic
+            returned false for Tidalarr.dll. PathMap is now gated on
+            DisablePathMap in Directory.Build.props; pass
+            -p:DisablePathMap=true at BUILD time when collecting coverage
+            (scripts/test.ps1 -Coverage handles this automatically).
+            The Exclude entries below provide defence-in-depth in case any
+            host-stub assembly does manage to get instrumented.
+          -->
           <ExcludeByFile>
-            <Exclude>**/tests/**</Exclude>
-            <Exclude>**/ext/**</Exclude>
-            <Exclude>**/obj/**</Exclude>
-            <Exclude>**/bin/**</Exclude>
+            <File>**/tests/**</File>
+            <File>**/ext/**</File>
+            <File>**/obj/**</File>
+            <File>**/bin/**</File>
           </ExcludeByFile>
-          <Exclude>
-            <Assembly>*.Tests</Assembly>
-            <Assembly>xunit.*</Assembly>
-          </Exclude>
+          <Exclude>[*.Tests]*,[xunit.*]*,[Lidarr.Common]*,[Lidarr.Core]*,[Lidarr.Http]*,[Lidarr.Api.V1]*,[Lidarr.Host]*,[NzbDrone.*]*,[Lidarr.Plugin.Common]*,[Lidarr.Plugin.Common.TestKit]*,[Lidarr.Plugin.Abstractions]*</Exclude>
         </Configuration>
       </DataCollector>
     </DataCollectors>
