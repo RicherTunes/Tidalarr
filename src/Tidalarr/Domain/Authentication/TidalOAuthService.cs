@@ -6,6 +6,7 @@ using Tidalarr.Infrastructure.Storage;
 using Tidalarr.Core.Constants;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Utilities;
@@ -98,7 +99,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {errorContent}");
+            throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
         string content = await response.Content.ReadAsStringAsync();
@@ -116,7 +117,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStorage? tokenStorag
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {errorContent}");
+            throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
         string content = await response.Content.ReadAsStringAsync();
