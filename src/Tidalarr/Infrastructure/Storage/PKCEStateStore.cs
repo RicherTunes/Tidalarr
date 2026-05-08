@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Lidarr.Plugin.Common.Services.Authentication;
 using Tidalarr.Core.Constants;
 
 namespace Tidalarr.Infrastructure.Storage;
@@ -293,19 +294,24 @@ public class PKCEStateStore
         }
     }
 
+    // PKCE crypto routes through Lidarr.Plugin.Common.Services.Authentication.PKCEGenerator (RFC 7636).
+    // Single source of truth shared with TidalOAuthService.
+    private static readonly IPKCEGenerator PkceGenerator = new PKCEGenerator();
+
     private static PKCEState CreateState()
     {
-        string codeVerifier = GenerateBase64UrlString(byteLength: 32);
-        string codeChallenge = CreateS256Challenge(codeVerifier);
-        string state = GenerateBase64UrlString(byteLength: 32);
+        (string codeVerifier, string codeChallenge) = PkceGenerator.GeneratePair();
+        string state = GenerateBase64UrlState();
         string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
         string authorizationUrl = BuildAuthorizationUrl(codeChallenge, state, clientUniqueKey, TidalConstants.OAUTH_SCOPE);
         return new PKCEState(authorizationUrl, codeVerifier, state, clientUniqueKey, DateTime.UtcNow);
     }
 
-    private static string GenerateBase64UrlString(int byteLength)
+    // CSRF state token — common's PKCEGenerator covers code_verifier/challenge but does not expose a
+    // generic random-state helper, so this stays plugin-local. Matches TidalOAuthService.GenerateSecureState.
+    private static string GenerateBase64UrlState()
     {
-        byte[] bytes = new byte[byteLength];
+        byte[] bytes = new byte[32];
         using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(bytes);
@@ -317,16 +323,8 @@ public class PKCEStateStore
             .Replace("=", string.Empty, StringComparison.Ordinal);
     }
 
-    private static string CreateS256Challenge(string codeVerifier)
-    {
-        using SHA256 sha256 = SHA256.Create();
-        byte[] challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
-        return Convert.ToBase64String(challengeBytes)
-            .Replace("/", "_", StringComparison.Ordinal)
-            .Replace("+", "-", StringComparison.Ordinal)
-            .Replace("=", string.Empty, StringComparison.Ordinal);
-    }
-
+    // Tidal-specific: clientUniqueKey is SHA-256(codeChallenge) truncated to 16 bytes hex.
+    // Stays plugin-local because no equivalent exists in common (it's not standard OAuth/PKCE).
     private static string GenerateClientUniqueKey(string codeChallenge)
     {
         using SHA256 sha256 = SHA256.Create();
@@ -336,6 +334,7 @@ public class PKCEStateStore
         return Convert.ToHexString(truncated).ToLowerInvariant();
     }
 
+    // Tidal-specific authorize URL with client_unique_key/appMode query params — stays plugin-local.
     private static string BuildAuthorizationUrl(string codeChallenge, string state, string clientUniqueKey, string scope)
     {
         Dictionary<string, string> parameters = new()

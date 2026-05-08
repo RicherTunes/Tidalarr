@@ -21,7 +21,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Xunit.SkippableFact" />
-    <!-- NLog runtime needed for tests that exercise NLog-using types (e.g., OAuthTokenProviderAdapter).
+    <!-- NLog runtime needed for tests that exercise NLog-using types.
          Tidalarr.csproj excludes NLog runtime assets (ILRepack internalizes it), so tests need their own copy. -->
     <PackageReference Include="NLog" />
   </ItemGroup>
