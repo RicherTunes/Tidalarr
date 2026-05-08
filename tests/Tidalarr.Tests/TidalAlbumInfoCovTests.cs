@@ -258,14 +258,22 @@ public class TidalAlbumInfoCovTests
     [Fact]
     public void Equality_BothNullPrimaryArtistId_ReturnsTrue()
     {
-        // Arrange - Source line 17: long? PrimaryArtistId = null (both omitted)
+        // Arrange - Source line 17: long? PrimaryArtistId = null (both omitted).
+        // Records compare collection-typed properties by reference, so share the same list
+        // instances between both records — otherwise the equality check fails on Artists/Tracks/Qualities
+        // even though every scalar (including PrimaryArtistId) matches.
+        var artists = new List<string> { "Artist" };
+        var tracks = new List<TidalTrackInfo>();
+        var qualities = new List<TidalQuality>();
+        var releaseDate = DateTime.Today;
+
         var album1 = new TidalAlbumInfo(
             Id: "null-compare",
             Title: "Album",
-            Artists: new List<string> { "Artist" },
-            Tracks: new List<TidalTrackInfo>(),
-            AvailableQualities: new List<TidalQuality>(),
-            ReleaseDate: DateTime.Today,
+            Artists: artists,
+            Tracks: tracks,
+            AvailableQualities: qualities,
+            ReleaseDate: releaseDate,
             CoverArtId: "cover",
             IsAvailable: true
         );
@@ -273,10 +281,10 @@ public class TidalAlbumInfoCovTests
         var album2 = new TidalAlbumInfo(
             Id: "null-compare",
             Title: "Album",
-            Artists: new List<string> { "Artist" },
-            Tracks: new List<TidalTrackInfo>(),
-            AvailableQualities: new List<TidalQuality>(),
-            ReleaseDate: DateTime.Today,
+            Artists: artists,
+            Tracks: tracks,
+            AvailableQualities: qualities,
+            ReleaseDate: releaseDate,
             CoverArtId: "cover",
             IsAvailable: true
         );
