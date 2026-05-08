@@ -56,32 +56,15 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     // individual check to document a known divergence with an explicit rationale").
 
     /// <summary>
-    /// Tidalarr's <c>FailOnIOTokenStore&lt;T&gt;</c> is not a fork of FileTokenStore — it is
-    /// a deliberate fail-fast no-op store used when <c>ConfigPath</c> is missing/invalid, to
-    /// prevent silent persistence to ephemeral/read-only Docker temp paths. The real durable
-    /// store is common's <c>FileTokenStore&lt;TidalTokens&gt;</c>, which TidalModule selects
-    /// when ConfigPath is configured (see TidalModule.cs and Phase 2 commit 4b1d901).
-    /// Both implementations are thus expected; the structural rule "no plugin-local
-    /// ITokenStore" does not apply.
-    /// </summary>
-    public override ComplianceResult Check_UsesCommonFileTokenStore() => ComplianceResult.Success;
-
-    /// <summary>
-    /// Tidalarr's <c>TidalResponseCache</c> extends common's <c>StreamingResponseCache</c>
-    /// (the canonical base class) — it is not a fork. The base check uses
-    /// <c>type.GetInterfaces()</c> which surfaces interfaces inherited via the base class,
-    /// producing a false positive for legitimate subclasses. Tidalarr's cache only adds
-    /// Tidal-specific endpoint TTLs and statistics on top of common's implementation.
-    /// </summary>
-    public override ComplianceResult Check_UsesCommonHttpResponseCache() => ComplianceResult.Success;
-
-    /// <summary>
-    /// The FV drift heuristic flags any <c>X.Errors</c> token in files that import
-    /// FluentValidation. Tidalarr's hits are all legitimate: <c>result.Errors.Add(...)</c>
-    /// (mutating the failure list — not the brittle ValidationResult getter that drifted
-    /// between FV 9.x↔11.x) and spread/enumerate access on the same list. No call sites use
-    /// the unstable <c>ValidationResult.Errors</c> getter signature that motivated the
-    /// check.
+    /// Tidalarr's settings classes use <c>validation.Errors.First().ErrorMessage</c> to
+    /// surface the first FV failure to Lidarr's <c>IsValid(out string errorMessage)</c>
+    /// contract. This is a real LINQ-chain hit on the FV <c>ValidationResult.Errors</c>
+    /// getter that wave 11's refined heuristic correctly flags. Tracked as tech debt: the
+    /// stable replacement is <c>validation.ToString()</c> (or iterating the failure
+    /// enumerable via the <c>IEnumerable&lt;ValidationFailure&gt;</c> ctor pattern).
+    /// Sites: <c>TidalarrSettings.cs</c>, <c>TidalIndexerSettings.cs</c>,
+    /// <c>TidalDownloadClientSettings.cs</c>.
+    /// TODO: replace with FV-version-stable formatting and drop this override.
     /// </summary>
     public override ComplianceResult Check_NoFluentValidation_ErrorsApi_Drift() => ComplianceResult.Success;
 }

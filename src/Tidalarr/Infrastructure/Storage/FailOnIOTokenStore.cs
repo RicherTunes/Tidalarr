@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.TestKit.Compliance;
 
 namespace Tidalarr.Infrastructure.Storage;
 
@@ -15,6 +16,7 @@ namespace Tidalarr.Infrastructure.Storage;
 /// runtime can inject either this fail-fast variant or a real encrypted file-backed store.
 /// </remarks>
 /// <typeparam name="TSession">Session representation type.</typeparam>
+[ParityAllowedTokenStore("Deliberate fail-fast no-op for plugin start-up scenarios where ConfigPath is missing — not a fork of common's storage layer.")]
 public sealed class FailOnIOTokenStore<TSession> : ITokenStore<TSession>
     where TSession : class
 {
