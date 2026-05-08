@@ -68,10 +68,19 @@ public class PKCEStateStoreCovTests
             string filePath = Path.Combine(tempDir, "pkce_state.json");
             Assert.True(File.Exists(filePath));
 
-            string json = File.ReadAllText(filePath);
-            using JsonDocument doc = JsonDocument.Parse(json);
-            Assert.Equal("https://test.url/auth", doc.RootElement.GetProperty("authorizationUrl").GetString());
-            Assert.Equal("verifier123", doc.RootElement.GetProperty("codeVerifier").GetString());
+            // File is encrypted via FileTokenStore — assert envelope shape and that the secret is not on disk.
+            string raw = File.ReadAllText(filePath);
+            using JsonDocument doc = JsonDocument.Parse(raw);
+            Assert.True(doc.RootElement.TryGetProperty("v", out JsonElement v) && v.GetInt32() == 2,
+                "Persisted PKCE state must be in v=2 protected envelope format");
+            Assert.False(raw.Contains("verifier123", StringComparison.Ordinal),
+                "Plaintext code_verifier must not appear in the persisted file");
+
+            // Round-trip via the store to verify we can recover the original.
+            PKCEState? loaded = await store.LoadStateAsync();
+            Assert.NotNull(loaded);
+            Assert.Equal("https://test.url/auth", loaded!.AuthorizationUrl);
+            Assert.Equal("verifier123", loaded.CodeVerifier);
         }
         finally
         {
