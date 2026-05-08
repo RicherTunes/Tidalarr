@@ -34,7 +34,7 @@ public class TidalIndexerSettings : BaseStreamingSettings
     public override bool IsValid(out string errorMessage)
     {
         ValidationResult validation = Validator.Validate(this);
-        errorMessage = validation.IsValid ? string.Empty : validation.Errors.First().ErrorMessage;
+        errorMessage = validation.IsValid ? string.Empty : validation.ToString();
         return validation.IsValid;
     }
 

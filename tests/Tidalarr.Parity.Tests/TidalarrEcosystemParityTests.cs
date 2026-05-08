@@ -59,12 +59,9 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     /// Tidalarr's settings classes use <c>validation.Errors.First().ErrorMessage</c> to
     /// surface the first FV failure to Lidarr's <c>IsValid(out string errorMessage)</c>
     /// contract. This is a real LINQ-chain hit on the FV <c>ValidationResult.Errors</c>
-    /// getter that wave 11's refined heuristic correctly flags. Tracked as tech debt: the
-    /// stable replacement is <c>validation.ToString()</c> (or iterating the failure
-    /// enumerable via the <c>IEnumerable&lt;ValidationFailure&gt;</c> ctor pattern).
-    /// Sites: <c>TidalarrSettings.cs</c>, <c>TidalIndexerSettings.cs</c>,
-    /// <c>TidalDownloadClientSettings.cs</c>.
-    /// TODO: replace with FV-version-stable formatting and drop this override.
+    /// getter that wave 11's refined heuristic correctly flags. Migrated in <c>11c</c>:
+    /// the 3 callsites (<c>TidalarrSettings.cs</c>, <c>TidalIndexerSettings.cs</c>,
+    /// <c>TidalDownloadClientSettings.cs</c>) now use stable <c>validation.ToString()</c>
+    /// — override dropped.
     /// </summary>
-    public override ComplianceResult Check_NoFluentValidation_ErrorsApi_Drift() => ComplianceResult.Success;
 }
