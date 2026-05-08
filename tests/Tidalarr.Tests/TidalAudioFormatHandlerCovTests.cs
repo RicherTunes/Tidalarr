@@ -324,8 +324,10 @@ public class TidalAudioFormatHandlerCovTests
         string output = Path.ChangeExtension(input, ".flac");
         await File.WriteAllBytesAsync(input, [0, 1, 2, 3, 4]);
 
+        string capturedOutput = output;
         var mockProcessor = new Mock<IAudioProcessor>();
         mockProcessor.Setup(p => p.RunFfmpegAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllBytes(capturedOutput, [9, 9, 9, 9]))
             .ReturnsAsync((0, string.Empty, string.Empty));
 
         try
@@ -359,8 +361,10 @@ public class TidalAudioFormatHandlerCovTests
         string output = Path.ChangeExtension(input, ".flac");
         await File.WriteAllBytesAsync(input, [0, 1, 2, 3, 4]);
 
+        string capturedOutput = output;
         var mockProcessor = new Mock<IAudioProcessor>();
         mockProcessor.Setup(p => p.RunFfmpegAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllBytes(capturedOutput, [9, 9, 9, 9]))
             .ReturnsAsync((0, string.Empty, string.Empty));
 
         try
@@ -395,8 +399,10 @@ public class TidalAudioFormatHandlerCovTests
         await File.WriteAllBytesAsync(input, [0, 1, 2, 3, 4]);
         await File.WriteAllBytesAsync(output, [5, 6, 7, 8]); // Pre-existing stale output
 
+        string capturedOutput = output;
         var mockProcessor = new Mock<IAudioProcessor>();
         mockProcessor.Setup(p => p.RunFfmpegAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllBytes(capturedOutput, [9, 9, 9, 9]))
             .ReturnsAsync((0, string.Empty, string.Empty));
 
         try

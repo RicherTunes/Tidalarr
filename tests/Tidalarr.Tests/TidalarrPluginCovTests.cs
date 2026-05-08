@@ -34,20 +34,40 @@ public class TidalarrPluginCovTests
     [Fact]
     public void Manifest_WhenPluginJsonMissing_ReturnsFallbackManifest()
     {
-        // Arrange
-        var plugin = new TidalarrPlugin();
+        // Arrange - Temporarily move plugin.json out of AppContext.BaseDirectory
+        // so the Manifest getter exercises its FileNotFoundException fallback branch.
+        string baseDir = AppContext.BaseDirectory;
+        string manifestPath = Path.Combine(baseDir, "plugin.json");
+        string? backupPath = null;
+        if (File.Exists(manifestPath))
+        {
+            backupPath = manifestPath + ".bak-" + Guid.NewGuid().ToString("N");
+            File.Move(manifestPath, backupPath);
+        }
 
-        // Act - Source lines 26-59: Manifest getter with try-catch fallback
-        var manifest = plugin.Manifest;
+        try
+        {
+            var plugin = new TidalarrPlugin();
 
-        // Assert - Fallback values from lines 38-45
-        Assert.Equal("tidalarr", manifest.Id);
-        Assert.Equal("Tidalarr", manifest.Name);
-        Assert.Equal("1.0.1", manifest.Version);
-        Assert.Equal("1.x", manifest.ApiVersion);
-        Assert.Contains("ConfigPath", manifest.RequiredSettings);
-        Assert.Contains("RedirectUrl", manifest.RequiredSettings);
-        Assert.Contains("DownloadPath", manifest.RequiredSettings);
+            // Act - Source lines 26-59: Manifest getter with try-catch fallback
+            var manifest = plugin.Manifest;
+
+            // Assert - Fallback values from lines 38-45
+            Assert.Equal("tidalarr", manifest.Id);
+            Assert.Equal("Tidalarr", manifest.Name);
+            Assert.Equal("1.0.1", manifest.Version);
+            Assert.Equal("1.x", manifest.ApiVersion);
+            Assert.Contains("ConfigPath", manifest.RequiredSettings);
+            Assert.Contains("RedirectUrl", manifest.RequiredSettings);
+            Assert.Contains("DownloadPath", manifest.RequiredSettings);
+        }
+        finally
+        {
+            if (backupPath is not null && File.Exists(backupPath))
+            {
+                File.Move(backupPath, manifestPath, overwrite: true);
+            }
+        }
     }
 
     #endregion
@@ -171,6 +191,7 @@ public class TidalarrPluginCovTests
         var plugin = new TidalarrPlugin();
         var settings = new Dictionary<string, object?>
         {
+            ["ConfigPath"] = "", // Explicit empty to override the non-empty TidalarrSettings default
             ["RedirectUrl"] = "https://tidal.com/callback",
             ["DownloadPath"] = "/downloads"
         };
@@ -260,8 +281,8 @@ public class TidalarrPluginCovTests
         // Act - Source lines 299-349: Describe method
         var definitions = plugin.SettingsProvider.Describe();
 
-        // Assert - Count the definitions (15 total in source lines 301-348)
-        Assert.Equal(15, definitions.Count);
+        // Assert - Count the definitions (16 total in source lines 301-348)
+        Assert.Equal(16, definitions.Count);
 
         // Verify required settings are present
         var keys = definitions.Select(d => d.Key).ToList();
@@ -319,8 +340,8 @@ public class TidalarrPluginCovTests
         // Act - Source lines 351-372: GetDefaults method
         var defaults = plugin.SettingsProvider.GetDefaults();
 
-        // Assert - 15 default values (lines 353-371)
-        Assert.Equal(15, defaults.Count);
+        // Assert - 16 default values (lines 353-371)
+        Assert.Equal(16, defaults.Count);
     }
 
     [Fact]
