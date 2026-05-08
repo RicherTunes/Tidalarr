@@ -29,8 +29,9 @@ public class TidalarrHostSettings : IIndexerSettings, IProviderConfig
 
     public NzbDrone.Core.Validation.NzbDroneValidationResult Validate()
     {
-        // Delegate to core validator via simple types to avoid FluentValidation
-        // assembly dependency in HostBridge (host ships FV 9, Common uses FV 11).
+        // Delegate to core validator via simple types, then construct
+        // NzbDroneValidationResult using the host's FluentValidation 9.x types
+        // (referenced from ext/Lidarr/_output, NOT from NuGet FV 11).
         Integration.TidalarrSettings core = ToCore();
         (bool isValid, var errors) = core.ValidateSimple();
 

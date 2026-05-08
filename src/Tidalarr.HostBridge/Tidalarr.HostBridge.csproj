@@ -17,6 +17,12 @@
       <HintPath>..\..\ext\Lidarr\_output\net8.0\Lidarr.Common.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Host's FluentValidation 9.x - needed for NzbDroneValidationResult construction.
+         Must use host's assembly (not NuGet FV 11) to avoid type mismatch at runtime. -->
+    <Reference Include="FluentValidation">
+      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
