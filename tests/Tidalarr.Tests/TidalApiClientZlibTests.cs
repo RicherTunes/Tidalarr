@@ -36,10 +36,11 @@ public class TidalApiClientZlibTests
             audioQuality = "LOSSLESS"
         });
 
-        // Compress with deflate
+        // Compress with zlib (DeflateStream produces raw deflate without the 0x78 zlib header;
+        // use ZLibStream so we exercise the LooksLikeZlib(0x78 ..) detection path on line 505).
         using MemoryStream ms = new();
-        using (DeflateStream deflate = new(ms, CompressionLevel.Optimal, leaveOpen: true))
-        using (StreamWriter writer = new(deflate, Encoding.UTF8))
+        using (ZLibStream zlib = new(ms, CompressionLevel.Optimal, leaveOpen: true))
+        using (StreamWriter writer = new(zlib, Encoding.UTF8))
         {
             writer.Write(json);
         }

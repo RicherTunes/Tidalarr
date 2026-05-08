@@ -752,29 +752,32 @@ public class TidalQualityMapperCovTests
     }
 
     [Fact]
-    public void QualityPreferenceScore_HigherNotAllowed_ReturnsZero()
+    public void QualityPreferenceScore_HigherNotAllowed_ReturnsNegativeOne()
     {
-        // Arrange - higher quality not allowed
+        // Arrange - higher quality not allowed: CreatePreferenceMap clamps MaxAcceptableTier
+        // to the preferred tier, so HiRes is outside the [Min..Max] window and IsAcceptable
+        // is false. Line 295: !IsAcceptable -> return -1 (the "not acceptable" sentinel).
         QualityPreferenceMap map = QualityMapper.CreatePreferenceMap(StreamingQualityTier.Lossless, allowHigher: false);
 
         // Act
         int score = map.GetPreferenceScore(StreamingQualityTier.HiRes);
 
-        // Assert - falls through to line 312: return 0
-        Assert.Equal(0, score);
+        // Assert - rejected by acceptance window
+        Assert.Equal(-1, score);
     }
 
     [Fact]
-    public void QualityPreferenceScore_LowerNotAllowed_ReturnsZero()
+    public void QualityPreferenceScore_LowerNotAllowed_ReturnsNegativeOne()
     {
-        // Arrange - lower quality not allowed
+        // Arrange - lower quality not allowed: MinAcceptableTier == Lossless, so High is below
+        // the acceptance window and IsAcceptable returns false (line 295 -> return -1).
         QualityPreferenceMap map = QualityMapper.CreatePreferenceMap(StreamingQualityTier.Lossless, allowLower: false);
 
         // Act
         int score = map.GetPreferenceScore(StreamingQualityTier.High);
 
-        // Assert - falls through to line 312: return 0
-        Assert.Equal(0, score);
+        // Assert - rejected by acceptance window
+        Assert.Equal(-1, score);
     }
 
     #endregion
