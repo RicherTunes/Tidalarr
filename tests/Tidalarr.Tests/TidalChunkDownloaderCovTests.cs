@@ -340,9 +340,12 @@ public class TidalChunkDownloaderCovTests
         // Note: This test exercises the decryption path. The actual decryption will fail
         // with invalid token format, but we verify the path is taken.
 
-        // Create a valid base64 security token (24+ bytes after decoding)
-        // Format: 16 bytes IV + encrypted payload
-        byte[] fakeToken = new byte[48]; // 16 byte IV + 32 byte encrypted
+        // Create a base64 security token short enough that DeriveKeyAndCounter's length
+        // guard trips and throws InvalidOperationException("Security token is malformed.").
+        // Tokens of length >= 24 with valid block-aligned bodies decrypt to garbage without
+        // throwing (AES-CBC PaddingMode.None on zeroed input succeeds), so we deliberately
+        // pick 20 bytes to exercise the throw branch the test expects.
+        byte[] fakeToken = new byte[20];
         string base64Token = Convert.ToBase64String(fakeToken);
 
         ConstantHandler handler = new([1, 2, 3, 4, 5]);
