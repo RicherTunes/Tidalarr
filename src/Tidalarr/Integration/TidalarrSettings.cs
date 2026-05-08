@@ -1,8 +1,8 @@
 using FluentValidation;
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.Base;
+using Lidarr.Plugin.Common.Hosting;
 using Tidalarr.Core.Models;
-using Tidalarr.Infrastructure.Storage;
 using FieldDefinition = Tidalarr.Integration.Annotations.FieldDefinitionAttribute;
 using FieldType = Tidalarr.Integration.Annotations.FieldType;
 
@@ -13,7 +13,7 @@ public class TidalarrSettings : BaseStreamingSettings
     private static readonly TidalarrSettingsValidator Validator = new();
 
     [FieldDefinition(SettingsDisplay.Indexer.ConfigPathOrder, Label = SettingsDisplay.Indexer.ConfigPathLabel, Type = FieldType.Textbox, HelpText = SettingsDisplay.Indexer.ConfigPathHelpText)]
-    public string ConfigPath { get; set; } = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
+    public string ConfigPath { get; set; } = PluginConfigRoots.Resolve("Tidalarr");
 
     [FieldDefinition(SettingsDisplay.Indexer.RedirectUrlOrder, Label = SettingsDisplay.Indexer.RedirectUrlLabel, Type = FieldType.Textbox, HelpText = SettingsDisplay.Indexer.RedirectUrlHelpText)]
     public string RedirectUrl { get; set; } = string.Empty;

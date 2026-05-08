@@ -1,9 +1,9 @@
 using FluentValidation;
+using Lidarr.Plugin.Common.Hosting;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.ThingiProvider;
 using NzbDrone.Core.Validation;
 using Tidalarr.Core.Models;
-using Tidalarr.Infrastructure.Storage;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -14,7 +14,7 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrDownloadClientSettings : IProviderConfig
 {
     private static readonly TidalLidarrDownloadClientSettingsValidator Validator = new();
-    private static readonly string DefaultConfigPath = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
+    private static readonly string DefaultConfigPath = PluginConfigRoots.Resolve("Tidalarr");
 
     public TidalLidarrDownloadClientSettings()
     {

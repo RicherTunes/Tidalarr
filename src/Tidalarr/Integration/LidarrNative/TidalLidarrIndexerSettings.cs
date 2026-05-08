@@ -1,4 +1,5 @@
 using FluentValidation;
+using Lidarr.Plugin.Common.Hosting;
 using NzbDrone.Core.Annotations;
 using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Validation;
@@ -13,7 +14,7 @@ namespace Tidalarr.Integration.LidarrNative;
 public class TidalLidarrIndexerSettings : IIndexerSettings
 {
     private static readonly TidalLidarrIndexerSettingsValidator Validator = new();
-    private static readonly string DefaultConfigPath = ConfigPathDefaults.GetDefaultConfigPath("Tidalarr");
+    private static readonly string DefaultConfigPath = PluginConfigRoots.Resolve("Tidalarr");
 
     public TidalLidarrIndexerSettings()
     {
