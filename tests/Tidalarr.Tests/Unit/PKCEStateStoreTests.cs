@@ -121,9 +121,17 @@ public class PKCEStateStoreTests
             string path = Path.Combine(tempDir, "pkce_state.json");
             Assert.True(File.Exists(path));
 
-            string json = File.ReadAllText(path);
-            using JsonDocument document = JsonDocument.Parse(json);
-            Assert.Equal(url, document.RootElement.GetProperty("authorizationUrl").GetString());
+            // File is now encrypted (v=2 envelope) — read URL via the public API instead of raw JSON.
+            string? readBack = PKCEStateStore.TryReadAuthorizationUrl(tempDir);
+            Assert.Equal(url, readBack);
+
+            // Verify the file is NOT plaintext (codeVerifier should not appear on disk).
+            string raw = File.ReadAllText(path);
+            using JsonDocument document = JsonDocument.Parse(raw);
+            Assert.True(document.RootElement.TryGetProperty("v", out JsonElement v) && v.GetInt32() == 2,
+                "Persisted PKCE state must be in v=2 protected envelope format");
+            Assert.False(raw.Contains("codeVerifier", StringComparison.Ordinal),
+                "Plaintext codeVerifier must not appear in the persisted file");
         }
         finally
         {
@@ -196,6 +204,51 @@ public class PKCEStateStoreTests
     }
 
     [Fact]
+    public async Task LegacyPlaintextFile_IsMigratedToEncryptedFormatOnRead()
+    {
+        // Wave 16 security fix: existing plaintext pkce_state.json files (pre-encryption)
+        // must continue to load AND be auto-migrated to the encrypted v=2 envelope.
+        string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            string path = Path.Combine(tempDir, "pkce_state.json");
+            const string secretVerifier = "legacy-secret-verifier-must-be-encrypted";
+            File.WriteAllText(path, /*lang=json,strict*/ $$"""
+                {
+                  "authorizationUrl": "https://login.tidal.com/authorize?response_type=code&state=legacy",
+                  "codeVerifier": "{{secretVerifier}}",
+                  "state": "legacy",
+                  "clientUniqueKey": "ghi",
+                  "createdAt": "{{DateTime.UtcNow:O}}"
+                }
+                """);
+
+            // Reading via the store should both succeed AND trigger migration to encrypted format.
+            PKCEStateStore store = new(tempDir);
+            PKCEState? loaded = await store.LoadStateAsync();
+            Assert.NotNull(loaded);
+            Assert.Equal(secretVerifier, loaded!.CodeVerifier);
+
+            // After load, the file should now be the v=2 protected envelope, NOT plaintext.
+            string raw = File.ReadAllText(path);
+            using JsonDocument doc = JsonDocument.Parse(raw);
+            Assert.True(doc.RootElement.TryGetProperty("v", out JsonElement v) && v.GetInt32() == 2,
+                "Legacy plaintext file must be migrated to v=2 protected envelope on first read");
+            Assert.False(raw.Contains(secretVerifier, StringComparison.Ordinal),
+                "After migration the codeVerifier must not appear in the persisted file");
+
+            // The OAuthAuthUrl-derived getter must still work after migration.
+            Assert.Equal(loaded.AuthorizationUrl, PKCEStateStore.TryReadAuthorizationUrl(tempDir));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TryGetOrCreateAuthorizationUrl_WithInvalidJson_OverwritesAndReturnsUrl()
     {
         string tempDir = Path.Combine(Path.GetTempPath(), "tidalarr-tests", Guid.NewGuid().ToString("N"));
@@ -209,9 +262,9 @@ public class PKCEStateStoreTests
             string? url = PKCEStateStore.TryGetOrCreateAuthorizationUrl(tempDir);
             Assert.False(string.IsNullOrWhiteSpace(url));
 
-            string json = File.ReadAllText(path);
-            using JsonDocument document = JsonDocument.Parse(json);
-            Assert.False(string.IsNullOrWhiteSpace(document.RootElement.GetProperty("authorizationUrl").GetString()));
+            // Verify the URL is readable via the public API after auto-replacing the bad file.
+            string? readBack = PKCEStateStore.TryReadAuthorizationUrl(tempDir);
+            Assert.Equal(url, readBack);
         }
         finally
         {
