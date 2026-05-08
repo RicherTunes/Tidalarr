@@ -469,8 +469,14 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             {
                 return Decompress(bytes, stream => new GZipStream(stream, CompressionMode.Decompress, leaveOpen: false));
             }
-            if (LooksLikeZlib(bytes) || HasEncoding(response, "deflate"))
+            if (LooksLikeZlib(bytes))
             {
+                // Bytes carry a zlib wrapper (0x78 ..) — use ZLibStream which understands the header.
+                return Decompress(bytes, stream => new ZLibStream(stream, CompressionMode.Decompress, leaveOpen: false));
+            }
+            if (HasEncoding(response, "deflate"))
+            {
+                // HTTP "deflate" in the wild is usually raw deflate (no zlib wrapper); use DeflateStream.
                 return Decompress(bytes, stream => new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: false));
             }
             if (HasEncoding(response, "br"))
