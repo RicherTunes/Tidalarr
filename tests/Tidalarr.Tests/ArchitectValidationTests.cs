@@ -107,7 +107,7 @@ public class ArchitectValidationTests
         IEnumerable<ServiceDescriptor> singletonServices = services.Where(s => s.Lifetime == ServiceLifetime.Singleton);
         IEnumerable<ServiceDescriptor> scopedServices = services.Where(s => s.Lifetime == ServiceLifetime.Scoped);
 
-        Assert.NotEmpty(singletonServices); // PKCEGenerator, ITokenStorage
+        Assert.NotEmpty(singletonServices); // PKCEGenerator, ITokenStore<TidalTokens>
         Assert.NotEmpty(scopedServices);    // API clients, business logic
 
         Console.WriteLine("✅ ARCHITECT VALIDATION: Service Registration OPTIMIZED");

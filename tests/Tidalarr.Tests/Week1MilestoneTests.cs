@@ -105,7 +105,7 @@ public class Week1MilestoneTests
         // 3. Token storage
         MockTokenStorage tokenStorage = new();
         TidalTokens testTokens = new("test", "test", "Bearer", DateTime.UtcNow.AddHours(1), "session", "US", "123");
-        _ = tokenStorage.SaveTokensAsync(testTokens);
+        _ = tokenStorage.SaveAsync(new Lidarr.Plugin.Common.Interfaces.TokenEnvelope<TidalTokens>(testTokens, testTokens.ExpiresAt));
 
         // 4. API client mock
         MockTidalApiClient mockApiClient = new();

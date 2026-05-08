@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
@@ -78,18 +79,42 @@ public class TidalModule : StreamingPluginModule
         //
         // IMPORTANT: In Docker/plugin hosts, ApplicationData can resolve to a read-only location (e.g. /app/bin).
         // Always prefer the user-configured ConfigPath from settings for token persistence.
-        _ = services.AddSingleton<ITokenStorage>(sp =>
+        //
+        // Token persistence routes through common's encrypted FileTokenStore<TidalTokens>
+        // (TokenProtectorFactory: DPAPI on Windows, Keychain on macOS, Secret Service on Linux,
+        // DataProtection fallback). Legacy plaintext tidal_tokens.json files are migrated in-place
+        // by LegacyTokenMigration before the store is first read.
+        _ = services.AddSingleton<ITokenStore<TidalTokens>>(sp =>
         {
             TidalarrSettings? settings = sp.GetService<TidalarrSettings>();
             string? configPath = settings?.ConfigPath;
 
-            if (!string.IsNullOrWhiteSpace(configPath))
+            if (string.IsNullOrWhiteSpace(configPath))
             {
-                string tokenPath = Path.Combine(configPath, "tidal_tokens.json");
-                return new FileTokenStore(tokenPath);
+                return new FailOnIOTokenStore<TidalTokens>();
             }
 
-            return new FailOnIOTokenStore();
+            string tokenPath = Path.Combine(configPath, "tidal_tokens.json");
+            Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
+            Microsoft.Extensions.Logging.ILogger<Lidarr.Plugin.Common.Services.Authentication.FileTokenStore<TidalTokens>>? storeLogger =
+                loggerFactory?.CreateLogger<Lidarr.Plugin.Common.Services.Authentication.FileTokenStore<TidalTokens>>();
+            Lidarr.Plugin.Common.Services.Authentication.FileTokenStore<TidalTokens> store =
+                new(tokenPath, serializerOptions: null, logger: storeLogger);
+
+            // Best-effort one-shot migration of pre-Phase-2 plaintext files. Idempotent and safe to
+            // call on every startup: it no-ops when no legacy file exists or when the file is already
+            // in common's envelope format.
+            Microsoft.Extensions.Logging.ILogger? migrationLogger = loggerFactory?.CreateLogger("Tidalarr.Infrastructure.Storage.LegacyTokenMigration");
+            try
+            {
+                _ = LegacyTokenMigration.MigrateIfPresentAsync(configPath, store, migrationLogger).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                migrationLogger?.LogWarning(ex, "Legacy token migration failed; continuing without migration");
+            }
+
+            return store;
         });
         _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
         _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
