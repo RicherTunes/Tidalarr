@@ -16,8 +16,13 @@ public class TidalQualityDetector
         };
     }
 
-    public List<TidalQuality> DetectAvailableQualities(string[] tags)
+    public List<TidalQuality> DetectAvailableQualities(string[]? tags)
     {
+        // Tidal's API has historically returned a null `mediaMetadata.tags` for tracks
+        // with no quality metadata. The previous code dereferenced `tags.Contains(...)`
+        // and would NRE on those tracks. Treat null as "no quality info available".
+        tags ??= Array.Empty<string>();
+
         List<TidalQuality> qualities =
         [
             // Always add basic qualities
@@ -66,13 +71,13 @@ public class TidalQualityDetector
         return available.Min();
     }
 
-    public TidalQuality DetectHighestAvailableQuality(string[] tags)
+    public TidalQuality DetectHighestAvailableQuality(string[]? tags)
     {
         List<TidalQuality> availableQualities = DetectAvailableQualities(tags);
         return availableQualities.Any() ? availableQualities.Max() : TidalQuality.High;
     }
 
-    public bool IsQualityAvailable(TidalQuality quality, string[] tags)
+    public bool IsQualityAvailable(TidalQuality quality, string[]? tags)
     {
         List<TidalQuality> availableQualities = DetectAvailableQualities(tags);
         return availableQualities.Contains(quality);
