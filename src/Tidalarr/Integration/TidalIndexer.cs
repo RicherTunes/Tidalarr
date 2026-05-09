@@ -100,7 +100,10 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
     }
 
-    protected override async Task<List<StreamingAlbum>> SearchAlbumsAsync(string searchTerm)
+    protected override Task<List<StreamingAlbum>> SearchAlbumsAsync(string searchTerm)
+        => SearchAlbumsInternalAsync(searchTerm, CancellationToken.None);
+
+    internal async Task<List<StreamingAlbum>> SearchAlbumsInternalAsync(string searchTerm, CancellationToken cancellationToken)
     {
         try
         {
@@ -109,7 +112,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
             }
 
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
             List<StreamingAlbum> albums = results.Albums?
                 .Select(this._mapper.ToStreamingAlbum)
                 .Where(a => a is not null)
@@ -138,10 +141,13 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     protected override Task<List<StreamingTrack>> SearchTracksAsync(string searchTerm)
     {
-        return SearchTracksInternalAsync(searchTerm);
+        return SearchTracksInternalAsync(searchTerm, CancellationToken.None);
     }
 
-    internal async Task<List<StreamingTrack>> SearchTracksInternalAsync(string searchTerm)
+    internal Task<List<StreamingTrack>> SearchTracksInternalAsync(string searchTerm)
+        => SearchTracksInternalAsync(searchTerm, CancellationToken.None);
+
+    internal async Task<List<StreamingTrack>> SearchTracksInternalAsync(string searchTerm, CancellationToken cancellationToken)
     {
         try
         {
@@ -150,7 +156,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
             }
 
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
             List<StreamingTrack> tracks = results.Tracks?
                 .Select(this._mapper.ToStreamingTrack)
                 .Where(t => t is not null)
@@ -179,14 +185,17 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     protected override Task<StreamingAlbum> GetAlbumDetailsAsync(string albumId)
     {
-        return GetAlbumDetailsInternalAsync(albumId);
+        return GetAlbumDetailsInternalAsync(albumId, CancellationToken.None);
     }
 
-    internal async Task<StreamingAlbum> GetAlbumDetailsInternalAsync(string albumId)
+    internal Task<StreamingAlbum> GetAlbumDetailsInternalAsync(string albumId)
+        => GetAlbumDetailsInternalAsync(albumId, CancellationToken.None);
+
+    internal async Task<StreamingAlbum> GetAlbumDetailsInternalAsync(string albumId, CancellationToken cancellationToken)
     {
         try
         {
-            TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumAsync(albumId);
+            TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumAsync(albumId, cancellationToken).ConfigureAwait(false);
             StreamingAlbum mapped = this._mapper.ToStreamingAlbum(tidalAlbum);
             if (mapped != null)
             {
