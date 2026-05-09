@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Lidarr.Plugin.Common.Security;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Lidarr.Plugin.Common.Services;
 using Lidarr.Plugin.Common.Services.Intelligence;
 using Lidarr.Plugin.Abstractions.Models;
@@ -10,11 +12,16 @@ using Tidalarr.Domain.Quality;
 
 namespace Tidalarr.Application.Services;
 
-public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector qualityDetector, IQueryOptimizer? queryOptimizer = null)
+public class TidalSearchService(
+    ITidalCore apiClient,
+    TidalQualityDetector qualityDetector,
+    IQueryOptimizer? queryOptimizer = null,
+    ILogger<TidalSearchService>? logger = null)
 {
     private readonly ITidalCore _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
     private readonly TidalQualityDetector _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
     private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
+    private readonly ILogger<TidalSearchService> _logger = logger ?? NullLogger<TidalSearchService>.Instance;
 
     public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(
         string query,
@@ -66,11 +73,10 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             };
 
             // Best-effort fire-and-forget learning. Failures here must NEVER affect the
-            // user-visible search response — the optimizer is purely a feedback loop. The
-            // explicit catch makes the swallow intentional (was previously implicit via
-            // `_ = Task.Run(...)`, which loses the same exceptions but reads as a bug).
-            // Trace.WriteLine surfaces failures for developers running with a debugger
-            // attached without depending on a logger field this class doesn't have.
+            // user-visible search response — the optimizer is purely a feedback loop.
+            // Wave 49: replaced Trace.WriteLine with structured ILogger so failures
+            // surface in the same log stream operators monitor for everything else
+            // (Trace was only visible to developers with a debugger attached).
             _ = Task.Run(async () =>
             {
                 try
@@ -79,7 +85,7 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Trace.WriteLine($"TidalSearchService: optimizer.LearnFromResultsAsync failed: {ex.GetType().Name}: {ex.Message}");
+                    _logger.LogDebug(ex, "Optimizer.LearnFromResultsAsync failed (best-effort, search response unaffected)");
                 }
             });
         }
