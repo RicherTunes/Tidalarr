@@ -59,8 +59,23 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
                 Rating = searchResults.TotalCount > 0 ? 4 : 2 // Simple scoring
             };
 
-            // Fire-and-forget learning
-            _ = Task.Run(() => this._queryOptimizer.LearnFromResultsAsync(optimizedQuery, queryResults, feedback));
+            // Best-effort fire-and-forget learning. Failures here must NEVER affect the
+            // user-visible search response — the optimizer is purely a feedback loop. The
+            // explicit catch makes the swallow intentional (was previously implicit via
+            // `_ = Task.Run(...)`, which loses the same exceptions but reads as a bug).
+            // Trace.WriteLine surfaces failures for developers running with a debugger
+            // attached without depending on a logger field this class doesn't have.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await this._queryOptimizer.LearnFromResultsAsync(optimizedQuery, queryResults, feedback).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine($"TidalSearchService: optimizer.LearnFromResultsAsync failed: {ex.GetType().Name}: {ex.Message}");
+                }
+            });
         }
 
         // Enhance results with quality detection
