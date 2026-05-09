@@ -16,7 +16,11 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
     private readonly TidalQualityDetector _qualityDetector = qualityDetector ?? throw new ArgumentNullException(nameof(qualityDetector));
     private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
 
-    public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(string query, TidalQuality preferredQuality = TidalQuality.Lossless, string market = "US")
+    public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(
+        string query,
+        TidalQuality preferredQuality = TidalQuality.Lossless,
+        string market = "US",
+        CancellationToken cancellationToken = default)
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
@@ -37,9 +41,11 @@ public class TidalSearchService(ITidalCore apiClient, TidalQualityDetector quali
             optimizedQuery = optimization.Query;
         }
 
-        // Execute search
+        // Execute search — propagate cancellation so user-aborted searches stop
+        // hammering the Tidal API mid-flight (e.g. user closes the search dialog).
+        cancellationToken.ThrowIfCancellationRequested();
         Stopwatch stopwatch = Stopwatch.StartNew();
-        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery, limit: 100, countryCode: market);
+        TidalSearchResults searchResults = await this._apiClient.SearchAsync(optimizedQuery, limit: 100, countryCode: market, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         stopwatch.Stop();
 
