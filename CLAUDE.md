@@ -426,27 +426,31 @@ expected — there's no real Tidal account.
    Call `_fixture.GetContainerLogs()` in failure messages so a CI rerun in
    another timezone can still tell you what blew up.
 
-### Extending the harness to other plugins (wave 22 foundation)
+### Extending the harness to other plugins (wave 22a — done)
 
-The pattern is intentionally three small files:
+As of wave 22a the orchestrator (container lifecycle, healthcheck, log
+capture, skip-when-no-Docker) lives in
+`Lidarr.Plugin.Common.TestKit.Hosting.LidarrContainerFixture`. Each plugin
+provides only the per-plugin glue:
 
-- **`tests/<Plugin>.Tests/Runtime/LidarrContainerFixture.cs`** — owns container
-  lifecycle, plugin DLL discovery, host-bridge sniff, healthcheck poll. Per-
-  plugin knobs are constants at the top: `ContainerName`, `LidarrPort`,
-  `DockerImage`, plugin mount path
-  (`/config/plugins/<Owner>/<PluginName>`), and the plugin-DLL filename used by
-  `FindPluginDll()`.
-- **`tests/<Plugin>.Tests/Runtime/DockerE2ETests.cs`** — uses the fixture, only
-  generic-shape assertions. The `EntryReferencesTidal` predicate is the only
-  per-plugin literal — change the substring (e.g. `"AppleMusic"`, `"Qobuz"`,
-  `"Brainarr"`).
+- **`tests/<Plugin>.Tests/Runtime/LidarrContainerFixture.cs`** — subclass
+  common's fixture and pass a `LidarrContainerOptions` record with the
+  per-plugin knobs: `DockerImage`, `ContainerName`, `LidarrPort`,
+  `PluginMountPath` (e.g. `/config/plugins/<Owner>/<PluginName>`),
+  `PluginDllFileName`, a `FindPluginDll(repoRoot)` resolver, and a
+  `PluginEntrySubstring` ("Tidal", "Qobuz", "AppleMusic", "Brainarr"). Define
+  the xUnit `[CollectionDefinition]` next to it.
+- **`tests/<Plugin>.Tests/Runtime/DockerE2ETests.cs`** — `[SkippableFact]`s
+  that delegate to the smoke-assertion extension methods on the fixture
+  (`AssertPluginAppearsInIndexerSchemaAsync`,
+  `AssertPluginAppearsInDownloadClientSchemaAsync`,
+  `AssertIndexerTestReturnsSensibleFailureAsync`,
+  `AssertDownloadClientTestReturnsSensibleFailureAsync`).
 - **`scripts/e2e.ps1`** — copy verbatim, adjust `verify-local.ps1` integration
   if that plugin's CI runner differs.
 
-Wave 22 will lift the fixture into `Lidarr.Plugin.Common.TestKit` so each plugin
-provides only the per-plugin constants. Until then the inline copy is the
-deliberate pattern: keep E2E plumbing close to the plugin so a debugging
-developer doesn't context-switch repos.
+Wave 22b will use this to add Docker E2E to applemusicarr / qobuzarr /
+brainarr — the per-plugin glue is ~30 lines.
 
 ## Flaky Tests Policy
 
