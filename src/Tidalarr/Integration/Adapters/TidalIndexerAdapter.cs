@@ -18,19 +18,23 @@ public sealed class TidalIndexerAdapter(IServiceScope scope) : IIndexer
 
     public async ValueTask<IReadOnlyList<StreamingAlbum>> SearchAlbumsAsync(string query, CancellationToken cancellationToken = default)
     {
-        List<StreamingAlbum> results = await this.indexer.SearchAsync(query).ConfigureAwait(false);
+        // Forward the caller's cancellation through to the underlying API. Pre-fix
+        // the adapter accepted the token but discarded it, so a user closing the
+        // search dialog or Lidarr shutting down would leave the Tidal API call
+        // running until completion.
+        List<StreamingAlbum> results = await this.indexer.SearchAlbumsInternalAsync(query, cancellationToken).ConfigureAwait(false);
         return results;
     }
 
     public async ValueTask<IReadOnlyList<StreamingTrack>> SearchTracksAsync(string query, CancellationToken cancellationToken = default)
     {
-        List<StreamingTrack> results = await this.indexer.SearchTracksInternalAsync(query).ConfigureAwait(false);
+        List<StreamingTrack> results = await this.indexer.SearchTracksInternalAsync(query, cancellationToken).ConfigureAwait(false);
         return results;
     }
 
     public async ValueTask<StreamingAlbum?> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        return await this.indexer.GetAlbumDetailsInternalAsync(albumId).ConfigureAwait(false);
+        return await this.indexer.GetAlbumDetailsInternalAsync(albumId, cancellationToken).ConfigureAwait(false);
     }
 
     public IAsyncEnumerable<StreamingAlbum> SearchAlbumsStreamAsync(string query, CancellationToken cancellationToken = default)
@@ -40,7 +44,7 @@ public sealed class TidalIndexerAdapter(IServiceScope scope) : IIndexer
 
     public async IAsyncEnumerable<StreamingTrack> SearchTracksStreamAsync(string query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        List<StreamingTrack> tracks = await this.indexer.SearchTracksInternalAsync(query).ConfigureAwait(false);
+        List<StreamingTrack> tracks = await this.indexer.SearchTracksInternalAsync(query, cancellationToken).ConfigureAwait(false);
         foreach (StreamingTrack track in tracks ?? Enumerable.Empty<StreamingTrack>())
         {
             cancellationToken.ThrowIfCancellationRequested();
