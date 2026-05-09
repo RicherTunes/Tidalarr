@@ -364,6 +364,90 @@ pwsh scripts/verify-local.ps1 -IncludeSmoke      # + Docker smoke test (mounts p
 
 The script delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`, which orchestrates the same gates as CI: host assembly extraction with .NET 8 + FV 9.5.4 guardrails, plugin packaging via `New-PluginPackage`, and packaging closure validation via `generate-expected-contents.ps1 -Check`.
 
+## Docker E2E Harness (wave 21)
+
+A runnable end-to-end harness boots a real Lidarr container, mounts the merged
+Tidalarr plugin DLL, waits for the API, and asserts plugin liveness against the
+Lidarr REST API. This is the smoke alarm for "did the plugin actually load
+inside the host?" — sandbox tests cannot answer that.
+
+### Run locally
+
+```powershell
+# One-shot (builds plugin via verify-local.ps1, then runs the smoke matrix)
+pwsh scripts/e2e.ps1
+
+# Re-run without rebuilding (DLL already in src/Tidalarr/bin/)
+pwsh scripts/e2e.ps1 -SkipBuild
+
+# Run a single test
+pwsh scripts/e2e.ps1 -Filter 'FullyQualifiedName~Indexer_Test'
+
+# Or directly via dotnet (after building)
+dotnet test tests/Tidalarr.Tests/Tidalarr.Tests.csproj -c Release \
+    -p:PluginPackagingDisable=true --filter "Category=DockerE2E"
+```
+
+If Docker Desktop isn't running the tests **skip gracefully** rather than fail —
+they're safe to leave in any local test command. CI wiring is out of scope until
+wave 22.
+
+### Pinned image
+
+`ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (single-plugin instance on host
+port `8690` per the multi-plugin guidance in this file). The tag is sourced
+from `scripts/verify-local.ps1`'s `LidarrDockerVersion`. Bump in one place.
+
+### What the smoke tests verify
+
+All tests live in `tests/Tidalarr.Tests/Runtime/` and share one container via
+`LidarrContainerFixture` (xUnit collection fixture, single startup per run):
+
+| Test | Asserts |
+|------|---------|
+| `Plugin_Loads_AppearsInIndexerSchema` | `GET /api/v1/indexer/schema` lists Tidal |
+| `Plugin_Loads_AppearsInDownloadClientSchema` | `GET /api/v1/downloadclient/schema` lists Tidal |
+| `Indexer_Test_WithEmptySettings_ReturnsSensibleFailure` | `POST /api/v1/indexer/test` returns non-5xx (validation failure, not plugin-load failure) |
+| `DownloadClient_Test_WithEmptySettings_ReturnsSensibleFailure` | `POST /api/v1/downloadclient/test` returns non-5xx |
+| `Plugin_Loads_In_Real_Lidarr_Container` (`Category=Docker`, legacy) | wave-12 schema check, retained for backwards compat |
+
+Acceptance criterion for the Test endpoints: **anything below 500**. A genuine
+plugin-load failure (missing types, bad assemblies, ALC issues) shows up as a
+500 InternalServerError. A 4xx with `[ { "errorMessage": "..." } ]` body is
+expected — there's no real Tidal account.
+
+### Adding a new smoke test
+
+1. Add a new `[SkippableFact] [Trait("Category","DockerE2E")]` method to
+   `DockerE2ETests.cs`, decorated with `[Collection(LidarrContainerCollection.Name)]`
+   on the class so it shares the fixture.
+2. Skip-guard with `Skip.If(_fixture.SkipReason is not null, _fixture.SkipReason);`
+3. Use `_fixture.Http`, `_fixture.BaseUrl`, `_fixture.ApiKey` to talk to Lidarr.
+   Call `_fixture.GetContainerLogs()` in failure messages so a CI rerun in
+   another timezone can still tell you what blew up.
+
+### Extending the harness to other plugins (wave 22 foundation)
+
+The pattern is intentionally three small files:
+
+- **`tests/<Plugin>.Tests/Runtime/LidarrContainerFixture.cs`** — owns container
+  lifecycle, plugin DLL discovery, host-bridge sniff, healthcheck poll. Per-
+  plugin knobs are constants at the top: `ContainerName`, `LidarrPort`,
+  `DockerImage`, plugin mount path
+  (`/config/plugins/<Owner>/<PluginName>`), and the plugin-DLL filename used by
+  `FindPluginDll()`.
+- **`tests/<Plugin>.Tests/Runtime/DockerE2ETests.cs`** — uses the fixture, only
+  generic-shape assertions. The `EntryReferencesTidal` predicate is the only
+  per-plugin literal — change the substring (e.g. `"AppleMusic"`, `"Qobuz"`,
+  `"Brainarr"`).
+- **`scripts/e2e.ps1`** — copy verbatim, adjust `verify-local.ps1` integration
+  if that plugin's CI runner differs.
+
+Wave 22 will lift the fixture into `Lidarr.Plugin.Common.TestKit` so each plugin
+provides only the per-plugin constants. Until then the inline copy is the
+deliberate pattern: keep E2E plumbing close to the plugin so a debugging
+developer doesn't context-switch repos.
+
 ## Flaky Tests Policy
 
 **Flaky tests are priority tech debt that must be paid immediately.** A test that passes sometimes and fails sometimes erodes trust in the entire test suite. When a flaky test is discovered:
