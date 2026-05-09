@@ -469,4 +469,38 @@ public class QualityDetectorCovTests
     }
 
     #endregion
+
+    #region Null-tags regression (wave 47)
+
+    [Fact]
+    public void DetectAvailableQualities_NullTags_TreatsAsEmpty_NoNRE()
+    {
+        // Tidal's API can return null mediaMetadata.tags. Pre-fix this NRE'd inside .Contains().
+        var result = _detector.DetectAvailableQualities(null);
+
+        Assert.NotNull(result);
+        Assert.Contains(TidalQuality.Low, result);
+        Assert.Contains(TidalQuality.High, result);
+        Assert.DoesNotContain(TidalQuality.Lossless, result);
+        Assert.DoesNotContain(TidalQuality.HiRes, result);
+    }
+
+    [Fact]
+    public void DetectHighestAvailableQuality_NullTags_DefaultsToHigh_NoNRE()
+    {
+        var result = _detector.DetectHighestAvailableQuality(null);
+        Assert.Equal(TidalQuality.High, result);
+    }
+
+    [Fact]
+    public void IsQualityAvailable_NullTags_False_ForLossless_NoNRE()
+    {
+        Assert.False(_detector.IsQualityAvailable(TidalQuality.Lossless, null));
+        Assert.False(_detector.IsQualityAvailable(TidalQuality.HiRes, null));
+        // Low and High are baseline — always present.
+        Assert.True(_detector.IsQualityAvailable(TidalQuality.Low, null));
+        Assert.True(_detector.IsQualityAvailable(TidalQuality.High, null));
+    }
+
+    #endregion
 }
