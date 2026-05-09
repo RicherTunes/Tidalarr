@@ -340,7 +340,11 @@ public class TidalLidarrIndexer(
 
             if (tokens == null || string.IsNullOrWhiteSpace(tokens.AccessToken))
             {
-                failures.Add(new ValidationFailure("Authentication", "Token exchange failed - received invalid tokens"));
+                // Wave 79 UX: name the most-common cause (stale redirect URL) and the
+                // exact recovery action so user doesn't think it's a Tidal outage.
+                failures.Add(new ValidationFailure(
+                    "Authentication",
+                    "Token exchange failed: Tidal returned no valid tokens. The redirect URL is likely stale (used or expired). Click Test, paste the NEW redirect URL from a fresh browser login, and try again."));
                 return false;
             }
 
@@ -354,7 +358,11 @@ public class TidalLidarrIndexer(
         catch (Exception ex)
         {
             this._logger.Error(ex, "Failed to exchange authorization code");
-            failures.Add(new ValidationFailure("Authentication", $"Token exchange failed: {ex.Message}"));
+            // Wave 79 UX: surface the exception type and remind users about the
+            // most common recovery action (paste a fresh redirect URL).
+            failures.Add(new ValidationFailure(
+                "Authentication",
+                $"Token exchange failed ({ex.GetType().Name}): {ex.Message}. If this persists, paste a fresh redirect URL from a new browser login."));
             return false;
         }
     }
