@@ -34,7 +34,7 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
     public string DownloadPath { get; set; } = string.Empty;
 
     [FieldDefinition(2, Label = "Preferred Quality", Type = FieldType.Select, SelectOptions = typeof(TidalQuality), Section = "Quality",
-        HelpText = "Audio quality requested from Tidal.")]
+        HelpText = "Audio quality requested from Tidal. Low/High = AAC; Lossless = FLAC 16-bit/44.1kHz; HiRes = FLAC up to 24-bit/192kHz. Your Tidal subscription tier determines which qualities you can actually download — the plugin falls back to the highest available. HiFi Plus is required for Lossless+; the older HiFi tier maxes at AAC 320 (High).")]
     public TidalQuality PreferredQuality { get; set; } = TidalQuality.Lossless;
 
     [FieldDefinition(3, Label = "Include MQA", Type = FieldType.Checkbox, Section = "Quality", Advanced = true,
