@@ -217,7 +217,9 @@ public class TidalLidarrIndexer(
             // Basic settings validation
             if (string.IsNullOrWhiteSpace(Settings.ConfigPath))
             {
-                failures.Add(new ValidationFailure("ConfigPath", "Config path is required"));
+                failures.Add(new ValidationFailure(
+                    "ConfigPath",
+                    "Config path is required. Default is /config/Tidalarr in Docker, or AppData/Tidalarr (~/.config/Tidalarr on Linux). Tokens are persisted there."));
                 return;
             }
 
@@ -289,7 +291,12 @@ public class TidalLidarrIndexer(
         catch (Exception ex)
         {
             this._logger.Error(ex, "Tidalarr indexer test failed");
-            failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
+            // Wave 73 UX: include exception type so users can tell network from
+            // auth from quota errors, and remind them where to look for the full
+            // stack trace.
+            failures.Add(new ValidationFailure(
+                "Test",
+                $"Test failed ({ex.GetType().Name}): {ex.Message}. Full details in Lidarr logs."));
         }
     }
 
