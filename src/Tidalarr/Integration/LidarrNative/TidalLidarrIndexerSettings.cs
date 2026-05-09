@@ -89,7 +89,9 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
     public TidalLidarrIndexerSettingsValidator()
     {
         _ = RuleFor(x => x.ConfigPath)
-            .NotEmpty().WithMessage("Config path is required");
+            .NotEmpty().WithMessage(
+                "Config path is required. Default is /config/Tidalarr in Docker, " +
+                "or AppData/Tidalarr (~/.config/Tidalarr on Linux). Tokens are persisted there.");
 
         // RedirectUrl validation: only validate format when provided (not required during initial setup)
         _ = RuleFor(x => x.RedirectUrl)
