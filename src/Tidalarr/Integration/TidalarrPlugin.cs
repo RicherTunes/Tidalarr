@@ -334,14 +334,14 @@ public sealed class TidalarrPlugin : IPlugin
                     DefaultValue = "Lossless"
                 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.TidalMarket), DisplayName = "Market", Description = "Two-letter Tidal market code.", DataType = SettingDataType.String, DefaultValue = "US" },
-                new SettingDefinition { Key = nameof(TidalarrSettings.EarlyReleaseLimit), DisplayName = "Early Download Limit", Description = "Pre-release download window in days.", DataType = SettingDataType.Integer, DefaultValue = 14 },
+                new SettingDefinition { Key = nameof(TidalarrSettings.EarlyReleaseLimit), DisplayName = "Early Download Limit (informational)", Description = "INFORMATIONAL — stored and round-tripped, but search/download paths do NOT yet apply this window. Wiring is tracked tech debt.", DataType = SettingDataType.Integer, DefaultValue = 14 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.EnableCache), DisplayName = "Enable Cache", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.CacheDuration), DisplayName = "Cache Duration", Description = "Cache TTL in minutes.", DataType = SettingDataType.Integer, DefaultValue = 15 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.IncludeMqa), DisplayName = "Include MQA Masters", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.ExtractFlac), DisplayName = "Extract FLAC from M4A", DataType = SettingDataType.Boolean, DefaultValue = true },
-                new SettingDefinition { Key = nameof(TidalarrSettings.ReEncodeAAC), DisplayName = "Re-encode AAC Streams", DataType = SettingDataType.Boolean, DefaultValue = false },
+                new SettingDefinition { Key = nameof(TidalarrSettings.ReEncodeAAC), DisplayName = "Re-encode AAC Streams (informational)", Description = "INFORMATIONAL — stored but the download pipeline does NOT currently transcode AAC. Tracked tech debt.", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.SaveSyncedLyrics), DisplayName = "Save Synced Lyrics", DataType = SettingDataType.Boolean, DefaultValue = true },
-                new SettingDefinition { Key = nameof(TidalarrSettings.UseLRCLIB), DisplayName = "Use LRCLIB for Lyrics", DataType = SettingDataType.Boolean, DefaultValue = false },
+                new SettingDefinition { Key = nameof(TidalarrSettings.UseLRCLIB), DisplayName = "Use LRCLIB for Lyrics (informational)", Description = "INFORMATIONAL — stored but the lyrics pipeline does NOT currently call LRCLIB. Tracked tech debt.", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.DownloadDelay), DisplayName = "Chunk Delay", Description = "Delay between chunk requests in ms.", DataType = SettingDataType.Integer, DefaultValue = 0 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.MaxConcurrentTrackDownloads), DisplayName = "Max Concurrent Track Downloads", DataType = SettingDataType.Integer, DefaultValue = 2 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.MaxConcurrentChunkDownloads), DisplayName = "Max Concurrent Chunk Downloads", DataType = SettingDataType.Integer, DefaultValue = 2 }

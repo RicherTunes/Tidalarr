@@ -17,9 +17,9 @@ public static class SettingsDisplay
         public const string MarketHelpText = "Two-letter Tidal market code (US, UK, DE, FR, CA, AU, JP).";
 
         public const int EarlyDownloadLimitOrder = 3;
-        public const string EarlyDownloadLimitLabel = "Early Download Limit";
+        public const string EarlyDownloadLimitLabel = "Early Download Limit (informational)";
         public const string EarlyDownloadLimitUnit = "days";
-        public const string EarlyDownloadLimitHelpText = "Limit pre-release downloads to this many days before release.";
+        public const string EarlyDownloadLimitHelpText = "INFORMATIONAL — value is stored and round-tripped through the indexer/download settings, but the search and download paths do NOT yet apply this window. Wiring this into the indexer's release-date filter is tracked tech debt; for now leave at the default.";
 
         public const int EnableCacheOrder = 4;
         public const string EnableCacheLabel = "Enable Cache";
@@ -48,15 +48,15 @@ public static class SettingsDisplay
         public const string ExtractFlacHelpText = "Convert M4A containers to FLAC when possible.";
 
         public const int ReEncodeAACOrder = 24;
-        public const string ReEncodeAACLabel = "Re-encode AAC Streams";
-        public const string ReEncodeAACHelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.";
+        public const string ReEncodeAACLabel = "Re-encode AAC Streams (informational)";
+        public const string ReEncodeAACHelpText = "INFORMATIONAL — value is stored but the download pipeline does NOT currently transcode AAC streams. Implementing the transcode step requires bundling an AAC encoder and is tracked tech debt; for now this toggle has no runtime effect.";
 
         public const int SaveSyncedLyricsOrder = 25;
         public const string SaveSyncedLyricsLabel = "Save Synced Lyrics";
 
         public const int UseLrclibOrder = 26;
-        public const string UseLrclibLabel = "Use LRCLIB for Lyrics";
-        public const string UseLrclibHelpText = "Fallback to LRCLIB when Tidal does not provide synced lyrics.";
+        public const string UseLrclibLabel = "Use LRCLIB for Lyrics (informational)";
+        public const string UseLrclibHelpText = "INFORMATIONAL — value is stored but the lyrics pipeline does NOT currently call LRCLIB. The plugin only saves synced lyrics when Tidal itself returns them. Wiring an LRCLIB fallback is tracked tech debt.";
 
         public const int ChunkDelayOrder = 27;
         public const string ChunkDelayLabel = "Chunk Delay";
