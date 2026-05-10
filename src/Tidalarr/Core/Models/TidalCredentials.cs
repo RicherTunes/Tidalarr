@@ -23,9 +23,14 @@ public record TidalCredentials(string RedirectUrl) : IAuthCredentials
             return false;
         }
 
-        if (!Uri.TryCreate(RedirectUrl, UriKind.Absolute, out _))
+        // Require explicit http(s) scheme. Note: on Linux, a path like "/callback"
+        // is parsed as `file:///callback` by Uri.TryCreate(...UriKind.Absolute),
+        // which is "absolute" but obviously not a usable OAuth redirect. Cross-platform
+        // we must filter on scheme too.
+        if (!Uri.TryCreate(RedirectUrl, UriKind.Absolute, out Uri? parsed)
+            || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
         {
-            errorMessage = "Redirect URL must be a valid absolute URL.";
+            errorMessage = "Redirect URL must be a valid absolute URL with http or https scheme.";
             return false;
         }
 
