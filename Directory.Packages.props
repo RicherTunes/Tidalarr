@@ -27,17 +27,16 @@
     <PackageVersion Include="FluentValidation" Version="11.12.0" />
   </ItemGroup>
   <ItemGroup Label="Microsoft Extensions">
-    <!-- 9.0.0 to match Lidarr.Plugin.Common.TestKit's pin under
-         CentralPackageTransitivePinningEnabled. Runtime versions still come
-         from the Lidarr host process; this only affects compile-time resolution. -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    <!-- Pinned to 8.0.1: M.E.Http 9.0 registers MetricsFactoryHttpMessageHandlerFilter
-         which calls SocketsHttpHandler.get_MeterFactory — a .NET 9-only API. Lidarr
-         hosts the plugin on the .NET 8 runtime, so 9.0 throws MissingMethodException
-         from the DI service-provider build (PluginSandboxRuntimeTests). 8.0.1 is
-         compatible with .NET 8 and doesn't auto-wire the metrics filter. -->
+    <!-- All M.E.* MUST match the Lidarr host (v8.0.x). 9.0 puts AssemblyRef=9.0.0.0
+         into the merged plugin DLL — at runtime the plugin loads with the host's
+         8.0.0 in the default ALC and the runtime can't bridge the major version
+         gap, throwing "Could not load M.E.X.Abstractions Version=9.0.0.0" during
+         multi-plugin discovery. The TestKit's transitive 9.0 demand needs to be
+         relaxed at the testkit side, NOT enforced upward via CPM transitive pinning
+         (which propagates the runtime-incompatible version into the plugin DLL). -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
     <!-- System.Text.Json 8.x for .NET 8 runtime compatibility -->
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
     <!-- 8.0.2 has GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (High). Force 8.0.3+
