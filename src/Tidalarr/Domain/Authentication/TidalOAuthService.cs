@@ -99,42 +99,45 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         string codeChallenge = this._pkceGenerator.CreateS256Challenge(codeVerifier);
         string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
 
-        HttpRequestMessage request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
-        (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request));
+        using HttpRequestMessage request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
+        (bool success, HttpResponseMessage? response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request)).ConfigureAwait(false);
 
         if (!success || response == null)
         {
             throw new InvalidOperationException("Failed to exchange authorization code");
         }
 
-        if (!response.IsSuccessStatusCode)
+        using (response)
         {
-            string errorContent = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
+            }
 
-        string content = await response.Content.ReadAsStringAsync();
-        TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens);
-        return this._currentTokens;
+            string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
+            this._currentTokens = MapToTidalTokens(tokenData);
+            await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
+            return this._currentTokens;
+        }
     }
 
     public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
     {
-        HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
-        HttpResponseMessage response = await this._httpClient.SendAsync(request);
+        using HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
+        using HttpResponseMessage response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
-            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
-        string content = await response.Content.ReadAsStringAsync();
+        string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens);
+        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
         return this._currentTokens;
     }
 
