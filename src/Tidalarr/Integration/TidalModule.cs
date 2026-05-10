@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Performance;
-using Lidarr.Plugin.Common.Services.Network;
 using Lidarr.Plugin.Common.Services.Registration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tidalarr.Application.Services;
@@ -249,7 +248,6 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
         _ = services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
         _ = services.AddSingleton<PerformanceMonitor>();
-        _ = services.AddSingleton<NetworkResilienceService>();
     }
 
     protected override void RegisterCoreServices()

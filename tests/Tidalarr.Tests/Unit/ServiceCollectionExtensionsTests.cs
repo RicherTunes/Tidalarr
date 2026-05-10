@@ -84,7 +84,6 @@ public class ServiceCollectionExtensionsTests
         [
             "IStreamingResponseCache",
             "IUniversalAdaptiveRateLimiter",
-            "NetworkResilienceService",
         ];
 
         foreach (string typeName in sharedTypeNames)
