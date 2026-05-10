@@ -44,6 +44,13 @@ public class TidalModule : StreamingPluginModule
     {
         RegisterSharedLibraryServices(services);
         _ = services.AddTransient<ContentDecodingSnifferHandler>();
+        // TidalRateLimitingHandler is the single global gate that prevents 429 storms when
+        // Lidarr fans out searches/downloads across many artists. Every AddHttpClient below
+        // chains it so chunk fetches, OAuth, search, and orchestrator calls all share one
+        // budget against api.tidal.com / *.audio.tidal.com. See the handler's class doc for
+        // backstory: the underlying TidalRateLimiter was previously dead code (registered in
+        // DI, never invoked) — wiring this handler converts it into an actual ceiling.
+        _ = services.AddTransient<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
         _ = services.AddHttpClient<TidalApiClient>(client =>
@@ -55,6 +62,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler(sp =>
         {
@@ -72,6 +80,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
         // Core services
@@ -195,6 +204,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
         _ = services.AddHttpClient<TidalChunkDownloader>(client =>
@@ -205,6 +215,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
         // Bridge runtime defaults — call LAST so plugins can override with custom implementations
