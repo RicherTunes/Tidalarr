@@ -268,14 +268,39 @@ dotnet test -p:IncludeCLIFramework=true -p:PluginPackagingDisable=true
 - Ensure CLI build: `dotnet build TidalCLI/ -p:IncludeCLIFramework=true`
 - Verify CLI project references main plugin correctly
 
-### **Multi-Plugin Testing**
+### **Multi-Plugin Co-Existence (FIXED 2026-05-10)**
 
-**Intermittent failures on :8691 (multi-plugin instance)**:
-- Root cause: Upstream Lidarr AssemblyLoadContext lifecycle bug
-- Symptoms: Missing schemas after restart, type identity errors, non-deterministic test failures
-- Workaround: Use dedicated single-plugin instance `:8690` for reliable Tidalarr E2E
-- Status: `:8691` is "best-effort" until Lidarr ALC fix lands
-- See: `ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_ROADMAP.md` for details
+Previously documented as "upstream Lidarr ALC lifecycle bug" — actually a plugin-side packaging issue. **Root-caused and fixed in common PR #485 + per-plugin host-version alignment.** See `ext/Lidarr.Plugin.Common/docs/dev-guide/ALC_MULTIPLUGIN_FIX.md` for the full retrospective.
+
+**The rule**: every Tidalarr update must keep the merged plugin DLL free of `AssemblyRef`s the Lidarr host doesn't ship. Verify with:
+
+```powershell
+$pe = New-Object System.Reflection.PortableExecutable.PEReader([IO.MemoryStream]::new([IO.File]::ReadAllBytes('src/Tidalarr/bin/Lidarr.Plugin.Tidalarr.dll')))
+$md = [System.Reflection.Metadata.PEReaderExtensions]::GetMetadataReader($pe)
+foreach ($arh in $md.AssemblyReferences) {
+  $ar = $md.GetAssemblyReference($arh)
+  Write-Host "$($md.GetString($ar.Name)) v$($ar.Version)"
+}
+```
+
+**Host-pinned versions** (do NOT bump without verifying the host ships the same major version):
+
+| Package | Pin | Lidarr host AssemblyVersion |
+|---|---|---|
+| `Microsoft.Extensions.DependencyInjection` | 8.0.1 | 8.0.0.0 |
+| `Microsoft.Extensions.Logging` | 8.0.1 | 8.0.0.0 |
+| `Microsoft.Extensions.Logging.Abstractions` | 8.0.3 | 8.0.0.0 |
+| `Microsoft.Extensions.Http` | 8.0.1 | 8.0.0.0 |
+| `FluentValidation` | 9.5.4 | 9.0.0.0 |
+| `NLog` | 5.4.0 | 5.0.0.0 |
+
+**Verify multi-plugin co-existence locally** when changing pins or packaging:
+
+```powershell
+pwsh ext/Lidarr.Plugin.Common/scripts/multi-plugin-coexistence-proof.ps1 -SkipBuild
+```
+
+(Spins up one Lidarr container with all locally-built plugins mounted; asserts each appears in `/api/v1/{indexer,downloadclient,importlist}/schema`.)
 
 ## Version Management
 
