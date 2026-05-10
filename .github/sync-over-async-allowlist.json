@@ -4,7 +4,7 @@
   "entries": [
     {
       "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs",
-      "line": 315,
+      "line": 340,
       "pattern": "EnsureValidSessionAsync().GetAwaiter().GetResult()",
       "method": "TidalLidarrDownloadClient.Test()",
       "category": "A",
@@ -14,11 +14,51 @@
     },
     {
       "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs",
-      "line": 480,
+      "line": 506,
       "pattern": "searchTask.GetAwaiter().GetResult()",
       "method": "TidalLidarrIndexer.ParseResponse()",
       "category": "A",
       "reason": "IParseIndexerResponse.ParseResponse is a synchronous Lidarr host contract; async FetchReleases is the primary path.",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
+    },
+    {
+      "file": "src/Tidalarr/Integration/TidalModule.cs",
+      "line": 110,
+      "pattern": "LegacyTokenMigration.MigrateIfPresentAsync(...).GetAwaiter().GetResult()",
+      "method": "TidalModule.ConfigureServices()",
+      "category": "A",
+      "reason": "DI ConfigureServices is sync; one-shot startup migration of legacy token store. Making it async cascades to plugin construction.",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
+    },
+    {
+      "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
+      "line": 284,
+      "pattern": "reader.LoadAsync().GetAwaiter().GetResult()",
+      "method": "PKCEStateStore.LoadState()",
+      "category": "A",
+      "reason": "Sync IPKCEStateStore.LoadState() called from sync OAuth bootstrap path; switching to async cascades through OAuth init and plugin schema generation (Lidarr renders schema synchronously).",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
+    },
+    {
+      "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
+      "line": 301,
+      "pattern": "writer.SaveAsync(...).GetAwaiter().GetResult()",
+      "method": "PKCEStateStore.SaveState()",
+      "category": "A",
+      "reason": "Sync IPKCEStateStore.SaveState() — same constraint as LoadState (line 284).",
+      "owner": "alex",
+      "expiresOn": "2026-08-01"
+    },
+    {
+      "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
+      "line": 330,
+      "pattern": "writer.ClearAsync().GetAwaiter().GetResult()",
+      "method": "PKCEStateStore.ClearState()",
+      "category": "A",
+      "reason": "Sync IPKCEStateStore.ClearState() — same constraint as LoadState (line 284).",
       "owner": "alex",
       "expiresOn": "2026-08-01"
     }
