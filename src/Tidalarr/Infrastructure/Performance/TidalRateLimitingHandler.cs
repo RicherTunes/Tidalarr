@@ -1,3 +1,4 @@
+using Lidarr.Plugin.Common.Services.Performance;
 using Microsoft.Extensions.Logging;
 using System.Net;
 
@@ -27,10 +28,11 @@ namespace Tidalarr.Infrastructure.Performance;
 /// </summary>
 public sealed class TidalRateLimitingHandler : DelegatingHandler
 {
-    private readonly TidalRateLimiter _rateLimiter;
+    private const string Service = "Tidal";
+    private readonly IUniversalAdaptiveRateLimiter _rateLimiter;
     private readonly ILogger<TidalRateLimitingHandler>? _logger;
 
-    public TidalRateLimitingHandler(TidalRateLimiter rateLimiter, ILogger<TidalRateLimitingHandler>? logger = null)
+    public TidalRateLimitingHandler(IUniversalAdaptiveRateLimiter rateLimiter, ILogger<TidalRateLimitingHandler>? logger = null)
     {
         _rateLimiter = rateLimiter ?? throw new ArgumentNullException(nameof(rateLimiter));
         _logger = logger;
@@ -46,7 +48,7 @@ public sealed class TidalRateLimitingHandler : DelegatingHandler
         // and continue (don't block the entire pipeline on a disposal race).
         try
         {
-            await _rateLimiter.WaitIfNeededAsync(endpointKey, cancellationToken).ConfigureAwait(false);
+            await _rateLimiter.WaitIfNeededAsync(Service, endpointKey, cancellationToken).ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
@@ -60,7 +62,7 @@ public sealed class TidalRateLimitingHandler : DelegatingHandler
         // no-op when the limiter is disposed.
         try
         {
-            _rateLimiter.RecordResponse(endpointKey, response);
+            _rateLimiter.RecordResponse(Service, endpointKey, response);
         }
         catch (ObjectDisposedException) { /* limiter shut down mid-request */ }
 
