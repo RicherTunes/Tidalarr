@@ -162,6 +162,28 @@ public class ArchitectValidationTests
         Console.WriteLine("   🎯 To: Enterprise-ready plugin with best practices");
         Console.WriteLine("   📈 Quality: Architect-validated production standards");
     }
+
+    [Fact]
+    public void TidalModule_RemovesMetricsFactoryHttpMessageHandlerFilter()
+    {
+        // Regression guard: TidalModule.ConfigureServices must remove the
+        // M.E.Http MetricsFactoryHttpMessageHandlerFilter that AddHttpClient
+        // auto-registers. Without this removal, building any HttpClient via
+        // IHttpClientFactory throws MissingMethodException at runtime in the
+        // isolated plugin AssemblyLoadContext (see SuppressHttpClientMetricsFilter
+        // comment in TidalModule.cs for the full backstory).
+        ServiceCollection services = new();
+        TidalModule.RegisterServices(services);
+
+        bool metricsFilterPresent = services.Any(s =>
+            s.ImplementationType?.FullName == "Microsoft.Extensions.Http.MetricsFactoryHttpMessageHandlerFilter");
+
+        Assert.False(metricsFilterPresent,
+            "MetricsFactoryHttpMessageHandlerFilter must NOT be in the service collection — " +
+            "it triggers SocketsHttpHandler.MeterFactory cross-ALC binding failures. " +
+            "If this assertion fails, SuppressHttpClientMetricsFilter in TidalModule.cs " +
+            "was removed or stopped working — restore it before merging.");
+    }
 }
 
 
