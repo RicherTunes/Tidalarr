@@ -177,15 +177,19 @@ public class TidalSearchService(
     {
         _ = Guard.NotNullOrWhiteSpace(albumId, nameof(albumId));
 
+        // Use the ITidalCore composite method that fetches the album metadata AND the
+        // tracklist (one paginated call to /albums/{id}/tracks). Previously this
+        // service called GetAlbumAsync alone and returned the result with an empty
+        // Tracks collection — callers (e.g. download orchestration) had no tracks
+        // to enumerate and silently no-op'd.
         (bool success, TidalAlbumInfo album) = await SafeOperationExecutor.TryExecuteAsync<TidalAlbumInfo>(() =>
-            this._apiClient.GetAlbumAsync(albumId));
+            this._apiClient.GetAlbumWithTracksAsync(albumId));
 
         if (!success || album == null)
         {
             throw new InvalidOperationException($"Failed to retrieve album with ID: {albumId}");
         }
 
-        // TODO: Load album tracks - for now return basic album info
         return album;
     }
 
