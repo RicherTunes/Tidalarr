@@ -28,7 +28,7 @@ namespace Tidalarr.Integration;
 public class TidalModule : StreamingPluginModule
 {
     public const string ModuleName = "Tidalarr";
-    public new const string Version = "1.0.1";
+    public new const string Version = "1.1.0";
     private static readonly string UserAgent = $"Tidalarr/{Version}";
 
     public override string ServiceName => "Tidal";
