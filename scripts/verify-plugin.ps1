@@ -65,12 +65,12 @@ elseif ($minHost -ne $hostVersionTarget) {
     $errors += "plugin.json minHostVersion '$minHost' expected '$hostVersionTarget'."
 }
 
-$minimum = $manifest.minimumVersion
-if (-not $minimum) {
-    $errors += 'plugin.json missing minimumVersion field (legacy clients rely on it).'
-}
-elseif ($minimum -ne $hostVersionTarget) {
-    $errors += "plugin.json minimumVersion '$minimum' expected '$hostVersionTarget'."
+# `minimumVersion` is deprecated since 2026-03-01 in favor of `minHostVersion`
+# (Common's packaging-gates MAN004 lint hard-bans it). Reject it here too so the
+# script and the gate agree.
+$legacyMin = $manifest.PSObject.Properties['minimumVersion']
+if ($null -ne $legacyMin) {
+    $errors += "plugin.json contains deprecated key 'minimumVersion'; use 'minHostVersion' instead (MAN004)."
 }
 
 if ($errors.Count -gt 0) {
