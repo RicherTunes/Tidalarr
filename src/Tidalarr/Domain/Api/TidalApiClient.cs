@@ -48,7 +48,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalTrackInfo(cachedTrack);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -56,7 +56,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
@@ -80,7 +80,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalAlbumInfo(cachedAlbum);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -88,7 +88,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope2 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw2.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
@@ -113,7 +113,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return [.. (cached.items ?? []).Select(MapToTidalTrackInfo)];
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -121,7 +121,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope3 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw3.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
@@ -172,7 +172,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalSearchResults(cached);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -180,7 +180,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope4 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw4.Stop();
         ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
@@ -202,13 +202,13 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
         };
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
@@ -257,13 +257,13 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
         };
-        HttpRequestMessage request = this._requestBuilder
+        using HttpRequestMessage request = this._requestBuilder
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken);
+        using HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
