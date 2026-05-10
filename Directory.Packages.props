@@ -31,7 +31,11 @@
          CentralPackageTransitivePinningEnabled. Runtime versions still come
          from the Lidarr host process; this only affects compile-time resolution. -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <!-- Must match DI version. Mixing DI 9.0.0 with Http 8.0.1 causes
+         MissingMethodException at runtime — the 9.0.0 DI registers a
+         MetricsFactoryHttpMessageHandlerFilter that calls into 9.x-only
+         APIs on SocketsHttpHandler. -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <!-- System.Text.Json 8.x for .NET 8 runtime compatibility -->
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
