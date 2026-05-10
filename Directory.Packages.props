@@ -2,6 +2,12 @@
   <!-- Enable Centralized Package Management -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Without transitive pinning, a `PackageVersion` for a package that no
+         project directly references is silently ignored — meaning our
+         System.Security.Cryptography.Xml 8.0.3 pin doesn't override the
+         vulnerable 8.0.2 that arrives via Microsoft.IdentityModel.*. Turn it
+         on so any PackageVersion entry can override transitive resolution. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <!-- Disable for Lidarr/Common submodule projects -->
   <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('ext\Lidarr')) OR $(MSBuildProjectDirectory.Contains('ext/Lidarr'))">
