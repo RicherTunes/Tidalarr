@@ -209,6 +209,28 @@ public class TidalModule : StreamingPluginModule
 
         // Bridge runtime defaults — call LAST so plugins can override with custom implementations
         services.AddBridgeDefaults();
+
+        // Suppress Microsoft.Extensions.Http's MetricsFactoryHttpMessageHandlerFilter.
+        //
+        // AddHttpClient (called 4× above) auto-registers this filter via
+        // TryAddEnumerable. The filter calls `socketsHandler.MeterFactory ??= ...` on
+        // the primary handler. After ILRepack internalizes M.E.Http into the merged
+        // plugin DLL and the plugin loads in an isolated AssemblyLoadContext, the JIT
+        // lookup for `SocketsHttpHandler.get_MeterFactory` throws
+        // MissingMethodException — the ALC's System.Net.Http resolution path produces
+        // a metadata view in which that property reference can't be bound (despite
+        // .NET 8 having the property on the BCL type). This breaks every
+        // PluginSandboxRuntimeTests assertion that builds the DI graph (CI red since
+        // 2026-03-28: Plugin_CreateDownloadClientAsync_*, Plugin_CreateIndexerAsync_*,
+        // plus DockerE2E / IndexerCovTests downstream).
+        //
+        // We don't actually use HttpClient metrics — Lidarr surfaces its own. Removing
+        // the filter post-AddHttpClient is the most surgical fix; we keep
+        // IHttpClientFactory's connection pooling, typed-client wiring, and
+        // delegating-handler composition intact. Targets only the named filter type
+        // so future Logging / PolicyHttpMessageHandler filters added to M.E.Http are
+        // unaffected.
+        SuppressHttpClientMetricsFilter(services);
     }
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
@@ -287,6 +309,24 @@ public class TidalModule : StreamingPluginModule
             logger: null,
             postProcessor: postProcessor,
             telemetrySink: telemetrySink);
+    }
+
+    /// <summary>
+    /// Removes <c>MetricsFactoryHttpMessageHandlerFilter</c> from the service collection
+    /// to prevent the cross-ALC <c>SocketsHttpHandler.MeterFactory</c> resolution failure.
+    /// See the comment at the top of <see cref="ConfigureServices"/> for the full backstory.
+    /// Resolved by reflection because the filter type is internal to M.E.Http.
+    /// </summary>
+    private static void SuppressHttpClientMetricsFilter(IServiceCollection services)
+    {
+        for (int i = services.Count - 1; i >= 0; i--)
+        {
+            System.Type? implType = services[i].ImplementationType;
+            if (implType is not null && implType.FullName == "Microsoft.Extensions.Http.MetricsFactoryHttpMessageHandlerFilter")
+            {
+                services.RemoveAt(i);
+            }
+        }
     }
 }
 
