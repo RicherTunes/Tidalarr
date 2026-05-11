@@ -3,6 +3,7 @@ using FluentValidation.Results;
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
+using Lidarr.Plugin.Common.Services.Diagnostics;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Utilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -354,8 +355,28 @@ public class TidalLidarrDownloadClient(
         catch (Exception ex)
         {
             this._logger.Error(ex, "Tidalarr download client test failed");
-            failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
+            // Use common's HttpExceptionClassifier so the user-visible message is
+            // an actionable category hint (auth / rate-limit / network / timeout
+            // / server / etc.) rather than a leaked CLR type name. The operator
+            // still gets the full stack trace via _logger.Error above.
+            failures.Add(new ValidationFailure("Test", BuildTestFailureMessage(ex)));
         }
+    }
+
+    /// <summary>
+    /// Build the user-visible <c>Test()</c> failure text from an exception caught
+    /// during download-client validation. Delegates to common's
+    /// <see cref="HttpExceptionClassifier"/> for a categorised hint and appends
+    /// a pointer to the Lidarr log for operator deep-dives.
+    ///
+    /// CLR type names are deliberately stripped — they are not actionable for
+    /// end users. Operators get the full stack trace via the logger call at
+    /// the catch site.
+    /// </summary>
+    public static string BuildTestFailureMessage(Exception ex)
+    {
+        var classification = HttpExceptionClassifier.Classify(ex);
+        return $"{classification.Hint} Full details in Lidarr logs.";
     }
 
     private string ExtractAlbumIdFromRelease(ReleaseInfo release)
