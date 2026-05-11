@@ -19,7 +19,7 @@ public static class SettingsDisplay
         public const int EarlyDownloadLimitOrder = 3;
         public const string EarlyDownloadLimitLabel = "Early Download Limit";
         public const string EarlyDownloadLimitUnit = "days";
-        public const string EarlyDownloadLimitHelpText = "Limit pre-release downloads to this many days before release.";
+        public const string EarlyDownloadLimitHelpText = "Maximum days into the future to consider pre-release albums. Albums whose Tidal release date is further away than this window are excluded from search results. Default 14 days; set to 0 to require already-released albums only. Leave blank to disable the window entirely.";
 
         public const int EnableCacheOrder = 4;
         public const string EnableCacheLabel = "Enable Cache";

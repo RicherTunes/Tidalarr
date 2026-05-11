@@ -144,7 +144,7 @@ public class TidalLidarrIndexer(
                 try
                 {
                     TidalSearchResults searchResults = await searchService
-                        .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
+                        .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless, market: "US", earlyReleaseLimitDays: Settings.EarlyReleaseLimit)
                         .ConfigureAwait(false);
 
                     if (searchResults.Albums == null || searchResults.Albums.Count == 0)
@@ -462,6 +462,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 /// </summary>
 public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger) : IParseIndexerResponse
 {
+    private readonly TidalLidarrIndexerSettings _settings = settings;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly Logger _logger = logger;
 
@@ -502,7 +503,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             // base-class code paths that process the tidal:// placeholder URLs.
             // Wrapped in Task.Run to avoid deadlock if Lidarr's SynchronizationContext captures the thread.
             TidalSearchResults searchResults = Task.Run(
-                () => searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless))
+                () => searchService.SearchWithQualityDetectionAsync(searchQuery, TidalQuality.Lossless, market: "US", earlyReleaseLimitDays: _settings.EarlyReleaseLimit))
                 .GetAwaiter().GetResult();
 
             if (searchResults.Albums == null || searchResults.Albums.Count == 0)

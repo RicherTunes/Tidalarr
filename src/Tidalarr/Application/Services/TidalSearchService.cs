@@ -27,6 +27,7 @@ public class TidalSearchService(
         string query,
         TidalQuality preferredQuality = TidalQuality.Lossless,
         string market = "US",
+        int? earlyReleaseLimitDays = null,
         CancellationToken cancellationToken = default)
     {
         // Validate and normalize input (URL encoding handled by request builder later)
@@ -94,6 +95,13 @@ public class TidalSearchService(
         List<TidalAlbumInfo> enhancedAlbums = [.. searchResults.Albums.Select(album =>
             EnhanceAlbumWithQuality(album, preferredQuality))];
 
+        // Apply the user's pre-release window. When earlyReleaseLimitDays is null
+        // (caller did not opt in or the indexer setting was left blank), this is a
+        // no-op. The clock is read from DateTimeOffset.UtcNow because the search
+        // path is wall-clock sensitive — there's no useful "request time" alternative.
+        IReadOnlyList<TidalAlbumInfo> windowedAlbums =
+            Tidalarr.Domain.Filters.EarlyReleaseFilter.Filter(enhancedAlbums, earlyReleaseLimitDays, DateTimeOffset.UtcNow);
+
         List<TidalTrackInfo> enhancedTracksAll = [.. searchResults.Tracks.Select(track =>
             EnhanceTrackWithQuality(track, preferredQuality))];
 
@@ -105,10 +113,10 @@ public class TidalSearchService(
                 restrictionMessage: string.Empty))];
 
         return new TidalSearchResults(
-            Albums: enhancedAlbums,
+            Albums: windowedAlbums,
             Tracks: enhancedTracks,
             Artists: searchResults.Artists,
-            TotalCount: enhancedAlbums.Count + enhancedTracks.Count + searchResults.Artists.Count,
+            TotalCount: windowedAlbums.Count + enhancedTracks.Count + searchResults.Artists.Count,
             HasMore: searchResults.HasMore
         );
     }

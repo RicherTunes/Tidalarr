@@ -112,7 +112,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
             }
 
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, Settings.EarlyReleaseLimit, cancellationToken).ConfigureAwait(false);
             List<StreamingAlbum> albums = results.Albums?
                 .Select(this._mapper.ToStreamingAlbum)
                 .Where(a => a is not null)
@@ -156,7 +156,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
                 await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
             }
 
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, Settings.EarlyReleaseLimit, cancellationToken).ConfigureAwait(false);
             List<StreamingTrack> tracks = results.Tracks?
                 .Select(this._mapper.ToStreamingTrack)
                 .Where(t => t is not null)
@@ -321,7 +321,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     {
         try
         {
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless, Settings.TidalMarket);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless, Settings.TidalMarket, Settings.EarlyReleaseLimit);
             return this._mapper.ToStreamingSearchResults(results);
         }
         catch (Exception ex)
