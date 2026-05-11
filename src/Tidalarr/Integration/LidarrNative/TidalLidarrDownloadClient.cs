@@ -4,6 +4,7 @@ using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
+using Lidarr.Plugin.Common.Services.Validation;
 using Lidarr.Plugin.Common.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
@@ -307,9 +308,12 @@ public class TidalLidarrDownloadClient(
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(Settings.DownloadPath))
+            // Path syntax check (empty / relative / traversal / NUL / bad chars) via
+            // common's DownloadPathValidator. Runs BEFORE filesystem touches so
+            // users get a specific error at save time instead of a confusing
+            // "Cannot create download path: Access is denied." at runtime.
+            if (!ValidateDownloadPath(Settings.DownloadPath, failures))
             {
-                failures.Add(new ValidationFailure("DownloadPath", "Download path is required"));
                 return;
             }
 
@@ -398,6 +402,35 @@ public class TidalLidarrDownloadClient(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Syntactic validation of <see cref="TidalLidarrDownloadClientSettings.DownloadPath"/>
+    /// using the common <see cref="DownloadPathValidator"/>. Runs before any
+    /// filesystem touches so users get a specific save-time error for bad
+    /// paths (empty, relative, traversal, embedded NUL) instead of confusing
+    /// runtime "Access denied" errors.
+    ///
+    /// Returns <c>true</c> when the path is syntactically valid (filesystem
+    /// existence + writability are checked separately in <c>Test()</c>).
+    /// </summary>
+    public static bool ValidateDownloadPath(string? path, List<ValidationFailure> failures)
+    {
+        if (failures is null) throw new ArgumentNullException(nameof(failures));
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            failures.Add(new ValidationFailure("DownloadPath", "Download path is required"));
+            return false;
+        }
+
+        var result = DownloadPathValidator.Validate(path);
+        if (!result.IsValid)
+        {
+            failures.Add(new ValidationFailure("DownloadPath", result.Message));
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
