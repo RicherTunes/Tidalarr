@@ -2,6 +2,27 @@
 
 Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly from the Tidal service while sharing key infrastructure with the Lidarr.Plugin.Common library.
 
+## Shared Infrastructure
+
+Tidalarr is built on [Lidarr.Plugin.Common](https://github.com/RicherTunes/Lidarr.Plugin.Common) — the shared library for all RicherTunes Lidarr streaming plugins.
+
+**Key shared services consumed by Tidalarr:**
+
+- `BaseStreamingIndexer<T>` — base class for `TidalIndexer` (search, pagination, parity checks)
+- `BaseStreamingDownloadClient<T>` — base class for `TidalDownloadClient` (progress tracking, concurrency, error handling)
+- `FileTokenStore<T>` — encrypted token persistence for PKCE state and Tidal session tokens
+- `StreamingApiRequestBuilder` — request construction for Tidal API v1 calls
+- `UniversalAdaptiveRateLimiter` — adaptive rate-limiting for chunk and API requests
+- `OAuth2PKCEAuthenticationService` — PKCE state management for Tidal OAuth
+
+**Ecosystem version contract:** Tidalarr tracks `commonVersion: 1.8.0`. The `ecosystem-parity-lint.ps1 -Check VersionContract` gate enforces that the plugin's `VERSION` file, `plugin.json`, and the Common submodule pin all agree. See [Common's ECOSYSTEM_VERSION_CONTRACT.md](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/docs/ECOSYSTEM_VERSION_CONTRACT.md) for details.
+
+## Documentation
+
+- [Changelog](CHANGELOG.md)
+- [Security](SECURITY.md)
+- [Docs directory](docs/)
+
 ## Getting Started
 - `git submodule update --init --recursive` to sync the common library and CLI dependencies.
 - `dotnet restore Tidalarr.sln` then `dotnet build Tidalarr.sln` to ensure the solution compiles cleanly.
