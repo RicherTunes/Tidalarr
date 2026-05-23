@@ -101,13 +101,68 @@ jobs:
 
     - name: Create release package
       run: |
-        echo "Creating release package..."
+        # Packaging policy (see ext/Lidarr.Plugin.Common/build/PluginPackaging.targets):
+        #
+        #   MUST SHIP:
+        #     - Lidarr.Plugin.Tidalarr.dll (merged: Common + Abstractions internalized via ILRepack)
+        #     - plugin.json
+        #     - manifest.json (if present)
+        #
+        #   MUST NOT SHIP (host-provided / cross-boundary type-identity):
+        #     - FluentValidation, NLog, System.Text.Json, Microsoft.Extensions.*.Abstractions,
+        #       Lidarr.*.dll, NzbDrone.*.dll, Lidarr.Plugin.{Common,Abstractions}.dll as sidecars
+        #
         # Filename MUST contain "net8.0.zip" — Lidarr's PluginService.GetRemotePlugin
         # filters release assets by a.Name.Contains("net8.0.zip", OrdinalIgnoreCase).
         # Without that substring the UI Install button spinner hangs forever with no error.
-        cd src/Tidalarr/bin/Release/net8.0
-        zip -r "../../../../../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip" *
-        cd ../../../../../
+
+        # Tidalarr's csproj sets OutputPath=bin\ + AppendTargetFrameworkToOutputPath=false,
+        # so the merged DLL lands at src/Tidalarr/bin/, not src/Tidalarr/bin/Release/net8.0/.
+        DLL=""
+        for candidate in \
+          src/Tidalarr/bin/Lidarr.Plugin.Tidalarr.dll \
+          src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll; do
+          if [ -f "$candidate" ]; then DLL="$candidate"; break; fi
+        done
+        if [ -z "$DLL" ]; then
+          echo "❌ Merged plugin DLL not found in src/Tidalarr/bin/" >&2
+          find src/Tidalarr/bin -maxdepth 4 -type f 2>&1 | sed 's/^/  /' >&2
+          exit 1
+        fi
+        DLL_SIZE=$(stat -c%s "$DLL")
+        echo "🔍 Merged plugin DLL: $DLL ($DLL_SIZE bytes)"
+        if [ "$DLL_SIZE" -lt 2000000 ]; then
+          echo "⚠️ DLL too small ($DLL_SIZE bytes) — ILRepack likely did not merge Common + Abstractions." >&2
+          exit 1
+        fi
+
+        BIN_DIR=$(dirname "$DLL")
+        mkdir -p package
+        cp "$DLL" package/
+        if [ -f "$BIN_DIR/plugin.json" ]; then cp "$BIN_DIR/plugin.json" package/; elif [ -f plugin.json ]; then cp plugin.json package/; fi
+        if [ -f "$BIN_DIR/manifest.json" ]; then cp "$BIN_DIR/manifest.json" package/; elif [ -f manifest.json ]; then cp manifest.json package/; fi
+
+        for forbidden in \
+          FluentValidation.dll NLog.dll System.Text.Json.dll Newtonsoft.Json.dll \
+          Microsoft.Extensions.Logging.Abstractions.dll \
+          Microsoft.Extensions.DependencyInjection.Abstractions.dll \
+          Microsoft.Extensions.Caching.Abstractions.dll \
+          Microsoft.Extensions.Caching.Memory.dll \
+          Microsoft.Extensions.Options.dll Microsoft.Extensions.Primitives.dll \
+          Lidarr.Plugin.Common.dll Lidarr.Plugin.Abstractions.dll \
+          Lidarr.Core.dll Lidarr.Common.dll; do
+          if [ -f "package/$forbidden" ]; then
+            echo "❌ FORBIDDEN host assembly in package: $forbidden" >&2
+            exit 1
+          fi
+        done
+
+        echo "📦 Release package contents:"
+        ls -la package/
+
+        cd package
+        zip -r "../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip" .
+        cd ..
 
         echo "Release package created"
         ls -la *.zip
