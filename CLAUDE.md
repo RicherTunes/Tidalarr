@@ -20,6 +20,30 @@ LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
 
 When bumping the Docker image tag, search the entire repo for the old tag string and update all hits (workflows, scripts, docs).
 
+## Plugin Registration (CRITICAL — controls Lidarr System→Plugins UI visibility)
+
+Lidarr has **two** distinct `IPlugin` interfaces, and conflating them silently breaks the System→Plugins UI:
+
+| Interface | From | Used by |
+|---|---|---|
+| `NzbDrone.Core.Plugins.IPlugin` | `Lidarr.Core.dll` (host) | `/api/v1/system/plugins` — UI listing, update checks, uninstall |
+| `Lidarr.Plugin.Abstractions.IPlugin` | Common (internalized via ILRepack) | TestKit `PluginSandbox` — never read by the live host |
+
+`TidalarrPlugin : IPlugin` (Common's IPlugin) satisfies the bridge contract. `TidalIndexer`/`TidalDownloadClient` are discovered through their Lidarr base classes. Neither satisfies the host's `IPlugin`, so without an additional class the plugin loads fully and works but doesn't appear in System→Plugins (and can't be auto-updated/uninstalled through the UI).
+
+`src/Tidalarr/Integration/TidalarrInstalledPlugin.cs` extends the host's `NzbDrone.Core.Plugins.Plugin` to close the gap:
+
+```csharp
+public sealed class TidalarrInstalledPlugin : NzbDrone.Core.Plugins.Plugin
+{
+    public override string Name => "Tidalarr";
+    public override string Owner => "RicherTunes";
+    public override string GithubUrl => "https://github.com/RicherTunes/Tidalarr";
+}
+```
+
+DryIoc's `RegisterMany` (in `NzbDrone.Common.Composition.Extensions.AutoAddServices`) auto-discovers this class from the loaded plugin assembly. `InstalledVersion` is derived from `AssemblyInformationalVersionAttribute` via the base class — do **not** hardcode it. Tidalarr.csproj wires the assembly version from the top-level VERSION file (Directory.Build.props), and the `VersionContractTests` enforce that sources stay in sync.
+
 ## Release Asset Naming (CRITICAL — controls Lidarr UI install)
 
 **Every release asset filename MUST contain the literal substring `net8.0.zip`.**
