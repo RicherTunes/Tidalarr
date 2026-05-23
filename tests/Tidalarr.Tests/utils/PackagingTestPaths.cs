@@ -12,7 +12,11 @@ public static class PackagingTestPaths
 
     public static string? TryFindPackagePath()
     {
-        string? overridePath = Environment.GetEnvironmentVariable("TIDALARR_PACKAGE_PATH");
+        // Honor both the Tidalarr-specific override (legacy) and the cross-plugin
+        // PLUGIN_PACKAGE_PATH convention (set by release.yml in all four plugins'
+        // packaging-tests step). Either should point to the exact zip CI will publish.
+        string? overridePath = Environment.GetEnvironmentVariable("TIDALARR_PACKAGE_PATH")
+            ?? Environment.GetEnvironmentVariable("PLUGIN_PACKAGE_PATH");
         if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath))
         {
             return overridePath;
@@ -58,18 +62,6 @@ public static class PackagingTestPaths
         }
 
         return null;
-    }
-
-    public static string? TryFindPackagingPolicyBaselinePath()
-    {
-        string? repoRoot = TryFindRepoRoot();
-        if (repoRoot == null)
-        {
-            return null;
-        }
-
-        string path = Path.Combine(repoRoot, "docs", "PACKAGING_POLICY_BASELINE.md");
-        return File.Exists(path) ? path : null;
     }
 
     public static ZipArchive OpenPackageZip(string packagePath)

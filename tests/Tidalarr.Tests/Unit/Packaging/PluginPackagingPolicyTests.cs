@@ -1,49 +1,37 @@
-using System.IO.Compression;
-using System.Text.Json;
+using System.IO;
+using Lidarr.Plugin.Common.TestKit.Compliance;
 using Tidalarr.Tests.Utils;
+using Xunit;
 
 namespace Tidalarr.Tests.Unit.Packaging;
 
+/// <summary>
+/// Tidalarr package compliance. The four cross-plugin assertions (required files,
+/// forbidden DLLs, merged-DLL size, no host leaks) delegate to the shared
+/// <see cref="PluginPackagingContract"/> in Common.TestKit so the rules don't
+/// drift across the four-plugin family. Tidalarr-specific extras (reasonable size
+/// envelope, plugin.json Main field cross-check) stay inline.
+///
+/// The previous standalone <c>PackagingPolicyBaseline.cs</c> (which loaded the
+/// required/forbidden lists from <c>docs/PACKAGING_POLICY_BASELINE.md</c>) is
+/// superseded — Common.TestKit's <see cref="PluginPackagingContract.MergedDllPolicy"/>
+/// is now the source of truth. The doc and <c>packaging/expected-contents.txt</c>
+/// can stay as human-readable references but are no longer test-driven.
+/// </summary>
 public sealed class PluginPackagingPolicyTests
 {
-    private static PackagingPolicyBaseline Baseline =>
-        PackagingPolicyBaseline.LoadOrDefault(PackagingTestPaths.TryFindPackagingPolicyBaselinePath());
+    private static readonly PluginPackagePolicy Policy = PluginPackagingContract.MergedDllPolicy(
+        mainAssemblyName: "Lidarr.Plugin.Tidalarr");
 
     [PackagingFact]
     [Trait("Category", "Packaging")]
-    public void Package_Should_Contain_Required_Assemblies()
+    public void Package_Matches_Cross_Plugin_Policy()
     {
         string packagePath = PackagingTestPaths.RequirePackagePath();
-        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
-        HashSet<string> dlls = GetDllNames(zip);
-
-        foreach (string required in Baseline.RequiredAssemblies)
-        {
-            Assert.Contains(required, dlls);
-        }
+        PluginPackagingContract.AssertZipMatchesPolicy(packagePath, Policy);
     }
 
-    [PackagingFact]
-    [Trait("Category", "Packaging")]
-    public void Package_Should_Not_Contain_Forbidden_Assemblies()
-    {
-        string packagePath = PackagingTestPaths.RequirePackagePath();
-        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
-        HashSet<string> dlls = GetDllNames(zip);
-
-        foreach (string forbidden in Baseline.ForbiddenAssemblies)
-        {
-            Assert.DoesNotContain(forbidden, dlls);
-        }
-
-        // General host-leak guard: allow `Lidarr.Plugin.*` but reject other `Lidarr.*` / `NzbDrone.*`.
-        string? hostLeak = dlls.FirstOrDefault(n =>
-            (n.StartsWith("Lidarr.", StringComparison.OrdinalIgnoreCase)
-             && !n.StartsWith("Lidarr.Plugin.", StringComparison.OrdinalIgnoreCase))
-            || n.StartsWith("NzbDrone.", StringComparison.OrdinalIgnoreCase));
-
-        Assert.True(hostLeak == null, $"package must not include host assemblies (Lidarr.* / NzbDrone.*): {hostLeak}");
-    }
+    // ----- Tidalarr-specific extras (not duplicated across plugins) -----
 
     [PackagingFact]
     [Trait("Category", "Packaging")]
@@ -52,77 +40,9 @@ public sealed class PluginPackagingPolicyTests
         string packagePath = PackagingTestPaths.RequirePackagePath();
         long sizeBytes = new FileInfo(packagePath).Length;
 
-        Assert.True(sizeBytes > 100_000, "a plugin package smaller than this likely indicates a packaging failure");
-        Assert.True(sizeBytes < 15 * 1024 * 1024, "package bloat usually indicates an accidental dependency leak");
+        Assert.True(sizeBytes > 100_000,
+            "a plugin package smaller than 100KB likely indicates a packaging failure");
+        Assert.True(sizeBytes < 15 * 1024 * 1024,
+            "package bloat usually indicates an accidental dependency leak");
     }
-
-    /// <summary>
-    /// Sub-threshold DLL size means ILRepack's RepackPlugin target didn't run —
-    /// Common + Abstractions weren't internalized — so the runtime will fail with
-    /// "Could not load file or assembly Lidarr.Plugin.Common / Abstractions" because
-    /// the forbidden-list correctly omitted the sidecars but the merge produced nothing.
-    /// This is the exact failure mode that broke install of brainarr/qobuzarr/tidalarr
-    /// in May 2026 — guard against the regression.
-    /// </summary>
-    [PackagingFact]
-    [Trait("Category", "Packaging")]
-    public void Plugin_Dll_Should_Be_Merged_Size()
-    {
-        string packagePath = PackagingTestPaths.RequirePackagePath();
-        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
-
-        ZipArchiveEntry? entry = zip.Entries.FirstOrDefault(e =>
-            Path.GetFileName(e.FullName).Equals("Lidarr.Plugin.Tidalarr.dll", StringComparison.OrdinalIgnoreCase));
-
-        Assert.True(entry != null, "Lidarr.Plugin.Tidalarr.dll must be in the package");
-        Assert.True(entry!.Length >= 2_000_000,
-            $"merged DLL is {entry.Length} bytes but should be at least 2MB (includes internalized Common + Abstractions). " +
-            $"A smaller DLL means ILRepack didn't run and runtime will fail with " +
-            $"'Could not load file or assembly Lidarr.Plugin.Common / Abstractions'");
-    }
-
-    [PackagingFact]
-    [Trait("Category", "Packaging")]
-    public void Package_Metadata_Should_Match_Contents()
-    {
-        string packagePath = PackagingTestPaths.RequirePackagePath();
-        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
-
-        HashSet<string> dlls = GetDllNames(zip);
-
-        // Verify plugin.json exists and references a valid main assembly
-        PluginManifest pluginJson = ReadPluginJson(zip);
-        Assert.False(string.IsNullOrWhiteSpace(pluginJson.Main), "plugin.json must specify a Main assembly");
-        Assert.Contains(pluginJson.Main!, dlls, StringComparer.OrdinalIgnoreCase);
-
-        // Verify the package contains at least one DLL (the main plugin assembly)
-        Assert.NotEmpty(dlls);
-    }
-
-    private static HashSet<string> GetDllNames(ZipArchive zip)
-    {
-        return zip.Entries
-            .Where(e => e.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.FullName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static PluginManifest ReadPluginJson(ZipArchive zip)
-    {
-        ZipArchiveEntry? entry = zip.Entries.FirstOrDefault(e =>
-            string.Equals(e.FullName, "plugin.json", StringComparison.OrdinalIgnoreCase));
-
-        Assert.NotNull(entry);
-
-        using Stream stream = entry!.Open();
-        PluginManifest? manifest = JsonSerializer.Deserialize<PluginManifest>(stream, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
-
-        Assert.NotNull(manifest);
-        return manifest!;
-    }
-
-    private sealed record PluginManifest(string? Main);
 }
