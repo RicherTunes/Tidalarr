@@ -24,4 +24,12 @@ regexes = [
     '''user_auth_token=(test|fake|REDACTED|mock)''',
     '''LIDARR_CACHE_KEY''',
     '''LIDARR_API_KEY''',
+    # Tidal Android OAuth client credentials and stream-decryption master key.
+    # These are NOT secrets — they are embedded in every Tidal Android APK and have been
+    # publicly documented in OSS projects since 2018.  See ADR:
+    # docs/decisions/0001-hardcoded-tidal-client-credentials.md
+    '''6BDSRdpK9hqEBTgU''',
+    '''xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=''',
+    '''zU4XHVVkc2tDPo4t''',
+    '''UIlTTEMmmLfGowo/UC60x2H45W6MdGgTRfo/umg4754=''',
 ]
