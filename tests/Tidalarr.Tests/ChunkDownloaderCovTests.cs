@@ -180,7 +180,10 @@ public class ChunkDownloaderCovTests
 
         SequenceHandler handler = new(() => chunks[callCount++]);
         TidalChunkDownloader downloader = new(new HttpClient(handler));
-        List<int> progressReports = [];
+        // Thread-safe collector — Common's ChunkedHttpAssembler reports synchronously on
+        // the awaiting thread in serial mode, but ConcurrentBag is harmless overhead and
+        // keeps the test correct if a future refactor moves to parallel reporting.
+        System.Collections.Concurrent.ConcurrentQueue<int> progressReports = new();
 
         TidalStreamInfo streamInfo = new(
             TrackId: "track-456",
@@ -191,12 +194,33 @@ public class ChunkDownloaderCovTests
             SecurityToken: null);
 
         // Act
-        Progress<int> progress = new(p => progressReports.Add(p));
+        //
+        // IMPORTANT: do NOT use System.Progress<T> here. Progress<T> posts the
+        // callback to the captured SynchronizationContext (or ThreadPool when
+        // none is captured, which is the xUnit default). That makes the callback
+        // run AFTER `await DownloadAndAssembleAsync` returns, racing with the
+        // Assert below — intermediate reports (e.g. the "2" in [1,2,3]) get
+        // dropped if their ThreadPool work item hasn't run by the time Assert
+        // captures the list. Use a synchronous IProgress<int> instead so reports
+        // land in the queue on the same thread that emits them.
+        SyncProgress<int> progress = new(p => progressReports.Enqueue(p));
         await using Stream _ = await downloader.DownloadAndAssembleAsync(
             streamInfo, chunkDelayMs: 0, maxConcurrentChunkDownloads: 1, progress: progress);
 
         // Assert
-        Assert.Equal([1, 2, 3], progressReports);
+        Assert.Equal([1, 2, 3], progressReports.ToArray());
+    }
+
+    /// <summary>
+    /// Synchronous <see cref="IProgress{T}"/> for deterministic tests — invokes the
+    /// handler on the calling thread instead of posting via SynchronizationContext.
+    /// Use this when the test asserts the exact sequence of reports.
+    /// </summary>
+    private sealed class SyncProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+        public SyncProgress(Action<T> handler) => _handler = handler;
+        public void Report(T value) => _handler(value);
     }
 
     [Fact]
