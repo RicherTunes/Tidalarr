@@ -69,7 +69,18 @@ public class TidalDownloadClient(
     {
         TidalQuality tidalQuality = ParseQualityFromString(quality);
         TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality);
+        WarnIfQualityDowngraded(tidalQuality, streamInfo);
         return streamInfo.ChunkUrls?.FirstOrDefault() ?? string.Empty;
+    }
+
+    private void WarnIfQualityDowngraded(TidalQuality requested, TidalStreamInfo info)
+    {
+        if (info?.DeliveredQuality is not TidalQuality delivered) return;
+        var result = TidalQualityDowngradeDetector.Detect(requested, delivered);
+        if (result.WasDowngraded)
+        {
+            Logger?.LogWarning("{Reason}", result.Reason);
+        }
     }
 
     protected override ValidationResult ValidateDownloadSettings(TidalDownloadClientSettings settings)
@@ -217,6 +228,7 @@ public class TidalDownloadClient(
             StreamingTrack track = await GetTrackAsync(trackId);
             TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
             TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
+            WarnIfQualityDowngraded(quality, streamInfo);
 
             string dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir2);

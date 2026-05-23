@@ -1,7 +1,9 @@
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Abstractions.Models;
+using Microsoft.Extensions.Logging;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
+using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Integration
@@ -14,12 +16,14 @@ namespace Tidalarr.Integration
         TidalStreamService streamService,
         TidalChunkDownloader chunkDownloader,
         TidalModelMapper mapper,
-        TidalDownloadClientSettings settings) : IAudioStreamProvider
+        TidalDownloadClientSettings settings,
+        ILogger? logger = null) : IAudioStreamProvider
     {
         private readonly TidalStreamService _streamService = streamService ?? throw new ArgumentNullException(nameof(streamService));
         private readonly TidalChunkDownloader _chunkDownloader = chunkDownloader ?? throw new ArgumentNullException(nameof(chunkDownloader));
         private readonly TidalModelMapper _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        private readonly ILogger? _logger = logger;
 
         public async Task<AudioStreamResult> GetStreamAsync(string trackId, StreamingQuality? quality = null, CancellationToken cancellationToken = default)
         {
@@ -54,6 +58,7 @@ namespace Tidalarr.Integration
             }
 
             TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            WarnIfQualityDowngraded(tidalQuality, info);
             int maxChunksLegacy = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
             Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(
                 info,
@@ -69,5 +74,14 @@ namespace Tidalarr.Integration
             };
         }
 
+        private void WarnIfQualityDowngraded(TidalQuality requested, TidalStreamInfo info)
+        {
+            if (info?.DeliveredQuality is not TidalQuality delivered) return;
+            var result = TidalQualityDowngradeDetector.Detect(requested, delivered);
+            if (result.WasDowngraded)
+            {
+                _logger?.LogWarning("{Reason}", result.Reason);
+            }
+        }
     }
 }

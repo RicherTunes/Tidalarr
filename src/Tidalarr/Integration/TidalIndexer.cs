@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Tidalarr.Application.Services;
+using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Core.Mappers;
@@ -19,6 +21,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     private readonly HttpClient _httpClient;
     private readonly IAuthFailureHandler? _authHandler;
     private readonly IIndexerStatusReporter? _statusReporter;
+    private readonly AuthFailureGate? _authGate;
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
@@ -30,14 +33,30 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         ILogger? logger = null,
         Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider? tokenProvider = null,
         IAuthFailureHandler? authHandler = null,
-        IIndexerStatusReporter? statusReporter = null)
+        IIndexerStatusReporter? statusReporter = null,
+        AuthFailureGate? authGate = null,
+        IHttpClientFactory? httpClientFactory = null)
         : base(settings, logger!)
     {
         this._searchService = searchService;
         this._apiClient = apiClient;
         this._mapper = new TidalModelMapper();
-        // Provide an OAuth-enabled HttpClient for base operations (if used)
-        if (tokenProvider != null)
+
+        // Prefer the DI-registered "TidalIndexer.Base" named client. It carries
+        // the full production handler chain: TidalRateLimitingHandler →
+        // ContentDecodingSnifferHandler → AuthFailureDelegatingHandler →
+        // OAuthDelegatingHandler. The previous inline `new HttpClient(handler)`
+        // / `new HttpClient()` paths bypassed three of those four handlers, so
+        // any future base-class override that drove
+        // BaseStreamingIndexer.ExecuteRequestAsync would silently sidestep the
+        // gate and the rate limiter. Falling back to the inline construction
+        // preserves backward compat for test/non-DI callers — they still get
+        // OAuth via the supplied tokenProvider when present.
+        if (httpClientFactory is not null)
+        {
+            this._httpClient = httpClientFactory.CreateClient("TidalIndexer.Base");
+        }
+        else if (tokenProvider != null)
         {
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
             ILogger ologger = loggerFactory.CreateLogger("OAuthDelegatingHandler");
@@ -57,6 +76,46 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
         this._authHandler = authHandler;
         this._statusReporter = statusReporter;
+        this._authGate = authGate;
+    }
+
+    /// <summary>
+    /// True when the gate is wired AND auth is latched bad AND no probe slot is
+    /// currently available — the caller should short-circuit to an empty result
+    /// instead of forwarding to the network. Same amplification-stop pattern
+    /// applied in apple + qobuz adapters; closes the auth-thrash family of
+    /// failures (Lidarr search loop hammering Tidal after token expiry).
+    /// </summary>
+    private bool IsAuthShortCircuited()
+    {
+        if (this._authGate is null) return false;
+        if (this._authGate.IsHealthy) return false;
+        return !this._authGate.TryAcquireProbeSlot();
+    }
+
+    private async Task RecordAuthOutcomeFromExceptionAsync(Exception ex)
+    {
+        if (this._authGate is null) return;
+        if (LooksLikeAuthFailure(ex))
+        {
+            await this._authGate.Handler.HandleFailureAsync(new AuthFailure
+            {
+                ErrorCode = (ex as TidalApiException)?.StatusCode?.ToString(),
+                Message = ex.Message,
+            }).ConfigureAwait(false);
+        }
+    }
+
+    private static bool LooksLikeAuthFailure(Exception ex)
+    {
+        if (ex is TidalAuthenticationException) return true;
+        if (ex is TidalApiException tae && tae.StatusCode is 401 or 403) return true;
+        if (ex is System.Net.Http.HttpRequestException hre &&
+            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+        {
+            return true;
+        }
+        return false;
     }
 
     protected override async Task<bool> AuthenticateAsync()
@@ -105,6 +164,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     internal async Task<List<StreamingAlbum>> SearchAlbumsInternalAsync(string searchTerm, CancellationToken cancellationToken)
     {
+        if (this.IsAuthShortCircuited())
+        {
+            Logger?.LogDebug("Short-circuiting Tidal album search; auth latched bad and probe slot exhausted");
+            return [];
+        }
+
         try
         {
             if (this._statusReporter is not null)
@@ -128,6 +193,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
         catch (Exception ex)
         {
+            await this.RecordAuthOutcomeFromExceptionAsync(ex).ConfigureAwait(false);
             Logger?.LogError(ex, "Failed to search albums for: {Search}", searchTerm);
 
             if (this._statusReporter is not null)
@@ -149,6 +215,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     internal async Task<List<StreamingTrack>> SearchTracksInternalAsync(string searchTerm, CancellationToken cancellationToken)
     {
+        if (this.IsAuthShortCircuited())
+        {
+            Logger?.LogDebug("Short-circuiting Tidal track search; auth latched bad and probe slot exhausted");
+            return [];
+        }
+
         try
         {
             if (this._statusReporter is not null)
@@ -172,6 +244,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
         catch (Exception ex)
         {
+            await this.RecordAuthOutcomeFromExceptionAsync(ex).ConfigureAwait(false);
             Logger?.LogError(ex, "Failed to search tracks for: {Search}", searchTerm);
 
             if (this._statusReporter is not null)
@@ -193,6 +266,17 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
 
     internal async Task<StreamingAlbum> GetAlbumDetailsInternalAsync(string albumId, CancellationToken cancellationToken)
     {
+        if (this.IsAuthShortCircuited())
+        {
+            Logger?.LogDebug("Short-circuiting Tidal album fetch; auth latched bad and probe slot exhausted");
+            return new StreamingAlbum
+            {
+                Id = albumId,
+                Title = string.Empty,
+                Artist = new StreamingArtist { Id = string.Empty, Name = string.Empty }
+            };
+        }
+
         try
         {
             TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumAsync(albumId, cancellationToken).ConfigureAwait(false);
@@ -212,6 +296,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
         }
         catch (Exception ex)
         {
+            await this.RecordAuthOutcomeFromExceptionAsync(ex).ConfigureAwait(false);
             Logger?.LogError(ex, "Failed to get album details for: {AlbumId}", albumId);
 
             if (this._statusReporter is not null)

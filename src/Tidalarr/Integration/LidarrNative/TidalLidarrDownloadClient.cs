@@ -502,7 +502,10 @@ public class TidalLidarrDownloadClient(
 /// </summary>
 internal class TidalDownloadItem
 {
-    private volatile int _status = (int)DownloadItemStatus.Queued;
+    // Volatile.Read/Volatile.Write provide the acquire/release barriers; a
+    // `volatile` modifier on the field would be redundant (and CS0420 warns
+    // that it cannot be carried through `ref` parameters anyway).
+    private int _status = (int)DownloadItemStatus.Queued;
     private long _progressBits; // stored as long bit pattern for atomic read/write of double
 
     public string DownloadId { get; set; } = string.Empty;
