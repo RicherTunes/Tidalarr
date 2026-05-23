@@ -38,18 +38,16 @@ try {
     # SkipHostBridge excludes LidarrNative files that require Lidarr host assemblies
     & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false -SkipHostBridge
 
-    # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
-    try {
-        Write-Host "Packaging plugin via PluginPack" -ForegroundColor Cyan
-        $modulePath = Join-Path $repoRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
-        Import-Module $modulePath -Force
-        $manifestPath = Join-Path $repoRoot 'plugin.json'
-        $csproj = Join-Path $repoRoot 'src/Tidalarr/Tidalarr.csproj'
-        $null = New-PluginPackage -Csproj $csproj -Manifest $manifestPath -Framework 'net8.0' -Configuration 'Release'
-    } catch {
-        Write-Warning "Packaging step failed: $_"
-        if ($IncludeCliTests) { throw }
-    }
+    # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact.
+    # Phase 0.6: packaging failure is always fatal — previously this was wrapped in a try/catch
+    # that only re-threw when -IncludeCliTests was set, allowing PR/CI to declare success on a
+    # broken package.
+    Write-Host "Packaging plugin via PluginPack" -ForegroundColor Cyan
+    $modulePath = Join-Path $repoRoot 'ext/Lidarr.Plugin.Common/tools/PluginPack.psm1'
+    Import-Module $modulePath -Force
+    $manifestPath = Join-Path $repoRoot 'plugin.json'
+    $csproj = Join-Path $repoRoot 'src/Tidalarr/Tidalarr.csproj'
+    $null = New-PluginPackage -Csproj $csproj -Manifest $manifestPath -Framework 'net8.0' -Configuration 'Release'
 
     Write-Host "Running tests (Release configuration) via unified runner" -ForegroundColor Cyan
 
