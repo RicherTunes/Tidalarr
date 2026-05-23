@@ -40,7 +40,9 @@ public class EndToEndIntegrationTests
 
         Assert.True(TidalModule.ValidateConfiguration(indexerSettings));
         Assert.Equal("Tidalarr", TidalModule.ModuleName);
-        Assert.Equal("1.0.1", TidalModule.Version);
+        // Version is now derived from assembly metadata (was hardcoded "1.0.1" and rotted
+        // through 1.0.x → 1.1.x). Assert structural shape, not a specific value.
+        Assert.Matches(@"^\d+\.\d+\.\d+$", TidalModule.Version);
 
         Assert.True(true, "End-to-End: Complete Tidalarr plugin integration works!");
     }
