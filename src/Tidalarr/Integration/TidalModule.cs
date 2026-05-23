@@ -28,7 +28,13 @@ namespace Tidalarr.Integration;
 public class TidalModule : StreamingPluginModule
 {
     public const string ModuleName = "Tidalarr";
-    public new const string Version = "1.1.0";
+
+    // Version is derived from the assembly version (which Tidalarr.csproj wires up from the
+    // top-level VERSION file via Directory.Build.props). Don't reintroduce a hardcoded literal —
+    // it will drift the next time VERSION is bumped, as it did 1.0.1 → 1.1.0 → 1.1.1.
+    public static readonly new string Version =
+        typeof(TidalModule).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
     private static readonly string UserAgent = $"Tidalarr/{Version}";
 
     public override string ServiceName => "Tidal";
