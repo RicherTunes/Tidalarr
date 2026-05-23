@@ -20,6 +20,36 @@ LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
 
 When bumping the Docker image tag, search the entire repo for the old tag string and update all hits (workflows, scripts, docs).
 
+## Release Asset Naming (CRITICAL — controls Lidarr UI install)
+
+**Every release asset filename MUST contain the literal substring `net8.0.zip`.**
+
+Lidarr's plugin install (UI "Install" on a GitHub URL) is implemented in `src/NzbDrone.Core/Plugins/PluginService.cs` on the `plugins` branch. The asset filter is:
+
+```csharp
+release.Assets.Any(a => a.Name.Contains($"{Framework}.zip", StringComparison.OrdinalIgnoreCase))
+// where Framework = $"net{_platformInfo.Version.Major}.0"  →  "net8.0"
+```
+
+If no asset matches, `GetRemotePlugin` returns `null` and `InstallPluginService.Execute` silently no-ops — **the UI spinner spins forever with no error**. This is the failure mode users see as "Install button does nothing."
+
+Other constraints the install enforces:
+
+- `draft: false`
+- `target_commitish` ∈ `{main, master}` (case-insensitive)
+- Tag parses as a version (`v1.2.3`, `1.2.3`, or `1.2.3-prerelease`)
+- Optional `Minimum Lidarr Version: X.Y.Z.W` in release body must be ≤ host version
+
+Our release zip is named `Lidarr.Plugin.Tidalarr-v<VERSION>.net8.0.zip` (`.github/workflows/release.yml`). Do not rename without keeping the `net8.0.zip` suffix.
+
+**Verify a release is installable:**
+
+```bash
+gh api repos/RicherTunes/tidalarr/releases --jq '.[0] | {tag_name, draft, target_commitish, assets: [.assets[].name]}'
+```
+
+At least one asset name must contain `net8.0.zip`.
+
 **ALWAYS**:
 - Use constants from `TidalConstants.cs` rather than hardcoding.
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
