@@ -35,6 +35,16 @@ public sealed class TidalRateLimiter(ILogger<TidalRateLimiter>? logger = null) :
         this._inner.RecordResponse(normalizedService, endpoint ?? string.Empty, response);
     }
 
+    public void RecordAuthFailure(string service, string endpoint)
+    {
+        if (this._disposed)
+        {
+            return;
+        }
+
+        this._inner.RecordAuthFailure(NormalizeService(service), endpoint ?? string.Empty);
+    }
+
     public int GetCurrentLimit(string service, string endpoint)
     {
         ThrowIfDisposed();

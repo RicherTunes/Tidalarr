@@ -1,7 +1,9 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
 using Lidarr.Plugin.Common.Services.Registration;
@@ -51,6 +53,14 @@ public class TidalModule : StreamingPluginModule
         // backstory: the underlying TidalRateLimiter was previously dead code (registered in
         // DI, never invoked) — wiring this handler converts it into an actual ceiling.
         _ = services.AddTransient<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>();
+        // AuthFailureDelegatingHandler is registered OUTERMOST on every Tidal API
+        // HttpClient EXCEPT the OAuth service — the gate must not block re-auth
+        // attempts, otherwise the user can never recover after a latched-bad
+        // session. Pipeline order: AuthFailureDelegatingHandler → RateLimitingHandler
+        // → ContentDecodingSnifferHandler → OAuthDelegatingHandler (innermost,
+        // transparent 401-refresh). A 401 that survives OAuth refresh bubbles
+        // up to the auth-failure handler which latches the gate.
+        _ = services.AddTransient<AuthFailureDelegatingHandler>();
 
         // Typed API client with OAuth delegating handler for transparent 401 refresh
         _ = services.AddHttpClient<TidalApiClient>(client =>
@@ -62,6 +72,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<AuthFailureDelegatingHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler(sp =>
@@ -72,6 +83,10 @@ public class TidalModule : StreamingPluginModule
             return new OAuthDelegatingHandler(tokenProvider, logger);
         });
 
+        // TidalOAuthService is INTENTIONALLY exempt from AuthFailureDelegatingHandler:
+        // it's the path the user re-credentialss through when the gate is latched
+        // bad. Gating it would create a deadlock (gate blocks the only path that
+        // can clear the gate).
         _ = services.AddHttpClient<TidalOAuthService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);
@@ -204,6 +219,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<AuthFailureDelegatingHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
@@ -215,11 +231,51 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<AuthFailureDelegatingHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
+        // Named HttpClient backing TidalIndexer's base-class ExecuteRequestAsync path.
+        // Tidalarr's own code never drives BaseStreamingIndexer.ExecuteRequestAsync
+        // (TidalSearchService goes through TidalApiClient), so this is latent —
+        // but the previous inline `new HttpClient()` in TidalIndexer's constructor
+        // would silently bypass the rate-limit, auth-failure-gate, and decoding
+        // sniffer handlers if any future base-class override DID drive the path.
+        // Registering the same full chain here closes the trap.
+        _ = services.AddHttpClient("TidalIndexer.Base", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(100);
+            client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        })
+        .AddHttpMessageHandler<AuthFailureDelegatingHandler>()
+        .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
+        .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
+        .AddHttpMessageHandler(sp =>
+        {
+            IStreamingTokenProvider tokenProvider = sp.GetRequiredService<IStreamingTokenProvider>();
+            Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
+            Microsoft.Extensions.Logging.ILogger logger = loggerFactory?.CreateLogger("OAuthDelegatingHandler") ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            return new OAuthDelegatingHandler(tokenProvider, logger);
+        });
+
         // Bridge runtime defaults — call LAST so plugins can override with custom implementations
         services.AddBridgeDefaults();
+
+        // AuthFailureGate: fail-fast latch that stops Lidarr's search loop from
+        // hammering Tidal after the OAuth token expires. The audit (2026-05-11)
+        // showed Tidalarr was PARTIAL — IAuthFailureHandler is wired in
+        // AuthenticateAsync but the search methods don't consult it. Gate-aware
+        // search short-circuits to empty results after the first 401 until
+        // re-auth succeeds (one probe per 60s while latched bad).
+        services.AddSingleton(sp => new AuthFailureGate(
+            sp.GetRequiredService<IAuthFailureHandler>(),
+            TimeProvider.System,
+            TimeSpan.FromSeconds(60),
+            sp.GetService<ILogger<AuthFailureGate>>()));
 
         // Suppress Microsoft.Extensions.Http's MetricsFactoryHttpMessageHandlerFilter.
         //

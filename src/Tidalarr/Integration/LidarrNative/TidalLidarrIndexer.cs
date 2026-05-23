@@ -1,5 +1,8 @@
 using FluentValidation.Results;
+using Lidarr.Plugin.Abstractions.Contracts;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Http;
@@ -9,6 +12,7 @@ using NzbDrone.Core.IndexerSearch.Definitions;
 using NzbDrone.Core.Parser;
 using NzbDrone.Core.Parser.Model;
 using Tidalarr.Application.Services;
+using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Storage;
@@ -113,6 +117,20 @@ public class TidalLidarrIndexer(
 
         List<ReleaseInfo> releases = [];
 
+        // Resolve the auth-failure gate (registered by TidalModule). When the
+        // gate is latched bad AND no probe slot is currently available, short-
+        // circuit the entire search loop instead of hammering Tidal — this is
+        // the family of failures that previously got users IP-banned (Lidarr
+        // search loop driving the plugin after token expiry returns 401 →
+        // 401 → 401 forever). Closes the gap left by 305ec71, which only wired
+        // the gate into the abstraction-path TidalIndexer.
+        AuthFailureGate? authGate = this._serviceProvider.GetService<AuthFailureGate>();
+        if (authGate is not null && !authGate.IsHealthy && !authGate.TryAcquireProbeSlot())
+        {
+            this._logger.Debug("Tidal auth latched bad and probe interval not elapsed; skipping search loop.");
+            return releases;
+        }
+
         // Ensure valid session early so Lidarr reports a clear authentication error.
         IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
         if (authManager != null)
@@ -164,6 +182,18 @@ public class TidalLidarrIndexer(
                 }
                 catch (Exception ex)
                 {
+                    // Surface auth failures to the gate so the next FetchReleases
+                    // call short-circuits at the top instead of replaying the
+                    // search loop and re-amplifying the 401-storm.
+                    if (authGate is not null && LooksLikeAuthFailure(ex))
+                    {
+                        await authGate.Handler.HandleFailureAsync(new AuthFailure
+                        {
+                            ErrorCode = (ex as TidalApiException)?.StatusCode?.ToString(),
+                            Message = LogRedactor.RedactException(ex),
+                        }).ConfigureAwait(false);
+                    }
+
                     this._logger.Warn(ex, "Tidal search failed for query: {0}", query);
                 }
             }
@@ -208,6 +238,25 @@ public class TidalLidarrIndexer(
         return true;
     }
 
+    /// <summary>
+    /// Mirrors <c>TidalIndexer.LooksLikeAuthFailure</c>. Kept in sync as
+    /// a private static — the two indexer surfaces (abstraction-path and
+    /// Lidarr-native) must classify auth failures identically so the shared
+    /// <see cref="AuthFailureGate"/> latches consistently regardless of which
+    /// path the user's Lidarr happens to drive.
+    /// </summary>
+    private static bool LooksLikeAuthFailure(Exception ex)
+    {
+        if (ex is TidalAuthenticationException) return true;
+        if (ex is TidalApiException tae && tae.StatusCode is 401 or 403) return true;
+        if (ex is System.Net.Http.HttpRequestException hre &&
+            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+        {
+            return true;
+        }
+        return false;
+    }
+
     protected override async Task Test(List<ValidationFailure> failures)
     {
         try
@@ -233,7 +282,7 @@ public class TidalLidarrIndexer(
                 }
                 catch (Exception ex)
                 {
-                    failures.Add(new ValidationFailure("ConfigPath", $"Failed to create config directory: {ex.Message}"));
+                    failures.Add(new ValidationFailure("ConfigPath", $"Failed to create config directory: {LogRedactor.Redact(ex.Message)}"));
                     return;
                 }
             }
@@ -296,7 +345,7 @@ public class TidalLidarrIndexer(
             // stack trace.
             failures.Add(new ValidationFailure(
                 "Test",
-                $"Test failed ({ex.GetType().Name}): {ex.Message}. Full details in Lidarr logs."));
+                $"Test failed ({ex.GetType().Name}): {LogRedactor.Redact(ex.Message)}. Full details in Lidarr logs."));
         }
     }
 
@@ -308,7 +357,9 @@ public class TidalLidarrIndexer(
             TidalCallbackResult callbackResult = authService.ParseCallbackUrl(Settings.RedirectUrl);
             if (!callbackResult.IsSuccess)
             {
-                this._logger.Warn($"Failed to parse redirect URL: {callbackResult.ErrorMessage}");
+                // ErrorMessage from a malformed redirect URL parse can echo the
+                // raw URL, which carries `?code=...&state=...` — redact before logging.
+                this._logger.Warn($"Failed to parse redirect URL: {LogRedactor.Redact(callbackResult.ErrorMessage)}");
                 failures.Add(new ValidationFailure("RedirectUrl", callbackResult.ErrorMessage ?? "Invalid redirect URL"));
                 return false;
             }
@@ -362,7 +413,7 @@ public class TidalLidarrIndexer(
             // most common recovery action (paste a fresh redirect URL).
             failures.Add(new ValidationFailure(
                 "Authentication",
-                $"Token exchange failed ({ex.GetType().Name}): {ex.Message}. If this persists, paste a fresh redirect URL from a new browser login."));
+                $"Token exchange failed ({ex.GetType().Name}): {LogRedactor.Redact(ex.Message)}. If this persists, paste a fresh redirect URL from a new browser login."));
             return false;
         }
     }
@@ -392,7 +443,7 @@ public class TidalLidarrIndexer(
         catch (Exception ex)
         {
             this._logger.Error(ex, "Failed to generate OAuth authorization URL");
-            failures.Add(new ValidationFailure("Authentication", $"Failed to generate auth URL: {ex.Message}"));
+            failures.Add(new ValidationFailure("Authentication", $"Failed to generate auth URL: {LogRedactor.Redact(ex.Message)}"));
         }
 
         return Task.CompletedTask;

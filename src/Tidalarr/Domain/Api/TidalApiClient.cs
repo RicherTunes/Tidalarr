@@ -216,6 +216,16 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         string? encryptionType = dto.encryptionType;
         bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
         string? securityToken = dto.securityToken;
+        // Only map a delivered quality when Tidal actually populated audioQuality.
+        // The previous `dto.audioQuality ?? string.Empty` shape always resolved to
+        // a concrete enum value (MapQualityFromString defaults to High on empty
+        // input), which produced false-positive downgrade warnings for any
+        // HiRes-requested track where Tidal happened to omit the field. The
+        // downgrade detector treats null as "unknown — do not warn" by design,
+        // so leaving the field unset is the correct signal.
+        TidalQuality? deliveredQuality = string.IsNullOrWhiteSpace(dto.audioQuality)
+            ? null
+            : MapQualityFromString(dto.audioQuality);
         // If a manifest parser is available, parse chunk URLs and better infer extension
         if (this._manifestParser != null && !string.IsNullOrEmpty(dto.manifest) && !string.IsNullOrEmpty(dto.manifestMimeType))
         {
@@ -229,7 +239,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
                     FileExtension: manifest.FileExtension,
                     MimeType: manifest.MimeType,
                     IsEncrypted: manifest.IsEncrypted,
-                    SecurityToken: manifest.SecurityToken);
+                    SecurityToken: manifest.SecurityToken,
+                    DeliveredQuality: deliveredQuality);
             }
             catch
             {
@@ -242,7 +253,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             FileExtension: InferPlaybackExtension(dto),
             MimeType: dto.manifestMimeType ?? string.Empty,
             IsEncrypted: isEncrypted,
-            SecurityToken: securityToken);
+            SecurityToken: securityToken,
+            DeliveredQuality: deliveredQuality);
     }
     // Raw playback-info fetch used by stream service for manifest parsing
     public async Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)

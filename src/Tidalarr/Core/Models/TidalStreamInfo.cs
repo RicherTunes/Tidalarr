@@ -1,7 +1,9 @@
 namespace Tidalarr.Core.Models;
 
 /// <summary>
-/// Represents stream information for a Tidal track.
+/// Stream information for a Tidal track. <see cref="DeliveredQuality"/> is
+/// the quality Tidal actually returned (may be lower than what was requested
+/// when the user's subscription tier doesn't grant the higher option).
 /// </summary>
 public record TidalStreamInfo(
     string TrackId,
@@ -9,4 +11,5 @@ public record TidalStreamInfo(
     string FileExtension,
     string MimeType,
     bool IsEncrypted,
-    string? SecurityToken);
+    string? SecurityToken,
+    TidalQuality? DeliveredQuality = null);
