@@ -102,8 +102,11 @@ jobs:
     - name: Create release package
       run: |
         echo "Creating release package..."
+        # Filename MUST contain "net8.0.zip" — Lidarr's PluginService.GetRemotePlugin
+        # filters release assets by a.Name.Contains("net8.0.zip", OrdinalIgnoreCase).
+        # Without that substring the UI Install button spinner hangs forever with no error.
         cd src/Tidalarr/bin/Release/net8.0
-        zip -r "../../../../../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip" *
+        zip -r "../../../../../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip" *
         cd ../../../../../
 
         echo "Release package created"
@@ -126,12 +129,12 @@ jobs:
         cosign version
         cosign sign-blob \
           --yes \
-          --output-signature ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip.sig \
-          ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip
+          --output-signature ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip.sig \
+          ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip
 
     - name: Generate SHA256 checksum
       run: |
-        sha256sum ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip > ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.zip.sha256
+        sha256sum ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip > ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip.sha256
 
     - name: Generate release notes
       run: |
@@ -161,9 +164,9 @@ jobs:
         name: ${{ env.PLUGIN_NAME }} v${{ env.RELEASE_VERSION }}
         body_path: release-notes.md
         files: |
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip.sha256
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.zip.sig
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip.sha256
+          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip.sig
           sbom.spdx.json
         draft: false
         prerelease: false
