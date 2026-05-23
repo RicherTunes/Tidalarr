@@ -7,22 +7,35 @@ internal sealed partial record PackagingPolicyBaseline(
     IReadOnlyCollection<string> OptionalAssemblies,
     IReadOnlyCollection<string> ForbiddenAssemblies)
 {
+    // Previously RequiredAssemblies also included Lidarr.Plugin.Abstractions.dll and
+    // OptionalAssemblies included Lidarr.Plugin.Common.dll. Both are now merged +
+    // internalized into Lidarr.Plugin.Tidalarr.dll via ILRepack (see
+    // ext/Lidarr.Plugin.Common/build/PluginPackaging.targets — May 2026, when
+    // multi-plugin co-existence pushed the merge to fix COR_E_INVALIDOPERATION).
+    // Shipping them as sidecars regresses the merge, so they now belong in the
+    // forbidden list. The companion Plugin_Dll_Should_Be_Merged_Size test guards
+    // against the inverse failure mode (merge didn't run, sidecars correctly
+    // omitted, runtime fails with "Could not load Common / Abstractions").
     public static PackagingPolicyBaseline Default { get; } = new(
         RequiredAssemblies:
         [
-            "Lidarr.Plugin.Abstractions.dll",
             "Lidarr.Plugin.Tidalarr.dll"
         ],
         OptionalAssemblies:
         [
-            "Lidarr.Plugin.Common.dll"
+            // No sidecars — Common + Abstractions are merged.
         ],
         ForbiddenAssemblies:
         [
             "FluentValidation.dll",
             "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
             "Microsoft.Extensions.Logging.Abstractions.dll",
+            "Microsoft.Extensions.Caching.Abstractions.dll",
+            "Microsoft.Extensions.Caching.Memory.dll",
+            "Microsoft.Extensions.Options.dll",
+            "Microsoft.Extensions.Primitives.dll",
             "System.Text.Json.dll",
+            "Newtonsoft.Json.dll",
             "NLog.dll",
             "Lidarr.Core.dll",
             "Lidarr.Common.dll",
@@ -30,7 +43,11 @@ internal sealed partial record PackagingPolicyBaseline(
             "Lidarr.Http.dll",
             "Lidarr.Api.V1.dll",
             "NzbDrone.Core.dll",
-            "NzbDrone.Common.dll"
+            "NzbDrone.Common.dll",
+            // Plugin abstractions — merged + internalized by ILRepack.
+            // Were in RequiredAssemblies / OptionalAssemblies before the May 2026 merge.
+            "Lidarr.Plugin.Abstractions.dll",
+            "Lidarr.Plugin.Common.dll"
         ]);
 
     public static PackagingPolicyBaseline LoadOrDefault(string? baselinePath)
