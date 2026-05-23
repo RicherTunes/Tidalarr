@@ -56,6 +56,31 @@ public sealed class PluginPackagingPolicyTests
         Assert.True(sizeBytes < 15 * 1024 * 1024, "package bloat usually indicates an accidental dependency leak");
     }
 
+    /// <summary>
+    /// Sub-threshold DLL size means ILRepack's RepackPlugin target didn't run —
+    /// Common + Abstractions weren't internalized — so the runtime will fail with
+    /// "Could not load file or assembly Lidarr.Plugin.Common / Abstractions" because
+    /// the forbidden-list correctly omitted the sidecars but the merge produced nothing.
+    /// This is the exact failure mode that broke install of brainarr/qobuzarr/tidalarr
+    /// in May 2026 — guard against the regression.
+    /// </summary>
+    [PackagingFact]
+    [Trait("Category", "Packaging")]
+    public void Plugin_Dll_Should_Be_Merged_Size()
+    {
+        string packagePath = PackagingTestPaths.RequirePackagePath();
+        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
+
+        ZipArchiveEntry? entry = zip.Entries.FirstOrDefault(e =>
+            Path.GetFileName(e.FullName).Equals("Lidarr.Plugin.Tidalarr.dll", StringComparison.OrdinalIgnoreCase));
+
+        Assert.True(entry != null, "Lidarr.Plugin.Tidalarr.dll must be in the package");
+        Assert.True(entry!.Length >= 2_000_000,
+            $"merged DLL is {entry.Length} bytes but should be at least 2MB (includes internalized Common + Abstractions). " +
+            $"A smaller DLL means ILRepack didn't run and runtime will fail with " +
+            $"'Could not load file or assembly Lidarr.Plugin.Common / Abstractions'");
+    }
+
     [PackagingFact]
     [Trait("Category", "Packaging")]
     public void Package_Metadata_Should_Match_Contents()
