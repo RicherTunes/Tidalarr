@@ -1,9 +1,9 @@
 {
   "id": "tidalarr",
   "apiVersion": "1.x",
-  "commonVersion": "1.8.0",
+  "commonVersion": "1.9.0",
   "name": "Tidalarr",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "RicherTunes",
   "description": "Tidal integration for Lidarr - Search and download high-quality music from Tidal with OAuth 2.0 PKCE authentication",
   "homepage": "https://github.com/RicherTunes/Tidalarr",

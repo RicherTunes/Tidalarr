@@ -5,6 +5,29 @@ All notable changes to Tidalarr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-05-23
+
+### AuthFailureGate adoption + adversarial-review fixes
+
+- **Lidarr-native `TidalLidarrIndexer.FetchReleases` now consults `AuthFailureGate`.** The previous wave's gate wire-up only covered the abstraction-path `TidalIndexer`; the Lidarr-native indexer that 95% of users actually drive bypassed the gate entirely. After a 401 the indexer would just log a warning per query and re-enter the search loop on the next tier — the exact failure mode that previously got Qobuz users IP-banned. Now: `IsHealthy` / `TryAcquireProbeSlot` short-circuit at the top of `FetchReleases`; per-tier catch blocks classify via `LooksLikeAuthFailure` and signal `gate.Handler.HandleFailureAsync` on 401/403.
+- **`TidalApiClient.GetStreamInfoAsync` no longer fabricates `DeliveredQuality`.** The previous shape `MapQualityFromString(dto.audioQuality ?? string.Empty)` resolved to `TidalQuality.High` on empty input, so any HiRes-requested track where Tidal omitted `audioQuality` (Tidal's API is inconsistent here) fired a spurious downgrade warning. Now: `DeliveredQuality` stays null when Tidal omits the field — matches `TidalQualityDowngradeDetector`'s "unknown — do not warn" contract.
+- **Named HttpClient `TidalIndexer.Base` registered in `TidalModule` with the full handler chain.** Previous inline `new HttpClient(handler)` / `new HttpClient()` in `TidalIndexer`'s constructor bypassed `TidalRateLimitingHandler`, `ContentDecodingSnifferHandler`, and `AuthFailureDelegatingHandler`. Latent today (no caller drives `BaseStreamingIndexer.ExecuteRequestAsync` through this client) but a trap for any future base-class override. `TidalIndexer` constructor now takes optional `IHttpClientFactory?`; prefers `factory.CreateClient("TidalIndexer.Base")` when available, falls back to inline creation for test / non-DI callers.
+
+### Common library bump
+
+- Bumps `ext/Lidarr.Plugin.Common` from `431fe97` (between v1.7.1 and v1.8.0) all the way to **v1.9.1** — picks up the new `AuthFailureGate` surface (which Tidalarr already adopted on `feat/adopt-http-exception-classifier`), `SecureMemory`, `PagedResponseValidator`, `Conservative rate-limit profile`, `HttpExceptionClassifier` (which `TidalLidarrDownloadClient.Test()` consumes), TestKit-lifted plugin contracts, and `Lidarr.Plugin.*.dll` naming enforcement.
+
+### Quality-downgrade detector + log redaction
+
+- New `TidalQualityDowngradeDetector` warns (does not block) when Tidal delivered a lower quality tier than requested. Hooked from `TidalDownloadClient` and `TidalChunkStreamProvider`.
+- Exception messages routed through `LogRedactor.Redact` / `RedactException` in `TidalLidarrIndexer.FetchReleases` so OAuth tokens / `?code=…` / `&state=…` in stack-traced URLs no longer leak into Lidarr's logs.
+
+### Tests
+
+- 130 targeted tests pass: `TidalIndexerAuthGate`, `TidalAuthFailureDelegatingHandlerWireUp`, `TidalQualityDowngradeDetector`, `TidalDownloadClientQualityDowngrade`, `TidalApiClient`, `TidalModule`, `TidalLogRedaction`, `TidalDownloadItemConcurrency`.
+
+[Full diff](https://github.com/RicherTunes/Tidalarr/compare/v1.1.0...v1.2.0)
+
 ## [1.1.0] - 2026-05-23
 
 ### Phase 0 + Phase 1 — Ecosystem Alignment and Packaging Fix
