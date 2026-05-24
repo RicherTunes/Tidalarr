@@ -110,6 +110,17 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync();
+
+            // Detect consumed / expired auth code: Tidal returns 400 invalid_grant when the
+            // code has already been used once or has naturally expired.  Surface a plain-English
+            // message so the user knows exactly what to do, and signal the caller via a typed
+            // exception so it can clear the cached RedirectUrl field.
+            if (response.StatusCode == System.Net.HttpStatusCode.BadRequest && IsInvalidGrant(errorContent))
+            {
+                throw new TidalInvalidGrantException(
+                    "Authorization code is invalid or expired — paste a fresh redirect URL from a new Tidal browser login (the previous code has been used).");
+            }
+
             throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
@@ -482,7 +493,38 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         return Convert.FromBase64String(padded);
     }
+
+    /// <summary>
+    /// Returns true when a Tidal token-endpoint error body signals that the authorization
+    /// code has already been consumed or has expired (<c>invalid_grant</c>).
+    /// </summary>
+    private static bool IsInvalidGrant(string errorBody)
+    {
+        if (string.IsNullOrWhiteSpace(errorBody))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(errorBody);
+            return doc.RootElement.TryGetProperty("error", out JsonElement errorProp) &&
+                   string.Equals(errorProp.GetString(), "invalid_grant", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // Unparseable body — treat as a generic failure, not invalid_grant.
+            return false;
+        }
+    }
 }
+
+/// <summary>
+/// Thrown when Tidal rejects an authorization code exchange with <c>invalid_grant</c>,
+/// meaning the code was already used or has expired.  Callers should clear any cached
+/// redirect-URL / authorization-code state and prompt the user to start a fresh login.
+/// </summary>
+public sealed class TidalInvalidGrantException(string message) : Exception(message);
 
 public record TidalTokenResponse(
     string access_token,
