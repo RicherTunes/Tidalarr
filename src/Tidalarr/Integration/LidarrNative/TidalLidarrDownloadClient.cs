@@ -36,6 +36,7 @@ public class TidalLidarrDownloadClient(
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
     // HostBridgeDownloadTrackerStore is instance-scoped but held in a static field for exactly this reason.
     private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
+    private static readonly HostBridgeDownloadOrchestrator _downloadOrchestrator = new(logger: null);
     private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
@@ -124,7 +125,7 @@ public class TidalLidarrDownloadClient(
 
             TidalQuality? releaseQuality = ExtractQualityFromRelease(remoteAlbum.Release);
 
-            // Resolve services BEFORE Task.Run so failures surface synchronously
+            // Resolve services BEFORE snapshotting/Task.Run so failures surface synchronously
             // instead of leaving a phantom "Downloading" item in ActiveDownloads.
             TidalModelMapper mapper = this._serviceProvider.GetRequiredService<TidalModelMapper>();
             StreamingQuality desiredQuality = releaseQuality.HasValue
@@ -132,92 +133,109 @@ public class TidalLidarrDownloadClient(
                 : mapper.ToStreamingQuality(Settings.PreferredQuality);
 
             // Capture orchestrator reference to avoid closure over `this`
-            SimpleDownloadOrchestrator orchestrator = this._orchestrator;
+            SimpleDownloadOrchestrator tidalOrchestrator = this._orchestrator;
 
-            // Generate unique download ID
-            string downloadId = Guid.NewGuid().ToString("N");
+            // BuildOutputPath reads Settings.DownloadPath — call it here (before Task.Run) so
+            // it is resolved against the current settings before snapshotting. The resulting
+            // string is baked into the download item by itemFactory below.
             string outputPath = BuildOutputPath(remoteAlbum);
 
-            // Create download item for tracking via Common primitive.
-            HostBridgeDownloadItem downloadItem = new()
-            {
-                DownloadId = downloadId,
-                AlbumId = albumId,
-                Title = albumTitle,
-                Artist = artistName,
-                OutputPath = outputPath,
-                StartedAt = DateTime.UtcNow
-            };
-            downloadItem.SetStatus(HostBridgeDownloadItemStatus.Downloading);
-            downloadItem.SetProgress(0);
-
-            ActiveDownloads.Add(downloadItem);
-
-            // Start actual download using the orchestrator
-            _ = Task.Run(async () =>
-            {
-                try
+            // HostBridgeDownloadOrchestrator (Common Wave A item 2):
+            //   snapshot → generate downloadId → insert into tracker → fire-and-forget doWork → return id
+            //
+            // Snapshotter for TidalLidarrDownloadClientSettings: field-by-field copy so the
+            // doWork closure is insulated from live settings changes (ProbeOnly-race pattern).
+            // Reference-typed fields: none in this settings class — all primitives/strings.
+            return _downloadOrchestrator.StartTrackedDownloadAsync<HostBridgeDownloadItem, TidalLidarrDownloadClientSettings>(
+                settings: Settings,
+                tracker: ActiveDownloads,
+                snapshotter: s => new TidalLidarrDownloadClientSettings
                 {
-                    this._logger.Debug("Starting async download for album {0}", albumId);
-
-                    // Create progress reporter to update download item
-                    Progress<DownloadProgress> progressReporter = new(p =>
+                    ConfigPath = s.ConfigPath,
+                    DownloadPath = s.DownloadPath,
+                    PreferredQuality = s.PreferredQuality,
+                    IncludeMqa = s.IncludeMqa,
+                    ExtractFlac = s.ExtractFlac,
+                    DownloadDelay = s.DownloadDelay,
+                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads,
+                    MaxConcurrentChunkDownloads = s.MaxConcurrentChunkDownloads
+                },
+                itemFactory: (_, downloadId) =>
+                {
+                    HostBridgeDownloadItem item = new()
                     {
+                        DownloadId = downloadId,
+                        AlbumId = albumId,
+                        Title = albumTitle,
+                        Artist = artistName,
+                        OutputPath = outputPath,
+                        StartedAt = DateTime.UtcNow
+                    };
+                    item.SetStatus(HostBridgeDownloadItemStatus.Downloading);
+                    item.SetProgress(0);
+                    return item;
+                },
+                doWork: async (_, downloadId, _, ct) =>
+                {
+                    try
+                    {
+                        this._logger.Debug("Starting async download for album {0}", albumId);
+
+                        // Create progress reporter to update download item
+                        Progress<DownloadProgress> progressReporter = new(p =>
+                        {
+                            if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? progressItem) && progressItem is not null)
+                            {
+                                progressItem.SetProgress(p.PercentComplete);
+                            }
+                        });
+
+                        DownloadResult result = await tidalOrchestrator.DownloadAlbumAsync(
+                            albumId,
+                            outputPath,
+                            quality: desiredQuality,
+                            progress: progressReporter);
+
+                        // Mark as completed (thread-safe updates)
                         if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                         {
-                            item.SetProgress(p.PercentComplete);
-                        }
-                    });
+                            item.SetStatus(result.Success ? HostBridgeDownloadItemStatus.Completed : HostBridgeDownloadItemStatus.Failed);
+                            item.SetProgress(100);
+                            item.CompletedAt = DateTime.UtcNow;
 
-                    DownloadResult result = await orchestrator.DownloadAlbumAsync(
-                        albumId,
-                        outputPath,
-                        quality: desiredQuality,
-                        progress: progressReporter);
+                            // Log all track results for debugging
+                            List<TrackDownloadResult> failedTracks = [.. result.TrackResults.Where(t => !t.Success)];
+                            List<TrackDownloadResult> successTracks = [.. result.TrackResults.Where(t => t.Success)];
 
-                    // Mark as completed (thread-safe updates)
-                    if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
-                    {
-                        item.SetStatus(result.Success ? HostBridgeDownloadItemStatus.Completed : HostBridgeDownloadItemStatus.Failed);
-                        item.SetProgress(100);
-                        item.CompletedAt = DateTime.UtcNow;
-
-                        // Log all track results for debugging
-                        List<TrackDownloadResult> failedTracks = [.. result.TrackResults.Where(t => !t.Success)];
-                        List<TrackDownloadResult> successTracks = [.. result.TrackResults.Where(t => t.Success)];
-
-                        if (failedTracks.Count > 0 || result.FilePaths?.Count == 0)
-                        {
-                            this._logger.Error("Download issues for {0} - {1}: {2} failed, {3} succeeded, {4} files on disk",
-                                artistName, albumTitle, failedTracks.Count, successTracks.Count, result.FilePaths?.Count ?? 0);
-                            foreach (TrackDownloadResult? tr in failedTracks.Take(5))
+                            if (failedTracks.Count > 0 || result.FilePaths?.Count == 0)
                             {
-                                this._logger.Error("  Track {0} failed: {1}", tr.TrackId, tr.ErrorMessage);
+                                this._logger.Error("Download issues for {0} - {1}: {2} failed, {3} succeeded, {4} files on disk",
+                                    artistName, albumTitle, failedTracks.Count, successTracks.Count, result.FilePaths?.Count ?? 0);
+                                foreach (TrackDownloadResult? tr in failedTracks.Take(5))
+                                {
+                                    this._logger.Error("  Track {0} failed: {1}", tr.TrackId, tr.ErrorMessage);
+                                }
+                                if (result.TrackResults.Count == 0)
+                                {
+                                    this._logger.Error("  No track results at all - likely no track IDs returned from API");
+                                }
                             }
-                            if (result.TrackResults.Count == 0)
+                            else
                             {
-                                this._logger.Error("  No track results at all - likely no track IDs returned from API");
+                                this._logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
                             }
                         }
-                        else
+                    }
+                    catch (Exception ex)
+                    {
+                        this._logger.Error(ex, "Failed to download album {0}", albumId);
+                        if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                         {
-                            this._logger.Info("Completed download: {0} - {1} ({2} files)", artistName, albumTitle, result.FilePaths?.Count ?? 0);
+                            item.SetStatus(HostBridgeDownloadItemStatus.Failed);
+                            item.CompletedAt = DateTime.UtcNow;
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    this._logger.Error(ex, "Failed to download album {0}", albumId);
-                    if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
-                    {
-                        item.SetStatus(HostBridgeDownloadItemStatus.Failed);
-                        item.CompletedAt = DateTime.UtcNow;
-                    }
-                }
-            });
-
-            this._logger.Debug("Tidal download started with ID: {0}", downloadId);
-            return Task.FromResult(downloadId);
+                });
         }
         catch (Exception ex)
         {
