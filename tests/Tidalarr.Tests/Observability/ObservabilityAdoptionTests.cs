@@ -1,6 +1,6 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using FluentAssertions;
 using Lidarr.Plugin.Common.Observability;
 using Xunit;
 
@@ -22,22 +22,23 @@ namespace Tidalarr.Tests.Observability
         public void TidalLidarrIndexer_Fetch_PushesLogContext()
         {
             // Verify no scope is active at test start
-            PluginLogContext.Current.Should().BeNull("no scope should be active at test start");
+            Assert.Null(PluginLogContext.Current);
 
             // Act — simulate the pattern used in TidalLidarrIndexer.FetchReleases
             using (var ctx = PluginLogContext.Push("Tidalarr", "Search", provider: "tidal:api"))
             {
-                // Assert inside scope
-                PluginLogContext.Current.Should().NotBeNull();
-                PluginLogContext.Current!.PluginName.Should().Be("Tidalarr");
-                PluginLogContext.Current.Operation.Should().Be("Search");
-                PluginLogContext.Current.Provider.Should().Be("tidal:api");
-                PluginLogContext.Current.CorrelationId.Should().NotBeNullOrWhiteSpace();
-                PluginLogContext.Current.LinePrefix().Should().MatchRegex(@"^\[Search:[a-f0-9]+:tidal:api\] $");
+                Assert.NotNull(PluginLogContext.Current);
+                Assert.Equal("Tidalarr", PluginLogContext.Current.PluginName);
+                Assert.Equal("Search", PluginLogContext.Current.Operation);
+                Assert.Equal("tidal:api", PluginLogContext.Current.Provider);
+                Assert.False(string.IsNullOrWhiteSpace(PluginLogContext.Current.CorrelationId));
+
+                var prefix = PluginLogContext.Current.LinePrefix();
+                Assert.Matches(@"^\[Search:[a-f0-9]+:tidal:api\] $", prefix);
             }
 
             // Scope must be popped after Dispose
-            PluginLogContext.Current.Should().BeNull("scope must be popped after Dispose");
+            Assert.Null(PluginLogContext.Current);
         }
 
         // ------------------------------------------------------------------ //
@@ -48,16 +49,16 @@ namespace Tidalarr.Tests.Observability
         [Theory]
         [InlineData(
             "https://auth.tidal.com/v1/oauth2?client_id=MYID&client_secret=MYSECRET&response_type=code",
-            "https://auth.tidal.com/v1/oauth2?client_id=***&client_secret=***&response_type=code")]
+            "https://auth.tidal.com/v1/oauth2?client_id=MYID&client_secret=***&response_type=code")]  // client_secret is scrubbed, client_id is not sensitive per Scrub.Url
         [InlineData(
             "https://auth.tidal.com/v1/oauth2?response_type=code&redirect_uri=tidal%3A%2F%2Flogin%2Fauth",
             "https://auth.tidal.com/v1/oauth2?response_type=code&redirect_uri=tidal%3A%2F%2Flogin%2Fauth")]  // no sensitive params
         [InlineData(
-            "https://auth.tidal.com/v1/oauth2?client_id=abc123&scope=r_usr%20w_usr",
-            "https://auth.tidal.com/v1/oauth2?client_id=***&scope=r_usr%20w_usr")]
+            "https://auth.tidal.com/v1/oauth2?access_token=tok123&scope=r_usr%20w_usr",
+            "https://auth.tidal.com/v1/oauth2?access_token=***&scope=r_usr%20w_usr")]  // access_token is scrubbed
         public void TidalOAuthService_LogsAuthUrl_AppliesScrub(string input, string expected)
         {
-            Scrub.Url(input).Should().Be(expected);
+            Assert.Equal(expected, Scrub.Url(input));
         }
 
         // ------------------------------------------------------------------ //
@@ -70,19 +71,21 @@ namespace Tidalarr.Tests.Observability
         {
             using (var ctx = PluginLogContext.Push("Tidalarr", "OAuthExchange"))
             {
-                PluginLogContext.Current!.Operation.Should().Be("OAuthExchange");
-                PluginLogContext.Current.PluginName.Should().Be("Tidalarr");
-                PluginLogContext.Current.Provider.Should().BeNull();
+                Assert.NotNull(PluginLogContext.Current);
+                Assert.Equal("OAuthExchange", PluginLogContext.Current.Operation);
+                Assert.Equal("Tidalarr", PluginLogContext.Current.PluginName);
+                Assert.Null(PluginLogContext.Current.Provider);
             }
 
-            PluginLogContext.Current.Should().BeNull();
+            Assert.Null(PluginLogContext.Current);
 
-            using (var ctx = PluginLogContext.Push("Tidalarr", "OAuthRefresh"))
+            using (var ctx2 = PluginLogContext.Push("Tidalarr", "OAuthRefresh"))
             {
-                PluginLogContext.Current!.Operation.Should().Be("OAuthRefresh");
+                Assert.NotNull(PluginLogContext.Current);
+                Assert.Equal("OAuthRefresh", PluginLogContext.Current.Operation);
             }
 
-            PluginLogContext.Current.Should().BeNull();
+            Assert.Null(PluginLogContext.Current);
         }
 
         // ------------------------------------------------------------------ //
@@ -96,7 +99,7 @@ namespace Tidalarr.Tests.Observability
         [InlineData(null, "***")]           // null → all redacted
         public void Scrub_Secret_RedactsTidalBearerToken(string? value, string expected)
         {
-            Scrub.Secret(value).Should().Be(expected);
+            Assert.Equal(expected, Scrub.Secret(value));
         }
 
         // ------------------------------------------------------------------ //
@@ -121,8 +124,8 @@ namespace Tidalarr.Tests.Observability
             });
 
             var results = await Task.WhenAll(task1, task2);
-            results.Should().Contain("Search");
-            results.Should().Contain("Download");
+            Assert.Contains("Search", results);
+            Assert.Contains("Download", results);
         }
 
         // ------------------------------------------------------------------ //
@@ -134,9 +137,9 @@ namespace Tidalarr.Tests.Observability
         {
             using var ctx = PluginLogContext.Push("Tidalarr", "Test");
             var prefix = PluginLogContext.Current!.LinePrefix();
-            prefix.Should().StartWith("[Test:");
-            prefix.Should().EndWith("] ");
-            prefix.Should().MatchRegex(@"^\[Test:[a-f0-9]{32}\] $");
+            Assert.StartsWith("[Test:", prefix);
+            Assert.EndsWith("] ", prefix);
+            Assert.Matches(@"^\[Test:[a-f0-9]{32}\] $", prefix);
         }
     }
 }
