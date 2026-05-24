@@ -537,25 +537,25 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         foreach (TidalQuality quality in allQualities)
         {
             (string formatMarker, string? extraMarker) = DetermineTitleMarkers(quality);
-            string title = $"{artistName} - {albumTitle}";
-            if (year > 0)
-            {
-                title += $" ({year})";
-            }
-
-            title += extraMarker == null
-                ? $" [{formatMarker}] [WEB]"
-                : $" [{formatMarker}] [{extraMarker}] [WEB]";
+            (string guid, string downloadUrl, string title) = new AlbumReleaseInfoBuilder()
+                .WithArtist(artistName)
+                .WithAlbum(albumTitle)
+                .WithYear(year > 0 ? year : null)
+                .WithFormatMarker(formatMarker)
+                .WithExtraMarker(extraMarker)
+                .WithScheme("tidal")
+                .WithAlbumId(album.Id)
+                .WithQualityHint(quality.ToString())
+                .Build();
 
             yield return new ReleaseInfo
             {
-                // Include quality in GUID so each quality level is a unique release
-                Guid = $"tidal:album:{album.Id}:{quality}",
+                Guid = guid,
                 Title = title,
                 Artist = artistName,
                 Album = albumTitle,
                 PublishDate = releaseDate,
-                DownloadUrl = $"tidal://album/{album.Id}?quality={quality}",
+                DownloadUrl = downloadUrl,
                 InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
                 Size = EstimateAlbumSize(album, quality),
                 DownloadProtocol = nameof(TidalarrDownloadProtocol)
@@ -580,25 +580,26 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         (string formatMarker, string? extraMarker) = DetermineTitleMarkers(bestQuality);
 
         int year = releaseDate.Year > 1900 ? releaseDate.Year : 0;
-        string title = $"{artistName} - {albumTitle}";
-        if (year > 0)
-        {
-            title += $" ({year})";
-        }
-
-        title += extraMarker == null
-            ? $" [{formatMarker}] [WEB]"
-            : $" [{formatMarker}] [{extraMarker}] [WEB]";
+        (string guid, string downloadUrl, string title) = new AlbumReleaseInfoBuilder()
+            .WithArtist(artistName)
+            .WithAlbum(albumTitle)
+            .WithYear(year > 0 ? year : null)
+            .WithFormatMarker(formatMarker)
+            .WithExtraMarker(extraMarker)
+            .WithScheme("tidal")
+            .WithAlbumId(album.Id)
+            .WithQualityHint(bestQuality.ToString())
+            .Build();
 
         return new ReleaseInfo
         {
-            Guid = $"tidal:album:{album.Id}:{bestQuality}",
+            Guid = guid,
             DownloadProtocol = nameof(TidalarrDownloadProtocol),
             Title = title,
             Artist = artistName,
             Album = albumTitle,
             PublishDate = releaseDate,
-            DownloadUrl = $"tidal://album/{album.Id}?quality={bestQuality}",
+            DownloadUrl = downloadUrl,
             InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
             Size = EstimateAlbumSize(album, bestQuality)
         };
