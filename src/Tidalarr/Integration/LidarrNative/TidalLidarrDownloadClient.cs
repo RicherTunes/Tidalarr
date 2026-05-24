@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
 using FluentValidation.Results;
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
@@ -33,13 +33,13 @@ public class TidalLidarrDownloadClient(
 {
     // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
-    private static readonly ConcurrentDictionary<string, TidalDownloadItem> ActiveDownloads = new();
+    // HostBridgeDownloadTrackerStore is instance-scoped but held in a static field for exactly this reason.
+    private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
     private new readonly Logger _logger = logger;
     private IServiceProvider _serviceProvider;
     private bool _servicesInitialized;
     private readonly object _initLock = new();
     private SimpleDownloadOrchestrator _orchestrator;
-    private static readonly TimeSpan CompletedDownloadRetention = TimeSpan.FromMinutes(30);
 
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
@@ -137,20 +137,20 @@ public class TidalLidarrDownloadClient(
             string downloadId = Guid.NewGuid().ToString("N");
             string outputPath = BuildOutputPath(remoteAlbum);
 
-            // Create download item for tracking
-            TidalDownloadItem downloadItem = new()
+            // Create download item for tracking via Common primitive.
+            HostBridgeDownloadItem downloadItem = new()
             {
                 DownloadId = downloadId,
                 AlbumId = albumId,
                 Title = albumTitle,
                 Artist = artistName,
-                Status = DownloadItemStatus.Downloading,
-                Progress = 0,
-                StartedAt = DateTime.UtcNow,
-                OutputPath = outputPath
+                OutputPath = outputPath,
+                StartedAt = DateTime.UtcNow
             };
+            downloadItem.SetStatus(HostBridgeDownloadItemStatus.Downloading);
+            downloadItem.SetProgress(0);
 
-            ActiveDownloads[downloadId] = downloadItem;
+            ActiveDownloads.Add(downloadItem);
 
             // Start actual download using the orchestrator
             _ = Task.Run(async () =>
@@ -162,9 +162,9 @@ public class TidalLidarrDownloadClient(
                     // Create progress reporter to update download item
                     Progress<DownloadProgress> progressReporter = new(p =>
                     {
-                        if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
+                        if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                         {
-                            item.UpdateProgress(p.PercentComplete);
+                            item.SetProgress(p.PercentComplete);
                         }
                     });
 
@@ -175,10 +175,10 @@ public class TidalLidarrDownloadClient(
                         progress: progressReporter);
 
                     // Mark as completed (thread-safe updates)
-                    if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
+                    if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                     {
-                        item.UpdateStatus(result.Success ? DownloadItemStatus.Completed : DownloadItemStatus.Failed);
-                        item.UpdateProgress(100);
+                        item.SetStatus(result.Success ? HostBridgeDownloadItemStatus.Completed : HostBridgeDownloadItemStatus.Failed);
+                        item.SetProgress(100);
                         item.CompletedAt = DateTime.UtcNow;
 
                         // Log all track results for debugging
@@ -207,9 +207,9 @@ public class TidalLidarrDownloadClient(
                 catch (Exception ex)
                 {
                     this._logger.Error(ex, "Failed to download album {0}", albumId);
-                    if (ActiveDownloads.TryGetValue(downloadId, out TidalDownloadItem? item))
+                    if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                     {
-                        item.UpdateStatus(DownloadItemStatus.Failed);
+                        item.SetStatus(HostBridgeDownloadItemStatus.Failed);
                         item.CompletedAt = DateTime.UtcNow;
                     }
                 }
@@ -229,31 +229,26 @@ public class TidalLidarrDownloadClient(
     {
         List<DownloadClientItem> result = [];
 
-        // Best-effort cleanup to prevent unbounded growth if Lidarr doesn't call RemoveItem.
-        DateTime now = DateTime.UtcNow;
-        foreach (KeyValuePair<string, TidalDownloadItem> kv in ActiveDownloads)
+        // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
+        foreach (HostBridgeDownloadItem item in ActiveDownloads.GetSnapshot())
         {
-            TidalDownloadItem item = kv.Value;
-            DownloadItemStatus status = item.GetStatus();
+            HostBridgeDownloadItemStatus status = item.GetStatus();
             double progress = item.GetProgress();
 
-            if ((status == DownloadItemStatus.Completed || status == DownloadItemStatus.Failed) &&
-                item.CompletedAt.HasValue &&
-                now - item.CompletedAt.Value > CompletedDownloadRetention)
+            // Map Common status enum to Lidarr host enum.
+            DownloadItemStatus hostStatus = status switch
             {
-                if (ActiveDownloads.TryRemove(kv.Key, out _))
-                {
-                    this._logger.Debug("Evicted stale download {0} ({1}) after retention period", kv.Key, status);
-                }
-
-                continue;
-            }
+                HostBridgeDownloadItemStatus.Completed => DownloadItemStatus.Completed,
+                HostBridgeDownloadItemStatus.Failed    => DownloadItemStatus.Failed,
+                HostBridgeDownloadItemStatus.Downloading => DownloadItemStatus.Downloading,
+                _                                      => DownloadItemStatus.Queued
+            };
 
             result.Add(new DownloadClientItem
             {
                 DownloadId = item.DownloadId,
                 Title = $"{item.Artist} - {item.Title}",
-                Status = status,
+                Status = hostStatus,
                 TotalSize = item.TotalSize,
                 RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
@@ -266,22 +261,9 @@ public class TidalLidarrDownloadClient(
 
     public override void RemoveItem(DownloadClientItem item, bool deleteData)
     {
-        if (ActiveDownloads.TryRemove(item.DownloadId, out TidalDownloadItem? download))
+        if (ActiveDownloads.Remove(item.DownloadId, deleteData, out _))
         {
             this._logger.Debug("Removed Tidal download: {0}", item.DownloadId);
-
-            if (deleteData && Directory.Exists(download.OutputPath))
-            {
-                try
-                {
-                    Directory.Delete(download.OutputPath, recursive: true);
-                    this._logger.Debug("Deleted download data at: {0}", download.OutputPath);
-                }
-                catch (Exception ex)
-                {
-                    this._logger.Warn(ex, "Failed to delete download data at: {0}", download.OutputPath);
-                }
-            }
         }
     }
 
@@ -358,18 +340,8 @@ public class TidalLidarrDownloadClient(
         }
     }
 
-    private string ExtractAlbumIdFromRelease(ReleaseInfo release)
-    {
-        // Try GUID first
-        string? albumId = ExtractAlbumIdFromGuid(release?.Guid);
-        if (!string.IsNullOrWhiteSpace(albumId))
-        {
-            return albumId;
-        }
-
-        // Fall back to InfoUrl
-        return ExtractAlbumIdFromInfoUrl(release?.InfoUrl) ?? release?.Guid ?? string.Empty;
-    }
+    private static string ExtractAlbumIdFromRelease(ReleaseInfo release)
+        => PrefixedReleaseGuidParser.ExtractAlbumId(release?.Guid, release?.InfoUrl, "tidal");
 
     /// <summary>
     /// Extracts quality from a release's DownloadUrl (?quality=Lossless) or GUID (tidal:album:ID:Quality).
@@ -400,62 +372,6 @@ public class TidalLidarrDownloadClient(
         return null;
     }
 
-    /// <summary>
-    /// Extracts album ID from GUID, handling prefixed ("2_tidal:album:12345678"),
-    /// unprefixed ("tidal:album:12345678"), and quality-suffixed ("tidal:album:12345678:Lossless") formats.
-    /// </summary>
-    internal static string? ExtractAlbumIdFromGuid(string? guid)
-    {
-        if (string.IsNullOrWhiteSpace(guid))
-        {
-            return null;
-        }
-
-        string normalizedGuid = guid;
-
-        // Strip indexer ID prefix if present (format: "2_tidal:album:12345678")
-        int prefixEnd = guid.IndexOf("_tidal:", StringComparison.OrdinalIgnoreCase);
-        if (prefixEnd >= 0)
-        {
-            normalizedGuid = guid[(prefixEnd + 1)..]; // Remove "2_" prefix, keep "tidal:album:12345678"
-        }
-
-        // Format: tidal:album:12345678 (reject empty/whitespace ID segments)
-        string[] parts = normalizedGuid.Split(':');
-        if (parts.Length >= 3 && parts[0].Equals("tidal", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(parts[2]))
-        {
-            return parts[2];
-        }
-
-        return null;
-    }
-
-    private static string? ExtractAlbumIdFromInfoUrl(string? infoUrl)
-    {
-        if (string.IsNullOrWhiteSpace(infoUrl))
-        {
-            return null;
-        }
-
-        try
-        {
-            // Try to extract from URL: https://tidal.com/browse/album/12345678
-            Uri uri = new(infoUrl);
-            string[] segments = uri.AbsolutePath.Split('/');
-            int albumIndex = Array.IndexOf(segments, "album");
-            if (albumIndex >= 0 && albumIndex < segments.Length - 1)
-            {
-                return segments[albumIndex + 1];
-            }
-        }
-        catch
-        {
-            // Invalid URI format
-        }
-
-        return null;
-    }
-
     private string BuildOutputPath(RemoteAlbum remoteAlbum)
     {
         string basePath = Settings.DownloadPath;
@@ -475,46 +391,5 @@ public class TidalLidarrDownloadClient(
     }
 }
 
-/// <summary>
-/// Internal download item tracking for Tidal downloads.
-/// Thread-safe for concurrent reads (GetItems polling) and writes (progress callbacks).
-/// </summary>
-internal class TidalDownloadItem
-{
-    private volatile int _status = (int)DownloadItemStatus.Queued;
-    private long _progressBits; // stored as long bit pattern for atomic read/write of double
-
-    public string DownloadId { get; set; } = string.Empty;
-    public string AlbumId { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Artist { get; set; } = string.Empty;
-
-    public DownloadItemStatus Status
-    {
-        get => (DownloadItemStatus)Volatile.Read(ref this._status);
-        set => Volatile.Write(ref this._status, (int)value);
-    }
-
-    public double Progress
-    {
-        get => BitConverter.Int64BitsToDouble(Interlocked.Read(ref this._progressBits));
-        set => Interlocked.Exchange(ref this._progressBits, BitConverter.DoubleToInt64Bits(value));
-    }
-
-    public long TotalSize { get; set; }
-    public DateTime StartedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public string OutputPath { get; set; } = string.Empty;
-
-    /// <summary>Thread-safe progress update.</summary>
-    public void UpdateProgress(double value) => Progress = value;
-
-    /// <summary>Thread-safe status update.</summary>
-    public void UpdateStatus(DownloadItemStatus value) => Status = value;
-
-    /// <summary>Thread-safe progress read.</summary>
-    public double GetProgress() => Progress;
-
-    /// <summary>Thread-safe status read.</summary>
-    public DownloadItemStatus GetStatus() => Status;
-}
+// TidalDownloadItem removed — replaced by Lidarr.Plugin.Common.HostBridge.HostBridgeDownloadItem
+// (Wave A item 1 of the May 2026 unification plan).

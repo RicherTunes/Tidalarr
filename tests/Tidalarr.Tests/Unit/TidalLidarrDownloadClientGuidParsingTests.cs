@@ -1,3 +1,4 @@
+using Lidarr.Plugin.Common.HostBridge;
 using NzbDrone.Core.Parser.Model;
 using Tidalarr.Core.Models;
 using Tidalarr.Integration.LidarrNative;
@@ -5,9 +6,13 @@ using Tidalarr.Integration.LidarrNative;
 namespace Tidalarr.Tests.Unit;
 
 /// <summary>
-/// Tests for GUID parsing and quality extraction in TidalLidarrDownloadClient.
-/// Ensures album IDs are correctly extracted from both prefixed and unprefixed GUID formats,
-/// including the 4-part quality-suffixed format (tidal:album:ID:Quality).
+/// Tests for GUID parsing behavior via the Common PrefixedReleaseGuidParser primitive
+/// (adopted as Wave A item 3 of the May 2026 unification plan).
+///
+/// Previously called TidalLidarrDownloadClient.ExtractAlbumIdFromGuid directly.
+/// That internal static method was removed in favor of the Common primitive.
+/// These tests verify the same contract through PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid
+/// with prefix = "tidal".
 /// </summary>
 public class TidalLidarrDownloadClientGuidParsingTests
 {
@@ -17,7 +22,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("tidal:album:1", "1")]
     public void ExtractAlbumIdFromGuid_UnprefixedFormat_ReturnsAlbumId(string guid, string expectedAlbumId)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Equal(expectedAlbumId, result);
     }
@@ -29,7 +34,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("123_tidal:album:1", "1")]
     public void ExtractAlbumIdFromGuid_PrefixedFormat_ReturnsAlbumId(string guid, string expectedAlbumId)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Equal(expectedAlbumId, result);
     }
@@ -40,7 +45,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("   ")]
     public void ExtractAlbumIdFromGuid_NullOrEmpty_ReturnsNull(string? guid)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Null(result);
     }
@@ -52,7 +57,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("2_qobuz:album:12345678")]
     public void ExtractAlbumIdFromGuid_NonTidalFormat_ReturnsNull(string guid)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Null(result);
     }
@@ -63,7 +68,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("2_TIDAL:ALBUM:107386922", "107386922")]
     public void ExtractAlbumIdFromGuid_CaseInsensitive_ReturnsAlbumId(string guid, string expectedAlbumId)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Equal(expectedAlbumId, result);
     }
@@ -77,7 +82,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("tidal:album:1:High", "1")]
     public void ExtractAlbumIdFromGuid_QualitySuffixed_ReturnsAlbumIdIgnoringQuality(string guid, string expectedAlbumId)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Equal(expectedAlbumId, result);
     }
@@ -87,7 +92,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [InlineData("1_tidal:album:12345678:HiRes", "12345678")]
     public void ExtractAlbumIdFromGuid_PrefixedAndQualitySuffixed_ReturnsAlbumId(string guid, string expectedAlbumId)
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid(guid);
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid(guid, "tidal");
 
         Assert.Equal(expectedAlbumId, result);
     }
@@ -96,7 +101,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     public void ExtractAlbumIdFromGuid_EmptyIdSegment_ReturnsNull()
     {
         // "tidal:album:" has an empty 3rd segment — semantically invalid
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid("tidal:album:");
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid("tidal:album:", "tidal");
 
         Assert.Null(result);
     }
@@ -104,7 +109,7 @@ public class TidalLidarrDownloadClientGuidParsingTests
     [Fact]
     public void ExtractAlbumIdFromGuid_WhitespaceIdSegment_ReturnsNull()
     {
-        string? result = TidalLidarrDownloadClient.ExtractAlbumIdFromGuid("tidal:album:  ");
+        string? result = PrefixedReleaseGuidParser.ExtractAlbumIdFromGuid("tidal:album:  ", "tidal");
 
         Assert.Null(result);
     }
