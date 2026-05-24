@@ -62,6 +62,56 @@ public class TidalApiClientRequestTests
         Assert.Contains("types=albums%2Ctracks", capture.LastRequest?.RequestUri?.Query);
     }
 
+    /// <summary>
+    /// Regression: TidalApiClient previously stored a shared StreamingApiRequestBuilder as a field.
+    /// Each call appended to that builder's _queryParams list — so after Test() sent query=test,
+    /// the next real search had query=test as the first param and Tidal ignored the actual query,
+    /// returning "test"-matching albums (Testimony, Testament, etc.) for every user search.
+    /// Fix: create a fresh builder per request. This test ensures the second search only sends
+    /// its own query, not a concatenation of both queries.
+    /// </summary>
+    [Fact]
+    public async Task SearchAsync_TwoSequentialSearches_EachSendsOnlyItsOwnQuery()
+    {
+        TidalSearchResponseDto payload = new(new([]), new([]));
+        MultiCaptureHandler capture = new(JsonSerializer.Serialize(payload));
+        TidalApiClient client = new(new HttpClient(capture), new RequestAuth());
+
+        // First search (simulates Test() smoke check)
+        _ = await client.SearchAsync("test");
+        string firstQuery = capture.Requests[0].RequestUri?.Query ?? string.Empty;
+        Assert.Contains("query=test", firstQuery);
+        // First request must NOT already contain the second query term
+        Assert.DoesNotContain("LE+SSERAFIM", firstQuery);
+        Assert.DoesNotContain("LE%20SSERAFIM", firstQuery);
+
+        // Second search (simulates real Lidarr user search)
+        _ = await client.SearchAsync("LE SSERAFIM BOOMPALA (piano ver.)");
+        string secondQuery = capture.Requests[1].RequestUri?.Query ?? string.Empty;
+
+        // The bug: second request contained query=test&...&query=LE%20SSERAFIM%E2%80%A6
+        // and Tidal used the first query= value, returning test-related albums.
+        // After the fix, query=test must NOT appear in the second request at all.
+        Assert.DoesNotContain("query=test", secondQuery);
+        Assert.Contains("LE%20SSERAFIM", secondQuery);
+
+        // Sanity: exactly one query= occurrence in each request (no duplicates)
+        Assert.Equal(1, CountOccurrences(firstQuery, "query="));
+        Assert.Equal(1, CountOccurrences(secondQuery, "query="));
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = haystack.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+        return count;
+    }
+
     [Fact]
     public async Task GetStreamInfoAsync_BuildsExpectedEndpoint_AndParams()
     {
@@ -106,6 +156,23 @@ public class TidalApiClientRequestTests
         private static TidalTokens Default()
         {
             return new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "uid");
+        }
+    }
+
+    private class MultiCaptureHandler(string response, HttpStatusCode code = HttpStatusCode.OK) : HttpMessageHandler
+    {
+        private readonly string _response = response;
+        private readonly HttpStatusCode _code = code;
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            HttpResponseMessage msg = new(this._code)
+            {
+                Content = new StringContent(this._response, Encoding.UTF8, "application/json")
+            };
+            return Task.FromResult(msg);
         }
     }
 
