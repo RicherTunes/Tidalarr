@@ -95,5 +95,11 @@
     <Compile Remove="Compliance\*.cs" />
     <!-- Exclude token storage tests with platform-specific path behavior -->
     <Compile Remove="JsonTokenStorageTests.cs" />
+    <!-- IndexerCovTests uses Moq + FluentValidation.Results — both require Lidarr assemblies -->
+    <Compile Remove="IndexerCovTests.cs" />
+    <!-- TidalLidarrParserParseResponseTests uses NzbDrone types from Lidarr.Core -->
+    <Compile Remove="Unit\LidarrNative\TidalLidarrParserParseResponseTests.cs" />
+    <!-- TidalLidarrIndexerSettingsValidatorTests calls AbstractValidator.Validate() from FluentValidation.dll -->
+    <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerSettingsValidatorTests.cs" />
   </ItemGroup>
 </Project>
