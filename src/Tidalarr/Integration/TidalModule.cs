@@ -10,6 +10,7 @@ using Tidalarr.Application.Services;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Domain.Api;
+using Tidalarr.Infrastructure.Resilience;
 using Tidalarr.Domain.Authentication;
 using Tidalarr.Domain.Quality;
 using Tidalarr.Domain.Streaming;
@@ -50,6 +51,9 @@ public class TidalModule : StreamingPluginModule
     {
         RegisterSharedLibraryServices(services);
         _ = services.AddTransient<ContentDecodingSnifferHandler>();
+        // TidalBackendHealthHandler gates connection-refused / DNS failures (network-down cascade).
+        // It is independent of AuthFailureGate (which trips on 401/403).
+        _ = services.AddTransient<TidalBackendHealthHandler>();
         // TidalRateLimitingHandler is the single global gate that prevents 429 storms when
         // Lidarr fans out searches/downloads across many artists. Every AddHttpClient below
         // chains it so chunk fetches, OAuth, search, and orchestrator calls all share one
@@ -68,6 +72,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>()
         .AddHttpMessageHandler(sp =>
@@ -86,6 +91,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
@@ -210,6 +216,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
@@ -221,6 +228,7 @@ public class TidalModule : StreamingPluginModule
         {
             AutomaticDecompression = DecompressionMethods.All
         })
+        .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
         .AddHttpMessageHandler<ContentDecodingSnifferHandler>();
 
