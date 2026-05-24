@@ -1,4 +1,5 @@
 using FluentValidation.Results;
+using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
@@ -135,7 +136,7 @@ public class TidalLidarrIndexer(
             foreach (IndexerRequest? request in tier)
             {
                 string requestUrl = request.HttpRequest?.Url?.ToString() ?? string.Empty;
-                if (!TryExtractSearchQuery(requestUrl, out string? query))
+                if (!PlaceholderSearchUri.TryExtractQuery(requestUrl, "tidal", out string? query))
                 {
                     this._logger.Warn("Unexpected request URL format: {0}", requestUrl);
                     continue;
@@ -181,31 +182,6 @@ public class TidalLidarrIndexer(
 
         // CleanupReleases sets IndexerId, Indexer, DownloadProtocol, and IndexerPriority from indexer Definition.
         return CleanupReleases(deduplicated);
-    }
-
-    private static bool TryExtractSearchQuery(string requestUrl, out string query)
-    {
-        query = string.Empty;
-
-        if (!requestUrl.StartsWith("tidal://search", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!Uri.TryCreate(requestUrl, UriKind.Absolute, out Uri? uri))
-        {
-            return false;
-        }
-
-        System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        string? q = queryParams["query"];
-        if (string.IsNullOrWhiteSpace(q))
-        {
-            return false;
-        }
-
-        query = q;
-        return true;
     }
 
     protected override async Task Test(List<ValidationFailure> failures)
@@ -457,10 +433,9 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
     {
         this._logger.Debug($"Generating Tidal search request for: {searchTerm}");
 
-        // Create a placeholder URL that encodes the search query
-        // The actual search is performed by the parser using TidalSearchService
-        string encodedQuery = Uri.EscapeDataString(searchTerm);
-        string requestUrl = $"tidal://search?query={encodedQuery}";
+        // Create a placeholder URL that encodes the search query.
+        // The actual search is performed in FetchReleases/ParseResponse via TidalSearchService.
+        string requestUrl = PlaceholderSearchUri.Build("tidal", searchTerm);
 
         HttpRequest request = new(requestUrl);
         request.Headers.Accept = "application/json";
@@ -484,21 +459,11 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
 
         try
         {
-            // Extract search query from the placeholder URL
+            // Extract search query from the placeholder URL via Common primitive.
             string requestUrl = indexerResponse.Request?.Url?.ToString() ?? "";
-            if (!requestUrl.StartsWith("tidal://search"))
+            if (!PlaceholderSearchUri.TryExtractQuery(requestUrl, "tidal", out string? searchQuery))
             {
                 this._logger.Warn("Unexpected request URL format: {0}", requestUrl);
-                return releases;
-            }
-
-            Uri uri = new(requestUrl);
-            System.Collections.Specialized.NameValueCollection queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            string? searchQuery = queryParams["query"];
-
-            if (string.IsNullOrWhiteSpace(searchQuery))
-            {
-                this._logger.Warn("No search query found in request");
                 return releases;
             }
 
