@@ -376,10 +376,25 @@ public class TidalLidarrDownloadClient(
     private string BuildOutputPath(RemoteAlbum remoteAlbum)
     {
         string basePath = Settings.DownloadPath;
-        string artistName = FileSystemUtilities.SanitizeFileName(remoteAlbum.Artist?.Name ?? "Unknown Artist");
-        string albumTitle = FileSystemUtilities.SanitizeFileName(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
+        // PathTraversalGuard.SanitizeSegment collapses pure-dot segments (`..`, `...`) which
+        // FileSystemUtilities.SanitizeFileName doesn't fully handle. Adopting it brings tidal's
+        // path safety up to apple's PR #130 hardening level (the same exposure exists here:
+        // hostile artist/album metadata + Directory.Delete(recursive: true) would escape root).
+        string artistName = PathTraversalGuard.SanitizeSegment(remoteAlbum.Artist?.Name ?? "Unknown Artist");
+        string albumTitle = PathTraversalGuard.SanitizeSegment(remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album");
 
-        return Path.Combine(basePath, artistName, albumTitle);
+        string output = Path.Combine(basePath, artistName, albumTitle);
+
+        // Defense-in-depth: canonical-form containment check. If a future change to sanitize
+        // misses a new traversal vector (or an attacker crafts something exotic), refuse to
+        // operate on a path outside the configured download root.
+        if (!PathTraversalGuard.IsPathWithinRoot(output, basePath))
+        {
+            throw new InvalidOperationException(
+                $"Tidalarr: refusing to build output path '{output}' — resolves outside the configured DownloadPath '{basePath}'.");
+        }
+
+        return output;
     }
 
     public void Dispose()
