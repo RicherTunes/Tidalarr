@@ -166,6 +166,10 @@ public sealed class TidalarrPlugin : IPlugin
             this._serviceProvider?.Dispose();
         }
         this._serviceProvider = null;
+
+        // Release the static HostGateRegistry background Timer so it does not
+        // continue firing after the plugin AssemblyLoadContext is unloaded.
+        this._module.Dispose();
     }
 
     private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
