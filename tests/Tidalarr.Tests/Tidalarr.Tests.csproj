@@ -24,6 +24,7 @@
     <!-- NLog runtime needed for tests that exercise NLog-using types.
          Tidalarr.csproj excludes NLog runtime assets (ILRepack internalizes it), so tests need their own copy. -->
     <PackageReference Include="NLog" />
+    <PackageReference Include="FluentAssertions" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
