@@ -5,6 +5,22 @@ All notable changes to Tidalarr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-23
+
+### Critical fix — Lidarr Docker startup failure
+
+Bumps `ext/Lidarr.Plugin.Common` from v1.9.1 to **v1.9.3** (skips v1.9.2; goes directly to the adversarial-review-hardened release). Picks up Common's fix for the Lidarr Docker `UnauthorizedAccessException: Access to the path '/app/bin/.config' is denied` bug that affected every plugin storing tokens via `FileTokenStore<TidalTokens>` on hotio/linuxserver images. Tidalarr code is unchanged.
+
+The fix arrives via the submodule bump. Operators see:
+- A writable DataProtection key dir chosen from a candidate chain (`XDG_DATA_HOME` → ... → `Path.GetTempPath()` as last resort), never a relative path.
+- Graceful degradation to a plaintext `NullTokenProtector` if every backend fails to initialise. The on-disk envelope uses a distinct `lpc:plain:v1:` prefix so audit queries can tell unprotected blobs apart from real ciphertext.
+- A diagnostic surface (`TokenProtectorFactory.IsDegradedToPlaintext` + `LastDiagnostics`) plugin-startup code can read to log a one-line warning when the keystore is degraded.
+- `LP_COMMON_REQUIRE_PROTECTOR=true` opt-in for operators who want hard-failure instead of plaintext fallback.
+
+See [Lidarr.Plugin.Common v1.9.3 changelog](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/CHANGELOG.md#193---2026-05-23) for root-cause + fix details.
+
+[Full diff](https://github.com/RicherTunes/Tidalarr/compare/v1.2.0...v1.2.1)
+
 ## [1.2.0] - 2026-05-23
 
 ### AuthFailureGate adoption + adversarial-review fixes
