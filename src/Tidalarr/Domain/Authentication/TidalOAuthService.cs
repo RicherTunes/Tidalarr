@@ -93,6 +93,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     public async Task<TidalTokens> ExchangeCodeAsync(string authCode, string codeVerifier)
     {
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "OAuthExchange");
         _ = Guard.NotNullOrWhiteSpace(authCode, nameof(authCode));
         _ = Guard.NotNullOrWhiteSpace(codeVerifier, nameof(codeVerifier));
 
@@ -133,6 +134,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
     {
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "OAuthRefresh");
         HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
         HttpResponseMessage response = await this._httpClient.SendAsync(request);
 

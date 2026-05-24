@@ -2,6 +2,7 @@ using FluentValidation.Results;
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Utilities;
@@ -38,78 +39,50 @@ public class TidalLidarrDownloadClient(
     private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
     private static readonly HostBridgeDownloadOrchestrator _downloadOrchestrator = new(logger: null);
     private new readonly Logger _logger = logger;
-    private IServiceProvider _serviceProvider;
-    private bool _servicesInitialized;
-    private readonly object _initLock = new();
-    private SimpleDownloadOrchestrator _orchestrator;
 
     public override string Name => "Tidalarr";
     public override string Protocol => nameof(TidalarrDownloadProtocol);
 
     /// <summary>
-    /// Initialize Tidal services from TidalModule when first needed.
-    /// Thread-safe via double-checked locking to prevent duplicate ServiceProvider builds.
+    /// Resolve (or lazily build) the runtime for the current settings via the process-wide
+    /// <see cref="TidalDownloadClientRuntimeCache"/>. Returns null when ConfigPath is empty.
+    /// Replaces the old double-checked-lock <c>EnsureServicesInitialized()</c> pattern,
+    /// gaining automatic invalidation when ConfigPath changes.
     /// </summary>
-    private void EnsureServicesInitialized()
+    private Task<TidalDownloadClientRuntime?> GetRuntimeAsync(CancellationToken ct = default)
+        => TidalDownloadClientRuntimeCache.Shared.GetAsync(Settings, ct);
+
+    /// <summary>
+    /// Synchronous shim for sync Lidarr host-contract callers (Test, Download).
+    /// Credential-change invalidation still fires through the cache.
+    /// </summary>
+    [Obsolete("Call GetRuntimeAsync() from async paths. This shim exists only for sync Lidarr host contracts.")]
+    private TidalDownloadClientRuntime? EnsureServicesInitialized()
     {
-        if (this._servicesInitialized)
+        TidalDownloadClientRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
+        if (runtime is null)
         {
-            return;
+            this._logger.Warn("Tidal download client runtime not available (ConfigPath empty?)");
         }
-
-        lock (this._initLock)
+        else
         {
-            if (this._servicesInitialized)
-            {
-                return;
-            }
-
-            try
-            {
-                ServiceCollection services = new();
-
-                // Use the ToTidalSettings() method for proper conversion
-                TidalDownloadClientSettings downloadSettings = Settings.ToTidalSettings();
-                _ = services.AddSingleton(downloadSettings);
-
-                // Create TidalarrSettings from Lidarr-native settings.
-                // RedirectUrl is empty - download client uses tokens from shared ConfigPath
-                // (authentication is done via the indexer, not the download client).
-                TidalarrSettings tidalarrSettings = new()
-                {
-                    ConfigPath = Settings.ConfigPath,
-                    RedirectUrl = string.Empty,
-                    DownloadPath = Settings.DownloadPath,
-                    PreferredQuality = Settings.PreferredQuality,
-                    IncludeMqa = Settings.IncludeMqa,
-                    ExtractFlac = Settings.ExtractFlac,
-                    DownloadDelay = Settings.DownloadDelay,
-                    MaxConcurrentTrackDownloads = Settings.MaxConcurrentTrackDownloads,
-                    MaxConcurrentChunkDownloads = Settings.MaxConcurrentChunkDownloads
-                };
-                _ = services.AddSingleton(tidalarrSettings);
-
-                // Register all Tidal services
-                TidalModule.RegisterServices(services);
-
-                this._serviceProvider = services.BuildServiceProvider();
-                this._orchestrator = TidalModule.CreateOrchestrator(this._serviceProvider);
-                this._servicesInitialized = true;
-                this._logger.Debug("Tidal download services initialized successfully");
-            }
-            catch (Exception ex)
-            {
-                this._logger.Error(ex, "Failed to initialize Tidal download services");
-                throw;
-            }
+            this._logger.Debug("Tidal download services initialized successfully");
         }
+        return runtime;
     }
 
     public override Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
     {
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Download");
         try
         {
-            EnsureServicesInitialized();
+#pragma warning disable CS0618 // Obsolete: sync shim for host contract
+            TidalDownloadClientRuntime? rt = EnsureServicesInitialized();
+#pragma warning restore CS0618
+            if (rt is null)
+            {
+                throw new InvalidOperationException("Tidal download client runtime unavailable — ConfigPath may be empty.");
+            }
 
             string albumTitle = remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album";
             string artistName = remoteAlbum.Artist?.Name ?? "Unknown Artist";
@@ -127,13 +100,13 @@ public class TidalLidarrDownloadClient(
 
             // Resolve services BEFORE snapshotting/Task.Run so failures surface synchronously
             // instead of leaving a phantom "Downloading" item in ActiveDownloads.
-            TidalModelMapper mapper = this._serviceProvider.GetRequiredService<TidalModelMapper>();
+            TidalModelMapper mapper = rt.ServiceProvider.GetRequiredService<TidalModelMapper>();
             StreamingQuality desiredQuality = releaseQuality.HasValue
                 ? mapper.ToStreamingQuality(releaseQuality.Value)
                 : mapper.ToStreamingQuality(Settings.PreferredQuality);
 
             // Capture orchestrator reference to avoid closure over `this`
-            SimpleDownloadOrchestrator tidalOrchestrator = this._orchestrator;
+            SimpleDownloadOrchestrator tidalOrchestrator = rt.Orchestrator;
 
             // BuildOutputPath reads Settings.DownloadPath — call it here (before Task.Run) so
             // it is resolved against the current settings before snapshotting. The resulting
@@ -297,6 +270,7 @@ public class TidalLidarrDownloadClient(
 
     protected override void Test(List<ValidationFailure> failures)
     {
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Test");
         try
         {
             this._logger.Info("Testing Tidalarr download client connection...");
@@ -329,10 +303,17 @@ public class TidalLidarrDownloadClient(
                 }
             }
 
-            // Initialize services and test authentication
-            EnsureServicesInitialized();
+            // Initialize services and test authentication (via cache — invalidates on ConfigPath change).
+#pragma warning disable CS0618 // Obsolete: sync shim for host contract
+            TidalDownloadClientRuntime? testRt = EnsureServicesInitialized();
+#pragma warning restore CS0618
+            if (testRt is null)
+            {
+                failures.Add(new ValidationFailure("ConfigPath", "Tidal runtime could not be initialized — ConfigPath may be empty."));
+                return;
+            }
 
-            IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
+            IStreamingAuthManager? authManager = testRt.ServiceProvider.GetService<IStreamingAuthManager>();
             if (authManager != null)
             {
                 try
@@ -417,11 +398,8 @@ public class TidalLidarrDownloadClient(
 
     public void Dispose()
     {
-        if (this._serviceProvider is IDisposable disposable)
-        {
-            disposable.Dispose();
-            this._logger.Debug("Disposed Tidal download service provider");
-        }
+        // Runtime lifetime is managed by TidalDownloadClientRuntimeCache (graveyard pattern).
+        // Instance-level disposal is a no-op; the cache disposes runtimes after the linger window.
     }
 }
 
