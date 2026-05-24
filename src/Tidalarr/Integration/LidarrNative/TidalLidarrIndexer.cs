@@ -1,5 +1,6 @@
 using FluentValidation.Results;
 using Lidarr.Plugin.Common.HostBridge;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
@@ -34,63 +35,44 @@ public class TidalLidarrIndexer(
     public override int PageSize => 100;
 
     private new readonly Logger _logger = logger;
-    private IServiceProvider _serviceProvider;
-    private bool _servicesInitialized;
-    private readonly object _initLock = new();
+
+    // Resolved from the process-wide TidalIndexerRuntimeCache on first call (or on credential change).
+    // Captured as a local field so callers within a single Lidarr invocation see a consistent runtime.
+    private TidalIndexerRuntime? _runtime;
 
     /// <summary>
-    /// Initialize Tidal services from TidalModule when first needed.
-    /// Thread-safe via double-checked locking to prevent duplicate ServiceProvider builds.
+    /// Resolve (or lazily build) the runtime for the current settings. Returns the cached runtime
+    /// if credentials haven't changed; builds a fresh one and parks the old one in the graveyard
+    /// otherwise. Returns null when ConfigPath is empty.
     /// </summary>
-    private void EnsureServicesInitialized()
+    private async Task<TidalIndexerRuntime?> GetRuntimeAsync(CancellationToken ct = default)
     {
-        if (this._servicesInitialized)
+        TidalIndexerRuntime? runtime = await TidalIndexerRuntimeCache.Shared
+            .GetAsync(Settings, ct)
+            .ConfigureAwait(false);
+        this._runtime = runtime;
+        return runtime;
+    }
+
+    /// <summary>
+    /// Synchronous shim used by callers in sync host-contract paths (e.g. <see cref="GetParser"/>).
+    /// Credential-change invalidation still fires — the async path just runs synchronously here.
+    /// </summary>
+    [Obsolete("Call GetRuntimeAsync() from async paths. This shim exists only for sync Lidarr host contracts.")]
+    private TidalIndexerRuntime? EnsureServicesInitialized()
+    {
+        // SYNC-OVER-ASYNC: callers (GetParser) are sync Lidarr host contracts.
+        // Task.Run avoids deadlock when a SynchronizationContext captures the thread.
+        TidalIndexerRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
+        if (runtime is null)
         {
-            return;
+            this._logger.Warn("Tidal indexer runtime not available (ConfigPath empty?)");
         }
-
-        lock (this._initLock)
+        else
         {
-            if (this._servicesInitialized)
-            {
-                return;
-            }
-
-            try
-            {
-                ServiceCollection services = new();
-
-                // Register settings from Lidarr configuration
-                TidalIndexerSettings indexerSettings = new()
-                {
-                    ConfigPath = Settings.ConfigPath,
-                    RedirectUrl = Settings.RedirectUrl,
-                    TidalMarket = Settings.TidalMarket,
-                    EarlyReleaseLimit = Settings.EarlyReleaseLimit,
-                    EnableCache = Settings.EnableCache,
-                    CacheDuration = Settings.CacheDuration
-                };
-                _ = services.AddSingleton(indexerSettings);
-                _ = services.AddSingleton(new TidalarrSettings
-                {
-                    ConfigPath = Settings.ConfigPath,
-                    RedirectUrl = Settings.RedirectUrl,
-                    TidalMarket = Settings.TidalMarket
-                });
-
-                // Register all Tidal services
-                TidalModule.RegisterServices(services);
-
-                this._serviceProvider = services.BuildServiceProvider();
-                this._servicesInitialized = true;
-                this._logger.Debug("Tidal services initialized successfully");
-            }
-            catch (Exception ex)
-            {
-                this._logger.Error(ex, "Failed to initialize Tidal services");
-                throw;
-            }
+            this._logger.Debug("Tidal services initialized successfully");
         }
+        return runtime;
     }
 
     public override IIndexerRequestGenerator GetRequestGenerator()
@@ -102,26 +84,39 @@ public class TidalLidarrIndexer(
 
     public override IParseIndexerResponse GetParser()
     {
-        EnsureServicesInitialized();
-        return new TidalLidarrParser(Settings, this._serviceProvider, this._logger);
+#pragma warning disable CS0618 // Obsolete: sync shim for host contract
+        TidalIndexerRuntime? rt = EnsureServicesInitialized();
+#pragma warning restore CS0618
+        IServiceProvider sp = rt?.ServiceProvider
+            ?? throw new InvalidOperationException("Tidal indexer runtime unavailable — ConfigPath may be empty.");
+        return new TidalLidarrParser(Settings, sp, this._logger);
     }
 
     protected override async Task<IList<ReleaseInfo>> FetchReleases(
         Func<IIndexerRequestGenerator, IndexerPageableRequestChain> pageableRequestChainSelector,
         bool isRecent = false)
     {
-        EnsureServicesInitialized();
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Search", provider: "tidal:api");
+
+        TidalIndexerRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
+        if (rt is null)
+        {
+            this._logger.Error("Tidal indexer runtime unavailable (ConfigPath empty?)");
+            return [];
+        }
+
+        IServiceProvider sp = rt.ServiceProvider;
 
         List<ReleaseInfo> releases = [];
 
         // Ensure valid session early so Lidarr reports a clear authentication error.
-        IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
+        IStreamingAuthManager? authManager = sp.GetService<IStreamingAuthManager>();
         if (authManager != null)
         {
             await authManager.EnsureValidSessionAsync().ConfigureAwait(false);
         }
 
-        TidalSearchService? searchService = this._serviceProvider.GetService<TidalSearchService>();
+        TidalSearchService? searchService = sp.GetService<TidalSearchService>();
         if (searchService == null)
         {
             this._logger.Error("TidalSearchService not available");
@@ -186,6 +181,7 @@ public class TidalLidarrIndexer(
 
     protected override async Task Test(List<ValidationFailure> failures)
     {
+        using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Test");
         try
         {
             this._logger.Info("Testing Tidalarr indexer connection...");
@@ -214,15 +210,22 @@ public class TidalLidarrIndexer(
                 }
             }
 
-            // Initialize services
-            EnsureServicesInitialized();
+            // Initialize services (async; await gives the cache a chance to invalidate on cred change).
+            TidalIndexerRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
+            if (rt is null)
+            {
+                failures.Add(new ValidationFailure("ConfigPath", "Tidal runtime could not be initialized — ConfigPath may be empty."));
+                return;
+            }
+
+            IServiceProvider testSp = rt.ServiceProvider;
 
             // Check if we have a valid redirect URL with authorization code
             bool hasRedirectUrl = !string.IsNullOrWhiteSpace(Settings.RedirectUrl);
 
             // Try to get existing valid session first
-            IStreamingAuthManager? authManager = this._serviceProvider.GetService<IStreamingAuthManager>();
-            ITidalAuth? authService = this._serviceProvider.GetService<ITidalAuth>();
+            IStreamingAuthManager? authManager = testSp.GetService<IStreamingAuthManager>();
+            ITidalAuth? authService = testSp.GetService<ITidalAuth>();
 
             if (authService != null)
             {
@@ -255,7 +258,7 @@ public class TidalLidarrIndexer(
             }
 
             // Test a simple search
-            TidalSearchService? searchService = this._serviceProvider.GetService<TidalSearchService>();
+            TidalSearchService? searchService = testSp.GetService<TidalSearchService>();
             if (searchService != null)
             {
                 TidalSearchResults testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless);
@@ -372,7 +375,7 @@ public class TidalLidarrIndexer(
                 return Task.CompletedTask;
             }
 
-            this._logger.Info("Generated OAuth authorization URL for Tidal authentication.");
+            this._logger.Info("Generated OAuth authorization URL for Tidal authentication (scrubbed: {0}).", Scrub.Url(authUrl));
 
             // Provide clear instructions with the auth URL in the error message
             failures.Add(new ValidationFailure("RedirectUrl",
