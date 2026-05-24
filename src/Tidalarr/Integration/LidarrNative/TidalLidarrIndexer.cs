@@ -355,6 +355,19 @@ public class TidalLidarrIndexer(
             this._logger.Info("Successfully authenticated with Tidal!");
             return true;
         }
+        catch (Tidalarr.Domain.Authentication.TidalInvalidGrantException ex)
+        {
+            // The authorization code was already consumed or has expired.
+            // Clear the cached field so the next Test uses whatever fresh URL the
+            // user pastes rather than silently re-submitting the dead code.
+            this._logger.Warn(ex, "Tidal rejected the authorization code (invalid_grant) — clearing cached redirect URL.");
+            Settings.RedirectUrl = string.Empty;
+
+            failures.Add(new ValidationFailure(
+                "RedirectUrl",
+                ex.Message));
+            return false;
+        }
         catch (Exception ex)
         {
             this._logger.Error(ex, "Failed to exchange authorization code");

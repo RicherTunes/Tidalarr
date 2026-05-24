@@ -231,6 +231,72 @@ public class TidalOAuthServiceTests
             oauthService.ExchangeCodeAsync("invalid_code", "test_verifier"));
     }
 
+    // ── invalid_grant tests ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExchangeCodeAsync_InvalidGrant_ThrowsTidalInvalidGrantException()
+    {
+        // Arrange: Tidal returns 400 invalid_grant (code already consumed or expired)
+        const string tidalErrorBody = """{"error":"invalid_grant","error_description":"The token has expired. (Expired on time)","status":400,"sub_status":11003}""";
+        HttpClient httpClient = CreateMockHttpClient(tidalErrorBody, HttpStatusCode.BadRequest);
+        PKCEGenerator pkceGenerator = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, new MockTokenStorage());
+
+        // Act & Assert: must throw the typed exception, not a generic HttpRequestException
+        Tidalarr.Domain.Authentication.TidalInvalidGrantException ex =
+            await Assert.ThrowsAsync<Tidalarr.Domain.Authentication.TidalInvalidGrantException>(() =>
+                oauthService.ExchangeCodeAsync("already_used_code", "test_verifier"));
+
+        // Message must be user-friendly and not contain the raw Tidal JSON
+        Assert.Contains("invalid or expired", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("paste a fresh redirect URL", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sub_status", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExchangeCodeAsync_InvalidGrant_DoesNotSaveTokens()
+    {
+        // Arrange
+        const string tidalErrorBody = """{"error":"invalid_grant","error_description":"The token has expired.","status":400,"sub_status":11003}""";
+        HttpClient httpClient = CreateMockHttpClient(tidalErrorBody, HttpStatusCode.BadRequest);
+        PKCEGenerator pkceGenerator = new();
+        MockTokenStorage storage = new();
+        TidalOAuthService oauthService = new(httpClient, pkceGenerator, storage);
+
+        // Act (swallow the exception)
+        _ = await Assert.ThrowsAsync<Tidalarr.Domain.Authentication.TidalInvalidGrantException>(() =>
+            oauthService.ExchangeCodeAsync("already_used_code", "test_verifier"));
+
+        // Assert: no tokens saved because the exchange failed
+        TokenEnvelope<TidalTokens>? stored = await storage.LoadAsync();
+        Assert.Null(stored);
+    }
+
+    [Theory]
+    [InlineData("""{"error":"invalid_grant","error_description":"Expired","status":400}""")]
+    [InlineData("""{"error":"INVALID_GRANT","status":400}""")]    // case-insensitive
+    public async Task ExchangeCodeAsync_InvalidGrant_VariantBodies_ThrowTypedException(string errorBody)
+    {
+        HttpClient httpClient = CreateMockHttpClient(errorBody, HttpStatusCode.BadRequest);
+        TidalOAuthService oauthService = new(httpClient, new PKCEGenerator(), new MockTokenStorage());
+
+        _ = await Assert.ThrowsAsync<Tidalarr.Domain.Authentication.TidalInvalidGrantException>(() =>
+            oauthService.ExchangeCodeAsync("code", "verifier"));
+    }
+
+    [Fact]
+    public async Task ExchangeCodeAsync_OtherBadRequest_ThrowsHttpRequestException_NotInvalidGrant()
+    {
+        // Arrange: 400 with a different error code (e.g. invalid_client) must NOT be treated as invalid_grant
+        const string tidalErrorBody = """{"error":"invalid_client","error_description":"Unknown client","status":400}""";
+        HttpClient httpClient = CreateMockHttpClient(tidalErrorBody, HttpStatusCode.BadRequest);
+        TidalOAuthService oauthService = new(httpClient, new PKCEGenerator(), new MockTokenStorage());
+
+        // Act & Assert: generic HttpRequestException, NOT TidalInvalidGrantException
+        _ = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            oauthService.ExchangeCodeAsync("code", "verifier"));
+    }
+
     private static HttpClient CreateMockHttpClient(string jsonResponse, HttpStatusCode statusCode = HttpStatusCode.OK)
     {
         MockHttpMessageHandler mockHandler = new(jsonResponse, statusCode);
