@@ -18,7 +18,12 @@ namespace Tidalarr.Domain.Api;
 public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStreamingResponseCache? cache = null) : ITidalCore, IDisposable
 {
     private readonly HttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-    private readonly StreamingApiRequestBuilder _requestBuilder = new(TidalConstants.API_V1_BASE);
+    // StreamingApiRequestBuilder is stateful (it accumulates _queryParams and _headers across
+    // fluent calls). Using a shared field caused each search to append to the prior call's
+    // parameter list, so after the Test() smoke search sent query=test, every subsequent real
+    // search had query=test as the *first* query param and Tidal ignored the actual query.
+    // Fix: create a fresh builder per request so params never bleed across calls.
+    private StreamingApiRequestBuilder NewRequestBuilder() => new(TidalConstants.API_V1_BASE);
     private readonly IStreamingResponseCache? _cache = cache;
     private readonly ITidalAuth _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     private readonly Streaming.TidalManifestParser? _manifestParser;
@@ -48,7 +53,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalTrackInfo(cachedTrack);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -80,7 +85,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalAlbumInfo(cachedAlbum);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -113,7 +118,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return [.. (cached.items ?? []).Select(MapToTidalTrackInfo)];
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -172,7 +177,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return MapToTidalSearchResults(cached);
         }
 
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -202,7 +207,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
         };
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
@@ -257,7 +262,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ["sessionId"] = tokens.SessionId,
             ["countryCode"] = tokens.CountryCode
         };
-        HttpRequestMessage request = this._requestBuilder
+        HttpRequestMessage request = this.NewRequestBuilder()
             .Endpoint(endpoint)
             .QueryParams(parameters)
             .BearerToken(tokens.AccessToken)
