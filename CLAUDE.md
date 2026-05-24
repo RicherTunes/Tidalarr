@@ -85,6 +85,20 @@ At least one asset name must contain `net8.0.zip`.
 
 For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</AssemblyName>` in `src/Tidalarr/Tidalarr.csproj`. Don't drop that line "to clean up" — it's load-bearing.
 
+## Common helpers in use
+
+- `PluginConfigRoots.Resolve("Tidalarr")` — `src/Tidalarr/Integration/TidalIndexerSettings.cs:15`, `src/Tidalarr/Integration/TidalarrSettings.cs:16`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs:17`
+- `BackendHealthCache` — `src/Tidalarr/Infrastructure/Resilience/TidalBackendHealthHandler.cs:33` (DelegatingHandler wrapping `BackendHealthCache.Shared`)
+- `HostBridgeDownloadTrackerStore` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:38` (static store for in-flight downloads)
+- `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
+- `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
+- `PlaceholderSearchUri` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:139`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:438`
+- `PathTraversalGuard` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:401`
+- `AlbumReleaseInfoBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:540`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:583`
+- `TestValidationBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:307`
+
+See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog.
+
 ## Build Commands
 
 ### **Development Builds (with CLI tools)**
