@@ -5,6 +5,7 @@ using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Utilities;
+using Lidarr.Plugin.Common.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Disk;
@@ -282,16 +283,16 @@ public class TidalLidarrDownloadClient(
         {
             this._logger.Info("Testing Tidalarr download client connection...");
 
-            // Basic settings validation
-            if (string.IsNullOrWhiteSpace(Settings.ConfigPath))
-            {
-                failures.Add(new ValidationFailure("ConfigPath", "Config path is required"));
-                return;
-            }
+            // Basic settings validation — accumulate ALL missing-field failures before
+            // returning so the user sees every gap in a single Test click.
+            // (Replaces two sequential early-return checks; fixes PR #130 finding #12.)
+            var builder = new TestValidationBuilder()
+                .RequireNonEmpty("ConfigPath", Settings.ConfigPath, "Config path is required")
+                .RequireNonEmpty("DownloadPath", Settings.DownloadPath, "Download path is required");
 
-            if (string.IsNullOrWhiteSpace(Settings.DownloadPath))
+            failures.AddRange(builder.Build());
+            if (builder.HasFailures)
             {
-                failures.Add(new ValidationFailure("DownloadPath", "Download path is required"));
                 return;
             }
 
