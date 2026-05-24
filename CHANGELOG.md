@@ -5,6 +5,17 @@ All notable changes to Tidalarr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-05-24
+
+### Added
+- `HostBridgeRuntimeCache` retrofit — credential-change invalidation flushes the cached bridge context immediately; a 60 s graveyard holds stale entries to prevent in-flight requests from hard-failing (Wave 13A).
+- `PluginLogContext` + `Scrub` observability adopted at 5 entry points — structured per-request correlation and log redaction across Indexer and DownloadClient pipelines (Wave 13C).
+
+### Changed
+- Stale credential edge case eliminated: cache no longer returns a bridge context built from superseded OAuth tokens after a settings save.
+
+[Full diff](https://github.com/RicherTunes/Tidalarr/compare/v1.2.4...v1.2.5)
+
 ## [1.2.4] - 2026-05-24
 
 ### Changed
