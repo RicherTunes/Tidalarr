@@ -121,7 +121,7 @@ jobs:
         shell: pwsh
         run: |
           $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
-          ./scripts/lint-sync-over-async.ps1 -Mode $mode
+          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode $mode
 
       - name: Run unified plugin pipeline
         shell: pwsh
