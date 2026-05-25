@@ -1,4 +1,4 @@
-namespace Tidalarr.Integration;
+namespace Tidalarr.Integration.LidarrNative;
 
 /// <summary>
 /// Registers Tidalarr with Lidarr's "System → Plugins" UI.
