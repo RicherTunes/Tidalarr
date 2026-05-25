@@ -8,10 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `AuthFailureGate` singleton registered in `TidalModule` — wraps the bridge-default `IAuthFailureHandler` registered by `AddBridgeDefaults()` so the indexer, download client, and OAuth service will share one latch state once per-entry-point wiring lands. Mirrors apple + qobuz adoption (`AppleMusicarrStreamingPlugin.cs:130-134`, `QobuzarrStreamingPlugin.cs:36`). Closes the long-standing comment-only reference at `TidalModule.cs:59` ("independent of AuthFailureGate") that left Lidarr's search loop free to hammer `api.tidal.com` on a dead session — the qobuzarr-incident class where a user got IP-banned after auth expired.
+- `AuthFailureGate` singleton registered in `TidalModule` — wraps the bridge-default `IAuthFailureHandler` registered by `AddBridgeDefaults()` so the indexer, download client, and OAuth service share one latch state. Mirrors apple + qobuz adoption (`AppleMusicarrStreamingPlugin.cs:130-134`, `QobuzarrStreamingPlugin.cs:36`). Closes the long-standing comment-only reference at `TidalModule.cs:59` ("independent of AuthFailureGate") that left Lidarr's search loop free to hammer `api.tidal.com` on a dead session — the qobuzarr-incident class where a user got IP-banned after auth expired.
+- Per-entry-point gate wiring in `TidalLidarrIndexer` + `TidalLidarrDownloadClient` via private static helpers (`IsAuthShortCircuited` + `RecordAuthOutcomeFromException` + `LooksLikeAuthFailure`) that mirror apple's `AppleMusicIndexerAdapter.cs:63-104` pattern. The helpers resolve `AuthFailureGate?` from the runtime's `IServiceProvider` per-call because Lidarr's `HttpIndexerBase` / `DownloadClientBase` ctor signatures are fixed and can't accept additional DI parameters.
+
+### Changed
+- `TidalLidarrIndexer.FetchReleases` short-circuits and returns empty when the gate is latched bad and no probe slot is available — search results are deterministic instead of generating 401-storm log noise.
+- `TidalLidarrIndexer.Test` short-circuits with an actionable "auth latched bad" validation failure when the gate has no probe slot — the user sees a clear "paste a fresh redirect URL" path instead of a generic timeout.
+- `TidalLidarrDownloadClient.Download` throws an actionable `InvalidOperationException` when the gate is latched bad — Lidarr surfaces this as a download failure with recovery instructions instead of starting a download that will burn API quota / risk IP-ban.
+- `TidalLidarrDownloadClient.Test` mirrors the indexer's gate-aware behavior.
+- All four entry-point catch blocks now call `RecordAuthOutcomeFromException` so that 401/403 failures latch the gate for subsequent calls.
 
 ### Tests
-- `AuthFailureGateAdoptionTests` (4 facts) — verify the DI registration shape (singleton, exactly one, bridge-default handler dependency, factory-or-instance present). Tests inspect `IServiceCollection` by type `FullName` rather than `GetRequiredService<T>()` because the merged Tidalarr.dll's ILRepack-internalized `Lidarr.Plugin.Common` and `Lidarr.Plugin.Abstractions` copies share an FQN with the standalone references the test project uses but have a different assembly identity — direct `typeof(T)` lookup would miss the registration.
+- `AuthFailureGateAdoptionTests` (8 facts):
+  - 4 DI-registration facts inspect `IServiceCollection` by type `FullName` rather than `GetRequiredService<T>()` because the merged Tidalarr.dll's ILRepack-internalized `Lidarr.Plugin.Common` and `Lidarr.Plugin.Abstractions` copies share an FQN with the standalone references the test project uses but have a different assembly identity — direct `typeof(T)` lookup would miss the registration.
+  - 4 wiring facts use reflection on the merged DLL to verify `TidalLidarrIndexer` + `TidalLidarrDownloadClient` define the private static helpers (`IsAuthShortCircuited`, `RecordAuthOutcomeFromException`) — defense against a future refactor silently removing them.
+
+### Known limitations
+- Behavior-level testing (latching the gate and observing indexer short-circuit through real method calls) is blocked by the same cross-ALC issue that breaks the existing `BackendHealthCacheAdoptionTests` (6 pre-existing failures): the test project's standalone `Lidarr.Plugin.Common` / `Lidarr.Plugin.Abstractions` types can't be passed across the merged DLL's internalized boundary. The proper fix is a `bin-tests/` split (qobuzarr-style) where the test project consumes an un-merged Tidalarr.dll — tracked as a separate parity gap.
 
 ## [1.2.5] - 2026-05-24
 
