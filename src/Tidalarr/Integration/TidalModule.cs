@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Common.Hosting;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
@@ -18,6 +19,7 @@ using Tidalarr.Infrastructure.Caching;
 using Lidarr.Plugin.Common.Services.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
+using Tidalarr.Integration.LidarrNative;
 using Lidarr.Plugin.Common.Extensions;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Abstractions.Models;
@@ -29,6 +31,8 @@ namespace Tidalarr.Integration;
 public class TidalModule : StreamingPluginModule
 {
     public const string ModuleName = "Tidalarr";
+
+    private static int _hooksRegistered;
 
     // Version is derived from the assembly version (which Tidalarr.csproj wires up from the
     // top-level VERSION file via Directory.Build.props). Don't reintroduce a hardcoded literal —
@@ -269,6 +273,44 @@ public class TidalModule : StreamingPluginModule
     protected override void RegisterCoreServices()
     {
         // Reserved for future auto-registration via base module
+    }
+
+    protected override void RegisterCustomServices()
+    {
+        base.RegisterCustomServices();
+
+        // CAS-guarded — only register the hooks once per process, even if RegisterServices()
+        // is invoked multiple times (e.g. multiple module instances constructed in tests).
+        if (System.Threading.Interlocked.CompareExchange(ref _hooksRegistered, 1, 0) != 0)
+        {
+            return;
+        }
+
+        // Tear down the two static runtime caches on plugin unload. Each holds an
+        // IServiceProvider whose HttpClients would otherwise linger in the old ALC until GC.
+        // ResetAsync is async; hop to thread pool to avoid deadlocking on captured-context dispose.
+        PluginLifecycle.RegisterShutdown(
+            "TidalIndexerRuntimeCache",
+            static () =>
+            {
+                try { Task.Run(() => TidalIndexerRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
+                catch { /* teardown errors are not actionable */ }
+            });
+        PluginLifecycle.RegisterShutdown(
+            "TidalDownloadClientRuntimeCache",
+            static () =>
+            {
+                try { Task.Run(() => TidalDownloadClientRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
+                catch { /* teardown errors are not actionable */ }
+            });
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        PluginLifecycle.Shutdown();
+        // Reset the hook-registration guard so a subsequent module instance can re-register.
+        System.Threading.Interlocked.Exchange(ref _hooksRegistered, 0);
     }
 
     public static bool ValidateConfiguration(TidalIndexerSettings settings)
