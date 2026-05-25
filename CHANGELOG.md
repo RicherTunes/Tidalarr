@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Dependencies
-- `ext/Lidarr.Plugin.Common` bumped to **v1.16.0** (`936556e`) — picks up `SlidingWindowAuthFailureHandler` (K-of-N-in-W sliding-window circuit semantics, sibling of `DefaultAuthFailureHandler`) and the rest of the wave-22 Common surface. Tidalarr does not consume `SlidingWindowAuthFailureHandler` directly — brainarr's `LlmAuthCircuit` is the canonical consumer — but the version bump keeps the ecosystem lockstep.
-- `ext-common-sha.txt` aligned with the submodule pin: `38eda2c` → `936556e`. Closes the stale-pointer drift surfaced by the Wave-22 adversarial review.
+- `ext/Lidarr.Plugin.Common` bumped to **v1.17.0** (`639d573`) Wave-23 — picks up the Wave-21 parity helpers (PathTraversalGuard.ContainsTraversalAttempt, AlbumDownloadUri, AlbumReleaseInfoBuilder bracket slots, unified version-bump helper). Tidalarr's own helpers already cover the same ground, but the bump keeps the ecosystem lockstep.
+- `ext-common-sha.txt` aligned to `639d573` (was `38eda2c`, then `936556e` after Wave-22).
+- `plugin.json` `commonVersion`: 1.16.0 → 1.17.0.
 
 ### Build / cleanup
 - `.gitignore` extended with `*.net8.0.zip`, `package-release/`, `release-notes.md` so release-build artifacts no longer pollute the working tree.
@@ -17,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `AuthFailureGate` singleton registered in `TidalModule` — wraps the bridge-default `IAuthFailureHandler` registered by `AddBridgeDefaults()` so the indexer, download client, and OAuth service share one latch state. Mirrors apple + qobuz adoption (`AppleMusicarrStreamingPlugin.cs:130-134`, `QobuzarrStreamingPlugin.cs:36`). Closes the long-standing comment-only reference at `TidalModule.cs:59` ("independent of AuthFailureGate") that left Lidarr's search loop free to hammer `api.tidal.com` on a dead session — the qobuzarr-incident class where a user got IP-banned after auth expired.
 - Per-entry-point gate wiring in `TidalLidarrIndexer` + `TidalLidarrDownloadClient` via private static helpers (`IsAuthShortCircuited` + `RecordAuthOutcomeFromException` + `LooksLikeAuthFailure`) that mirror apple's `AppleMusicIndexerAdapter.cs:63-104` pattern. The helpers resolve `AuthFailureGate?` from the runtime's `IServiceProvider` per-call because Lidarr's `HttpIndexerBase` / `DownloadClientBase` ctor signatures are fixed and can't accept additional DI parameters.
+
+### Fixed
+- `TidalStreamManifest`: parse failures now emit Warn log entries (was silent swallow) for manifest format drift visibility.
 
 ### Changed
 - `TidalLidarrIndexer.FetchReleases` short-circuits and returns empty when the gate is latched bad and no probe slot is available — search results are deterministic instead of generating 401-storm log noise.
@@ -49,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PluginSandboxRuntimeTests.FindPluginDll` and `TidalarrPluginLoadFixture.InitializeAsync` updated to look in `bin-tests/` first, falling back to `bin/` for legacy/manual builds.
 - `.gitignore` adds `bin-tests/` to the ignore list (matches qobuzarr).
 - **Net effect**: 11 previously-failing tests are now green — 6 in `BackendHealthCacheAdoptionTests` (cross-ALC type identity), 4 in `PluginSandboxRuntimeTests` (IPlugin discovery), 1 in `TidalarrPluginSmokeTests` (service resolution). Full suite: 1309 passed / 0 failed / 14 skipped. Closes parity-matrix axis #12 (`bin-tests/` split for cross-ALC type identity).
+
+### Changed (CI — Wave-23)
+- `.github/workflows/codeql.yml` + `release.yml`: Docker image pin `ghcr.io/hotio/lidarr:pr-plugins` → `pr-plugins-3.1.2.4913` matching apple+brainarr. Floating tag risk was "works today, breaks silently tomorrow" if hotio cuts a `pr-plugins` rebuild for Lidarr 3.1.3.
 
 ## [1.2.5] - 2026-05-24
 
