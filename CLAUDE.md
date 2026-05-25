@@ -123,7 +123,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `TestValidationBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:307`
 - `BoundedConcurrentDictionary<TKey, TValue>` — available (Common v1.15.0+ exposes `ContainsKey`, `Values`, indexer setter, and `IEnumerable<KeyValuePair>` alongside the original v1.10.0 TryAdd/TryGetValue/AddOrUpdate/GetOrAdd surface). No tidal call sites yet — candidates: `PKCEStateStore.InMemoryCache` (`src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs:33`) is domain-bounded by config-path count so adoption isn't required; revisit when a real growth concern surfaces.
 
-See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog.
+See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the cross-plugin parity scorecard (30+ axes × 4 plugins).
 
 ## Test infrastructure: `bin-tests/` split (cross-ALC type identity)
 
