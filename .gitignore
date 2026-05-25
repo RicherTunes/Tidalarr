@@ -277,3 +277,8 @@ test-plugin/
 !src/Tidalarr/Infrastructure/Performance/
 !src/Tidalarr/Infrastructure/Performance/*.cs
 
+# Release artifacts (Wave-22 cleanup) — these are built by scripts/release CI, never committed
+*.net8.0.zip
+package-release/
+release-notes.md
+
