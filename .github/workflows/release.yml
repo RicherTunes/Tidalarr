@@ -64,7 +64,7 @@ jobs:
           echo "[ERROR] Docker is required to fetch plugins-branch assemblies for release."
           exit 1
         fi
-        IMAGE="ghcr.io/hotio/lidarr:pr-plugins"
+        IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
         echo "Pulling $IMAGE (with retry)"
         n=0
         until [ "$n" -ge 3 ]; do
