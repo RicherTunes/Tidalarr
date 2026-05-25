@@ -93,6 +93,12 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
   - `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs` — FetchReleases (short-circuit returns empty), Test (short-circuit surfaces a clear "auth needs attention" validation failure), and the inner catch + outer Test catch record failures
   - `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs` — Download (short-circuit throws an actionable InvalidOperationException), Test (validation failure), and inner/outer catches record failures
   - Helpers resolve `AuthFailureGate?` from the runtime's `IServiceProvider` per-call because Lidarr's `HttpIndexerBase` / `DownloadClientBase` ctors are fixed and can't accept additional DI parameters
+- `PluginLogContext` — 6 ambient scopes at every canonical entry point:
+  - Indexer: `TidalLidarrIndexer.cs:101` (Search, provider="tidal:api"), `TidalLidarrIndexer.cs:201` (Test)
+  - Download client: `TidalLidarrDownloadClient.cs:77` (Download), `TidalLidarrDownloadClient.cs:290` (Test)
+  - Auth: `TidalOAuthService.cs:96` (OAuthExchange), `TidalOAuthService.cs:137` (OAuthRefresh)
+  - Coverage is complete: Tidal has no token-sign path (no JWT signing like Apple's MusicKit) so the apple "auth-token-sign" scope is N/A by design.
+- `WarnOnce` — **not adopted; not needed**. A repo-wide grep for hand-rolled warn-once patterns (`HashSet<string>` + `_warned.Contains`-style) returns zero hits in `src/` — there's nothing to migrate. Common's `WarnOnce` remains available; revisit if a hot-loop log site adds a per-iteration warning in the future.
 - `HostBridgeDownloadTrackerStore` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:38` (static store for in-flight downloads)
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
