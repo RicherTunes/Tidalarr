@@ -5,6 +5,7 @@ using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Bridge;
+using Lidarr.Plugin.Common.Services.Diagnostics;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Utilities;
 using Lidarr.Plugin.Common.Validation;
@@ -382,7 +383,14 @@ public class TidalLidarrDownloadClient(
             }
 
             this._logger.Error(ex, "Tidalarr download client test failed");
-            failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
+            // HttpExceptionClassifier (Common): actionable hint instead of leaking the CLR
+            // exception type. Auth-class failures route to the "Authentication" field so the
+            // UI surfaces them in the credential section. Mirrors the indexer pattern.
+            HttpFailureClassification classification = HttpExceptionClassifier.Classify(ex);
+            string failureField = classification.Category == HttpFailureCategory.Auth
+                ? "Authentication"
+                : "Test";
+            failures.Add(new ValidationFailure(failureField, classification.Hint));
         }
     }
 
