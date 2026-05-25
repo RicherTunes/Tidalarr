@@ -1,7 +1,9 @@
 using FluentValidation.Results;
+using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Http;
@@ -107,6 +109,16 @@ public class TidalLidarrIndexer(
 
         IServiceProvider sp = rt.ServiceProvider;
 
+        // AuthFailureGate: if a prior call observed 401/403 and latched the gate, and we
+        // don't have a fresh probe slot, return empty immediately. This is the qobuzarr-
+        // incident fix — Lidarr's search loop fans out searches at full rate and a dead
+        // session would otherwise burn the API quota / risk IP-ban.
+        if (IsAuthShortCircuited(sp))
+        {
+            this._logger.Debug("Short-circuiting Tidal search; auth latched bad and probe slot exhausted");
+            return [];
+        }
+
         List<ReleaseInfo> releases = [];
 
         // Ensure valid session early so Lidarr reports a clear authentication error.
@@ -160,6 +172,7 @@ public class TidalLidarrIndexer(
                 }
                 catch (Exception ex)
                 {
+                    RecordAuthOutcomeFromException(sp, ex);
                     this._logger.Warn(ex, "Tidal search failed for query: {0}", query);
                 }
             }
@@ -224,6 +237,19 @@ public class TidalLidarrIndexer(
 
             IServiceProvider testSp = rt.ServiceProvider;
 
+            // AuthFailureGate: if the gate is latched bad and no probe slot is available,
+            // surface a clear "auth needs attention" failure instead of beating the API.
+            // Test() runs in response to a user clicking "Test" in the settings UI so a
+            // probe-budget exhausted state is informative (auth is bad, retry after
+            // re-credentialing).
+            if (IsAuthShortCircuited(testSp))
+            {
+                failures.Add(new ValidationFailure(
+                    "Authentication",
+                    "Tidal authentication is latched bad (auth failure observed recently). Re-authenticate by pasting a fresh redirect URL and retry — the gate will auto-recover once a request succeeds."));
+                return;
+            }
+
             // Check if we have a valid redirect URL with authorization code
             bool hasRedirectUrl = !string.IsNullOrWhiteSpace(Settings.RedirectUrl);
 
@@ -273,6 +299,23 @@ public class TidalLidarrIndexer(
         }
         catch (Exception ex)
         {
+            // Best-effort: record auth-class outcomes so subsequent searches short-circuit
+            // instead of hammering Tidal until the user re-credentials. testSp may not have
+            // been initialized if the failure happened before runtime resolution — handled
+            // safely by the helper.
+            try
+            {
+                TidalIndexerRuntime? runtimeForGate = await GetRuntimeAsync().ConfigureAwait(false);
+                if (runtimeForGate is not null)
+                {
+                    RecordAuthOutcomeFromException(runtimeForGate.ServiceProvider, ex);
+                }
+            }
+            catch
+            {
+                // Recording is purely opportunistic; never let it mask the original failure.
+            }
+
             this._logger.Error(ex, "Tidalarr indexer test failed");
             // Wave 73 UX: include exception type so users can tell network from
             // auth from quota errors, and remind them where to look for the full
@@ -392,6 +435,69 @@ public class TidalLidarrIndexer(
         }
 
         return Task.CompletedTask;
+    }
+
+    // ------------------------------------------------------------------ //
+    // AuthFailureGate helpers
+    //
+    // Mirror the apple/qobuz pattern (AppleMusicIndexerAdapter.cs:63-104):
+    // resolve the gate from the per-call IServiceProvider; if the gate is
+    // latched bad AND no probe slot is available, callers should return
+    // empty/throw a clear error instead of beating the API.
+    //
+    // Per-call resolution (rather than ctor-injection) is required because
+    // TidalLidarrIndexer's ctor signature is fixed by Lidarr's HttpIndexerBase
+    // contract — adding a ctor param would break discovery. The runtime's
+    // ServiceProvider is already resolved per-call so the lookup cost is
+    // negligible.
+    // ------------------------------------------------------------------ //
+
+    private static bool IsAuthShortCircuited(IServiceProvider sp)
+    {
+        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
+        if (gate is null) return false;
+        if (gate.IsHealthy) return false;
+        // TryAcquireProbeSlot has a side effect — it consumes the per-60s
+        // probe slot. Apple's pattern names this method without surfacing the
+        // side effect; we preserve the name for ecosystem consistency.
+        return !gate.TryAcquireProbeSlot();
+    }
+
+    private static void RecordAuthOutcomeFromException(IServiceProvider sp, Exception ex)
+    {
+        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
+        if (gate is null) return;
+        if (!LooksLikeAuthFailure(ex)) return;
+
+        var failure = new AuthFailure
+        {
+            ErrorCode = (ex as System.Net.Http.HttpRequestException)?.StatusCode?.ToString(),
+            Message = ex.Message,
+        };
+        // SYNC-OVER-ASYNC (Category A): hop to thread-pool before blocking on
+        // the ValueTask. Without the hop, an ASP.NET-style single-threaded
+        // SynchronizationContext (Lidarr's host) deadlocks because the async
+        // continuation inside HandleFailureAsync is posted back to the same
+        // blocked context. Matches apple's pattern.
+        Task.Run(() => gate.Handler.HandleFailureAsync(failure).AsTask())
+            .GetAwaiter().GetResult();
+    }
+
+    private static bool LooksLikeAuthFailure(Exception ex)
+    {
+        // 401/403 is the canonical auth-failure signal. Tidal's auth-token-
+        // expired path surfaces via HttpRequestException with these status
+        // codes (see TidalOAuthService.RefreshTokensAsync which throws
+        // HttpRequestException on non-success). TidalInvalidGrantException
+        // is intentionally NOT classified here — it triggers the "paste a
+        // fresh redirect URL" UX which is a different recovery path.
+        if (ex is System.Net.Http.HttpRequestException hre &&
+            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized
+                           or System.Net.HttpStatusCode.Forbidden)
+        {
+            return true;
+        }
+        return false;
     }
 }
 

@@ -4,6 +4,7 @@ using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Common.Utilities;
 using Lidarr.Plugin.Common.Validation;
@@ -82,6 +83,17 @@ public class TidalLidarrDownloadClient(
             if (rt is null)
             {
                 throw new InvalidOperationException("Tidal download client runtime unavailable — ConfigPath may be empty.");
+            }
+
+            // AuthFailureGate: if the gate is latched bad and no probe slot is available,
+            // surface a clear "auth needs attention" failure instead of starting a download
+            // that will burn the user's API quota / risk IP-ban on a dead session.
+            if (IsAuthShortCircuited(rt.ServiceProvider))
+            {
+                throw new InvalidOperationException(
+                    "Tidal authentication is latched bad (auth failure observed recently). " +
+                    "Re-authenticate by pasting a fresh redirect URL and retry — the gate will " +
+                    "auto-recover once a request succeeds.");
             }
 
             string albumTitle = remoteAlbum.Albums?.FirstOrDefault()?.Title ?? "Unknown Album";
@@ -201,6 +213,11 @@ public class TidalLidarrDownloadClient(
                     }
                     catch (Exception ex)
                     {
+                        // Best-effort: record auth-class outcomes so the next Download/Test
+                        // short-circuits. Captured 'rt' is closed-over from the outer scope so
+                        // we don't need another runtime resolution.
+                        RecordAuthOutcomeFromException(rt.ServiceProvider, ex);
+
                         this._logger.Error(ex, "Failed to download album {0}", albumId);
                         if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
                         {
@@ -313,6 +330,16 @@ public class TidalLidarrDownloadClient(
                 return;
             }
 
+            // AuthFailureGate: if the gate is latched bad and no probe slot is available,
+            // surface that to the user as a Test failure with an actionable message.
+            if (IsAuthShortCircuited(testRt.ServiceProvider))
+            {
+                failures.Add(new ValidationFailure(
+                    "Authentication",
+                    "Tidal authentication is latched bad (auth failure observed recently). Re-authenticate by pasting a fresh redirect URL and retry — the gate will auto-recover once a request succeeds."));
+                return;
+            }
+
             IStreamingAuthManager? authManager = testRt.ServiceProvider.GetService<IStreamingAuthManager>();
             if (authManager != null)
             {
@@ -335,6 +362,25 @@ public class TidalLidarrDownloadClient(
         }
         catch (Exception ex)
         {
+            // Best-effort: record auth-class outcomes so subsequent calls short-circuit.
+            // testRt may not have been resolved if the failure happened pre-runtime; that's
+            // handled by re-fetching it safely here. Recording is opportunistic; never let
+            // it mask the original failure.
+            try
+            {
+#pragma warning disable CS0618 // Obsolete: sync shim for host contract
+                TidalDownloadClientRuntime? runtimeForGate = EnsureServicesInitialized();
+#pragma warning restore CS0618
+                if (runtimeForGate is not null)
+                {
+                    RecordAuthOutcomeFromException(runtimeForGate.ServiceProvider, ex);
+                }
+            }
+            catch
+            {
+                // Best-effort only.
+            }
+
             this._logger.Error(ex, "Tidalarr download client test failed");
             failures.Add(new ValidationFailure("Test", $"Test failed: {ex.Message}"));
         }
@@ -400,6 +446,50 @@ public class TidalLidarrDownloadClient(
     {
         // Runtime lifetime is managed by TidalDownloadClientRuntimeCache (graveyard pattern).
         // Instance-level disposal is a no-op; the cache disposes runtimes after the linger window.
+    }
+
+    // ------------------------------------------------------------------ //
+    // AuthFailureGate helpers
+    //
+    // Mirror the apple/qobuz pattern (AppleMusicIndexerAdapter.cs:63-104) and the
+    // sibling helpers in TidalLidarrIndexer. Per-call IServiceProvider resolution
+    // (rather than ctor-injection) is required because Lidarr's DownloadClientBase
+    // ctor signature is fixed — adding a param would break discovery.
+    // ------------------------------------------------------------------ //
+
+    private static bool IsAuthShortCircuited(IServiceProvider sp)
+    {
+        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
+        if (gate is null) return false;
+        if (gate.IsHealthy) return false;
+        return !gate.TryAcquireProbeSlot();
+    }
+
+    private static void RecordAuthOutcomeFromException(IServiceProvider sp, Exception ex)
+    {
+        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
+        if (gate is null) return;
+        if (!LooksLikeAuthFailure(ex)) return;
+
+        var failure = new Lidarr.Plugin.Abstractions.Contracts.AuthFailure
+        {
+            ErrorCode = (ex as System.Net.Http.HttpRequestException)?.StatusCode?.ToString(),
+            Message = ex.Message,
+        };
+        // SYNC-OVER-ASYNC (Category A): thread-pool hop avoids host-context deadlock.
+        Task.Run(() => gate.Handler.HandleFailureAsync(failure).AsTask())
+            .GetAwaiter().GetResult();
+    }
+
+    private static bool LooksLikeAuthFailure(Exception ex)
+    {
+        if (ex is System.Net.Http.HttpRequestException hre &&
+            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized
+                           or System.Net.HttpStatusCode.Forbidden)
+        {
+            return true;
+        }
+        return false;
     }
 }
 
