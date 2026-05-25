@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Known limitations
 - Behavior-level testing (latching the gate and observing indexer short-circuit through real method calls) is blocked by the same cross-ALC issue that breaks the existing `BackendHealthCacheAdoptionTests` (6 pre-existing failures): the test project's standalone `Lidarr.Plugin.Common` / `Lidarr.Plugin.Abstractions` types can't be passed across the merged DLL's internalized boundary. The proper fix is a `bin-tests/` split (qobuzarr-style) where the test project consumes an un-merged Tidalarr.dll — tracked as a separate parity gap.
 
+### Documentation
+- CLAUDE.md `## Common helpers in use` section gains `PluginLogContext` (6 confirmed scopes at every canonical entry point: Search, indexer Test, Download, downloadclient Test, OAuthExchange, OAuthRefresh — Tidal has no token-sign path so the apple "auth-token-sign" scope is N/A by design) and `WarnOnce` (documented as not adopted-because-not-needed; repo-wide grep for hand-rolled warn-once patterns returns zero hits). Closes the audit gap of "PluginLogContext partial" and "WarnOnce missing" — both resolve as full coverage / N/A by lack of need.
+
 ## [1.2.5] - 2026-05-24
 
 ### Added
