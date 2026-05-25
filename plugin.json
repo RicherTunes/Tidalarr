@@ -1,7 +1,7 @@
 {
   "id": "tidalarr",
   "apiVersion": "1.x",
-  "commonVersion": "1.11.0",
+  "commonVersion": "1.13.1",
   "name": "Tidalarr",
   "version": "1.2.7",
   "author": "RicherTunes",
