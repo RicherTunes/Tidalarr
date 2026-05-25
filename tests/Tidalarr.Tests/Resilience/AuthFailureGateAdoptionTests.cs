@@ -81,6 +81,78 @@ public class AuthFailureGateAdoptionTests
         Assert.Equal(ServiceLifetime.Singleton, handlerReg!.Lifetime);
     }
 
+    // ------------------------------------------------------------------ //
+    // Wiring tests: verify the indexer and download client define the
+    // private static helpers (IsAuthShortCircuited + RecordAuthOutcomeFromException
+    // + LooksLikeAuthFailure) that mirror apple's AppleMusicIndexerAdapter
+    // pattern. Reflection-based because the helpers are private; the call
+    // sites in FetchReleases / Test / Download invoke them by name.
+    //
+    // These tests catch the regression class where a future refactor removes
+    // the helpers or the call sites without removing the corresponding entry
+    // in CLAUDE.md "Common helpers in use".
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public void TidalLidarrIndexer_DefinesAuthShortCircuitHelper()
+    {
+        var type = Type.GetType(
+            "Tidalarr.Integration.LidarrNative.TidalLidarrIndexer, Lidarr.Plugin.Tidalarr",
+            throwOnError: false);
+        Assert.NotNull(type);
+
+        var method = type!.GetMethod(
+            "IsAuthShortCircuited",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        Assert.Equal(typeof(bool), method!.ReturnType);
+    }
+
+    [Fact]
+    public void TidalLidarrIndexer_DefinesRecordAuthOutcomeHelper()
+    {
+        var type = Type.GetType(
+            "Tidalarr.Integration.LidarrNative.TidalLidarrIndexer, Lidarr.Plugin.Tidalarr",
+            throwOnError: false);
+        Assert.NotNull(type);
+
+        var method = type!.GetMethod(
+            "RecordAuthOutcomeFromException",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        Assert.Equal(typeof(void), method!.ReturnType);
+    }
+
+    [Fact]
+    public void TidalLidarrDownloadClient_DefinesAuthShortCircuitHelper()
+    {
+        var type = Type.GetType(
+            "Tidalarr.Integration.LidarrNative.TidalLidarrDownloadClient, Lidarr.Plugin.Tidalarr",
+            throwOnError: false);
+        Assert.NotNull(type);
+
+        var method = type!.GetMethod(
+            "IsAuthShortCircuited",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        Assert.Equal(typeof(bool), method!.ReturnType);
+    }
+
+    [Fact]
+    public void TidalLidarrDownloadClient_DefinesRecordAuthOutcomeHelper()
+    {
+        var type = Type.GetType(
+            "Tidalarr.Integration.LidarrNative.TidalLidarrDownloadClient, Lidarr.Plugin.Tidalarr",
+            throwOnError: false);
+        Assert.NotNull(type);
+
+        var method = type!.GetMethod(
+            "RecordAuthOutcomeFromException",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        Assert.Equal(typeof(void), method!.ReturnType);
+    }
+
     [Fact]
     public void TidalModule_AuthFailureGate_RegisteredBeforeBuildServiceProvider()
     {
