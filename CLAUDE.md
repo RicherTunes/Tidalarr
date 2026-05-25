@@ -125,6 +125,20 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 
 See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog.
 
+## Test infrastructure: `bin-tests/` split (cross-ALC type identity)
+
+`tests/Tidalarr.Tests/Tidalarr.Tests.csproj` references `Tidalarr.csproj` with:
+
+```xml
+<AdditionalProperties>PluginPackagingDisable=true;OutputPath=bin-tests\;EnablePluginDeployment=false</AdditionalProperties>
+```
+
+`PluginPackagingDisable=true` skips the ILRepack merge so the test build keeps `Lidarr.Plugin.Common.dll` + `Lidarr.Plugin.Abstractions.dll` as standalone assemblies. `OutputPath=bin-tests\` redirects that build to `src/Tidalarr/bin-tests/` instead of `src/Tidalarr/bin/`, so the production-merged DLL (the one Lidarr loads in real installs) stays in `bin/` untouched.
+
+**Why the split exists**: tests that pass `Lidarr.Plugin.Common.AuthFailureGate` / `IAuthFailureHandler` / etc. instances need the type identity to match what the test process references. The merged DLL internalizes these — same FQN, different assembly identity — which trips `MissingMethodException` / "doesn't implement IPlugin" runtime errors. The split lets tests work against the un-merged DLL where types resolve to the standalone Common / Abstractions the TestKit references.
+
+**Fixtures that load the DLL** (`PluginSandboxRuntimeTests`, `TidalarrPluginSmokeTests`, future Docker E2E) MUST look in `bin-tests/` first and fall back to `bin/` for legacy builds. Mirrors qobuzarr's pattern; see `tests/Qobuzarr.Tests/Qobuzarr.Tests.csproj:55-60`.
+
 ## Build Commands
 
 ### **Development Builds (with CLI tools)**
