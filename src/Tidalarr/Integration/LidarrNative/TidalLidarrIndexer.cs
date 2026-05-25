@@ -4,6 +4,7 @@ using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Bridge;
+using Lidarr.Plugin.Common.Services.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Http;
@@ -317,12 +318,17 @@ public class TidalLidarrIndexer(
             }
 
             this._logger.Error(ex, "Tidalarr indexer test failed");
-            // Wave 73 UX: include exception type so users can tell network from
-            // auth from quota errors, and remind them where to look for the full
-            // stack trace.
-            failures.Add(new ValidationFailure(
-                "Test",
-                $"Test failed ({ex.GetType().Name}): {ex.Message}. Full details in Lidarr logs."));
+            // HttpExceptionClassifier (Common): categorizes the failure into Auth / RateLimit /
+            // Network / Timeout / Server / etc. and returns an actionable user-readable Hint
+            // that doesn't leak CLR type names. Routes Auth-class failures to the
+            // "Authentication" field so the UI surfaces them in the credential section instead
+            // of the generic "Test" bucket. Matches qobuz's adoption pattern at
+            // src/API/AdaptiveQobuzApiClient.cs:54 + src/Services/AuthTokenManager.cs:376.
+            HttpFailureClassification classification = HttpExceptionClassifier.Classify(ex);
+            string failureField = classification.Category == HttpFailureCategory.Auth
+                ? "Authentication"
+                : "Test";
+            failures.Add(new ValidationFailure(failureField, classification.Hint));
         }
     }
 
