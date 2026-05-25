@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using NLog;
 
 namespace Tidalarr.Domain.Streaming;
 
@@ -12,6 +13,8 @@ public enum ManifestMimeType
 
 public class TidalStreamManifest
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public string[] ChunkUrls { get; private set; } = [];
     public string FileExtension { get; private set; } = ".m4a";
     public string Codecs { get; private set; } = "MP4A";
@@ -63,9 +66,9 @@ public class TidalStreamManifest
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fallback to empty manifest
+            Logger.Warn(ex, "Failed to parse Tidal stream manifest; falling back to empty chunk list");
             ChunkUrls = [];
         }
     }
@@ -152,8 +155,9 @@ public class TidalStreamManifest
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "Failed to parse DASH manifest (base64 decode / XML parse / segment template resolution); falling back to empty chunk list");
             ChunkUrls = [];
         }
     }
