@@ -100,6 +100,20 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
   - Coverage is complete: Tidal has no token-sign path (no JWT signing like Apple's MusicKit) so the apple "auth-token-sign" scope is N/A by design.
 - `WarnOnce` — **not adopted; not needed**. A repo-wide grep for hand-rolled warn-once patterns (`HashSet<string>` + `_warned.Contains`-style) returns zero hits in `src/` — there's nothing to migrate. Common's `WarnOnce` remains available; revisit if a hot-loop log site adds a per-iteration warning in the future.
 - `HttpExceptionClassifier` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:326` (indexer `Test()` catch) and `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:387` (download client `Test()` catch). Replaces the old `"Test failed ({CLR-type-name}): {ex.Message}"` UX with categorized actionable hints: Auth-class failures route to the `Authentication` validation field so the UI surfaces them in the credential section; Network / RateLimit / Timeout / Server / ClientRequest each get a tailored hint. Matches qobuz's adoption at `src/API/AdaptiveQobuzApiClient.cs:54` + `src/Services/AuthTokenManager.cs:376`.
+
+## File ↔ class naming convention
+
+Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the four-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
+
+| File | Class(es) | Convention |
+|------|-----------|------------|
+| `Core/Exceptions/TidalExceptions.cs` | `TidalException` + 5 subclasses | Exception family (multi-class OK) |
+| `Core/Models/TidalDtos.cs` | 10 DTO records | DTO group (multi-class OK) |
+| `Domain/Streaming/TidalChunkDownloader.cs` | `TidalChunkDownloader` + `ChunkDownloadProgress` | Primary matches file; progress is a supporting type (OK) |
+| `Domain/Streaming/IAudioProcessor.cs` | `IAudioProcessor` + `SystemAudioProcessor` | Interface + impl pair (OK) |
+| `Integration/HostlessAnnotations.cs` | `FieldDefinitionAttribute` + `FieldOptionAttribute` | Attribute grouping (OK per C# convention) |
+| `Domain/Streaming/TidalStreamManifest.cs` | `TidalStreamManifest` + `ManifestMimeType` enum | Renamed Wave 21 (was `StreamManifest`) — primary matches file |
+| `Domain/Streaming/TidalAudioFormatHandler.cs` | `TidalAudioFormatHandler` | Renamed Wave 21 (was `AudioFormatHandler`) — primary matches file |
 - `HostBridgeDownloadTrackerStore` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:38` (static store for in-flight downloads)
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`

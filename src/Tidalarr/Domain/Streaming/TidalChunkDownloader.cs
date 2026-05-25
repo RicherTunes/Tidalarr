@@ -171,9 +171,9 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
     }
 
     /// <summary>
-    /// Validate chunk accessibility for new StreamManifest format
+    /// Validate chunk accessibility for new TidalStreamManifest format
     /// </summary>
-    public async Task<bool> ValidateChunkAccessibilityAsync(StreamManifest manifest)
+    public async Task<bool> ValidateChunkAccessibilityAsync(TidalStreamManifest manifest)
     {
         return await ValidateChunkAccessibilityAsync(manifest.ChunkUrls).ConfigureAwait(false);
     }

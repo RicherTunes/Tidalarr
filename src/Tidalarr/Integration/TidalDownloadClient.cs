@@ -160,7 +160,7 @@ public class TidalDownloadClient(
             string finalPath = tempPath;
             if (Settings.ExtractFlac && manifest.Codec == "FLAC")
             {
-                string extractedPath = await AudioFormatHandler.ProcessAudioFileAsync(
+                string extractedPath = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                     tempPath, manifest.Codec, extractFlac: true, keepOriginal: false);
                 finalPath = extractedPath;
             }

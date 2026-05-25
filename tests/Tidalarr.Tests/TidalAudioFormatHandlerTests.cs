@@ -14,7 +14,7 @@ public class TidalAudioFormatHandlerTests
 
         try
         {
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,

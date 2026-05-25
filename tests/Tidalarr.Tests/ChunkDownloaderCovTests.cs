@@ -311,13 +311,13 @@ public class ChunkDownloaderCovTests
     }
 
     [Fact]
-    public async Task ValidateChunkAccessibilityAsync_StreamManifest_ValidUrls_ReturnsTrue()
+    public async Task ValidateChunkAccessibilityAsync_TidalStreamManifest_ValidUrls_ReturnsTrue()
     {
-        // Arrange - Lines 420-423: ValidateChunkAccessibilityAsync with StreamManifest
+        // Arrange - Lines 420-423: ValidateChunkAccessibilityAsync with TidalStreamManifest
         ConstantHandler handler = new([1, 2, 3]);
         TidalChunkDownloader downloader = new(new HttpClient(handler));
 
-        // Create JsonElement for StreamManifest constructor with BTS format (direct URL)
+        // Create JsonElement for TidalStreamManifest constructor with BTS format (direct URL)
         // BTS format uses the manifest field directly as the URL
         string json = """
             {
@@ -326,7 +326,7 @@ public class ChunkDownloaderCovTests
             }
             """;
         using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(json);
-        StreamManifest manifest = new(doc.RootElement);
+        TidalStreamManifest manifest = new(doc.RootElement);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync(manifest);
@@ -336,7 +336,7 @@ public class ChunkDownloaderCovTests
     }
 
     [Fact]
-    public async Task ValidateChunkAccessibilityAsync_StreamManifest_EmptyUrls_ReturnsFalse()
+    public async Task ValidateChunkAccessibilityAsync_TidalStreamManifest_EmptyUrls_ReturnsFalse()
     {
         // Arrange - Lines 420-423 with empty chunk URLs
         ConstantHandler handler = new([1, 2, 3]);
@@ -350,7 +350,7 @@ public class ChunkDownloaderCovTests
             }
             """;
         using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(json);
-        StreamManifest manifest = new(doc.RootElement);
+        TidalStreamManifest manifest = new(doc.RootElement);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync(manifest);
