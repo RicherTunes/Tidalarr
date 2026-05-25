@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - CLAUDE.md `## Common helpers in use` section gains `PluginLogContext` (6 confirmed scopes at every canonical entry point: Search, indexer Test, Download, downloadclient Test, OAuthExchange, OAuthRefresh — Tidal has no token-sign path so the apple "auth-token-sign" scope is N/A by design) and `WarnOnce` (documented as not adopted-because-not-needed; repo-wide grep for hand-rolled warn-once patterns returns zero hits). Closes the audit gap of "PluginLogContext partial" and "WarnOnce missing" — both resolve as full coverage / N/A by lack of need.
 
+### Changed (UX — Test() failure messages)
+- `TidalLidarrIndexer.Test()` and `TidalLidarrDownloadClient.Test()` catch blocks now route exceptions through `HttpExceptionClassifier` (Common) → categorize as Auth / Network / Timeout / RateLimit / ClientRequest / Server and emit a tailored hint instead of `"Test failed ({CLR-type-name}): {ex.Message}"`. Auth-class failures now surface in the `Authentication` validation field (UI credential section) rather than the generic `Test` bucket. Matches qobuz's adoption pattern at `src/API/AdaptiveQobuzApiClient.cs:54` + `src/Services/AuthTokenManager.cs:376`.
+
 ## [1.2.5] - 2026-05-24
 
 ### Added
