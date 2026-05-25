@@ -480,6 +480,7 @@ This section tracks technical debt items that should be addressed but are not bl
 |------|----------|------|-------------|
 | Quality Detection Enhancement | MEDIUM | 2025-01-25 | Fixed TidalSearchService to preserve API-detected qualities from audioQuality field; improved TidalApiClient.DetectAlbumQualities parsing |
 | Artist ID Plumbing | LOW | 2024-12-XX | Added PrimaryArtistId to TidalTrackInfo and TidalAlbumInfo with fallback to name |
+| Silent manifest parse failures | MEDIUM | 2026-05-25 | TidalStreamManifest now logs Warn on ParseStreamData / ParseDashManifest exceptions (previously swallowed silently). |
 
 ### Pending Items
 
