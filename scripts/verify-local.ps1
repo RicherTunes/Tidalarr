@@ -37,7 +37,7 @@ try {
         HostAssembliesPath   = 'ext/Lidarr/_output/net8.0'
         CommonPath           = 'ext/Lidarr.Plugin.Common'
         LidarrDockerVersion  = 'pr-plugins-3.1.2.4913'
-        BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:SkipHostBridge=true')
+        BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:SkipHostBridge=false')
         TestProjects         = @('tests/Tidalarr.Tests/Tidalarr.Tests.csproj')
         ExpectedContentsFile = 'packaging/expected-contents.txt'
         WarningBudget        = 100
