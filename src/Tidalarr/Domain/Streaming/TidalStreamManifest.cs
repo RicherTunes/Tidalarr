@@ -10,7 +10,7 @@ public enum ManifestMimeType
     BTS     // Binary Transport Stream
 }
 
-public class StreamManifest
+public class TidalStreamManifest
 {
     public string[] ChunkUrls { get; private set; } = [];
     public string FileExtension { get; private set; } = ".m4a";
@@ -21,7 +21,7 @@ public class StreamManifest
 
     public ManifestMimeType MimeType { get; private set; }
 
-    public StreamManifest(JsonElement streamData)
+    public TidalStreamManifest(JsonElement streamData)
     {
         ParseStreamData(streamData);
     }

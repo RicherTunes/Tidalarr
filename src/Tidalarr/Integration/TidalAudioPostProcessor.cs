@@ -10,7 +10,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
     private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private static readonly Lazy<bool> _ffmpegAvailable = new(() => AudioFormatHandler.IsFFmpegAvailable());
+    private static readonly Lazy<bool> _ffmpegAvailable = new(() => TidalAudioFormatHandler.IsFFmpegAvailable());
 
     public async Task<string> PostProcessAsync(string filePath, StreamingTrack track, StreamingQuality? quality, CancellationToken cancellationToken)
     {
@@ -38,7 +38,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
             return filePath;
         }
 
-        string codecs = AudioFormatHandler.DetectCodecs(filePath);
+        string codecs = TidalAudioFormatHandler.DetectCodecs(filePath);
         if (!string.Equals(codecs, "FLAC", StringComparison.OrdinalIgnoreCase))
         {
             return filePath;
@@ -46,7 +46,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
 
         // Avoid the built-in fallback that can produce a mislabeled .flac file if extraction fails.
         // We keep the original during extraction, and only delete it after the .flac output exists.
-        string processedPath = await AudioFormatHandler.ProcessAudioFileAsync(
+        string processedPath = await TidalAudioFormatHandler.ProcessAudioFileAsync(
             filePath,
             codecs,
             extractFlac: true,

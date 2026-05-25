@@ -12,7 +12,7 @@ public class TidalStreamManifestParsingTests
     }
 
     [Fact]
-    public void StreamManifest_MPD_ParsesChunkUrlsAndCodec()
+    public void TidalStreamManifest_MPD_ParsesChunkUrlsAndCodec()
     {
         string xml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 <MPD xmlns=""urn:mpeg:dash:schema:mpd:2011"">
@@ -36,7 +36,7 @@ public class TidalStreamManifestParsingTests
             keyId = "kid-123"
         });
 
-        StreamManifest sm = new(json);
+        TidalStreamManifest sm = new(json);
         Assert.Equal(ManifestMimeType.MPD, sm.MimeType);
         Assert.Equal("FLAC", sm.Codecs);
         Assert.Equal(".m4a", sm.FileExtension);
@@ -47,7 +47,7 @@ public class TidalStreamManifestParsingTests
     }
 
     [Fact]
-    public void StreamManifest_BTS_UsesDirectUrl()
+    public void TidalStreamManifest_BTS_UsesDirectUrl()
     {
         JsonElement json = JsonSerializer.SerializeToElement(new
         {
@@ -55,7 +55,7 @@ public class TidalStreamManifestParsingTests
             manifest = "https://audio.tidal.com/file.m4a"
         });
 
-        StreamManifest sm = new(json);
+        TidalStreamManifest sm = new(json);
         Assert.Equal(ManifestMimeType.BTS, sm.MimeType);
         Assert.Equal("MP4A", sm.Codecs); // default
         Assert.Equal(".m4a", sm.FileExtension);
@@ -64,7 +64,7 @@ public class TidalStreamManifestParsingTests
     }
 
     [Fact]
-    public void StreamManifest_InvalidBase64_MPD_ProducesEmptyChunks_NoThrow()
+    public void TidalStreamManifest_InvalidBase64_MPD_ProducesEmptyChunks_NoThrow()
     {
         JsonElement json = JsonSerializer.SerializeToElement(new
         {
@@ -72,7 +72,7 @@ public class TidalStreamManifestParsingTests
             manifest = "not-base64"
         });
 
-        StreamManifest sm = new(json);
+        TidalStreamManifest sm = new(json);
         Assert.Empty(sm.ChunkUrls);
     }
 }

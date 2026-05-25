@@ -42,7 +42,7 @@ public class TidalAudioProcessorSeamTests
         string output = Path.ChangeExtension(input, "flac");
         try
         {
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(input, "FLAC", extractFlac: true, keepOriginal: false, audio: new SuccessProcessor(output));
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(input, "FLAC", extractFlac: true, keepOriginal: false, audio: new SuccessProcessor(output));
             Assert.Equal(output, result);
             Assert.True(File.Exists(output));
             Assert.False(File.Exists(input));
@@ -62,7 +62,7 @@ public class TidalAudioProcessorSeamTests
         await File.WriteAllBytesAsync(input, [9, 9, 9]);
         try
         {
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(input, "FLAC", extractFlac: true, keepOriginal: true, audio: new FailProcessor());
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(input, "FLAC", extractFlac: true, keepOriginal: true, audio: new FailProcessor());
             Assert.Equal(input, result);
             Assert.True(File.Exists(input));
         }
