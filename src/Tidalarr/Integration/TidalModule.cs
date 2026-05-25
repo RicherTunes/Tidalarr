@@ -1,8 +1,10 @@
 using System.Net;
+using Lidarr.Plugin.Abstractions.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Hosting;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
 using Lidarr.Plugin.Common.Services.Registration;
@@ -56,7 +58,10 @@ public class TidalModule : StreamingPluginModule
         RegisterSharedLibraryServices(services);
         _ = services.AddTransient<ContentDecodingSnifferHandler>();
         // TidalBackendHealthHandler gates connection-refused / DNS failures (network-down cascade).
-        // It is independent of AuthFailureGate (which trips on 401/403).
+        // It is independent of AuthFailureGate (which trips on 401/403). Both gates coexist:
+        // BackendHealthCache short-circuits when the host is unreachable; AuthFailureGate
+        // short-circuits when auth is latched bad. They never overlap because the failure
+        // signals are disjoint (network-class vs HTTP-class).
         _ = services.AddTransient<TidalBackendHealthHandler>();
         // TidalRateLimitingHandler is the single global gate that prevents 429 storms when
         // Lidarr fans out searches/downloads across many artists. Every AddHttpClient below
@@ -238,6 +243,22 @@ public class TidalModule : StreamingPluginModule
 
         // Bridge runtime defaults — call LAST so plugins can override with custom implementations
         services.AddBridgeDefaults();
+
+        // AuthFailureGate — singleton wrapping the IAuthFailureHandler registered by
+        // AddBridgeDefaults above. Prevents Lidarr's search loop from hammering api.tidal.com
+        // when credentials are known bad (the qobuzarr-incident class — user IP-banned after
+        // session expired and Lidarr's search loop kept driving 401s at full rate).
+        //
+        // Mirrors the apple + qobuz wiring (AppleMusicarrStreamingPlugin.cs:130-134 and
+        // QobuzarrStreamingPlugin.cs:36). The gate sits between the auth-state contract
+        // (IAuthFailureHandler) and call-site short-circuit logic in TidalLidarrIndexer +
+        // TidalLidarrDownloadClient: when latched bad, only one probe slot per 60s is granted
+        // so a re-credentialed user can recover without spamming the upstream.
+        services.AddSingleton(sp => new AuthFailureGate(
+            sp.GetRequiredService<IAuthFailureHandler>(),
+            TimeProvider.System,
+            TimeSpan.FromSeconds(60),
+            sp.GetService<ILogger<AuthFailureGate>>()));
 
         // Suppress Microsoft.Extensions.Http's MetricsFactoryHttpMessageHandlerFilter.
         //

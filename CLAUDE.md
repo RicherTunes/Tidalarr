@@ -89,6 +89,7 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 
 - `PluginConfigRoots.Resolve("Tidalarr")` — `src/Tidalarr/Integration/TidalIndexerSettings.cs:15`, `src/Tidalarr/Integration/TidalarrSettings.cs:16`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs:17`
 - `BackendHealthCache` — `src/Tidalarr/Infrastructure/Resilience/TidalBackendHealthHandler.cs:33` (DelegatingHandler wrapping `BackendHealthCache.Shared`)
+- `AuthFailureGate` — `src/Tidalarr/Integration/TidalModule.cs` (singleton wrapping the bridge-default `IAuthFailureHandler`, 60s probe interval). Mirrors apple + qobuz; prevents Lidarr's search loop from hammering api.tidal.com on a dead session (qobuzarr-incident class). Adoption is registration-only at this layer; per-entry-point `EnsureCanProceed` / `HandleFailureAsync` wiring in `TidalLidarrIndexer` + `TidalLidarrDownloadClient` follows in a companion commit.
 - `HostBridgeDownloadTrackerStore` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:38` (static store for in-flight downloads)
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
