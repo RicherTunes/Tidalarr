@@ -3,6 +3,9 @@
 
 ## .NET Build Artifacts
 bin/
+# tests build the plugin assembly to bin-tests/ to avoid type-identity conflicts
+# with the merged DLL in bin/. Build artifact, not source.
+bin-tests/
 obj/
 *.dll
 *.pdb
