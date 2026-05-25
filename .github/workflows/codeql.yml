@@ -64,7 +64,7 @@ jobs:
         run: |
           # Extract assemblies from plugins branch Docker image (same as main CI)
           mkdir -p ext/Lidarr/_output/net8.0
-          IMAGE="ghcr.io/hotio/lidarr:pr-plugins"
+          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
           echo "Pulling $IMAGE..."
           docker pull "$IMAGE"
           cid=$(docker create "$IMAGE")
