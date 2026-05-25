@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Dependencies
+- `ext/Lidarr.Plugin.Common` bumped to **v1.16.0** (`936556e`) — picks up `SlidingWindowAuthFailureHandler` (K-of-N-in-W sliding-window circuit semantics, sibling of `DefaultAuthFailureHandler`) and the rest of the wave-22 Common surface. Tidalarr does not consume `SlidingWindowAuthFailureHandler` directly — brainarr's `LlmAuthCircuit` is the canonical consumer — but the version bump keeps the ecosystem lockstep.
+- `ext-common-sha.txt` aligned with the submodule pin: `38eda2c` → `936556e`. Closes the stale-pointer drift surfaced by the Wave-22 adversarial review.
+
+### Build / cleanup
+- `.gitignore` extended with `*.net8.0.zip`, `package-release/`, `release-notes.md` so release-build artifacts no longer pollute the working tree.
+
 ### Added
 - `AuthFailureGate` singleton registered in `TidalModule` — wraps the bridge-default `IAuthFailureHandler` registered by `AddBridgeDefaults()` so the indexer, download client, and OAuth service share one latch state. Mirrors apple + qobuz adoption (`AppleMusicarrStreamingPlugin.cs:130-134`, `QobuzarrStreamingPlugin.cs:36`). Closes the long-standing comment-only reference at `TidalModule.cs:59` ("independent of AuthFailureGate") that left Lidarr's search loop free to hammer `api.tidal.com` on a dead session — the qobuzarr-incident class where a user got IP-banned after auth expired.
 - Per-entry-point gate wiring in `TidalLidarrIndexer` + `TidalLidarrDownloadClient` via private static helpers (`IsAuthShortCircuited` + `RecordAuthOutcomeFromException` + `LooksLikeAuthFailure`) that mirror apple's `AppleMusicIndexerAdapter.cs:63-104` pattern. The helpers resolve `AuthFailureGate?` from the runtime's `IServiceProvider` per-call because Lidarr's `HttpIndexerBase` / `DownloadClientBase` ctor signatures are fixed and can't accept additional DI parameters.
