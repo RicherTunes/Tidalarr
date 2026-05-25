@@ -34,14 +34,34 @@ public sealed class TidalarrPluginLoadFixture : IAsyncLifetime
         string targetFramework = Environment.GetEnvironmentVariable("TIDALARR_TEST_TFM") ?? "net8.0";
         string solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
-        // Tidalarr uses flat output path (bin/) without TFM subdirectory due to OutputPath/AppendTargetFrameworkToOutputPath settings
+        // Prefer the un-merged DLL in bin-tests/ (built by the test ProjectReference with
+        // PluginPackagingDisable=true) so the standalone Lidarr.Plugin.Abstractions type
+        // identity matches what the test process references; the production-merged DLL in
+        // bin/ internalizes Abstractions which would break IPlugin discovery across the
+        // isolated AssemblyLoadContext boundary. Falls back to bin/ for legacy builds.
+        string testFlatDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin-tests");
+        string testTfmDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin-tests", buildConfiguration, targetFramework);
         string flatSourceDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin");
         string tfmSourceDirectory = Path.Combine(solutionRoot, "src", "Tidalarr", "bin", buildConfiguration, targetFramework);
 
-        // Prefer flat output path (actual config), fall back to TFM-specific path (standard MSBuild)
-        string sourceDirectory = Directory.Exists(flatSourceDirectory) && File.Exists(Path.Combine(flatSourceDirectory, "Lidarr.Plugin.Tidalarr.dll"))
-            ? flatSourceDirectory
-            : tfmSourceDirectory;
+        // Resolution order: bin-tests (un-merged, preferred) → bin/ (merged, fallback)
+        string sourceDirectory;
+        if (Directory.Exists(testFlatDirectory) && File.Exists(Path.Combine(testFlatDirectory, "Lidarr.Plugin.Tidalarr.dll")))
+        {
+            sourceDirectory = testFlatDirectory;
+        }
+        else if (Directory.Exists(testTfmDirectory) && File.Exists(Path.Combine(testTfmDirectory, "Lidarr.Plugin.Tidalarr.dll")))
+        {
+            sourceDirectory = testTfmDirectory;
+        }
+        else if (Directory.Exists(flatSourceDirectory) && File.Exists(Path.Combine(flatSourceDirectory, "Lidarr.Plugin.Tidalarr.dll")))
+        {
+            sourceDirectory = flatSourceDirectory;
+        }
+        else
+        {
+            sourceDirectory = tfmSourceDirectory;
+        }
 
         if (!Directory.Exists(sourceDirectory))
         {

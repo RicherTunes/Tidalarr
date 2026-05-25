@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Class `StreamManifest` → `TidalStreamManifest` (file already `TidalStreamManifest.cs`). Brings the class name in line with peer files in `Tidalarr.Domain.Streaming.*` namespace. References updated across 6 source/test/CLI files; 141 affected tests still green.
 - Class `AudioFormatHandler` → `TidalAudioFormatHandler` (file already `TidalAudioFormatHandler.cs`). Same rationale + pattern as the `StreamManifest` rename. References updated across 5 source/test/CLI files.
 
+### Changed (test infrastructure — `bin-tests/` split)
+- Test `<ProjectReference>` to `Tidalarr.csproj` now passes `OutputPath=bin-tests\;EnablePluginDeployment=false` alongside the existing `PluginPackagingDisable=true`. The test build now writes an un-merged `Lidarr.Plugin.Tidalarr.dll` (plus standalone `Lidarr.Plugin.Common.dll` + `Lidarr.Plugin.Abstractions.dll`) to `src/Tidalarr/bin-tests/` instead of clobbering the production-merged DLL in `src/Tidalarr/bin/`. Matches qobuzarr's pattern at `tests/Qobuzarr.Tests/Qobuzarr.Tests.csproj:55-60`.
+- `PluginSandboxRuntimeTests.FindPluginDll` and `TidalarrPluginLoadFixture.InitializeAsync` updated to look in `bin-tests/` first, falling back to `bin/` for legacy/manual builds.
+- `.gitignore` adds `bin-tests/` to the ignore list (matches qobuzarr).
+- **Net effect**: 11 previously-failing tests are now green — 6 in `BackendHealthCacheAdoptionTests` (cross-ALC type identity), 4 in `PluginSandboxRuntimeTests` (IPlugin discovery), 1 in `TidalarrPluginSmokeTests` (service resolution). Full suite: 1309 passed / 0 failed / 14 skipped. Closes parity-matrix axis #12 (`bin-tests/` split for cross-ALC type identity).
+
 ## [1.2.5] - 2026-05-24
 
 ### Added

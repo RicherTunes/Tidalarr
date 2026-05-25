@@ -28,9 +28,20 @@ public class PluginSandboxRuntimeTests
 {
     private static string FindPluginDll()
     {
-        // Look for the ILRepack-merged DLL in known build output paths
+        // Prefer the un-merged DLL in bin-tests/ (built by the test ProjectReference
+        // with PluginPackagingDisable=true) so PluginSandbox's reflection-based
+        // IPlugin lookup finds the type via the standalone Lidarr.Plugin.Abstractions
+        // assembly identity the TestKit references. The production-merged DLL in bin/
+        // internalizes Abstractions, breaking cross-ALC type identity for the
+        // testkit's typeof(IPlugin) check.
+        //
+        // Fall back to bin/ for legacy / one-shot manual builds that don't use the
+        // test csproj's OutputPath=bin-tests\ override.
         string[] candidates =
         [
+            Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin-tests", "Lidarr.Plugin.Tidalarr.dll"),
+            Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin-tests", "Release", "Lidarr.Plugin.Tidalarr.dll"),
+            Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin-tests", "Debug", "Lidarr.Plugin.Tidalarr.dll"),
             Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin", "Lidarr.Plugin.Tidalarr.dll"),
             Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin", "Release", "Lidarr.Plugin.Tidalarr.dll"),
             Path.Combine(TestContext.RepoRoot, "src", "Tidalarr", "bin", "Debug", "Lidarr.Plugin.Tidalarr.dll"),

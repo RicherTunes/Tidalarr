@@ -30,9 +30,15 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Disable ILRepack when building Tidalarr as test dependency to preserve public type visibility -->
+    <!-- OutputPath redirect: keep the test-only un-merged plugin DLL out of the repo /bin/
+         folder so test runs don't clobber the merged (production) DLL that Lidarr loads.
+         PluginPackagingDisable=true skips the ILRepack step entirely so the assembly retains
+         its standalone Lidarr.Plugin.Common + Lidarr.Plugin.Abstractions type identity —
+         tests can pass live instances of those types across the boundary without hitting
+         the cross-ALC MissingMethodException that the merged DLL triggers.
+         Mirrors qobuzarr's pattern at tests/Qobuzarr.Tests/Qobuzarr.Tests.csproj. -->
     <ProjectReference Include="..\..\src\Tidalarr\Tidalarr.csproj">
-      <AdditionalProperties>PluginPackagingDisable=true</AdditionalProperties>
+      <AdditionalProperties>PluginPackagingDisable=true;OutputPath=bin-tests\;EnablePluginDeployment=false</AdditionalProperties>
     </ProjectReference>
     <!-- HostBridge requires Lidarr assemblies - excluded in CI with ExcludeHostBridge=true -->
     <ProjectReference Include="..\..\src\Tidalarr.HostBridge\Tidalarr.HostBridge.csproj" Condition="'$(ExcludeHostBridge)' != 'true'" />
