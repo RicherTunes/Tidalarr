@@ -4,6 +4,17 @@ namespace Tidalarr.Core.Constants;
 
 public static class TidalConstants
 {
+    // ─── Canonical plugin identity ───────────────────────────────────────────
+    // Matches the apple + qobuz convention so cross-plugin parity tooling (the
+    // ecosystem matrix in Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md)
+    // can find a uniform PluginName/ServiceName/PluginVendor triple across all
+    // streaming plugins. These are the user-facing brand strings; the host's
+    // `NzbDrone.Core.Plugins.Plugin.Name` override in TidalarrInstalledPlugin.cs
+    // is the source of truth for the System→Plugins UI listing.
+    public const string PluginName = "Tidalarr";
+    public const string ServiceName = "Tidal";
+    public const string PluginVendor = "RicherTunes";
+
     // OAuth Client Credentials - MUST match TidalSharp
     public const string CLIENT_ID_PKCE = "6BDSRdpK9hqEBTgU";
     public const string CLIENT_SECRET_PKCE = "xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=";
