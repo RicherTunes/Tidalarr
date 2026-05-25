@@ -17,7 +17,7 @@ public class TidalAudioFormatHandlerCovTests
             .Returns((0, "ffprobe version 4.4", string.Empty));
 
         // Act
-        bool result = AudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
+        bool result = TidalAudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
 
         // Assert
         Assert.True(result);
@@ -32,7 +32,7 @@ public class TidalAudioFormatHandlerCovTests
             .Returns((1, string.Empty, "error"));
 
         // Act
-        bool result = AudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
+        bool result = TidalAudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
 
         // Assert
         Assert.False(result);
@@ -47,7 +47,7 @@ public class TidalAudioFormatHandlerCovTests
             .Throws(new InvalidOperationException("Process failed"));
 
         // Act
-        bool result = AudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
+        bool result = TidalAudioFormatHandler.IsFFmpegAvailable(mockProcessor.Object);
 
         // Assert
         Assert.False(result);
@@ -61,7 +61,7 @@ public class TidalAudioFormatHandlerCovTests
     public void DetectCodecs_NullFilePath_ReturnsEmpty()
     {
         // Arrange & Act
-        string result = AudioFormatHandler.DetectCodecs(null!);
+        string result = TidalAudioFormatHandler.DetectCodecs(null!);
 
         // Assert
         Assert.Equal(string.Empty, result);
@@ -71,7 +71,7 @@ public class TidalAudioFormatHandlerCovTests
     public void DetectCodecs_EmptyFilePath_ReturnsEmpty()
     {
         // Arrange & Act
-        string result = AudioFormatHandler.DetectCodecs(string.Empty);
+        string result = TidalAudioFormatHandler.DetectCodecs(string.Empty);
 
         // Assert
         Assert.Equal(string.Empty, result);
@@ -81,7 +81,7 @@ public class TidalAudioFormatHandlerCovTests
     public void DetectCodecs_WhitespaceFilePath_ReturnsEmpty()
     {
         // Arrange & Act
-        string result = AudioFormatHandler.DetectCodecs("   ");
+        string result = TidalAudioFormatHandler.DetectCodecs("   ");
 
         // Assert
         Assert.Equal(string.Empty, result);
@@ -94,7 +94,7 @@ public class TidalAudioFormatHandlerCovTests
         string nonExistentPath = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.m4a");
 
         // Act
-        string result = AudioFormatHandler.DetectCodecs(nonExistentPath);
+        string result = TidalAudioFormatHandler.DetectCodecs(nonExistentPath);
 
         // Assert
         Assert.Equal(string.Empty, result);
@@ -112,7 +112,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = AudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
+            string result = TidalAudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
 
             // Assert
             Assert.Equal(string.Empty, result);
@@ -135,7 +135,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = AudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
+            string result = TidalAudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
 
             // Assert
             Assert.Equal("FLAC", result);
@@ -158,7 +158,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = AudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
+            string result = TidalAudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
 
             // Assert
             Assert.Equal(string.Empty, result);
@@ -181,7 +181,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = AudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
+            string result = TidalAudioFormatHandler.DetectCodecs(tempFile, mockProcessor.Object);
 
             // Assert
             Assert.Equal(string.Empty, result);
@@ -205,7 +205,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 tempFile,
                 codecs: "FLAC",
                 extractFlac: false,
@@ -224,7 +224,7 @@ public class TidalAudioFormatHandlerCovTests
     public async Task ProcessAudioFileAsync_NullInputPath_ReturnsInputPath()
     {
         // Act
-        string result = await AudioFormatHandler.ProcessAudioFileAsync(
+        string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
             null!,
             codecs: "FLAC",
             extractFlac: true,
@@ -238,7 +238,7 @@ public class TidalAudioFormatHandlerCovTests
     public async Task ProcessAudioFileAsync_EmptyInputPath_ReturnsInputPath()
     {
         // Act
-        string result = await AudioFormatHandler.ProcessAudioFileAsync(
+        string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
             string.Empty,
             codecs: "FLAC",
             extractFlac: true,
@@ -255,7 +255,7 @@ public class TidalAudioFormatHandlerCovTests
         string nonExistentPath = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}.m4a");
 
         // Act
-        string result = await AudioFormatHandler.ProcessAudioFileAsync(
+        string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
             nonExistentPath,
             codecs: "FLAC",
             extractFlac: true,
@@ -275,7 +275,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 tempFile,
                 codecs: "AAC",
                 extractFlac: true,
@@ -300,7 +300,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 tempFile,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -333,7 +333,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -370,7 +370,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -408,7 +408,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -442,7 +442,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -476,7 +476,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -511,7 +511,7 @@ public class TidalAudioFormatHandlerCovTests
         {
             // Act & Assert
             await Assert.ThrowsAsync<OperationCanceledException>(() =>
-                AudioFormatHandler.ProcessAudioFileAsync(
+                TidalAudioFormatHandler.ProcessAudioFileAsync(
                     input,
                     codecs: "FLAC",
                     extractFlac: true,
@@ -540,7 +540,7 @@ public class TidalAudioFormatHandlerCovTests
         {
             // Act & Assert
             await Assert.ThrowsAsync<OperationCanceledException>(() =>
-                AudioFormatHandler.ProcessAudioFileAsync(
+                TidalAudioFormatHandler.ProcessAudioFileAsync(
                     input,
                     codecs: "FLAC",
                     extractFlac: true,
@@ -574,7 +574,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,
@@ -613,7 +613,7 @@ public class TidalAudioFormatHandlerCovTests
         try
         {
             // Act
-            string result = await AudioFormatHandler.ProcessAudioFileAsync(
+            string result = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                 input,
                 codecs: "FLAC",
                 extractFlac: true,

@@ -4,7 +4,7 @@ using Tidalarr.Domain.Streaming;
 namespace Tidalarr.Tests;
 
 /// <summary>
-/// Coverage tests for StreamManifest class.
+/// Coverage tests for TidalStreamManifest class (was StreamManifest before the parity-rename).
 /// Source: src/Tidalarr/Domain/Streaming/TidalStreamManifest.cs
 /// </summary>
 public class StreamManifestCovTests
@@ -40,7 +40,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 39: MimeType = ManifestMimeType.MPD for "application/dash+xml"
         Assert.Equal(ManifestMimeType.MPD, manifest.MimeType);
@@ -58,7 +58,7 @@ public class StreamManifestCovTests
         // Source lines 37-41: MimeType switch for "application/vnd.tidal.bts"
         var json = "{\"manifestMimeType\":\"application/vnd.tidal.bts\",\"manifest\":\"https://example.com/stream.bts\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 40: MimeType = ManifestMimeType.BTS
         Assert.Equal(ManifestMimeType.BTS, manifest.MimeType);
@@ -76,7 +76,7 @@ public class StreamManifestCovTests
         // Source line 41: _ => ManifestMimeType.MPD (default case)
         var json = "{\"manifestMimeType\":\"application/unknown\",\"manifest\":\"\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Equal(ManifestMimeType.MPD, manifest.MimeType);
     }
@@ -87,7 +87,7 @@ public class StreamManifestCovTests
         // Source lines 45-52: keyId and securityToken extraction
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\",\"keyId\":\"test-key-123\",\"securityToken\":\"token-abc\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 47: KeyId from keyId property
         Assert.Equal("test-key-123", manifest.KeyId);
@@ -103,7 +103,7 @@ public class StreamManifestCovTests
         // Source line 20: IsEncrypted is false when SecurityToken is null/empty
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\",\"keyId\":\"test-key-123\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.False(manifest.IsEncrypted);
     }
@@ -114,7 +114,7 @@ public class StreamManifestCovTests
         // Source line 47: KeyId = GetString() ?? string.Empty
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\",\"keyId\":null}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Equal(string.Empty, manifest.KeyId);
     }
@@ -125,7 +125,7 @@ public class StreamManifestCovTests
         // Source line 51: SecurityToken = GetString() (can be null)
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\",\"securityToken\":null}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Null(manifest.SecurityToken);
         Assert.False(manifest.IsEncrypted);
@@ -149,7 +149,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 120: initialization URL added first with representation ID replaced
         Assert.Contains("initrep1.m4s", manifest.ChunkUrls);
@@ -173,7 +173,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 134: repeat = int.TryParse(s.Attribute("r")?.Value, out int r) ? r : 0
         // Source line 135: segmentCount = 1 + repeat (1 occurrence + r repeats)
@@ -198,7 +198,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 129: segmentNumber starts at startNumber (5)
         Assert.Single(manifest.ChunkUrls);
@@ -219,7 +219,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 143: segmentNumber.ToString("D6") for padded format
         Assert.Single(manifest.ChunkUrls);
@@ -240,7 +240,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 171: ParseCodecs returns "FLAC" for flac
         Assert.Equal("FLAC", manifest.Codecs);
@@ -262,7 +262,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Equal("MP4A", manifest.Codecs);
     }
@@ -281,7 +281,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Equal("MP4A", manifest.Codecs);
     }
@@ -300,7 +300,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Equal("MP4A", manifest.Codecs);
         Assert.Equal(".m4a", manifest.FileExtension);
@@ -320,7 +320,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source lines 171, 184: defaults to MP4A and .m4a
         Assert.Equal("MP4A", manifest.Codecs);
@@ -341,7 +341,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 141: $RepresentationID$ replaced with representation id
         Assert.Contains("chunk_myRepId_1.m4s", manifest.ChunkUrls[0]);
@@ -357,7 +357,7 @@ public class StreamManifestCovTests
         // Source lines 65-70: catch block sets ChunkUrls to empty
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"not-valid-base64!!!\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 69: Fallback to empty manifest
         Assert.Empty(manifest.ChunkUrls);
@@ -371,7 +371,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(invalidXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Source line 157: ChunkUrls = [] on exception
         Assert.Empty(manifest.ChunkUrls);
@@ -383,7 +383,7 @@ public class StreamManifestCovTests
         // Source line 54: if (!string.IsNullOrEmpty(encodedManifest))
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Empty manifest doesn't parse, ChunkUrls remains default
         Assert.Empty(manifest.ChunkUrls);
@@ -395,7 +395,7 @@ public class StreamManifestCovTests
         // Source line 54: null check skips manifest parsing
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":null}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Empty(manifest.ChunkUrls);
     }
@@ -406,7 +406,7 @@ public class StreamManifestCovTests
         // Source line 35: TryGetProperty would fail, caught by outer try/catch
         var json = "{\"manifestMimeType\":\"application/dash+xml\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Missing "manifest" property causes JsonException, caught at line 66
         Assert.Empty(manifest.ChunkUrls);
@@ -429,7 +429,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // No SegmentTimeline means no segments generated
         Assert.Empty(manifest.ChunkUrls);
@@ -446,7 +446,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Empty(manifest.ChunkUrls);
     }
@@ -461,7 +461,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         Assert.Empty(manifest.ChunkUrls);
     }
@@ -484,7 +484,7 @@ public class StreamManifestCovTests
         var encodedManifest = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dashXml));
         var json = $"{{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"{encodedManifest}\"}}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // 1 + (1+1) + 1 = 4 segments
         Assert.Equal(4, manifest.ChunkUrls.Length);
@@ -500,7 +500,7 @@ public class StreamManifestCovTests
         // Source line 20: IsEncrypted uses IsNullOrWhiteSpace
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\",\"securityToken\":\"   \"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Whitespace-only token should NOT be encrypted (IsNullOrWhiteSpace returns true for whitespace)
         Assert.False(manifest.IsEncrypted);
@@ -512,7 +512,7 @@ public class StreamManifestCovTests
         // Source lines 15-23: Default property values
         var json = "{\"manifestMimeType\":\"application/dash+xml\",\"manifest\":\"\"}";
         using var doc = JsonDocument.Parse(json);
-        var manifest = new StreamManifest(doc.RootElement);
+        var manifest = new TidalStreamManifest(doc.RootElement);
 
         // Default ChunkUrls is empty array (line 15)
         Assert.Empty(manifest.ChunkUrls);

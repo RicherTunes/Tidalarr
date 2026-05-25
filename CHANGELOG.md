@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed (UX — Test() failure messages)
 - `TidalLidarrIndexer.Test()` and `TidalLidarrDownloadClient.Test()` catch blocks now route exceptions through `HttpExceptionClassifier` (Common) → categorize as Auth / Network / Timeout / RateLimit / ClientRequest / Server and emit a tailored hint instead of `"Test failed ({CLR-type-name}): {ex.Message}"`. Auth-class failures now surface in the `Authentication` validation field (UI credential section) rather than the generic `Test` bucket. Matches qobuz's adoption pattern at `src/API/AdaptiveQobuzApiClient.cs:54` + `src/Services/AuthTokenManager.cs:376`.
 
+### Changed (parity — class naming)
+- `TidalConstants.cs` gains the canonical `PluginName` / `ServiceName` / `PluginVendor` const block matching apple + qobuz convention. Cosmetic parity; no behavior change.
+- Class `StreamManifest` → `TidalStreamManifest` (file already `TidalStreamManifest.cs`). Brings the class name in line with peer files in `Tidalarr.Domain.Streaming.*` namespace. References updated across 6 source/test/CLI files; 141 affected tests still green.
+- Class `AudioFormatHandler` → `TidalAudioFormatHandler` (file already `TidalAudioFormatHandler.cs`). Same rationale + pattern as the `StreamManifest` rename. References updated across 5 source/test/CLI files.
+
 ## [1.2.5] - 2026-05-24
 
 ### Added

@@ -69,7 +69,7 @@ public static class TidalCLIHelper
             bool isEncrypted = !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(securityToken);
 
             Console.WriteLine("\n?? Step 3: Parsing DASH manifest using plugin...");
-            StreamManifest manifest = new(streamInfo);
+            TidalStreamManifest manifest = new(streamInfo);
             Console.WriteLine("? Manifest parsed successfully!");
             Console.WriteLine($"   Format: {manifest.FileExtension} container");
             Console.WriteLine($"   Codec: {manifest.Codecs}");
@@ -114,9 +114,9 @@ public static class TidalCLIHelper
             if (manifest.Codecs == "FLAC")
             {
                 Console.WriteLine("\n?? Step 6: Processing FLAC extraction using plugin...");
-                if (AudioFormatHandler.IsFFmpegAvailable())
+                if (TidalAudioFormatHandler.IsFFmpegAvailable())
                 {
-                    string processedPath = await AudioFormatHandler.ProcessAudioFileAsync(
+                    string processedPath = await TidalAudioFormatHandler.ProcessAudioFileAsync(
                         outputPath, manifest.Codecs, extractFlac: true, keepOriginal: false);
                     if (!string.Equals(processedPath, outputPath, StringComparison.OrdinalIgnoreCase))
                     {

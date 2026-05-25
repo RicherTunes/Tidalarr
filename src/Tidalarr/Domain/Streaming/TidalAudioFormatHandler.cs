@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Tidalarr.Domain.Streaming;
 
-public static class AudioFormatHandler
+public static class TidalAudioFormatHandler
 {
     public static bool IsFFmpegAvailable(IAudioProcessor? audio = null)
     {
