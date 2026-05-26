@@ -9,219 +9,28 @@ on:
         description: 'Release version (e.g., v1.0.0)'
         required: true
         type: string
-
-permissions:
-  contents: write
-  id-token: write  # Required for keyless signing with Cosign
-
-env:
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  DOTNET_CLI_TELEMETRY_OPTOUT: true
-  PLUGIN_NAME: Lidarr.Plugin.Tidalarr
-  MINIMUM_LIDARR_VERSION: 2.13.2.4685
-  DOTNET_VERSION: 8.0.x
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   release:
-    name: Create Release
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.CI_PAT || secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
-        submodules: recursive
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-
-    - name: Determine version
-      run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          VERSION="${{ github.event.inputs.version }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
-        elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
-        else
-          echo "Invalid trigger for release workflow"
-          exit 1
-        fi
-
-        echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
-        echo "Release version: $VERSION"
-
-    - name: Setup Lidarr assemblies
-      run: |
-        echo "Setting up Lidarr assemblies for release build (plugins branch)..."
-        set -e
-        mkdir -p ext/Lidarr/_output/net8.0
-        if ! docker --version >/dev/null 2>&1; then
-          echo "[ERROR] Docker is required to fetch plugins-branch assemblies for release."
-          exit 1
-        fi
-        IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
-        echo "Pulling $IMAGE (with retry)"
-        n=0
-        until [ "$n" -ge 3 ]; do
-          docker pull "$IMAGE" && break
-          n=$((n+1))
-          echo "Pull failed ($n). Retrying in 10s..." && sleep 10
-        done
-        cid=$(docker create "$IMAGE")
-        echo "Extracting assemblies from container..."
-        docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
-        docker rm "$cid" >/dev/null
-        find ext/Lidarr/_extracted -type f -name "*.dll" -print -exec cp {} ext/Lidarr/_output/net8.0 \;
-        ls -la ext/Lidarr/_output/net8.0/ || true
-        if [ ! -f ext/Lidarr/_output/net8.0/Lidarr.dll ]; then
-          echo "[ERROR] Missing Lidarr.dll after extraction."
-          exit 1
-        fi
-        if ! strings ext/Lidarr/_output/net8.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
-          echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
-          exit 1
-        fi
-
-    - name: Build release
-      run: |
-        echo "Building release version $RELEASE_VERSION..."
-        dotnet restore src/Tidalarr/Tidalarr.csproj
-        dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
-          -p:Version="$RELEASE_VERSION" \
-          -p:AssemblyVersion="$RELEASE_VERSION" \
-          -p:FileVersion="$RELEASE_VERSION" \
-          -p:RunAnalyzersDuringBuild=false \
-          -p:EnableNETAnalyzers=false \
-          -p:TreatWarningsAsErrors=false
-
-    - name: Create release package
-      run: |
-        # Packaging policy (see ext/Lidarr.Plugin.Common/build/PluginPackaging.targets):
-        #
-        #   MUST SHIP:
-        #     - Lidarr.Plugin.Tidalarr.dll (merged: Common + Abstractions internalized via ILRepack)
-        #     - plugin.json
-        #     - manifest.json (if present)
-        #
-        #   MUST NOT SHIP (host-provided / cross-boundary type-identity):
-        #     - FluentValidation, NLog, System.Text.Json, Microsoft.Extensions.*.Abstractions,
-        #       Lidarr.*.dll, NzbDrone.*.dll, Lidarr.Plugin.{Common,Abstractions}.dll as sidecars
-        #
-        # Filename MUST contain "net8.0.zip" — Lidarr's PluginService.GetRemotePlugin
-        # filters release assets by a.Name.Contains("net8.0.zip", OrdinalIgnoreCase).
-        # Without that substring the UI Install button spinner hangs forever with no error.
-
-        # Tidalarr's csproj sets OutputPath=bin\ + AppendTargetFrameworkToOutputPath=false,
-        # so the merged DLL lands at src/Tidalarr/bin/, not src/Tidalarr/bin/Release/net8.0/.
-        DLL=""
-        for candidate in \
-          src/Tidalarr/bin/Lidarr.Plugin.Tidalarr.dll \
-          src/Tidalarr/bin/Release/net8.0/Lidarr.Plugin.Tidalarr.dll; do
-          if [ -f "$candidate" ]; then DLL="$candidate"; break; fi
-        done
-        if [ -z "$DLL" ]; then
-          echo "❌ Merged plugin DLL not found in src/Tidalarr/bin/" >&2
-          find src/Tidalarr/bin -maxdepth 4 -type f 2>&1 | sed 's/^/  /' >&2
-          exit 1
-        fi
-        DLL_SIZE=$(stat -c%s "$DLL")
-        echo "🔍 Merged plugin DLL: $DLL ($DLL_SIZE bytes)"
-        if [ "$DLL_SIZE" -lt 2000000 ]; then
-          echo "⚠️ DLL too small ($DLL_SIZE bytes) — ILRepack likely did not merge Common + Abstractions." >&2
-          exit 1
-        fi
-
-        BIN_DIR=$(dirname "$DLL")
-        mkdir -p package
-        cp "$DLL" package/
-        if [ -f "$BIN_DIR/plugin.json" ]; then cp "$BIN_DIR/plugin.json" package/; elif [ -f plugin.json ]; then cp plugin.json package/; fi
-        if [ -f "$BIN_DIR/manifest.json" ]; then cp "$BIN_DIR/manifest.json" package/; elif [ -f manifest.json ]; then cp manifest.json package/; fi
-
-        for forbidden in \
-          FluentValidation.dll NLog.dll System.Text.Json.dll Newtonsoft.Json.dll \
-          Microsoft.Extensions.Logging.Abstractions.dll \
-          Microsoft.Extensions.DependencyInjection.Abstractions.dll \
-          Microsoft.Extensions.Caching.Abstractions.dll \
-          Microsoft.Extensions.Caching.Memory.dll \
-          Microsoft.Extensions.Options.dll Microsoft.Extensions.Primitives.dll \
-          Lidarr.Plugin.Common.dll Lidarr.Plugin.Abstractions.dll \
-          Lidarr.Core.dll Lidarr.Common.dll; do
-          if [ -f "package/$forbidden" ]; then
-            echo "❌ FORBIDDEN host assembly in package: $forbidden" >&2
-            exit 1
-          fi
-        done
-
-        echo "📦 Release package contents:"
-        ls -la package/
-
-        cd package
-        zip -r "../${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip" .
-        cd ..
-
-        echo "Release package created"
-        ls -la *.zip
-
-    - name: Generate SBOM (SPDX JSON)
-      uses: anchore/sbom-action@v0
-      with:
-        path: .
-        format: spdx-json
-        output-file: sbom.spdx.json
-
-    - name: Install Cosign
-      uses: sigstore/cosign-installer@v3
-
-    - name: Sign ZIP with Cosign (keyless)
-      env:
-        COSIGN_EXPERIMENTAL: "true"
-      run: |
-        cosign version
-        cosign sign-blob \
-          --yes \
-          --output-signature ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip.sig \
-          ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip
-
-    - name: Generate SHA256 checksum
-      run: |
-        sha256sum ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip > ${{ env.PLUGIN_NAME }}-v$RELEASE_VERSION.net8.0.zip.sha256
-
-    - name: Generate release notes
-      run: |
-        echo "Generating release notes..."
-        echo "## ${{ env.PLUGIN_NAME }} v$RELEASE_VERSION" > release-notes.md
-        echo "" >> release-notes.md
-        echo "### Installation" >> release-notes.md
-        echo "1. Download the plugin ZIP file" >> release-notes.md
-        echo "2. Extract to your Lidarr plugins directory" >> release-notes.md
-        echo "3. Restart Lidarr" >> release-notes.md
-        echo "" >> release-notes.md
-        echo "### Compatibility" >> release-notes.md
-        echo "- Lidarr: ${{ env.MINIMUM_LIDARR_VERSION }}+ (plugins branch)" >> release-notes.md
-        echo "- .NET: 8.0" >> release-notes.md
-        echo "" >> release-notes.md
-        echo "### Security" >> release-notes.md
-        echo "- SHA256 checksum provided for integrity verification" >> release-notes.md
-        echo "- Cosign signature for artifact authenticity" >> release-notes.md
-        echo "- SBOM (Software Bill of Materials) included" >> release-notes.md
-        echo "" >> release-notes.md
-        echo "### Changes" >> release-notes.md
-        echo "See [commit history](https://github.com/${{ github.repository }}/commits/v$RELEASE_VERSION) for detailed changes." >> release-notes.md
-
-    - name: Create GitHub release
-      uses: softprops/action-gh-release@v2
-      with:
-        name: ${{ env.PLUGIN_NAME }} v${{ env.RELEASE_VERSION }}
-        body_path: release-notes.md
-        files: |
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip.sha256
-          ${{ env.PLUGIN_NAME }}-v${{ env.RELEASE_VERSION }}.net8.0.zip.sig
-          sbom.spdx.json
-        draft: false
-        prerelease: false
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/release-plugin.yml@main
+    # TODO: replace @main with merge-commit SHA after PR #514 merges
+    with:
+      plugin_name: Lidarr.Plugin.Tidalarr
+      plugin_dll: Lidarr.Plugin.Tidalarr.dll
+      main_csproj: src/Tidalarr/Tidalarr.csproj
+      lidarr_path_msbuild_prop: LidarrPath
+      # Tidalarr's csproj sets OutputPath=bin\ + AppendTargetFrameworkToOutputPath=false
+      # so the merged DLL lands at src/Tidalarr/bin/ (not bin/Release/net8.0/).
+      dll_search_dirs: 'src/Tidalarr/bin:src/Tidalarr/bin/Release/net8.0'
+      minimum_lidarr_version: '2.13.2.4685'
+      include_cosign: true
+      include_sbom: true
+      version: ${{ inputs.version || '' }}
+      draft: ${{ inputs.draft || false }}
+    secrets:
+      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
