@@ -1,20 +1,8 @@
 namespace Tidalarr.Tests.Utils;
 
-public sealed class PackagingFactAttribute : FactAttribute
-{
-    public PackagingFactAttribute()
-    {
-        if (PackagingTestPaths.IsStrictMode())
-        {
-            return;
-        }
-
-        if (PackagingTestPaths.TryFindPackagePath() == null)
-        {
-            Skip =
-                "Tidalarr package not found. Run `./build.ps1 -Package -Configuration Release` " +
-                "or set `TIDALARR_PACKAGE_PATH` to enable packaging policy tests.";
-        }
-    }
-}
-
+/// <summary>
+/// Skips the test if no Tidalarr package zip can be located and packaging tests
+/// are not required (see <see cref="Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths.IsStrictMode"/>).
+/// </summary>
+public sealed class PackagingFactAttribute()
+    : Lidarr.Plugin.Common.TestKit.Packaging.PackagingFactAttribute("Tidalarr") { }

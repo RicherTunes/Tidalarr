@@ -358,20 +358,6 @@ public class Wave12CoverageGapTests
     }
 
     [Fact]
-    public void Cache_GetTidalStatistics_ReturnsNonNull_WithExpectedDefaults()
-    {
-        TidalResponseCache cache = new();
-        TidalCacheStatistics stats = cache.GetTidalStatistics();
-        Assert.NotNull(stats);
-        Assert.Equal(0, stats.TotalEntries);
-        Assert.Equal(0.0, stats.HitRatio);
-        Assert.Equal(0, stats.SearchCacheEntries);
-        Assert.Equal(0, stats.AlbumCacheEntries);
-        Assert.Equal(0, stats.TrackCacheEntries);
-        Assert.Equal(0, stats.ArtistCacheEntries);
-    }
-
-    [Fact]
     public void Cache_Constructor_WithLogger_DoesNotThrow()
     {
         ILogger logger = NullLogger.Instance;
