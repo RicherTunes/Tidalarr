@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Caching;
 
 namespace Tidalarr.Infrastructure.Caching;
@@ -61,20 +62,7 @@ public class TidalResponseCache : StreamingResponseCache
     // Custom logic handled in GetServiceName() which provides the "tidal" prefix
 
     protected override bool ShouldFilterParameter(string parameterName, object parameterValue)
-    {
-        // Filter sensitive parameters from cache keys
-        string[] sensitiveParams =
-        [
-            "sessionId",
-            "accessToken",
-            "refreshToken",
-            "securityToken",
-            "userToken"
-        ];
-
-        return Array.Exists(sensitiveParams, p =>
-            string.Equals(p, parameterName, StringComparison.OrdinalIgnoreCase));
-    }
+        => LogRedactor.IsSensitiveParameter(parameterName);
 
     protected override void OnCacheHit(string cacheKey)
     {
@@ -124,42 +112,4 @@ public class TidalResponseCache : StreamingResponseCache
         InvalidateByPrefix("tidal:/search");
     }
 
-    /// <summary>
-    /// Get cache statistics for Tidal endpoints
-    /// </summary>
-    public TidalCacheStatistics GetTidalStatistics()
-    {
-        // Temporarily return basic statistics until shared library statistics are properly implemented
-        return new TidalCacheStatistics
-        {
-            TotalEntries = 0,
-            HitRatio = 0.0,
-            TotalHits = 0,
-            TotalMisses = 0,
-            MemoryUsageEstimate = 0,
-            OldestEntryAge = TimeSpan.Zero,
-            SearchCacheEntries = CountEntriesByPrefix("tidal:/search"),
-            AlbumCacheEntries = CountEntriesByPrefix("tidal:/albums"),
-            TrackCacheEntries = CountEntriesByPrefix("tidal:/tracks"),
-            ArtistCacheEntries = CountEntriesByPrefix("tidal:/artists")
-        };
-    }
 }
-
-/// <summary>
-/// Tidal-specific cache statistics
-/// </summary>
-public class TidalCacheStatistics
-{
-    public int TotalEntries { get; set; }
-    public double HitRatio { get; set; }
-    public long TotalHits { get; set; }
-    public long TotalMisses { get; set; }
-    public long MemoryUsageEstimate { get; set; }
-    public TimeSpan? OldestEntryAge { get; set; }
-    public int SearchCacheEntries { get; set; }
-    public int AlbumCacheEntries { get; set; }
-    public int TrackCacheEntries { get; set; }
-    public int ArtistCacheEntries { get; set; }
-}
-

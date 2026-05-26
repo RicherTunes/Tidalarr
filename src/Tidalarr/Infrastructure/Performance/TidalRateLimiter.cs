@@ -8,88 +8,23 @@ namespace Tidalarr.Infrastructure.Performance;
 /// Ensures all limiter operations are consistently tagged with the "Tidal" service name
 /// and exposes convenience helpers for diagnostics.
 /// </summary>
-public sealed class TidalRateLimiter(ILogger<TidalRateLimiter>? logger = null) : IUniversalAdaptiveRateLimiter
+public sealed class TidalRateLimiter : NamedServiceRateLimiter
 {
-    private const string Service = "Tidal";
+    private readonly ILogger<TidalRateLimiter>? _logger;
 
-    private readonly UniversalAdaptiveRateLimiter _inner = new();
-    private readonly ILogger<TidalRateLimiter>? _logger = logger;
-    private bool _disposed;
-
-    public Task<bool> WaitIfNeededAsync(string service, string endpoint, CancellationToken cancellationToken = default)
+    public TidalRateLimiter(ILogger<TidalRateLimiter>? logger = null)
+        : base("Tidal")
     {
-        ThrowIfDisposed();
-        string normalizedService = NormalizeService(service);
-        this._logger?.LogTrace("Rate limiter wait request for {Service}:{Endpoint}", normalizedService, endpoint);
-        return this._inner.WaitIfNeededAsync(normalizedService, endpoint ?? string.Empty, cancellationToken);
+        _logger = logger;
     }
 
-    public void RecordResponse(string service, string endpoint, HttpResponseMessage response)
+    /// <inheritdoc/>
+    public override Task<bool> WaitIfNeededAsync(string service, string endpoint, CancellationToken cancellationToken = default)
     {
-        if (this._disposed)
-        {
-            return;
-        }
-
-        string normalizedService = NormalizeService(service);
-        this._inner.RecordResponse(normalizedService, endpoint ?? string.Empty, response);
+        _logger?.LogTrace("Rate limiter wait request for {Service}:{Endpoint}", service, endpoint);
+        return base.WaitIfNeededAsync(service, endpoint, cancellationToken);
     }
 
-    public int GetCurrentLimit(string service, string endpoint)
-    {
-        ThrowIfDisposed();
-        return this._inner.GetCurrentLimit(NormalizeService(service), endpoint ?? string.Empty);
-    }
-
-    public ServiceRateLimitStats GetServiceStats(string service)
-    {
-        ThrowIfDisposed();
-        return this._inner.GetServiceStats(NormalizeService(service));
-    }
-
-    public GlobalRateLimitStats GetGlobalStats()
-    {
-        ThrowIfDisposed();
-        return this._inner.GetGlobalStats();
-    }
-
-    public ServiceRateLimitStats GetTidalStats()
-    {
-        return GetServiceStats(Service);
-    }
-
-    public Task<bool> WaitIfNeededAsync(string endpoint, CancellationToken cancellationToken = default)
-    {
-        return WaitIfNeededAsync(Service, endpoint, cancellationToken);
-    }
-
-    public void RecordResponse(string endpoint, HttpResponseMessage response)
-    {
-        RecordResponse(Service, endpoint, response);
-    }
-
-    public void Dispose()
-    {
-        if (this._disposed)
-        {
-            return;
-        }
-
-        this._disposed = true;
-        this._inner.Dispose();
-    }
-
-    private static string NormalizeService(string service)
-    {
-        return string.IsNullOrWhiteSpace(service) ? Service : service;
-    }
-
-    private void ThrowIfDisposed()
-    {
-        if (this._disposed)
-        {
-            throw new ObjectDisposedException(nameof(TidalRateLimiter));
-        }
-    }
+    /// <summary>Returns rate-limit stats for the Tidal service.</summary>
+    public ServiceRateLimitStats GetTidalStats() => GetNamedServiceStats();
 }
-
