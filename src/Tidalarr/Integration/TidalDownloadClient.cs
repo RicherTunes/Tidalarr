@@ -4,6 +4,7 @@ using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
@@ -420,7 +421,7 @@ public class TidalDownloadClient(
     private static string GetTempFilePath(TidalTrackInfo track, string extension)
     {
         string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
-        safeName = FileNameSanitizer.SanitizeFileName(safeName.Normalize(NormalizationForm.FormC));
+        safeName = Sanitize.FileNameSegment(safeName.Normalize(NormalizationForm.FormC));
         return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
     }
 }
