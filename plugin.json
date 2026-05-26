@@ -12,5 +12,9 @@
   "minHostVersion": "3.0.0.4855",
   "targetFramework": "net8.0",
   "main": "Lidarr.Plugin.Tidalarr.dll",
-  "rootNamespace": "Tidalarr"
+  "rootNamespace": "Tidalarr",
+  "owner": "RicherTunes",
+  "repository": "https://github.com/RicherTunes/Tidalarr",
+  "supportUri": "https://github.com/RicherTunes/Tidalarr/issues",
+  "changelogUri": "https://github.com/RicherTunes/Tidalarr/blob/main/CHANGELOG.md"
 }
