@@ -59,9 +59,11 @@ public class TidalLidarrIndexer(
 
     /// <summary>
     /// Synchronous shim used by callers in sync host-contract paths (e.g. <see cref="GetParser"/>).
-    /// Credential-change invalidation still fires — the async path just runs synchronously here.
+    /// HttpIndexerBase.Test(List&lt;ValidationFailure&gt;) is a protected void — no async override exists
+    /// in this version of Lidarr's plugins branch. Task.Run avoids deadlock when a
+    /// SynchronizationContext captures the calling thread. Credential-change invalidation still fires
+    /// through the cache.
     /// </summary>
-    [Obsolete("Call GetRuntimeAsync() from async paths. This shim exists only for sync Lidarr host contracts.")]
     private TidalIndexerRuntime? EnsureServicesInitialized()
     {
         // SYNC-OVER-ASYNC: callers (GetParser) are sync Lidarr host contracts.
@@ -87,9 +89,7 @@ public class TidalLidarrIndexer(
 
     public override IParseIndexerResponse GetParser()
     {
-#pragma warning disable CS0618 // Obsolete: sync shim for host contract
         TidalIndexerRuntime? rt = EnsureServicesInitialized();
-#pragma warning restore CS0618
         IServiceProvider sp = rt?.ServiceProvider
             ?? throw new InvalidOperationException("Tidal indexer runtime unavailable — ConfigPath may be empty.");
         return new TidalLidarrParser(Settings, sp, this._logger);
