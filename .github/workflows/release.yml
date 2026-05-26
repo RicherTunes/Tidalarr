@@ -27,7 +27,7 @@ jobs:
       # Tidalarr's csproj sets OutputPath=bin\ + AppendTargetFrameworkToOutputPath=false
       # so the merged DLL lands at src/Tidalarr/bin/ (not bin/Release/net8.0/).
       dll_search_dirs: 'src/Tidalarr/bin:src/Tidalarr/bin/Release/net8.0'
-      minimum_lidarr_version: '2.13.2.4685'
+      minimum_lidarr_version: '3.0.0.4855'
       include_cosign: true
       include_sbom: true
       version: ${{ inputs.version || '' }}
