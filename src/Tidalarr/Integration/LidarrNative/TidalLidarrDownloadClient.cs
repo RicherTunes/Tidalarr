@@ -55,10 +55,12 @@ public class TidalLidarrDownloadClient(
         => TidalDownloadClientRuntimeCache.Shared.GetAsync(Settings, ct);
 
     /// <summary>
-    /// Synchronous shim for sync Lidarr host-contract callers (Test, Download).
-    /// Credential-change invalidation still fires through the cache.
+    /// Synchronous shim for callers in sync Lidarr host-contract methods (Test, GetParser).
+    /// DownloadClientBase.Test(List&lt;ValidationFailure&gt;) is a protected void — no async override exists
+    /// in this version of Lidarr's plugins branch. Task.Run avoids deadlock when a
+    /// SynchronizationContext captures the calling thread. Credential-change invalidation still
+    /// fires through the cache.
     /// </summary>
-    [Obsolete("Call GetRuntimeAsync() from async paths. This shim exists only for sync Lidarr host contracts.")]
     private TidalDownloadClientRuntime? EnsureServicesInitialized()
     {
         TidalDownloadClientRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
@@ -78,9 +80,7 @@ public class TidalLidarrDownloadClient(
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Download");
         try
         {
-#pragma warning disable CS0618 // Obsolete: sync shim for host contract
             TidalDownloadClientRuntime? rt = EnsureServicesInitialized();
-#pragma warning restore CS0618
             if (rt is null)
             {
                 throw new InvalidOperationException("Tidal download client runtime unavailable — ConfigPath may be empty.");
@@ -322,9 +322,7 @@ public class TidalLidarrDownloadClient(
             }
 
             // Initialize services and test authentication (via cache — invalidates on ConfigPath change).
-#pragma warning disable CS0618 // Obsolete: sync shim for host contract
             TidalDownloadClientRuntime? testRt = EnsureServicesInitialized();
-#pragma warning restore CS0618
             if (testRt is null)
             {
                 failures.Add(new ValidationFailure("ConfigPath", "Tidal runtime could not be initialized — ConfigPath may be empty."));
@@ -369,9 +367,7 @@ public class TidalLidarrDownloadClient(
             // it mask the original failure.
             try
             {
-#pragma warning disable CS0618 // Obsolete: sync shim for host contract
                 TidalDownloadClientRuntime? runtimeForGate = EnsureServicesInitialized();
-#pragma warning restore CS0618
                 if (runtimeForGate is not null)
                 {
                     RecordAuthOutcomeFromException(runtimeForGate.ServiceProvider, ex);
