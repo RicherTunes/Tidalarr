@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Lidarr.Plugin.Common.Abstractions.Diagnostics;
+using Lidarr.Plugin.Common.Diagnostics;
 using Codes = Lidarr.Plugin.Common.Abstractions.Diagnostics.DiagnosticErrorCodes;
 
 namespace Tidalarr.Diagnostics;
@@ -61,48 +62,16 @@ internal static class TidalHealthDiagnostics
     /// <param name="isAuthenticated">A delegate that returns <c>true</c> when the user is authenticated.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="DiagnosticHealthResult"/> reflecting auth status.</returns>
-    public static async Task<DiagnosticHealthResult> CheckAuthAsync(
+    public static Task<DiagnosticHealthResult> CheckAuthAsync(
         Func<Task<bool>> isAuthenticated,
         CancellationToken cancellationToken = default)
-    {
-        Stopwatch sw = Stopwatch.StartNew();
-        try
-        {
-            bool authed = await isAuthenticated().ConfigureAwait(false);
-            sw.Stop();
-
-            return authed
-                ? DiagnosticHealthResult.Healthy(
-                    responseTime: sw.Elapsed,
-                    provider: ProviderName,
-                    authMethod: AuthMethodName,
-                    diagnosticType: DiagnosticTypes.AuthValidate,
-                    capability: Capabilities.LosslessDownload)
-                : DiagnosticHealthResult.Unhealthy(
-                    "Authentication failed",
-                    responseTime: sw.Elapsed,
-                    provider: ProviderName,
-                    authMethod: AuthMethodName,
-                    diagnosticType: DiagnosticTypes.AuthValidate,
-                    capability: Capabilities.LosslessDownload,
-                    errorCode: ErrorCodes.AuthFailed);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            sw.Stop();
-            return DiagnosticHealthResult.Unhealthy(
-                ex.Message,
-                responseTime: sw.Elapsed,
-                provider: ProviderName,
-                authMethod: AuthMethodName,
-                diagnosticType: DiagnosticTypes.AuthValidate,
-                errorCode: ErrorCodes.ConnectionFailed);
-        }
-    }
+        => HealthCheckHelper.CheckAuthAsync(
+            probe: _ => isAuthenticated(),
+            provider: ProviderName,
+            authMethod: AuthMethodName,
+            diagnosticType: DiagnosticTypes.AuthValidate,
+            capability: Capabilities.LosslessDownload,
+            cancellationToken: cancellationToken);
 
     /// <summary>
     /// Performs a stream accessibility check.
