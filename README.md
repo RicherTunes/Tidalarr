@@ -2,6 +2,18 @@
 
 Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly from the Tidal service while sharing key infrastructure with the Lidarr.Plugin.Common library.
 
+## Installation
+
+### Prerequisites
+- Lidarr v2.13.0 or higher on the **plugins branch** (`pr-plugins-3.x`, .NET 8)
+- A Tidal subscription (HiFi / HiFi Plus for lossless and hi-res)
+
+### Install via the Lidarr UI (recommended)
+
+Settings → Plugins → paste `https://github.com/RicherTunes/Tidalarr` → Install, then restart Lidarr. Add Tidalarr under Settings → Indexers and Settings → Download Clients, then complete the Tidal sign-in/OAuth flow from the plugin settings.
+
+To build from source instead, see **Getting Started** below.
+
 ## Getting Started
 - `git submodule update --init --recursive` to sync the common library and CLI dependencies.
 - `dotnet restore Tidalarr.sln` then `dotnet build Tidalarr.sln` to ensure the solution compiles cleanly.
