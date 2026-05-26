@@ -3,61 +3,24 @@ name: Bump Common Submodule
 on:
   workflow_dispatch: {}
   schedule:
+    # Run daily at 2:13 AM UTC (after Common nightly, before our nightly)
     - cron: '13 2 * * *'
 
 jobs:
   bump:
-    runs-on: windows-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Update Common submodule to latest main
-        shell: pwsh
-        run: |
-          git -C ext/Lidarr.Plugin.Common fetch origin main
-          $newSha = git -C ext/Lidarr.Plugin.Common rev-parse origin/main
-          $currentSha = git -C ext/Lidarr.Plugin.Common rev-parse HEAD
-          if ($newSha -eq $currentSha) {
-              Write-Host "No changes in submodule; skipping."
-              exit 0
-          }
-          git -C ext/Lidarr.Plugin.Common checkout $newSha
-
-          # Use canonical repin script
-          $commonPath = "ext/Lidarr.Plugin.Common"
-          # Note: -UpdatePins omitted because GITHUB_TOKEN cannot push
-          # .github/workflows/ changes. Stale pins are advisory (-VerifyOnly warns).
-          & "$commonPath/scripts/repin-common-submodule.ps1" -ShaFromSubmoduleHead -Stage -SubmodulePath $commonPath
-          & "$commonPath/scripts/repin-common-submodule.ps1" -VerifyOnly -SubmodulePath $commonPath
-          if ((git status --porcelain) -ne "") {
-            $branch = "chore/bump-ext-common"
-            git config user.email "actions@github.com"
-            git config user.name "github-actions"
-            git checkout -B $branch
-            git commit -m "chore(submodule): bump Common to $newSha"
-            git push -u origin $branch --force
-          } else {
-            echo "No changes in submodule; skipping PR."
-          }
-
-      - name: Create or update PR
-        if: ${{ success() }}
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $branch = "chore/bump-ext-common"
-          $exists = gh pr list --head $branch --json number --jq '.[0].number'
-          if (-not $exists) {
-            gh pr create --title "chore(submodule): bump Common to latest main" --body "Automated submodule bump to the latest commit on Common main." --head $branch --base main
-          } else {
-            gh pr edit $exists --title "chore(submodule): bump Common to latest main"
-          }
-
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/bump-common-plugin.yml@main
+    # TODO: replace @main with merge-commit SHA after PR #514 merges
+    # Quality upgrades absorbed from reusable workflow:
+    #   - ubuntu-latest runner (was windows-latest, PS-only)
+    #   - build verify with conditional assembly extraction (was none)
+    #   - concurrency guard (was none)
+    #   - actions/checkout@v6 (was @v4)
+    #   - actions/setup-dotnet@v5 (was absent — no build verify at all)
+    with:
+      plugin_csproj: src/Tidalarr/Tidalarr.csproj
+      solution_file: Tidalarr.sln
+      lidarr_path_msbuild_prop: LidarrPath
+      include_build_verify: true
+      extract_script_path: scripts/extract-lidarr-assemblies.sh
+    secrets:
+      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
