@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 using Lidarr.Plugin.Abstractions.Contracts;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Constants;
@@ -11,7 +12,6 @@ using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Tidalarr.Infrastructure.Observability;
 
 namespace Tidalarr.Domain.Api;
 
@@ -60,11 +60,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
+        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content) ?? throw new InvalidOperationException("Failed to parse track response");
@@ -92,11 +92,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope2 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        using IDisposable scope2 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw2.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
+        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalAlbumDto? dto = JsonSerializer.Deserialize<TidalAlbumDto>(content) ?? throw new InvalidOperationException("Failed to parse album response");
@@ -125,11 +125,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope3 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw3.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
+        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
@@ -184,11 +184,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope4 = ObservabilityShim.StartApi(this._logger, service: "tidal", endpoint: endpoint);
+        using IDisposable scope4 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
         await ReportRateLimitStatusAsync(response);
         sw4.Stop();
-        ObservabilityShim.CompleteApi(this._logger, service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
+        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken);
         TidalSearchResponseDto? dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content) ?? throw new InvalidOperationException("Failed to parse search response");

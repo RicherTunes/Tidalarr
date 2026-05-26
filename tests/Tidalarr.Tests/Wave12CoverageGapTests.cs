@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Core.Models;
 using Tidalarr.Infrastructure.Caching;
-using Tidalarr.Infrastructure.Observability;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Integration;
 
@@ -18,7 +17,8 @@ namespace Tidalarr.Tests;
 /// - TidalDownloadTelemetrySink: 0%    line-rate
 /// - TidalCredentials:           10%   line-rate
 /// - TidalResponseCache:         52.7% (fill remaining branches)
-/// - ObservabilityShim:          44.4% line-rate
+/// Note: ObservabilityShim tests have been moved to Unit/ObservabilityShimTests.cs and
+/// rewritten against LoggerExtensions directly (shim deleted after Mission #37).
 /// </summary>
 public class Wave12CoverageGapTests
 {
@@ -379,110 +379,4 @@ public class Wave12CoverageGapTests
         Assert.NotNull(cache);
     }
 
-    // ===== ObservabilityShim =====
-
-    [Fact]
-    public void ObsShim_StartApi_WhenDisabled_ReturnsNoopDisposable()
-    {
-        // Default state: TIDALARR_OBS env var not set => disabled => returns Noop
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", null);
-        try
-        {
-            IDisposable d = ObservabilityShim.StartApi(NullLogger.Instance, "Tidal", "/api/v1/x");
-            Assert.NotNull(d);
-            Exception? ex = Record.Exception(d.Dispose);
-            Assert.Null(ex);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
-
-    [Fact]
-    public void ObsShim_StartApi_WithCorrelationId_ReturnsDisposable()
-    {
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", null);
-        try
-        {
-            IDisposable d = ObservabilityShim.StartApi(NullLogger.Instance, "Tidal", "/api/v1/x", "corr-1");
-            Assert.NotNull(d);
-            d.Dispose();
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
-
-    [Fact]
-    public void ObsShim_StartApi_NullLogger_ReturnsNoopDisposable()
-    {
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", "1");
-        try
-        {
-            // Even when "enabled", null logger short-circuits to Noop
-            IDisposable d = ObservabilityShim.StartApi(null!, "Tidal", "/api/v1/x");
-            Assert.NotNull(d);
-            d.Dispose();
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
-
-    [Fact]
-    public void ObsShim_CompleteApi_WhenDisabled_DoesNotThrow()
-    {
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", null);
-        try
-        {
-            Exception? ex = Record.Exception(() =>
-                ObservabilityShim.CompleteApi(NullLogger.Instance, "Tidal", "/api/v1/x", 200, true, TimeSpan.FromMilliseconds(100)));
-            Assert.Null(ex);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
-
-    [Fact]
-    public void ObsShim_CompleteApi_NullLogger_DoesNotThrow()
-    {
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", "1");
-        try
-        {
-            Exception? ex = Record.Exception(() =>
-                ObservabilityShim.CompleteApi(null!, "Tidal", "/api/v1/x", 500, false, TimeSpan.FromMilliseconds(50)));
-            Assert.Null(ex);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
-
-    [Fact]
-    public void ObsShim_CompleteApi_FailureStatus_DoesNotThrow()
-    {
-        string? prior = Environment.GetEnvironmentVariable("TIDALARR_OBS");
-        Environment.SetEnvironmentVariable("TIDALARR_OBS", null);
-        try
-        {
-            Exception? ex = Record.Exception(() =>
-                ObservabilityShim.CompleteApi(NullLogger.Instance, "Tidal", "/api/v1/x", 503, false, TimeSpan.FromSeconds(2)));
-            Assert.Null(ex);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TIDALARR_OBS", prior);
-        }
-    }
 }
