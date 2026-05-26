@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Lidarr.Plugin.Common.Abstractions.Diagnostics;
+using Lidarr.Plugin.Common.TestKit.Compliance;
 using Tidalarr.Diagnostics;
 
 namespace Tidalarr.Tests.Unit;
@@ -6,97 +9,66 @@ namespace Tidalarr.Tests.Unit;
 /// <summary>
 /// Validates that all DiagnosticHealthResult instances produced by TidalHealthDiagnostics
 /// use only well-known, registered error codes, diagnostic types, and capabilities.
-/// Prevents "stringly-typed" drift over time.
 /// </summary>
-public class TidalHealthDiagnosticsAllowedValuesTests
+public class TidalHealthDiagnosticsAllowedValuesTests : DiagnosticsAllowedValuesTestBase
 {
-    private static readonly HashSet<string> AllowedErrorCodes = new(StringComparer.Ordinal)
+    protected override IReadOnlySet<string> AllowedErrorCodes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         TidalHealthDiagnostics.ErrorCodes.AuthFailed,
         TidalHealthDiagnostics.ErrorCodes.ConnectionFailed,
         TidalHealthDiagnostics.ErrorCodes.ValidationFailed,
     };
 
-    private static readonly HashSet<string> AllowedDiagnosticTypes = new(StringComparer.Ordinal)
+    protected override IReadOnlySet<string> AllowedDiagnosticTypes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         TidalHealthDiagnostics.DiagnosticTypes.AuthValidate,
         TidalHealthDiagnostics.DiagnosticTypes.StreamProbe,
     };
 
-    private static readonly HashSet<string> AllowedCapabilities = new(StringComparer.Ordinal)
+    protected override IReadOnlySet<string> AllowedCapabilities { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         TidalHealthDiagnostics.Capabilities.LosslessDownload,
     };
 
-    private static void AssertAllowedValues(DiagnosticHealthResult result, string context)
+    protected override async Task<IEnumerable<DiagnosticHealthResult>> GetHealthResultsAsync()
     {
-        if (result.ErrorCode is not null)
+        var results = new List<DiagnosticHealthResult>
         {
-            Assert.True(
-                AllowedErrorCodes.Contains(result.ErrorCode),
-                $"ErrorCode '{result.ErrorCode}' from {context} must be a registered value. " +
-                $"Allowed: [{string.Join(", ", AllowedErrorCodes)}]");
-        }
-
-        if (result.DiagnosticType is not null)
-        {
-            Assert.True(
-                AllowedDiagnosticTypes.Contains(result.DiagnosticType),
-                $"DiagnosticType '{result.DiagnosticType}' from {context} must be a registered value. " +
-                $"Allowed: [{string.Join(", ", AllowedDiagnosticTypes)}]");
-        }
-
-        if (result.Capability is not null)
-        {
-            Assert.True(
-                AllowedCapabilities.Contains(result.Capability),
-                $"Capability '{result.Capability}' from {context} must be a registered value. " +
-                $"Allowed: [{string.Join(", ", AllowedCapabilities)}]");
-        }
+            await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true)),
+            await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false)),
+            await TidalHealthDiagnostics.CheckAuthAsync(() => throw new InvalidOperationException("test")),
+            TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true),
+            TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false),
+            TidalHealthDiagnostics.FromStableCode("IX000"),
+            TidalHealthDiagnostics.FromStableCode("IX100"),
+            TidalHealthDiagnostics.FromStableCode("IX200"),
+            TidalHealthDiagnostics.FromStableCode("DL000"),
+            TidalHealthDiagnostics.FromStableCode("DL001"),
+            TidalHealthDiagnostics.FromStableCode("DL100"),
+        };
+        return results;
     }
 
+    // Per-scenario facts kept for richer failure output
     [Fact]
     public async Task CheckAuthAsync_Success_UsesOnlyRegisteredValues()
-    {
-        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(
-            () => Task.FromResult(true));
-
-        AssertAllowedValues(result, "CheckAuthAsync(success)");
-    }
+        => AssertAllowed(await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(true)), "CheckAuthAsync(success)");
 
     [Fact]
     public async Task CheckAuthAsync_Failure_UsesOnlyRegisteredValues()
-    {
-        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(
-            () => Task.FromResult(false));
-
-        AssertAllowedValues(result, "CheckAuthAsync(failure)");
-    }
+        => AssertAllowed(await TidalHealthDiagnostics.CheckAuthAsync(() => Task.FromResult(false)), "CheckAuthAsync(failure)");
 
     [Fact]
     public async Task CheckAuthAsync_Exception_UsesOnlyRegisteredValues()
-    {
-        DiagnosticHealthResult result = await TidalHealthDiagnostics.CheckAuthAsync(
-            () => throw new InvalidOperationException("test"));
-
-        AssertAllowedValues(result, "CheckAuthAsync(exception)");
-    }
+        => AssertAllowed(await TidalHealthDiagnostics.CheckAuthAsync(() => throw new InvalidOperationException("test")), "CheckAuthAsync(exception)");
 
     [Fact]
     public void CheckStreamAccess_Accessible_UsesOnlyRegisteredValues()
-    {
-        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true);
-
-        AssertAllowedValues(result, "CheckStreamAccess(accessible)");
-    }
+        => AssertAllowed(TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: true), "CheckStreamAccess(accessible)");
 
     [Fact]
     public void CheckStreamAccess_Inaccessible_UsesOnlyRegisteredValues()
-    {
-        DiagnosticHealthResult result = TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false);
-
-        AssertAllowedValues(result, "CheckStreamAccess(inaccessible)");
-    }
+        => AssertAllowed(TidalHealthDiagnostics.CheckStreamAccess(chunksAccessible: false), "CheckStreamAccess(inaccessible)");
 
     [Theory]
     [InlineData("IX000")]
@@ -106,18 +78,12 @@ public class TidalHealthDiagnosticsAllowedValuesTests
     [InlineData("DL001")]
     [InlineData("DL100")]
     public void FromStableCode_KnownCodes_UsesOnlyRegisteredValues(string code)
-    {
-        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode(code);
-
-        AssertAllowedValues(result, $"FromStableCode({code})");
-    }
+        => AssertAllowed(TidalHealthDiagnostics.FromStableCode(code), $"FromStableCode({code})");
 
     [Fact]
     public void FromStableCode_UnknownCode_PassesCodeAsErrorCode()
     {
-        DiagnosticHealthResult result = TidalHealthDiagnostics.FromStableCode("UNKNOWN_CODE");
-
-        // Unknown codes are passed through as the ErrorCode value
+        var result = TidalHealthDiagnostics.FromStableCode("UNKNOWN_CODE");
         Assert.Equal("UNKNOWN_CODE", result.ErrorCode);
         Assert.False(result.IsHealthy);
     }
@@ -139,9 +105,7 @@ public class TidalHealthDiagnosticsAllowedValuesTests
 
     [Fact]
     public void Capabilities_AreNotEmpty()
-    {
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.Capabilities.LosslessDownload));
-    }
+        => Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.Capabilities.LosslessDownload));
 
     [Fact]
     public void StableCodes_AreNotEmpty()

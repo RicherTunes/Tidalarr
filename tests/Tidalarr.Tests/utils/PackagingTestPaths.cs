@@ -1,87 +1,31 @@
 using System.IO.Compression;
+using Lidarr.Plugin.Common.TestKit.Packaging;
 
 namespace Tidalarr.Tests.Utils;
 
+/// <summary>
+/// Plugin-specific packaging path helpers — thin wrapper over the shared
+/// <see cref="Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths"/> factory.
+/// </summary>
 public static class PackagingTestPaths
 {
-    public static bool IsStrictMode()
-    {
-        return IsTruthy(Environment.GetEnvironmentVariable("CI"))
-               || IsTruthy(Environment.GetEnvironmentVariable("REQUIRE_PACKAGE_TESTS"));
-    }
+    private static readonly Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths _paths =
+        Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths.For("Tidalarr");
 
-    public static string? TryFindPackagePath()
-    {
-        string? overridePath = Environment.GetEnvironmentVariable("TIDALARR_PACKAGE_PATH");
-        if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath))
-        {
-            return overridePath;
-        }
+    public static bool IsStrictMode() =>
+        Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths.IsStrictMode();
 
-        string? repoRoot = TryFindRepoRoot();
-        if (repoRoot == null)
-        {
-            return null;
-        }
+    public static string? TryFindPackagePath() => _paths.TryFindPackagePath();
 
-        string packageDir = Path.Combine(repoRoot, "src", "Tidalarr", "artifacts", "packages");
-        if (!Directory.Exists(packageDir))
-        {
-            return null;
-        }
+    public static string RequirePackagePath() => _paths.RequirePackagePath();
 
-        FileInfo? latest = new DirectoryInfo(packageDir)
-            .GetFiles("*.zip", SearchOption.TopDirectoryOnly)
-            .OrderByDescending(f => f.LastWriteTimeUtc)
-            .FirstOrDefault();
+    public static string? TryFindRepoRoot() => _paths.TryFindRepoRoot();
 
-        return latest?.FullName;
-    }
+    public static string FindRepoRootOrThrow() => _paths.FindRepoRootOrThrow();
 
-    public static string RequirePackagePath()
-    {
-        string? path = TryFindPackagePath();
-        return path ?? throw new InvalidOperationException(
-            "Tidalarr package not found. Run `./build.ps1 -Package -Configuration Release` " +
-            "or set `TIDALARR_PACKAGE_PATH` to a package zip.");
-    }
+    public static string? TryFindPackagingPolicyBaselinePath() =>
+        _paths.TryFindPackagingPolicyBaselinePath();
 
-    public static string? TryFindRepoRoot()
-    {
-        DirectoryInfo? current = new(Directory.GetCurrentDirectory());
-        for (int i = 0; i < 8 && current != null; i++, current = current.Parent)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "Tidalarr.sln")))
-            {
-                return current.FullName;
-            }
-        }
-
-        return null;
-    }
-
-    public static string? TryFindPackagingPolicyBaselinePath()
-    {
-        string? repoRoot = TryFindRepoRoot();
-        if (repoRoot == null)
-        {
-            return null;
-        }
-
-        string path = Path.Combine(repoRoot, "docs", "PACKAGING_POLICY_BASELINE.md");
-        return File.Exists(path) ? path : null;
-    }
-
-    public static ZipArchive OpenPackageZip(string packagePath)
-    {
-        return ZipFile.OpenRead(packagePath);
-    }
-
-    private static bool IsTruthy(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value)
-&& (string.Equals(value, "1", StringComparison.Ordinal)
-               || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
-    }
+    public static ZipArchive OpenPackageZip(string packagePath) =>
+        Lidarr.Plugin.Common.TestKit.Packaging.PackagingTestPaths.OpenPackageZip(packagePath);
 }
-
