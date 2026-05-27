@@ -178,14 +178,13 @@ public class TidalSearchService(
         _ = Guard.NotNullOrWhiteSpace(albumId, nameof(albumId));
 
         (bool success, TidalAlbumInfo album) = await SafeOperationExecutor.TryExecuteAsync<TidalAlbumInfo>(() =>
-            this._apiClient.GetAlbumAsync(albumId));
+            this._apiClient.GetAlbumWithTracksAsync(albumId));
 
         if (!success || album == null)
         {
             throw new InvalidOperationException($"Failed to retrieve album with ID: {albumId}");
         }
 
-        // TODO: Load album tracks - for now return basic album info
         return album;
     }
 
