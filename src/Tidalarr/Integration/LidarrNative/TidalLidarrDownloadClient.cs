@@ -306,6 +306,13 @@ public class TidalLidarrDownloadClient(
                 return;
             }
 
+            var pathValidation = Lidarr.Plugin.Common.Services.Validation.DownloadPathValidator.Validate(Settings.DownloadPath);
+            if (!pathValidation.IsValid)
+            {
+                failures.Add(new ValidationFailure("DownloadPath", pathValidation.Message));
+                return;
+            }
+
             // Verify download path exists or can be created
             if (!Directory.Exists(Settings.DownloadPath))
             {
