@@ -11,7 +11,7 @@ using Lidarr.Plugin.Abstractions.Results;
 
 namespace Tidalarr.Integration;
 
-public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
+public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposable
 {
     private readonly TidalSearchService _searchService;
     private readonly ITidalCore _apiClient;
@@ -341,6 +341,11 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>
     protected override HttpClient GetHttpClient()
     {
         return this._httpClient;
+    }
+
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
     }
 }
 
