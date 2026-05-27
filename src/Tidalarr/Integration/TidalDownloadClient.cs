@@ -166,6 +166,21 @@ public class TidalDownloadClient(
                 finalPath = extractedPath;
             }
 
+            // Step 7: Best-effort lyrics fetch (non-fatal)
+            try
+            {
+                using var enricher = new Tidalarr.Application.Services.LyricsEnricher(Logger);
+                await enricher.TryEnrichAsync(
+                    finalPath,
+                    track.Artist?.Name ?? "Unknown",
+                    track.Title ?? "Unknown",
+                    track.Album?.Title ?? "",
+                    (int)(track.Duration?.TotalSeconds ?? 0),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* lyrics are best-effort */ }
+
             // Rename to final output path if needed
             if (finalPath != outputPath)
             {
