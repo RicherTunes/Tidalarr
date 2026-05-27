@@ -263,7 +263,7 @@ public class TidalLidarrIndexer(
                 try
                 {
                     // Try to get valid tokens
-                    _ = await authService.GetValidTokensAsync();
+                    _ = await authService.GetValidTokensAsync().ConfigureAwait(false);
                     this._logger.Debug("Tidal authentication session is valid");
                 }
                 catch (InvalidOperationException authEx)
@@ -273,7 +273,7 @@ public class TidalLidarrIndexer(
                     // No valid tokens - try to exchange redirect URL if provided
                     if (hasRedirectUrl)
                     {
-                        bool exchangeResult = await TryExchangeAuthorizationCode(authService, failures);
+                        bool exchangeResult = await TryExchangeAuthorizationCode(authService, failures).ConfigureAwait(false);
                         if (!exchangeResult)
                         {
                             return; // Error already added to failures
@@ -282,7 +282,7 @@ public class TidalLidarrIndexer(
                     else
                     {
                         // No redirect URL - generate auth URL for user
-                        await GenerateOAuthAuthUrl(failures);
+                        await GenerateOAuthAuthUrl(failures).ConfigureAwait(false);
                         return;
                     }
                 }
@@ -292,7 +292,7 @@ public class TidalLidarrIndexer(
             TidalSearchService? searchService = testSp.GetService<TidalSearchService>();
             if (searchService != null)
             {
-                TidalSearchResults testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless);
+                TidalSearchResults testResults = await searchService.SearchWithQualityDetectionAsync("test", TidalQuality.Lossless).ConfigureAwait(false);
                 this._logger.Info($"Test search completed. Found {testResults.Albums?.Count ?? 0} albums.");
             }
 
@@ -349,12 +349,12 @@ public class TidalLidarrIndexer(
             // Like TrevTV's implementation, we skip state validation - it's for CSRF protection
             // which isn't relevant in a manual copy/paste OAuth flow.
             PKCEStateStore pkceStore = new(Settings.ConfigPath);
-            PKCEState? pkceState = await pkceStore.LoadStateAsync();
+            PKCEState? pkceState = await pkceStore.LoadStateAsync().ConfigureAwait(false);
 
             if (pkceState == null)
             {
                 this._logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
-                await GenerateOAuthAuthUrl(failures);
+                await GenerateOAuthAuthUrl(failures).ConfigureAwait(false);
                 return false;
             }
 
@@ -362,13 +362,13 @@ public class TidalLidarrIndexer(
             {
                 this._logger.Warn("OAuth state mismatch - likely a stale URL or different browser tab. Regenerating OAuth URL.");
                 PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
-                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ");
+                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ").ConfigureAwait(false);
                 return false;
             }
 
             // Exchange authorization code for tokens
             this._logger.Info("Exchanging authorization code for tokens...");
-            TidalTokens tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier);
+            TidalTokens tokens = await authService.ExchangeCodeAsync(callbackResult.AuthCode, pkceState.CodeVerifier).ConfigureAwait(false);
 
             if (tokens == null || string.IsNullOrWhiteSpace(tokens.AccessToken))
             {

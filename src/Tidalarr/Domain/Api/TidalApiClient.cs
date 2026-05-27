@@ -41,7 +41,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     public async Task<TidalTrackInfo> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = $"tracks/{trackId}";
         Dictionary<string, string> parameters = new()
         {
@@ -61,19 +61,19 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
-        await ReportRateLimitStatusAsync(response);
+        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalTrackDto? dto = JsonSerializer.Deserialize<TidalTrackDto>(content) ?? throw new InvalidOperationException("Failed to parse track response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(1));
         return MapToTidalTrackInfo(dto);
     }
     public async Task<TidalAlbumInfo> GetAlbumAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = $"albums/{albumId}";
         Dictionary<string, string> parameters = new()
         {
@@ -93,19 +93,19 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope2 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
-        await ReportRateLimitStatusAsync(response);
+        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw2.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalAlbumDto? dto = JsonSerializer.Deserialize<TidalAlbumDto>(content) ?? throw new InvalidOperationException("Failed to parse album response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(2));
         return MapToTidalAlbumInfo(dto);
     }
     public async Task<List<TidalTrackInfo>> GetAlbumTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = $"albums/{albumId}/tracks";
         Dictionary<string, string> parameters = new()
         {
@@ -126,12 +126,12 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
-        await ReportRateLimitStatusAsync(response);
+        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw3.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
         if (dto.items == null)
         {
@@ -143,8 +143,8 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     public async Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
-        TidalAlbumInfo album = await GetAlbumAsync(albumId, cancellationToken);
-        List<TidalTrackInfo> tracks = await GetAlbumTracksAsync(albumId, cancellationToken);
+        TidalAlbumInfo album = await GetAlbumAsync(albumId, cancellationToken).ConfigureAwait(false);
+        List<TidalTrackInfo> tracks = await GetAlbumTracksAsync(albumId, cancellationToken).ConfigureAwait(false);
         return new TidalAlbumInfo(
             Id: album.Id,
             Title: album.Title,
@@ -162,7 +162,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
 
     public async Task<TidalSearchResults> SearchAsync(string query, int limit, string? countryCode, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = "search";
         Dictionary<string, string> parameters = new()
         {
@@ -185,19 +185,19 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope4 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
-        await ReportRateLimitStatusAsync(response);
+        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw4.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalSearchResponseDto? dto = JsonSerializer.Deserialize<TidalSearchResponseDto>(content) ?? throw new InvalidOperationException("Failed to parse search response");
         this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromMinutes(5));
         return MapToTidalSearchResults(dto);
     }
     public async Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = $"tracks/{trackId}/playbackinfopostpaywall";
         Dictionary<string, string> parameters = new()
         {
@@ -213,10 +213,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken);
-        await ReportRateLimitStatusAsync(response);
+        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content) ?? throw new InvalidOperationException("Failed to parse playback info");
         string? encryptionType = dto.encryptionType;
         bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
@@ -252,7 +252,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     // Raw playback-info fetch used by stream service for manifest parsing
     public async Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
-        TidalTokens tokens = await this._authService.GetValidTokensAsync();
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
         string endpoint = $"tracks/{trackId}/playbackinfopostpaywall";
         Dictionary<string, string> parameters = new()
         {
@@ -268,9 +268,9 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken);
+        HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken);
+        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
         return dto ?? throw new InvalidOperationException("Failed to parse playback info");
     }
@@ -278,7 +278,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     {
         try
         {
-            TidalTokens tokens = await this._authService.GetValidTokensAsync();
+            TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
             return !string.IsNullOrEmpty(tokens?.AccessToken);
         }
         catch
@@ -535,11 +535,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
             TimeSpan retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(60);
-            await this._rateLimitReporter.ReportRateLimitAsync(retryAfter);
+            await this._rateLimitReporter.ReportRateLimitAsync(retryAfter).ConfigureAwait(false);
         }
         else if (response.IsSuccessStatusCode && this._rateLimitReporter.Status.IsRateLimited)
         {
-            await this._rateLimitReporter.ReportRateLimitClearedAsync();
+            await this._rateLimitReporter.ReportRateLimitClearedAsync().ConfigureAwait(false);
         }
     }
 

@@ -36,7 +36,7 @@ public class TidalDownloadClient(
     {
         try
         {
-            return await this._apiClient.IsAuthenticatedAsync();
+            return await this._apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -47,7 +47,7 @@ public class TidalDownloadClient(
 
     protected override async Task<StreamingAlbum> GetAlbumAsync(string albumId)
     {
-        TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumWithTracksAsync(albumId);
+        TidalAlbumInfo tidalAlbum = await this._apiClient.GetAlbumWithTracksAsync(albumId).ConfigureAwait(false);
         StreamingAlbum streamingAlbum = this._mapper.ToStreamingAlbum(tidalAlbum)!;
 
         // Ensure tracks are populated in the streaming album
@@ -62,14 +62,14 @@ public class TidalDownloadClient(
 
     protected override async Task<StreamingTrack> GetTrackAsync(string trackId)
     {
-        TidalTrackInfo tidalTrack = await this._apiClient.GetTrackAsync(trackId);
+        TidalTrackInfo tidalTrack = await this._apiClient.GetTrackAsync(trackId).ConfigureAwait(false);
         return this._mapper.ToStreamingTrack(tidalTrack)!;
     }
 
     protected override async Task<string> GetStreamUrlAsync(string trackId, string quality)
     {
         TidalQuality tidalQuality = ParseQualityFromString(quality);
-        TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality);
+        TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
         return streamInfo.ChunkUrls?.FirstOrDefault() ?? string.Empty;
     }
 
@@ -118,11 +118,11 @@ public class TidalDownloadClient(
         try
         {
             // Step 1: Get track metadata
-            StreamingTrack track = await GetTrackAsync(trackId);
+            StreamingTrack track = await GetTrackAsync(trackId).ConfigureAwait(false);
             TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
 
             // Step 2: Prefer parsed manifest for accurate chunks and codec within M4A
-            TidalManifest manifest = await this._streamService.GetParsedManifestAsync(trackId, quality);
+            TidalManifest manifest = await this._streamService.GetParsedManifestAsync(trackId, quality).ConfigureAwait(false);
 
             Logger?.LogInformation($"Downloading track {trackId}: {manifest.Codec} in {manifest.FileExtension} ({manifest.ChunkUrls.Length} chunks)");
 
@@ -135,13 +135,13 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken);
+            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken).ConfigureAwait(false);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
             audioStream.Position = 0;
             byte[] header = new byte[512];
-            int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+            int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken).ConfigureAwait(false);
             if (read <= 0)
             {
                 throw new InvalidDataException("Downloaded stream contained no data.");
@@ -152,8 +152,8 @@ public class TidalDownloadClient(
             audioStream.Position = 0;
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
-                await audioStream.CopyToAsync(fileStream, cancellationToken);
-                await fileStream.FlushAsync(cancellationToken);
+                await audioStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 try { fileStream.Flush(true); } catch { /* best effort */ }
             }
 
@@ -162,7 +162,7 @@ public class TidalDownloadClient(
             if (Settings.ExtractFlac && manifest.Codec == "FLAC")
             {
                 string extractedPath = await TidalAudioFormatHandler.ProcessAudioFileAsync(
-                    tempPath, manifest.Codec, extractFlac: true, keepOriginal: false);
+                    tempPath, manifest.Codec, extractFlac: true, keepOriginal: false).ConfigureAwait(false);
                 finalPath = extractedPath;
             }
 
@@ -230,9 +230,9 @@ public class TidalDownloadClient(
     {
         try
         {
-            StreamingTrack track = await GetTrackAsync(trackId);
+            StreamingTrack track = await GetTrackAsync(trackId).ConfigureAwait(false);
             TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
-            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
 
             string dir2 = Path.GetDirectoryName(outputPath) ?? Path.GetTempPath();
             _ = Directory.CreateDirectory(dir2);
@@ -251,12 +251,12 @@ public class TidalDownloadClient(
                 Settings.DownloadDelay,
                 maxConcurrentChunkDownloads: maxChunks,
                 progress: progress,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             {
                 byte[] header = new byte[512];
-                int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken);
+                int read = await audioStream.ReadAsync(header.AsMemory(0, header.Length), cancellationToken).ConfigureAwait(false);
                 if (read <= 0)
                 {
                     throw new InvalidDataException("Downloaded stream contained no data.");
@@ -264,9 +264,9 @@ public class TidalDownloadClient(
 
                 TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), streamInfo.FileExtension, streamInfo.MimeType);
 
-                await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken);
-                await audioStream.CopyToAsync(fileStream, cancellationToken);
-                await fileStream.FlushAsync(cancellationToken);
+                await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                await audioStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 try { fileStream.Flush(true); } catch { /* best effort */ }
             }
 
@@ -311,8 +311,8 @@ public class TidalDownloadClient(
     {
         try
         {
-            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
-            return await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
+            return await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls).ConfigureAwait(false);
         }
         catch
         {
@@ -329,8 +329,8 @@ public class TidalDownloadClient(
 
         try
         {
-            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality);
-            bool ok = await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls);
+            TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
+            bool ok = await this._chunkDownloader.ValidateChunkAccessibilityAsync(streamInfo.ChunkUrls).ConfigureAwait(false);
             if (!ok)
             {
                 Dictionary<string, string> metaFail = new()
@@ -413,11 +413,11 @@ public class TidalDownloadClient(
     // Legacy support methods
     public async Task<TidalDownloadResult> DownloadTrackAsync(string trackId, TidalQuality? quality = null)
     {
-        TidalTrackInfo track = await this._apiClient.GetTrackAsync(trackId);
+        TidalTrackInfo track = await this._apiClient.GetTrackAsync(trackId).ConfigureAwait(false);
         TidalQuality preferredQuality = quality ?? Settings.PreferredQuality;
         string outputPath = GetTempFilePath(track, ".flac");
 
-        StreamingDownloadResult result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality);
+        StreamingDownloadResult result = await DownloadTrackWithMetadataAsync(trackId, outputPath, preferredQuality).ConfigureAwait(false);
 
         return new TidalDownloadResult
         {

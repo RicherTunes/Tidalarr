@@ -37,7 +37,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     protected override async Task<TidalTokens> PerformAuthenticationAsync(TidalCredentials credentials)
     {
-        TidalTokens tokens = await GetValidTokensAsync();
+        TidalTokens tokens = await GetValidTokensAsync().ConfigureAwait(false);
         return tokens ?? throw new InvalidOperationException("No valid tokens found. Complete OAuth flow first by calling GenerateAuthUrlAsync and ExchangeCodeAsync.");
     }
 
@@ -71,13 +71,13 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     protected override async Task CacheSessionAsync(TidalTokens session)
     {
         this._currentTokens = session;
-        await SaveSessionAsync(session);
+        await SaveSessionAsync(session).ConfigureAwait(false);
     }
 
     protected override async Task ClearCachedSessionAsync()
     {
         this._currentTokens = null;
-        await this._tokenStorage.ClearAsync();
+        await this._tokenStorage.ClearAsync().ConfigureAwait(false);
     }
 
     private Task SaveSessionAsync(TidalTokens session)
@@ -87,7 +87,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     private async Task<TidalTokens?> LoadStoredSessionAsync()
     {
-        TokenEnvelope<TidalTokens>? envelope = await this._tokenStorage.LoadAsync();
+        TokenEnvelope<TidalTokens>? envelope = await this._tokenStorage.LoadAsync().ConfigureAwait(false);
         return envelope?.Session;
     }
 
@@ -101,7 +101,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         string clientUniqueKey = GenerateClientUniqueKey(codeChallenge);
 
         HttpRequestMessage request = BuildTokenExchangeRequest(authCode, codeVerifier, clientUniqueKey);
-        (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request));
+        (bool success, HttpResponseMessage response) = await SafeOperationExecutor.TryExecuteAsync<HttpResponseMessage>(() => this._httpClient.SendAsync(request)).ConfigureAwait(false);
 
         if (!success || response == null)
         {
@@ -110,7 +110,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         if (!response.IsSuccessStatusCode)
         {
-            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             // Detect consumed / expired auth code: Tidal returns 400 invalid_grant when the
             // code has already been used once or has naturally expired.  Surface a plain-English
@@ -125,10 +125,10 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
             throw new HttpRequestException($"Token exchange failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
-        string content = await response.Content.ReadAsStringAsync();
+        string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
         this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens);
+        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
         return this._currentTokens;
     }
 
@@ -136,25 +136,25 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     {
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "OAuthRefresh");
         HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
-        HttpResponseMessage response = await this._httpClient.SendAsync(request);
+        HttpResponseMessage response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
-            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
-        string content = await response.Content.ReadAsStringAsync();
+        string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens);
+        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
         return this._currentTokens;
     }
 
     public async Task LogoutAsync()
     {
         this._currentTokens = null;
-        await this._tokenStorage.ClearAsync();
+        await this._tokenStorage.ClearAsync().ConfigureAwait(false);
     }
 
     public TidalCallbackResult ParseCallbackUrl(string callbackUrl)
@@ -313,14 +313,14 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
             return this._currentTokens;
         }
 
-        TidalTokens? stored = await LoadStoredSessionAsync();
+        TidalTokens? stored = await LoadStoredSessionAsync().ConfigureAwait(false);
         if (stored != null && !stored.IsExpired)
         {
             TidalTokens normalized = EnsureRequiredSessionFields(stored);
             if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
             {
                 // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
-                normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken));
+                normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false));
             }
 
             if (string.IsNullOrWhiteSpace(normalized.SessionId))
@@ -330,7 +330,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
             if (!stored.Equals(normalized))
             {
-                await SaveSessionAsync(normalized);
+                await SaveSessionAsync(normalized).ConfigureAwait(false);
             }
 
             this._currentTokens = normalized;
@@ -339,7 +339,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
         {
-            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
+            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
             TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
             if (string.IsNullOrWhiteSpace(normalized.SessionId))
             {
@@ -348,7 +348,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
             if (!refreshed.Equals(normalized))
             {
-                await SaveSessionAsync(normalized);
+                await SaveSessionAsync(normalized).ConfigureAwait(false);
             }
 
             this._currentTokens = normalized;
@@ -363,7 +363,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     {
         try
         {
-            TidalTokens tokens = await GetValidTokensAsync();
+            TidalTokens tokens = await GetValidTokensAsync().ConfigureAwait(false);
             return tokens.AccessToken;
         }
         catch
@@ -376,13 +376,13 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     {
         try
         {
-            TidalTokens? stored = this._currentTokens ?? await LoadStoredSessionAsync();
+            TidalTokens? stored = this._currentTokens ?? await LoadStoredSessionAsync().ConfigureAwait(false);
             if (stored == null || string.IsNullOrEmpty(stored.RefreshToken))
             {
                 return string.Empty;
             }
 
-            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken);
+            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
             return refreshed.AccessToken;
         }
         catch

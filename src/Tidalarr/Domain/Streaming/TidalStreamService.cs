@@ -31,7 +31,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
     {
         try
         {
-            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality);
+            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality).ConfigureAwait(false);
             TidalManifest parsed = this._manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
             string? encryptionType = playback.encryptionType;
             bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
@@ -56,12 +56,12 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
         catch (NotSupportedException)
         {
             // Fallback for older stubs/implementations
-            return await GetStreamInfoAsync(trackId, quality);
+            return await GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
         }
         catch (Exception)
         {
             // On parse or fetch error, fall back to legacy method as well
-            return await GetStreamInfoAsync(trackId, quality);
+            return await GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
         }
     }
 
@@ -71,7 +71,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
     {
         try
         {
-            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality);
+            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality).ConfigureAwait(false);
             TidalManifest parsed = this._manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
             string? encryptionType = playback.encryptionType;
             bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
@@ -88,7 +88,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
         catch (NotSupportedException)
         {
             // Fallback: build a minimal manifest from legacy stream info
-            TidalStreamInfo info = await GetStreamInfoAsync(trackId, quality);
+            TidalStreamInfo info = await GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
             return new TidalManifest(
                 ChunkUrls: info.ChunkUrls,
                 Codec: "MP4A",
@@ -106,7 +106,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
     {
         try
         {
-            TidalStreamInfo streamInfo = await GetStreamInfoAsync(trackId, quality);
+            TidalStreamInfo streamInfo = await GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
             return streamInfo.ChunkUrls.Any() && !string.IsNullOrEmpty(streamInfo.FileExtension);
         }
         catch
@@ -121,7 +121,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
         TidalQuality[] order = [TidalQuality.HiRes, TidalQuality.Lossless, TidalQuality.High, TidalQuality.Low];
         foreach (TidalQuality q in order)
         {
-            if (await ValidateStreamAvailabilityAsync(trackId, q))
+            if (await ValidateStreamAvailabilityAsync(trackId, q).ConfigureAwait(false))
             {
                 available.Add(q);
             }
