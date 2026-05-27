@@ -361,6 +361,54 @@ public class ChunkDownloaderCovTests
 
     #endregion
 
+    #region Empty Chunk URL Array Validation
+
+    [Fact]
+    public async Task DownloadAndAssembleAsync_EmptyChunkUrls_ThrowsInvalidOperationException()
+    {
+        ConstantHandler handler = new([1, 2, 3]);
+        TidalChunkDownloader downloader = new(new HttpClient(handler));
+
+        TidalManifest manifest = new(
+            ChunkUrls: [],
+            Codec: "flac",
+            MimeType: "audio/mp4",
+            FileExtension: ".flac",
+            SampleRate: 44100,
+            IsEncrypted: false,
+            KeyId: null,
+            SecurityToken: null);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => downloader.DownloadAndAssembleAsync(manifest));
+
+        Assert.Contains("chunk", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DownloadAndAssembleToFileStreamAsync_EmptyChunkUrls_ThrowsInvalidOperationException()
+    {
+        ConstantHandler handler = new([1, 2, 3]);
+        TidalChunkDownloader downloader = new(new HttpClient(handler));
+
+        TidalManifest manifest = new(
+            ChunkUrls: [],
+            Codec: "AAC",
+            MimeType: "audio/mp4",
+            FileExtension: ".m4a",
+            SampleRate: 44100,
+            IsEncrypted: false,
+            KeyId: null,
+            SecurityToken: null);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => downloader.DownloadAndAssembleToFileStreamAsync(manifest));
+
+        Assert.Contains("chunk", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
     #region Cancellation Tests (Lines 39, 130, 266)
 
     [Fact]

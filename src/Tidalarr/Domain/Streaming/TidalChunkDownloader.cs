@@ -41,6 +41,9 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
         IProgress<ChunkDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (manifest.ChunkUrls.Length == 0)
+            throw new InvalidOperationException("Manifest contains no chunk URLs — cannot assemble an empty stream.");
+
         if (manifest.IsEncrypted && string.IsNullOrWhiteSpace(manifest.SecurityToken))
         {
             throw new InvalidOperationException("Encrypted manifest missing security token for decryption.");
@@ -91,6 +94,9 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
         IProgress<ChunkDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (manifest.ChunkUrls.Length == 0)
+            throw new InvalidOperationException("Manifest contains no chunk URLs — cannot assemble an empty stream.");
+
         if (manifest.IsEncrypted && string.IsNullOrWhiteSpace(manifest.SecurityToken))
         {
             throw new InvalidOperationException("Encrypted manifest missing security token for decryption.");
