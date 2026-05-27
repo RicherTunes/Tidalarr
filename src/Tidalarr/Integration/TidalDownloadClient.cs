@@ -323,6 +323,7 @@ public class TidalDownloadClient(
     // Diagnostics-based validation result with stable ID codes (Common result)
     internal async Task<Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>> ValidateDownloadWithDiagnosticsAsync(string trackId, TidalQuality quality)
     {
+        string qualityStr = quality.ToString();
         const string OK = "DL000";              // Validation OK
         const string CHUNK_UNAVAILABLE = "DL001"; // First chunk not accessible
         const string STREAM_ERROR = "DL100";      // Failed to get stream info
@@ -337,7 +338,7 @@ public class TidalDownloadClient(
                 {
                     ["id"] = CHUNK_UNAVAILABLE,
                     ["trackId"] = trackId,
-                    ["quality"] = quality.ToString(),
+                    ["quality"] = qualityStr,
                     ["firstChunk"] = streamInfo.ChunkUrls.FirstOrDefault() ?? string.Empty
                 };
                 return Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Failure(
@@ -352,7 +353,7 @@ public class TidalDownloadClient(
             {
                 ["id"] = OK,
                 ["trackId"] = trackId,
-                ["quality"] = quality.ToString(),
+                ["quality"] = qualityStr,
                 ["chunkCount"] = (streamInfo.ChunkUrls?.Length ?? 0).ToString()
             });
         }
@@ -362,7 +363,7 @@ public class TidalDownloadClient(
             {
                 ["id"] = STREAM_ERROR,
                 ["trackId"] = trackId,
-                ["quality"] = quality.ToString()
+                ["quality"] = qualityStr
             };
             return Lidarr.Plugin.Abstractions.Results.PluginOperationResult<Dictionary<string, string>>.Failure(
                 new Lidarr.Plugin.Abstractions.Results.PluginError(

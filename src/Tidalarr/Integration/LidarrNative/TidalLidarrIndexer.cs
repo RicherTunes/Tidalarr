@@ -569,6 +569,14 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 /// </summary>
 public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger) : IParseIndexerResponse
 {
+    private static readonly Dictionary<TidalQuality, string> QualityNames = new()
+    {
+        [TidalQuality.Low] = nameof(TidalQuality.Low),
+        [TidalQuality.High] = nameof(TidalQuality.High),
+        [TidalQuality.Lossless] = nameof(TidalQuality.Lossless),
+        [TidalQuality.HiRes] = nameof(TidalQuality.HiRes),
+    };
+
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly Logger _logger = logger;
 
@@ -664,7 +672,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 .WithExtraMarker(extraMarker)
                 .WithScheme("tidal")
                 .WithAlbumId(album.Id)
-                .WithQualityHint(quality.ToString())
+                .WithQualityHint(QualityNames.GetValueOrDefault(quality, quality.ToString()))
                 .Build();
 
             yield return new ReleaseInfo
@@ -707,7 +715,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             .WithExtraMarker(extraMarker)
             .WithScheme("tidal")
             .WithAlbumId(album.Id)
-            .WithQualityHint(bestQuality.ToString())
+            .WithQualityHint(QualityNames.GetValueOrDefault(bestQuality, bestQuality.ToString()))
             .Build();
 
         return new ReleaseInfo
