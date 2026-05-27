@@ -48,7 +48,7 @@ permissions:
 jobs:
   e2e:
     name: ✅ Single-Plugin E2E (Schema Gate)
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/multi-plugin-smoke-test.yml@904d5ae60f3e259a2ef1e3c24e998998403597d9
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/multi-plugin-smoke-test.yml@93735957562d4810d5d36073a81f1dbaa47fdc0f
     with:
       test_plugins: 'tidalarr'
       caller_plugin: 'tidalarr'
