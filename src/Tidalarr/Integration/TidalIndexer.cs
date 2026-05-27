@@ -65,14 +65,14 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
         {
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportStatusAsync(IndexerStatus.Authenticating);
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Authenticating).ConfigureAwait(false);
             }
 
-            bool result = await this._apiClient.IsAuthenticatedAsync();
+            bool result = await this._apiClient.IsAuthenticatedAsync().ConfigureAwait(false);
 
             if (result && this._authHandler is not null)
             {
-                await this._authHandler.HandleSuccessAsync();
+                await this._authHandler.HandleSuccessAsync().ConfigureAwait(false);
             }
 
             return result;
@@ -88,12 +88,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
                     ErrorCode = "TIDAL_AUTH",
                     Message = ex.Message,
                     CanReauthenticate = true
-                });
+                }).ConfigureAwait(false);
             }
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportErrorAsync(ex);
+                await this._statusReporter.ReportErrorAsync(ex).ConfigureAwait(false);
             }
 
             return false;
@@ -109,7 +109,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
         {
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm).ConfigureAwait(false);
             }
 
             TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
@@ -121,7 +121,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle);
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle).ConfigureAwait(false);
             }
 
             return albums;
@@ -132,7 +132,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportErrorAsync(ex);
+                await this._statusReporter.ReportErrorAsync(ex).ConfigureAwait(false);
             }
 
             throw;
@@ -153,7 +153,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
         {
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm);
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Searching, searchTerm).ConfigureAwait(false);
             }
 
             TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(searchTerm, TidalQuality.Lossless, Settings.TidalMarket, cancellationToken).ConfigureAwait(false);
@@ -165,7 +165,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle);
+                await this._statusReporter.ReportStatusAsync(IndexerStatus.Idle).ConfigureAwait(false);
             }
 
             return tracks;
@@ -176,7 +176,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportErrorAsync(ex);
+                await this._statusReporter.ReportErrorAsync(ex).ConfigureAwait(false);
             }
 
             throw;
@@ -216,7 +216,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportErrorAsync(ex);
+                await this._statusReporter.ReportErrorAsync(ex).ConfigureAwait(false);
             }
 
             throw;
@@ -321,7 +321,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
     {
         try
         {
-            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless, Settings.TidalMarket);
+            TidalSearchResults results = await this._searchService.SearchWithQualityDetectionAsync(query, TidalQuality.Lossless, Settings.TidalMarket).ConfigureAwait(false);
             return this._mapper.ToStreamingSearchResults(results);
         }
         catch (Exception ex)
@@ -330,7 +330,7 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
 
             if (this._statusReporter is not null)
             {
-                await this._statusReporter.ReportErrorAsync(ex);
+                await this._statusReporter.ReportErrorAsync(ex).ConfigureAwait(false);
             }
 
             throw;
