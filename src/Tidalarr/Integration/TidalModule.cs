@@ -137,7 +137,7 @@ public class TidalModule : StreamingPluginModule
             Microsoft.Extensions.Logging.ILogger? migrationLogger = loggerFactory?.CreateLogger("Tidalarr.Infrastructure.Storage.LegacyTokenMigration");
             try
             {
-                _ = LegacyTokenMigration.MigrateIfPresentAsync(configPath, store, migrationLogger).GetAwaiter().GetResult();
+                _ = Task.Run(() => LegacyTokenMigration.MigrateIfPresentAsync(configPath, store, migrationLogger)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
