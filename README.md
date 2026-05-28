@@ -51,3 +51,12 @@ The CLI now supports named arguments alongside positional ones:
 - download-album: download-album <albumId> <outputDir> or download-album AlbumId=<id> OutputDir=<dir> [Quality=Low|High|Lossless|HiRes]
 
 Unknown keys and invalid values are surfaced with friendly messages, and tests are gated via RUN_REAL_CLI_TESTS=1.
+
+## ⚠️ Disclaimer
+
+Tidalarr is an independent, open-source project developed by RicherTunes for **educational and research purposes** — to study plugin architecture, streaming protocols, and the Lidarr ecosystem.
+
+- **Not affiliated with, authorized, or endorsed by TIDAL.** "TIDAL" and related marks are trademarks of their respective owners; used here descriptively only.
+- Intended for **personal use with your own valid TIDAL subscription**. You are solely responsible for complying with TIDAL's Terms of Service and all laws applicable in your jurisdiction.
+- Provided **"as is", without warranty of any kind; use at your own risk** (see [LICENSE](LICENSE)). The authors accept no liability for misuse or for any consequences of use.
+- Do not use this software to infringe copyright or to access or redistribute content you are not licensed to use.

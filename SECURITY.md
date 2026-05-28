@@ -31,6 +31,17 @@
 - Third-party penetration testing
 - Bug bounty program (future)
 
+## About Embedded Credentials (Not Secrets)
+
+Tidalarr embeds a small set of **well-known, public TIDAL protocol constants** required for the plugin to interoperate with the TIDAL API:
+
+- The TIDAL OAuth client identifiers (`CLIENT_ID`, `CLIENT_ID_PKCE`, `CLIENT_SECRET_PKCE`) — the same fixed values shipped in TIDAL's official clients and used by every interoperable TIDAL tool (e.g. TidalSharp).
+- The shared stream **master key** used by TIDAL's playback format.
+
+These are **not private secrets and not user credentials** — they are fixed, publicly-known, reverse-engineered protocol values present in plain text across many open-source TIDAL projects. They cannot be meaningfully hidden (any client able to use them can also reveal them), so they are intentionally allowlisted in `.gitleaks.toml` to avoid false positives while genuine secrets in the same files are still detected.
+
+**Your private credentials** — your TIDAL OAuth tokens / session — are never committed: they live only in local plugin configuration (`pkce_state.json` + token storage), are encrypted at rest via Lidarr.Plugin.Common, and are gitignored.
+
 ## Vulnerability Disclosure Process
 
 ### 1. Report Received
