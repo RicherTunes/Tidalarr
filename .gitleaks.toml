@@ -24,4 +24,13 @@ regexes = [
     '''user_auth_token=(test|fake|REDACTED|mock)''',
     '''LIDARR_CACHE_KEY''',
     '''LIDARR_API_KEY''',
+    # Public Tidal protocol constants — NOT private secrets. These are the well-known
+    # Tidal OAuth client credentials (must match TidalSharp / every Tidal client) and the
+    # publicly reverse-engineered stream-decryption master key. They are required for the
+    # plugin to function and are hardcoded in every open-source Tidal tool. Allowlisted by
+    # exact value so other (genuinely private) secrets in the same files are still caught.
+    '''6BDSRdpK9hqEBTgU''',
+    '''xeuPmY7nbpZ9IIbLAcQ93shka1VNheUAqN6IcszjTG8=''',
+    '''zU4XHVVkc2tDPo4t''',
+    '''UIlTTEMmmLfGowo/UC60x2H45W6MdGgTRfo/umg4754=''',
 ]
