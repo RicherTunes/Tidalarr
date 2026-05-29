@@ -1,6 +1,11 @@
 param(
     [switch]$SkipPackage,
-    [switch]$IncludeCliTests
+    [switch]$IncludeCliTests,
+    # When set (CI extracts real Lidarr host assemblies via Docker first, matching the
+    # qobuz/apple/brainarr approach), build the FULL solution including the host-bridge
+    # (LidarrNative) classes. Without it, fall back to the host stub + -SkipHostBridge for
+    # local/Docker-less runs, which excludes LidarrNative.
+    [switch]$UseRealHostAssemblies
 )
 
 Set-StrictMode -Version Latest
@@ -20,13 +25,28 @@ try {
     $verifyAssemblies = Join-Path $commonScripts 'verify-assemblies.ps1'
     $verifyPlugin = Join-Path $repoRoot 'scripts/verify-plugin.ps1'
 
-    if (-not (Test-Path $hostOutput) -or -not (Get-ChildItem -Path $hostOutput -Filter *.dll -File -ErrorAction SilentlyContinue)) {
-        Write-Host "Generating host stub assemblies at $hostOutput" -ForegroundColor Cyan
+    $skipHostBridge = -not $UseRealHostAssemblies
+    if ($UseRealHostAssemblies) {
+        Write-Host "Using real Lidarr host assemblies; building full solution (incl. host-bridge/LidarrNative)" -ForegroundColor Cyan
+        if (-not (Test-Path $hostOutput) -or -not (Get-ChildItem -Path $hostOutput -Filter *.dll -File -ErrorAction SilentlyContinue)) {
+            throw "-UseRealHostAssemblies set but no host assemblies found at $hostOutput (extract them first, e.g. via Docker)."
+        }
+    }
+    elseif (-not (Test-Path $hostOutput) -or -not (Get-ChildItem -Path $hostOutput -Filter *.dll -File -ErrorAction SilentlyContinue)) {
+        Write-Host "Generating host stub assemblies at $hostOutput (host-bridge/LidarrNative excluded)" -ForegroundColor Cyan
         & $prepareStub -OutputPath $hostOutput
     }
 
-    Write-Host "Validating host assemblies" -ForegroundColor Cyan
-    & $verifyAssemblies
+    if ($UseRealHostAssemblies) {
+        # verify-assemblies enforces FileVersion == AssemblyVersion, which holds for the
+        # single generated stub but NOT for real Lidarr assemblies (392 DLLs incl. third-party
+        # deps legitimately differ). Skip the stub-integrity check on the real-assembly path.
+        Write-Host "Skipping stub FileVersion==AssemblyVersion check (using real host assemblies)" -ForegroundColor Cyan
+    }
+    else {
+        Write-Host "Validating host stub assemblies" -ForegroundColor Cyan
+        & $verifyAssemblies
+    }
 
     Write-Host "Verifying plugin manifest alignment" -ForegroundColor Cyan
     & $verifyPlugin
@@ -34,9 +54,15 @@ try {
     Write-Host "Restoring solution" -ForegroundColor Cyan
     dotnet restore "$repoRoot/Tidalarr.sln"
 
-    Write-Host "Building plugin (Release configuration)" -ForegroundColor Cyan
-    # SkipHostBridge excludes LidarrNative files that require Lidarr host assemblies
-    & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false -SkipHostBridge
+    Write-Host "Building plugin (Release configuration; SkipHostBridge=$skipHostBridge)" -ForegroundColor Cyan
+    if ($skipHostBridge) {
+        # Stub mode: exclude LidarrNative files that require real Lidarr host assemblies
+        & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false -SkipHostBridge
+    }
+    else {
+        # Real host assemblies present: full build including host-bridge (LidarrNative)
+        & "$repoRoot/build.ps1" -Configuration Release -NoBuild:$false
+    }
 
     # Produce package via shared PluginPack so CLI-scope packaging tests can validate the artifact
     try {
@@ -66,10 +92,11 @@ try {
     # Build hardening: -m:1 prevents parallel MSBuild nodes from file-locking shared obj/ files.
     $env:DOTNET_CLI_DISABLE_BUILD_SERVERS = "1"
     $env:MSBUILDDISABLENODEREUSE = "1"
-    Write-Host "Building test project with SkipHostBridge + build hardening..." -ForegroundColor Cyan
+    $hb = if ($skipHostBridge) { 'true' } else { 'false' }
+    Write-Host "Building test project (SkipHostBridge=$hb) + build hardening..." -ForegroundColor Cyan
     dotnet build $testProject -c Release --no-restore -v minimal `
         -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false `
-        -p:SkipHostBridge=true -p:ExcludeHostBridge=true `
+        -p:SkipHostBridge=$hb -p:ExcludeHostBridge=$hb `
         /m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false
 
     $testArgs = @{
