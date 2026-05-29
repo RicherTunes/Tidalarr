@@ -139,6 +139,9 @@ public class TidalLidarrIndexer(
         IIndexerRequestGenerator requestGenerator = GetRequestGenerator();
         IndexerPageableRequestChain requestChain = pageableRequestChainSelector(requestGenerator);
 
+        int attempted = 0;
+        int succeeded = 0;
+        Exception? lastError = null;
         foreach (IndexerPageableRequest? tier in requestChain.GetAllTiers())
         {
             foreach (IndexerRequest? request in tier)
@@ -150,11 +153,13 @@ public class TidalLidarrIndexer(
                     continue;
                 }
 
+                attempted++;
                 try
                 {
                     TidalSearchResults searchResults = await searchService
                         .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
                         .ConfigureAwait(false);
+                    succeeded++;
 
                     if (searchResults.Albums == null || searchResults.Albums.Count == 0)
                     {
@@ -173,10 +178,21 @@ public class TidalLidarrIndexer(
                 }
                 catch (Exception ex)
                 {
+                    lastError = ex;
                     RecordAuthOutcomeFromException(sp, ex);
                     this._logger.Warn(ex, "Tidal search failed for query: {0}", query);
                 }
             }
+        }
+
+        // If EVERY attempted query threw, surface the failure instead of a misleading empty
+        // result — otherwise Lidarr can't distinguish "no matches" from "all search calls failed".
+        // A query that returns no albums does NOT throw, so genuine empty results are unaffected.
+        if (attempted > 0 && succeeded == 0 && lastError is not null)
+        {
+            throw new InvalidOperationException(
+                $"All {attempted} Tidal search request(s) failed; surfacing the error instead of an empty result.",
+                lastError);
         }
 
         this._logger.Debug("Total releases before dedup: {0}", releases.Count);
