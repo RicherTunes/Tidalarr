@@ -13,11 +13,16 @@
   </PropertyGroup>
 
   <!-- SkipHostBridge: Exclude Lidarr-native files in hostless/CI builds.
-       Auto-detect: when host stub assemblies are not present, skip host bridge automatically.
+       Auto-detect: when host assemblies are not present at EITHER supported path,
+       skip the host bridge automatically. The two paths mirror the csproj's
+       $(LidarrAssembliesPath) probe order (ext/Lidarr first, then the
+       ext/Lidarr-docker fallback used by Common's reusable packaging-gates),
+       so that when real assemblies are extracted to the docker path the full
+       solution (incl. LidarrNative) still builds.
        This allows PluginPack (packaging-gates CI) to build without prepare-host-stub.ps1.
        Explicit -p:SkipHostBridge=true/false always takes precedence. -->
   <PropertyGroup>
-    <SkipHostBridge Condition="'$(SkipHostBridge)' == '' AND !Exists('$(MSBuildThisFileDirectory)ext\Lidarr\_output\net8.0\Lidarr.dll')">true</SkipHostBridge>
+    <SkipHostBridge Condition="'$(SkipHostBridge)' == '' AND !Exists('$(MSBuildThisFileDirectory)ext\Lidarr\_output\net8.0\Lidarr.dll') AND !Exists('$(MSBuildThisFileDirectory)ext\Lidarr-docker\_output\net8.0\Lidarr.dll')">true</SkipHostBridge>
   </PropertyGroup>
   <PropertyGroup Condition="'$(SkipHostBridge)' == 'true'">
     <!-- Exclude LidarrNative folder from compilation (must be set before SDK implicit includes)
