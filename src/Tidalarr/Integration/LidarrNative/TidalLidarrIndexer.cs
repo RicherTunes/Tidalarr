@@ -683,7 +683,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
                 Album = albumTitle,
                 PublishDate = releaseDate,
                 DownloadUrl = downloadUrl,
-                InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
+                InfoUrl = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}",
                 Size = EstimateAlbumSize(album, quality),
                 DownloadProtocol = nameof(TidalarrDownloadProtocol)
             };
@@ -727,7 +727,7 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
             Album = albumTitle,
             PublishDate = releaseDate,
             DownloadUrl = downloadUrl,
-            InfoUrl = $"https://tidal.com/browse/album/{album.Id}",
+            InfoUrl = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}",
             Size = EstimateAlbumSize(album, bestQuality)
         };
     }
