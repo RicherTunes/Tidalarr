@@ -26,11 +26,18 @@ if (-not $commonVersionMatch) {
 }
 $commonVersion = $commonVersionMatch.Matches[0].Groups['ver'].Value.Trim()
 
-$moduleVersionMatch = Select-String -Path $modulePath -Pattern 'public new const string Version = "(?<ver>[^"\\]+)"' | Select-Object -First 1
-if (-not $moduleVersionMatch) {
-    throw "Unable to read Version constant from TidalModule.cs"
+# TidalModule.Version is derived from the assembly version at runtime (no hardcoded
+# const — see TidalModule.cs, which deliberately removed the literal to stop version
+# drift). The canonical declared version is the top-level VERSION file that flows
+# VERSION -> Directory.Build.props -> assembly -> plugin.json.
+$versionFile = Join-Path $repoRoot 'VERSION'
+if (-not (Test-Path $versionFile)) {
+    throw "VERSION file not found at $versionFile"
 }
-$moduleVersion = $moduleVersionMatch.Matches[0].Groups['ver'].Value.Trim()
+$moduleVersion = (Get-Content -Path $versionFile -Raw).Trim()
+if (-not $moduleVersion) {
+    throw "VERSION file is empty"
+}
 
 $hostVersionTarget = '3.0.0.4855'
 $apiMajorPattern = '^1\.x$'
@@ -40,7 +47,7 @@ if (-not $manifest.version) {
     $errors += 'plugin.json missing version field.'
 }
 elseif ($manifest.version -ne $moduleVersion) {
-    $errors += "plugin.json version '$($manifest.version)' does not match TidalModule.Version '$moduleVersion'."
+    $errors += "plugin.json version '$($manifest.version)' does not match VERSION file '$moduleVersion'."
 }
 
 if (-not $manifest.commonVersion) {
