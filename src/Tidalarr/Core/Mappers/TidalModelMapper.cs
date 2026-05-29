@@ -98,7 +98,7 @@ public class TidalModelMapper
             },
             ExternalUrls = new Dictionary<string, string>
             {
-                ["tidal"] = $"https://tidal.com/browse/album/{album.Id}"
+                ["tidal"] = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}"
             },
             Metadata = new Dictionary<string, object>
             {
