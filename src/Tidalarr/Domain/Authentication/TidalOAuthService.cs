@@ -20,6 +20,12 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     private readonly ITokenStore<TidalTokens> _tokenStorage = tokenStorage ?? new FailOnIOTokenStore<TidalTokens>();
     private TidalTokens? _currentTokens;
 
+    // Single-flight gate: serializes token load/refresh so concurrent callers don't each fire a
+    // refresh. Tidal rotates the refresh token on use, so parallel refreshes race and invalidate
+    // one another (TOCTOU). SemaphoreSlim (no AvailableWaitHandle use) holds no unmanaged handle,
+    // so the long-lived auth service has nothing to dispose.
+    private readonly System.Threading.SemaphoreSlim _refreshGate = new(1, 1);
+
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStore<TidalTokens>? tokenStorage = null)
         : this(httpClient, tokenStorage) { }
@@ -308,54 +314,72 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     public async Task<TidalTokens> GetValidTokensAsync()
     {
+        // Fast path: a valid cached token needs no lock.
         if (this._currentTokens != null && !this._currentTokens.IsExpired)
         {
             return this._currentTokens;
         }
 
-        TidalTokens? stored = await LoadStoredSessionAsync().ConfigureAwait(false);
-        if (stored != null && !stored.IsExpired)
+        // Single-flight: only one caller loads/refreshes at a time. Callers that arrive while a
+        // refresh is in flight wait here, then re-use the result via the re-check below — instead
+        // of each firing their own refresh and racing Tidal's refresh-token rotation (TOCTOU).
+        await _refreshGate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            TidalTokens normalized = EnsureRequiredSessionFields(stored);
-            if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
+            // Re-check under the gate: another caller may have just populated _currentTokens.
+            if (this._currentTokens != null && !this._currentTokens.IsExpired)
             {
-                // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
-                normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false));
+                return this._currentTokens;
             }
 
-            if (string.IsNullOrWhiteSpace(normalized.SessionId))
+            TidalTokens? stored = await LoadStoredSessionAsync().ConfigureAwait(false);
+            if (stored != null && !stored.IsExpired)
             {
-                throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+                TidalTokens normalized = EnsureRequiredSessionFields(stored);
+                if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
+                {
+                    // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
+                    normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false));
+                }
+
+                if (string.IsNullOrWhiteSpace(normalized.SessionId))
+                {
+                    throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+                }
+
+                if (!stored.Equals(normalized))
+                {
+                    await SaveSessionAsync(normalized).ConfigureAwait(false);
+                }
+
+                this._currentTokens = normalized;
+                return normalized;
             }
 
-            if (!stored.Equals(normalized))
+            if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
             {
-                await SaveSessionAsync(normalized).ConfigureAwait(false);
+                TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
+                TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
+                if (string.IsNullOrWhiteSpace(normalized.SessionId))
+                {
+                    throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
+                }
+
+                if (!refreshed.Equals(normalized))
+                {
+                    await SaveSessionAsync(normalized).ConfigureAwait(false);
+                }
+
+                this._currentTokens = normalized;
+                return normalized;
             }
 
-            this._currentTokens = normalized;
-            return normalized;
+            throw new InvalidOperationException("Not authenticated");
         }
-
-        if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
+        finally
         {
-            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
-            TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
-            if (string.IsNullOrWhiteSpace(normalized.SessionId))
-            {
-                throw new InvalidOperationException("Not authenticated (missing session identifier). Re-authenticate Tidalarr.");
-            }
-
-            if (!refreshed.Equals(normalized))
-            {
-                await SaveSessionAsync(normalized).ConfigureAwait(false);
-            }
-
-            this._currentTokens = normalized;
-            return normalized;
+            _refreshGate.Release();
         }
-
-        throw new InvalidOperationException("Not authenticated");
     }
 
     // IStreamingTokenProvider implementation for shared OAuth handler
