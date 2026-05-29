@@ -120,8 +120,9 @@ jobs:
       - name: Sync-over-async guard
         shell: pwsh
         run: |
-          $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
-          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode $mode
+          # PRs and pushes both hard-fail on violations; the script's strict mode is 'ci'
+          # (it only accepts 'interactive' or 'ci' — 'pr' was rejected by its ValidateSet).
+          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode ci
 
       - name: Setup Lidarr host assemblies (Docker, plugins branch)
         shell: bash
