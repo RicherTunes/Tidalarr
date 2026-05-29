@@ -158,7 +158,7 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
         return ms.ToArray();
     }
 
-    public async Task<bool> ValidateChunkAccessibilityAsync(string[] chunkUrls)
+    public async Task<bool> ValidateChunkAccessibilityAsync(string[] chunkUrls, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -167,8 +167,12 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
                 return false;
             }
 
-            using HttpResponseMessage response = await this._httpClient.GetAsync(chunkUrls[0], HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            using HttpResponseMessage response = await this._httpClient.GetAsync(chunkUrls[0], HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -179,9 +183,9 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
     /// <summary>
     /// Validate chunk accessibility for new TidalStreamManifest format
     /// </summary>
-    public async Task<bool> ValidateChunkAccessibilityAsync(TidalStreamManifest manifest)
+    public async Task<bool> ValidateChunkAccessibilityAsync(TidalStreamManifest manifest, CancellationToken cancellationToken = default)
     {
-        return await ValidateChunkAccessibilityAsync(manifest.ChunkUrls).ConfigureAwait(false);
+        return await ValidateChunkAccessibilityAsync(manifest.ChunkUrls, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Stream> DownloadAndAssembleToFileStreamCoreAsync(
