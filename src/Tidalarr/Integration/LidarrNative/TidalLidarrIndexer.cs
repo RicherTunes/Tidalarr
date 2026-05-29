@@ -459,52 +459,21 @@ public class TidalLidarrIndexer(
     // ------------------------------------------------------------------ //
 
     private static bool IsAuthShortCircuited(IServiceProvider sp)
-    {
-        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
-        if (gate is null) return false;
-        if (gate.IsHealthy) return false;
-        // TryAcquireProbeSlot has a side effect — it consumes the per-60s
-        // probe slot. Apple's pattern names this method without surfacing the
-        // side effect; we preserve the name for ecosystem consistency.
-        return !gate.TryAcquireProbeSlot();
-    }
+        => sp.GetService<AuthFailureGate>()?.ShouldShortCircuit() ?? false;
 
     private static void RecordAuthOutcomeFromException(IServiceProvider sp, Exception ex)
-    {
-        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
-        if (gate is null) return;
-        if (!LooksLikeAuthFailure(ex)) return;
+        => sp.GetService<AuthFailureGate>()?.RecordExceptionOutcome(ex, ClassifyAuthFailure);
 
-        var failure = new AuthFailure
-        {
-            ErrorCode = (ex as System.Net.Http.HttpRequestException)?.StatusCode?.ToString(),
-            Message = ex.Message,
-        };
-        // SYNC-OVER-ASYNC (Category A): hop to thread-pool before blocking on
-        // the ValueTask. Without the hop, an ASP.NET-style single-threaded
-        // SynchronizationContext (Lidarr's host) deadlocks because the async
-        // continuation inside HandleFailureAsync is posted back to the same
-        // blocked context. Matches apple's pattern.
-        Task.Run(() => gate.Handler.HandleFailureAsync(failure).AsTask())
-            .GetAwaiter().GetResult();
-    }
-
-    private static bool LooksLikeAuthFailure(Exception ex)
-    {
-        // 401/403 is the canonical auth-failure signal. Tidal's auth-token-
-        // expired path surfaces via HttpRequestException with these status
-        // codes (see TidalOAuthService.RefreshTokensAsync which throws
-        // HttpRequestException on non-success). TidalInvalidGrantException
-        // is intentionally NOT classified here — it triggers the "paste a
-        // fresh redirect URL" UX which is a different recovery path.
-        if (ex is System.Net.Http.HttpRequestException hre &&
-            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized
-                           or System.Net.HttpStatusCode.Forbidden)
-        {
-            return true;
-        }
-        return false;
-    }
+    // The only service-specific part: 401/403 latch the gate. TidalInvalidGrantException
+    // is intentionally NOT classified here — it drives the "paste a fresh redirect URL"
+    // UX, a different recovery path. The short-circuit logic and the Category-A
+    // sync-over-async hop now live in Common's AuthFailureGate (ShouldShortCircuit /
+    // RecordExceptionOutcome), lifted from the byte-identical apple/qobuz/tidal helpers.
+    private static AuthFailure? ClassifyAuthFailure(Exception ex)
+        => ex is System.Net.Http.HttpRequestException hre
+           && hre.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden
+            ? new AuthFailure { ErrorCode = hre.StatusCode?.ToString(), Message = ex.Message }
+            : null;
 }
 
 /// <summary>

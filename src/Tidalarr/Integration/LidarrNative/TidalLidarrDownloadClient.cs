@@ -469,39 +469,19 @@ public class TidalLidarrDownloadClient(
     // ------------------------------------------------------------------ //
 
     private static bool IsAuthShortCircuited(IServiceProvider sp)
-    {
-        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
-        if (gate is null) return false;
-        if (gate.IsHealthy) return false;
-        return !gate.TryAcquireProbeSlot();
-    }
+        => sp.GetService<AuthFailureGate>()?.ShouldShortCircuit() ?? false;
 
     private static void RecordAuthOutcomeFromException(IServiceProvider sp, Exception ex)
-    {
-        AuthFailureGate? gate = sp.GetService<AuthFailureGate>();
-        if (gate is null) return;
-        if (!LooksLikeAuthFailure(ex)) return;
+        => sp.GetService<AuthFailureGate>()?.RecordExceptionOutcome(ex, ClassifyAuthFailure);
 
-        var failure = new Lidarr.Plugin.Abstractions.Contracts.AuthFailure
-        {
-            ErrorCode = (ex as System.Net.Http.HttpRequestException)?.StatusCode?.ToString(),
-            Message = ex.Message,
-        };
-        // SYNC-OVER-ASYNC (Category A): thread-pool hop avoids host-context deadlock.
-        Task.Run(() => gate.Handler.HandleFailureAsync(failure).AsTask())
-            .GetAwaiter().GetResult();
-    }
-
-    private static bool LooksLikeAuthFailure(Exception ex)
-    {
-        if (ex is System.Net.Http.HttpRequestException hre &&
-            hre.StatusCode is System.Net.HttpStatusCode.Unauthorized
-                           or System.Net.HttpStatusCode.Forbidden)
-        {
-            return true;
-        }
-        return false;
-    }
+    // Service-specific classifier — 401/403 latch the gate. The short-circuit logic and
+    // the Category-A sync-over-async hop now live in Common's AuthFailureGate
+    // (ShouldShortCircuit / RecordExceptionOutcome).
+    private static Lidarr.Plugin.Abstractions.Contracts.AuthFailure? ClassifyAuthFailure(Exception ex)
+        => ex is System.Net.Http.HttpRequestException hre
+           && hre.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden
+            ? new Lidarr.Plugin.Abstractions.Contracts.AuthFailure { ErrorCode = hre.StatusCode?.ToString(), Message = ex.Message }
+            : null;
 }
 
 // TidalDownloadItem removed — replaced by Lidarr.Plugin.Common.HostBridge.HostBridgeDownloadItem
