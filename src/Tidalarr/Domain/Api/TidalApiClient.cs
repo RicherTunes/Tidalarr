@@ -534,7 +534,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
 
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            TimeSpan retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(60);
+            // Common's parser handles both the delta-seconds and HTTP-date forms of
+            // Retry-After (the old `?.Delta` only handled delta-seconds, silently dropping
+            // a server-sent absolute date and falling back to 60s). Zero => no usable hint.
+            TimeSpan resolved = RateLimitHeaderUtilities.ResolveRetryAfter(response.Headers.RetryAfter);
+            TimeSpan retryAfter = resolved > TimeSpan.Zero ? resolved : TimeSpan.FromSeconds(60);
             await this._rateLimitReporter.ReportRateLimitAsync(retryAfter).ConfigureAwait(false);
         }
         else if (response.IsSuccessStatusCode && this._rateLimitReporter.Status.IsRateLimited)
