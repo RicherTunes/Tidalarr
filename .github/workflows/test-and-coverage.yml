@@ -69,18 +69,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Prepare host stub assemblies
-        shell: pwsh
+      - name: Setup Lidarr host assemblies (Docker, plugins branch)
+        shell: bash
         run: |
-          $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
-          $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
-          if (Test-Path $commonScripts) {
-            $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
-            if (Test-Path $prepareStub) {
-              Write-Host "Generating host stub assemblies..."
-              & $prepareStub -OutputPath $hostOutput
-            }
-          }
+          set -e
+          mkdir -p ext/Lidarr/_output/net8.0
+          if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
+          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
+          n=0; until [ "$n" -ge 3 ]; do docker pull "$IMAGE" && break; n=$((n+1)); echo "pull failed ($n), retry in 10s"; sleep 10; done
+          cid=$(docker create "$IMAGE")
+          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+          docker rm "$cid" >/dev/null
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
+          test -f ext/Lidarr/_output/net8.0/Lidarr.dll || { echo "::error::Lidarr.dll missing after extraction"; exit 1; }
+          echo "Extracted $(ls ext/Lidarr/_output/net8.0/*.dll | wc -l) host assemblies"
 
       - name: Restore and build
         shell: bash
@@ -89,17 +91,16 @@ jobs:
           dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
             -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
-      # Pre-build with HostBridge exclusion: the unified runner (test.ps1)
-      # only passes -Properties to dotnet test, not to the build phase.
-      # Without this step, HostBridge tries to resolve Lidarr.Core host
-      # assemblies that aren't present with stub-only setup.
-      - name: Build test project (exclude HostBridge)
+      # Pre-build the test project so the unified runner can run with -NoBuild.
+      # Real Lidarr host assemblies were extracted above, so we build the FULL
+      # solution including the host-bridge (LidarrNative) — matching ci.yml and
+      # the qobuz/apple/brainarr approach (no SkipHostBridge stub exclusion).
+      - name: Build test project
         shell: bash
         run: |
           dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
             --configuration Release -v minimal \
-            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
-            -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+            -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
       - name: Run tests with coverage (unified runner)
         shell: pwsh
@@ -117,8 +118,7 @@ jobs:
             -CI `
             -NoBuild `
             -OutputDir 'TestResults' `
-            -AdditionalFilter 'scope!=cli' `
-            -Properties @('SkipHostBridge=true')
+            -AdditionalFilter 'scope!=cli'
 
       - name: Install ReportGenerator
         shell: bash
@@ -185,18 +185,20 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Prepare host stub assemblies
-        shell: pwsh
+      - name: Setup Lidarr host assemblies (Docker, plugins branch)
+        shell: bash
         run: |
-          $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
-          $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
-          if (Test-Path $commonScripts) {
-            $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
-            if (Test-Path $prepareStub) {
-              Write-Host "Generating host stub assemblies..."
-              & $prepareStub -OutputPath $hostOutput
-            }
-          }
+          set -e
+          mkdir -p ext/Lidarr/_output/net8.0
+          if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
+          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
+          n=0; until [ "$n" -ge 3 ]; do docker pull "$IMAGE" && break; n=$((n+1)); echo "pull failed ($n), retry in 10s"; sleep 10; done
+          cid=$(docker create "$IMAGE")
+          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+          docker rm "$cid" >/dev/null
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
+          test -f ext/Lidarr/_output/net8.0/Lidarr.dll || { echo "::error::Lidarr.dll missing after extraction"; exit 1; }
+          echo "Extracted $(ls ext/Lidarr/_output/net8.0/*.dll | wc -l) host assemblies"
 
       - name: Restore and build
         shell: bash
