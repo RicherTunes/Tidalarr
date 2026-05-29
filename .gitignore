@@ -282,3 +282,15 @@ test-plugin/
 package-release/
 release-notes.md
 
+
+# --- Pre-publication secret hardening (never commit credentials/keys/tokens) ---
+*.pem
+*.p8
+*.p12
+*.pfx
+*.key
+session.json
+*.session.json
+pkce_state.json
+.aeskey
+*.trx
