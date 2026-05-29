@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   packaging-gates:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@c2aca69b8c94bbba2ff9a4884291f0cc501eb623
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@90dd9494fab34d367f6bf205cf25f3a4454bb005
     with:
       common-path: ext/Lidarr.Plugin.Common
       plugin-csproj: src/Tidalarr/Tidalarr.csproj
@@ -35,5 +35,9 @@ jobs:
       host-assemblies-path: ext/Lidarr-docker/_output/net8.0
       lidarr-docker-version: pr-plugins-3.1.2.4913
       plugin-load-gate: true
+      # Tidalarr internalizes Abstractions via ILRepack (release ships no
+      # sidecar; expected-contents.txt forbids it), so opt out of the canonical
+      # Abstractions sidecar gate. See Common #549.
+      require-canonical-abstractions: false
     secrets:
       submodules-token: ${{ secrets.CROSS_REPO_PAT }}
