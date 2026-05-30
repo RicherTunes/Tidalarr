@@ -9,6 +9,9 @@ on:
       - "Nightly"
       - "Nightly Live"
       - "CodeQL Security Analysis"
+      - "Test and Coverage"
+      - "Packaging Gates"
+      - "Docker E2E"
     types:
       - completed
 
