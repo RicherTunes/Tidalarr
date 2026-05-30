@@ -166,6 +166,10 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddScoped<TidalStreamService>();
         _ = services.AddScoped<TidalChunkStreamProvider>();
         _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        // Singleton so the LRCLIB HttpClient (owned by LrclibClient) is reused across downloads and
+        // disposed on container teardown. Injected into TidalAudioPostProcessor, which only invokes it
+        // when SaveSyncedLyrics + UseLRCLIB are both enabled.
+        _ = services.AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher());
         _ = services.AddScoped<IAudioPostProcessor, TidalAudioPostProcessor>();
         _ = services.AddSingleton<IDownloadTelemetrySink, TidalDownloadTelemetrySink>();
 
