@@ -76,7 +76,7 @@ jobs:
           mkdir -p ext/Lidarr/_output/net8.0
           if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
           IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
-          n=0; until [ "$n" -ge 3 ]; do docker pull "$IMAGE" && break; n=$((n+1)); echo "pull failed ($n), retry in 10s"; sleep 10; done
+          n=0; until docker pull "$IMAGE"; do n=$((n+1)); if [ "$n" -ge 3 ]; then echo "::error::docker pull failed after $n attempts ($IMAGE)"; exit 1; fi; echo "pull failed ($n), retry in 10s"; sleep 10; done
           cid=$(docker create "$IMAGE")
           docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
           docker rm "$cid" >/dev/null
@@ -192,7 +192,7 @@ jobs:
           mkdir -p ext/Lidarr/_output/net8.0
           if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
           IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
-          n=0; until [ "$n" -ge 3 ]; do docker pull "$IMAGE" && break; n=$((n+1)); echo "pull failed ($n), retry in 10s"; sleep 10; done
+          n=0; until docker pull "$IMAGE"; do n=$((n+1)); if [ "$n" -ge 3 ]; then echo "::error::docker pull failed after $n attempts ($IMAGE)"; exit 1; fi; echo "pull failed ($n), retry in 10s"; sleep 10; done
           cid=$(docker create "$IMAGE")
           docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
           docker rm "$cid" >/dev/null
