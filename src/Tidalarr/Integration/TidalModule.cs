@@ -173,7 +173,11 @@ public class TidalModule : StreamingPluginModule
         // LRCLIB-fallback gate.
         _ = services.AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher());
         _ = services.AddScoped<IAudioPostProcessor, TidalAudioPostProcessor>();
-        _ = services.AddSingleton<IDownloadTelemetrySink, TidalDownloadTelemetrySink>();
+        // Canonical download telemetry: Common's LoggingDownloadTelemetrySink renders the rich
+        // per-track line (artist/album/track/format/quality/size) + [LPC_TELEMETRY] marker via the
+        // shared DownloadTelemetryService. Replaces the deleted plugin-local TidalDownloadTelemetrySink
+        // so the log format lives in exactly one file across the ecosystem.
+        _ = services.AddDownloadTelemetry();
 
         // Application services
         _ = services.AddScoped<TidalSearchService>();
