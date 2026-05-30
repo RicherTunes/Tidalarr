@@ -27,6 +27,12 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     [Fact] public void Check_PluginManifest_Capabilities_HaveBackingTypes_Test() => Assert.True(Check_PluginManifest_Capabilities_HaveBackingTypes().Passed, string.Join("; ", Check_PluginManifest_Capabilities_HaveBackingTypes().Errors));
     [Fact] public void Check_NoFluentValidation_ErrorsApi_Drift_Test() => Assert.True(Check_NoFluentValidation_ErrorsApi_Drift().Passed, string.Join("; ", Check_NoFluentValidation_ErrorsApi_Drift().Errors));
     [Fact] public void Check_UsesCommonPluginConfigRoots_Test() => Assert.True(Check_UsesCommonPluginConfigRoots().Passed, string.Join("; ", Check_UsesCommonPluginConfigRoots().Errors));
+    [Fact] public void Check_UsesCommonDownloadTelemetrySink_Test() => Assert.True(Check_UsesCommonDownloadTelemetrySink().Passed, string.Join("; ", Check_UsesCommonDownloadTelemetrySink().Errors));
+    [Fact] public void Check_UsesCommonLyricsEnricher_Test() => Assert.True(Check_UsesCommonLyricsEnricher().Passed, string.Join("; ", Check_UsesCommonLyricsEnricher().Errors));
+    [Fact] public void Check_UsesCommonDiagnosticTypes_Test() => Assert.True(Check_UsesCommonDiagnosticTypes().Passed, string.Join("; ", Check_UsesCommonDiagnosticTypes().Errors));
+    [Fact] public void Check_DownloadClientUsesPathTraversalGuard_Test() => Assert.True(Check_DownloadClientUsesPathTraversalGuard().Passed, string.Join("; ", Check_DownloadClientUsesPathTraversalGuard().Errors));
+    [Fact] public void Check_FileClassNameParity_Test() => Assert.True(Check_FileClassNameParity().Passed, string.Join("; ", Check_FileClassNameParity().Errors));
+    [Fact] public void Check_ClaudeMdDocumentsCommonHelpers_Test() => Assert.True(Check_ClaudeMdDocumentsCommonHelpers().Passed, string.Join("; ", Check_ClaudeMdDocumentsCommonHelpers().Errors));
 
     [Fact] public void DirectoryBuildProps_Exists_Test() => Assert.True(DirectoryBuildProps_Exists().Passed, string.Join("; ", DirectoryBuildProps_Exists().Errors));
     [Fact] public void DirectoryBuildProps_HasILRepackDisabled_Test() => Assert.True(DirectoryBuildProps_HasILRepackDisabled().Passed, string.Join("; ", DirectoryBuildProps_HasILRepackDisabled().Errors));
