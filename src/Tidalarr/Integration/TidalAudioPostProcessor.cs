@@ -97,12 +97,15 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
 
         try
         {
+            // `track` is a non-nullable parameter (guaranteed by PostProcessAsync's contract), so
+            // null-conditionals on `track` itself are redundant; the inner `?.` guards the genuinely
+            // nullable sub-properties (Artist/Album/Duration).
             await _lyricsEnricher.TryEnrichAsync(
                 audioFilePath,
-                track?.Artist?.Name ?? string.Empty,
-                track?.Title ?? string.Empty,
-                track?.Album?.Title ?? string.Empty,
-                (int)(track?.Duration?.TotalSeconds ?? 0),
+                track.Artist?.Name ?? string.Empty,
+                track.Title ?? string.Empty,
+                track.Album?.Title ?? string.Empty,
+                (int)(track.Duration?.TotalSeconds ?? 0),
                 allowLrclibFallback: _settings.UseLRCLIB,
                 cancellationToken).ConfigureAwait(false);
         }
