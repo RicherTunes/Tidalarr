@@ -120,8 +120,10 @@ jobs:
       - name: Sync-over-async guard
         shell: pwsh
         run: |
-          $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
-          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode $mode
+          # lint-sync-over-async.ps1 only accepts -Mode interactive|ci; 'pr' tripped its
+          # ValidateSet and failed this step on every pull_request. CI wants fail-hard ('ci')
+          # for both PR and push (matches brainarr's invocation).
+          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode ci
 
       - name: Setup Lidarr host assemblies (Docker, plugins branch)
         shell: bash
