@@ -15,25 +15,10 @@ internal static class TidalHealthDiagnostics
     private const string ProviderName = "tidal";
     private const string AuthMethodName = "oauth";
 
-    /// <summary>
-    /// Delegates to <see cref="Codes"/> for ecosystem-wide parity.
-    /// Local alias kept to minimize downstream churn.
-    /// </summary>
-    public static class ErrorCodes
-    {
-        public const string AuthFailed = Codes.AuthFailed;
-        public const string ConnectionFailed = Codes.ConnectionFailed;
-        public const string ValidationFailed = Codes.ValidationFailed;
-    }
-
-    /// <summary>
-    /// Well-known diagnostic types emitted by Tidal diagnostics.
-    /// </summary>
-    public static class DiagnosticTypes
-    {
-        public const string AuthValidate = "auth_validate";
-        public const string StreamProbe = "stream_probe";
-    }
+    // Diagnostic-type identifiers (DiagnosticTypes.*) and error codes (Codes.* =
+    // DiagnosticErrorCodes) now come from Common — the per-plugin ErrorCodes/DiagnosticTypes
+    // nested classes that re-declared identical values were removed to eliminate cross-plugin
+    // divergence. See Lidarr.Plugin.Common.Abstractions.Diagnostics.{DiagnosticTypes,DiagnosticErrorCodes}.
 
     /// <summary>
     /// Well-known capabilities reported by Tidal diagnostics.
@@ -98,7 +83,7 @@ internal static class TidalHealthDiagnostics
                 provider: ProviderName,
                 diagnosticType: DiagnosticTypes.StreamProbe,
                 capability: Capabilities.LosslessDownload,
-                errorCode: ErrorCodes.ConnectionFailed);
+                errorCode: Codes.ConnectionFailed);
     }
 
     /// <summary>
@@ -127,27 +112,27 @@ internal static class TidalHealthDiagnostics
                 responseTime: elapsed,
                 provider: ProviderName,
                 diagnosticType: DiagnosticTypes.AuthValidate,
-                errorCode: ErrorCodes.ValidationFailed),
+                errorCode: Codes.ValidationFailed),
             StableCodes.IX200 => DiagnosticHealthResult.Unhealthy(
                 message ?? "Authentication failed",
                 responseTime: elapsed,
                 provider: ProviderName,
                 authMethod: AuthMethodName,
                 diagnosticType: DiagnosticTypes.AuthValidate,
-                errorCode: ErrorCodes.AuthFailed),
+                errorCode: Codes.AuthFailed),
             StableCodes.DL001 => DiagnosticHealthResult.Unhealthy(
                 message ?? "First chunk not accessible",
                 responseTime: elapsed,
                 provider: ProviderName,
                 diagnosticType: DiagnosticTypes.StreamProbe,
                 capability: Capabilities.LosslessDownload,
-                errorCode: ErrorCodes.ConnectionFailed),
+                errorCode: Codes.ConnectionFailed),
             StableCodes.DL100 => DiagnosticHealthResult.Unhealthy(
                 message ?? "Stream info retrieval failed",
                 responseTime: elapsed,
                 provider: ProviderName,
                 diagnosticType: DiagnosticTypes.StreamProbe,
-                errorCode: ErrorCodes.ConnectionFailed),
+                errorCode: Codes.ConnectionFailed),
             _ => DiagnosticHealthResult.Unhealthy(
                 message ?? $"Unknown diagnostic code: {code}",
                 responseTime: elapsed,
