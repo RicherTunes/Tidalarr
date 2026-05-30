@@ -1,7 +1,7 @@
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Lyrics;
 using NLog;
-using Tidalarr.Application.Services;
 using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Integration;
@@ -75,15 +75,17 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
     }
 
     /// <summary>
-    /// Best-effort synced-lyrics (.lrc) fetch alongside the downloaded audio. Gated on the master
-    /// <see cref="TidalDownloadClientSettings.SaveSyncedLyrics"/> toggle AND the opt-in
-    /// <see cref="TidalDownloadClientSettings.UseLRCLIB"/> flag, since LRCLIB is the only implemented
-    /// source and is a third-party service the user explicitly opts into. Never throws (other than
-    /// cancellation): a lyrics failure must not fail the download.
+    /// Best-effort synced-lyrics (.lrc) fetch alongside the downloaded audio, via the shared
+    /// <see cref="ILyricsEnricher"/>. Canonical gating: the master
+    /// <see cref="TidalDownloadClientSettings.SaveSyncedLyrics"/> toggle decides whether to enrich
+    /// at all; <see cref="TidalDownloadClientSettings.UseLRCLIB"/> only gates the LRCLIB fallback
+    /// (passed as <c>allowLrclibFallback</c>). Tidal supplies no native source yet, so today this
+    /// effectively means "LRCLIB when both toggles are on". Never throws (other than cancellation):
+    /// a lyrics failure must not fail the download.
     /// </summary>
     private async Task TryEnrichLyricsAsync(string audioFilePath, StreamingTrack track, CancellationToken cancellationToken)
     {
-        if (_lyricsEnricher is null || !_settings.SaveSyncedLyrics || !_settings.UseLRCLIB)
+        if (_lyricsEnricher is null || !_settings.SaveSyncedLyrics)
         {
             return;
         }
@@ -101,6 +103,7 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
                 track?.Title ?? string.Empty,
                 track?.Album?.Title ?? string.Empty,
                 (int)(track?.Duration?.TotalSeconds ?? 0),
+                allowLrclibFallback: _settings.UseLRCLIB,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
