@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (download regression — 2026-05-29)
+- **All downloads no longer rejected with "resolves outside" when the configured download path has a trailing separator.** `PathTraversalGuard.IsDescendant` (Common) compared the child against a canonical root that still carried a trailing directory separator, producing a doubled separator in the prefix check so *every* legitimate child path failed — Lidarr surfaced this as universal download failure. Fixed upstream in Common #552 (the guard now trims the trailing separator off the canonical root before the prefix comparison) and pulled into tidalarr via the `24b43c1` re-pin below. **Confirmed live** in the Lidarr E2E harness: tidalarr downloaded *A Moon Shaped Pool* with zero "resolves outside" rejections.
+
 ### Dependencies
+- `ext/Lidarr.Plugin.Common` re-pinned to **`24b43c1`** (2026-05-29) — picks up the PathTraversalGuard trailing-separator fix (#552, see above), the packaging-gates canonical-abstractions opt-in (#549), and the local-ci .NET 8 runtime guardrail (#548). `ext-common-sha.txt` + submodule gitlink advanced together (594a73b → 24b43c1).
 - `ext/Lidarr.Plugin.Common` bumped to **v1.17.0** (`639d573`) Wave-23 — picks up the Wave-21 parity helpers (PathTraversalGuard.ContainsTraversalAttempt, AlbumDownloadUri, AlbumReleaseInfoBuilder bracket slots, unified version-bump helper). Tidalarr's own helpers already cover the same ground, but the bump keeps the ecosystem lockstep.
 - `ext-common-sha.txt` aligned to `639d573` (was `38eda2c`, then `936556e` after Wave-22).
 - `plugin.json` `commonVersion`: 1.16.0 → 1.17.0.
