@@ -1,13 +1,15 @@
 using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.Interfaces;
 using NLog;
+using Tidalarr.Application.Services;
 using Tidalarr.Domain.Streaming;
 
 namespace Tidalarr.Integration;
 
-public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings) : IAudioPostProcessor
+public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings, ILyricsEnricher? lyricsEnricher = null) : IAudioPostProcessor
 {
     private readonly TidalDownloadClientSettings _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    private readonly ILyricsEnricher? _lyricsEnricher = lyricsEnricher;
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     private static readonly Lazy<bool> _ffmpegAvailable = new(() => TidalAudioFormatHandler.IsFFmpegAvailable());
@@ -16,6 +18,17 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var resultPath = await ExtractFlacIfRequestedAsync(filePath, cancellationToken).ConfigureAwait(false);
+
+        // Synced-lyrics enrichment is independent of FLAC extraction, so it runs on the final
+        // audio path regardless of which codec branch above returned (gated on the opt-in settings).
+        await TryEnrichLyricsAsync(resultPath, track, cancellationToken).ConfigureAwait(false);
+
+        return resultPath;
+    }
+
+    private async Task<string> ExtractFlacIfRequestedAsync(string filePath, CancellationToken cancellationToken)
+    {
         if (!this._settings.ExtractFlac)
         {
             return filePath;
@@ -59,5 +72,44 @@ public sealed class TidalAudioPostProcessor(TidalDownloadClientSettings settings
         }
 
         return filePath;
+    }
+
+    /// <summary>
+    /// Best-effort synced-lyrics (.lrc) fetch alongside the downloaded audio. Gated on the master
+    /// <see cref="TidalDownloadClientSettings.SaveSyncedLyrics"/> toggle AND the opt-in
+    /// <see cref="TidalDownloadClientSettings.UseLRCLIB"/> flag, since LRCLIB is the only implemented
+    /// source and is a third-party service the user explicitly opts into. Never throws (other than
+    /// cancellation): a lyrics failure must not fail the download.
+    /// </summary>
+    private async Task TryEnrichLyricsAsync(string audioFilePath, StreamingTrack track, CancellationToken cancellationToken)
+    {
+        if (_lyricsEnricher is null || !_settings.SaveSyncedLyrics || !_settings.UseLRCLIB)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(audioFilePath) || !File.Exists(audioFilePath))
+        {
+            return;
+        }
+
+        try
+        {
+            await _lyricsEnricher.TryEnrichAsync(
+                audioFilePath,
+                track?.Artist?.Name ?? string.Empty,
+                track?.Title ?? string.Empty,
+                track?.Album?.Title ?? string.Empty,
+                (int)(track?.Duration?.TotalSeconds ?? 0),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug(ex, "Synced-lyrics enrichment failed for '{0}' (non-fatal)", audioFilePath);
+        }
     }
 }
