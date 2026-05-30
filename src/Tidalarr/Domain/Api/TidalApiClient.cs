@@ -332,7 +332,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ReleaseDate: ParseReleaseDate(dto.album?.releaseDate),
             PrimaryArtistId: primaryArtistId);
     }
-    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)  
+    private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
     {
         // Note: Search results only have 'artists' array, not singular 'artist' field
         // The singular 'artist' field is only present in album detail responses
