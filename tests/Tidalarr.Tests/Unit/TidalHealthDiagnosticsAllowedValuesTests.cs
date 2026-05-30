@@ -14,15 +14,15 @@ public class TidalHealthDiagnosticsAllowedValuesTests : DiagnosticsAllowedValues
 {
     protected override IReadOnlySet<string> AllowedErrorCodes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
-        TidalHealthDiagnostics.ErrorCodes.AuthFailed,
-        TidalHealthDiagnostics.ErrorCodes.ConnectionFailed,
-        TidalHealthDiagnostics.ErrorCodes.ValidationFailed,
+        DiagnosticErrorCodes.AuthFailed,
+        DiagnosticErrorCodes.ConnectionFailed,
+        DiagnosticErrorCodes.ValidationFailed,
     };
 
     protected override IReadOnlySet<string> AllowedDiagnosticTypes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
-        TidalHealthDiagnostics.DiagnosticTypes.AuthValidate,
-        TidalHealthDiagnostics.DiagnosticTypes.StreamProbe,
+        DiagnosticTypes.AuthValidate,
+        DiagnosticTypes.StreamProbe,
     };
 
     protected override IReadOnlySet<string> AllowedCapabilities { get; } = new HashSet<string>(StringComparer.Ordinal)
@@ -91,16 +91,16 @@ public class TidalHealthDiagnosticsAllowedValuesTests : DiagnosticsAllowedValues
     [Fact]
     public void ErrorCodes_AreNotEmpty()
     {
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.ErrorCodes.AuthFailed));
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.ErrorCodes.ConnectionFailed));
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.ErrorCodes.ValidationFailed));
+        Assert.False(string.IsNullOrWhiteSpace(DiagnosticErrorCodes.AuthFailed));
+        Assert.False(string.IsNullOrWhiteSpace(DiagnosticErrorCodes.ConnectionFailed));
+        Assert.False(string.IsNullOrWhiteSpace(DiagnosticErrorCodes.ValidationFailed));
     }
 
     [Fact]
     public void DiagnosticTypes_AreNotEmpty()
     {
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.DiagnosticTypes.AuthValidate));
-        Assert.False(string.IsNullOrWhiteSpace(TidalHealthDiagnostics.DiagnosticTypes.StreamProbe));
+        Assert.False(string.IsNullOrWhiteSpace(DiagnosticTypes.AuthValidate));
+        Assert.False(string.IsNullOrWhiteSpace(DiagnosticTypes.StreamProbe));
     }
 
     [Fact]
