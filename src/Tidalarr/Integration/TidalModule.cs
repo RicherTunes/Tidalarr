@@ -7,6 +7,7 @@ using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
+using Lidarr.Plugin.Common.Services.Lyrics;
 using Lidarr.Plugin.Common.Services.Registration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tidalarr.Application.Services;
@@ -166,6 +167,11 @@ public class TidalModule : StreamingPluginModule
         _ = services.AddScoped<TidalStreamService>();
         _ = services.AddScoped<TidalChunkStreamProvider>();
         _ = services.AddScoped<IAudioStreamProvider>(sp => sp.GetRequiredService<TidalChunkStreamProvider>());
+        // Shared Common enricher (no Tidal-native source yet -> null). Singleton so the LRCLIB
+        // HttpClient it owns is reused across downloads and disposed on container teardown.
+        // TidalAudioPostProcessor invokes it under SaveSyncedLyrics, passing UseLRCLIB as the
+        // LRCLIB-fallback gate.
+        _ = services.AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher());
         _ = services.AddScoped<IAudioPostProcessor, TidalAudioPostProcessor>();
         _ = services.AddSingleton<IDownloadTelemetrySink, TidalDownloadTelemetrySink>();
 
