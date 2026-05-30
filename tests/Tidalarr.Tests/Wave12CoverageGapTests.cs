@@ -179,86 +179,10 @@ public class Wave12CoverageGapTests
     }
 
     // ===== TidalDownloadTelemetrySink =====
-
-    [Fact]
-    public void TelemetrySink_OnTrackCompleted_Success_DoesNotThrow()
-    {
-        TidalDownloadTelemetrySink sink = new();
-        DownloadTelemetry telemetry = new(
-            ServiceName: "Tidal",
-            AlbumId: "album-123",
-            TrackId: "track-456",
-            Success: true,
-            BytesWritten: 5_000_000,
-            Elapsed: TimeSpan.FromSeconds(12.5),
-            BytesPerSecond: 400_000,
-            RetryCount: 0,
-            TooManyRequestsCount: 0,
-            ErrorMessage: null);
-
-        Exception? ex = Record.Exception(() => sink.OnTrackCompleted(telemetry));
-        Assert.Null(ex);
-    }
-
-    [Fact]
-    public void TelemetrySink_OnTrackCompleted_Failure_DoesNotThrow()
-    {
-        TidalDownloadTelemetrySink sink = new();
-        DownloadTelemetry telemetry = new(
-            ServiceName: "Tidal",
-            AlbumId: "album-1",
-            TrackId: "track-2",
-            Success: false,
-            BytesWritten: 0,
-            Elapsed: TimeSpan.FromSeconds(3),
-            BytesPerSecond: 0,
-            RetryCount: 2,
-            TooManyRequestsCount: 1,
-            ErrorMessage: "stream URL expired");
-
-        Exception? ex = Record.Exception(() => sink.OnTrackCompleted(telemetry));
-        Assert.Null(ex);
-    }
-
-    [Fact]
-    public void TelemetrySink_OnTrackCompleted_NullAlbumId_LogsUnknown()
-    {
-        TidalDownloadTelemetrySink sink = new();
-        DownloadTelemetry telemetry = new(
-            ServiceName: "Tidal",
-            AlbumId: null,
-            TrackId: "track-only",
-            Success: true,
-            BytesWritten: 100,
-            Elapsed: TimeSpan.FromSeconds(1),
-            BytesPerSecond: 100,
-            RetryCount: 0,
-            TooManyRequestsCount: 0,
-            ErrorMessage: null);
-
-        Exception? ex = Record.Exception(() => sink.OnTrackCompleted(telemetry));
-        Assert.Null(ex);
-    }
-
-    [Fact]
-    public void TelemetrySink_OnTrackCompleted_FailureNullErrorMessage_LogsUnknown()
-    {
-        TidalDownloadTelemetrySink sink = new();
-        DownloadTelemetry telemetry = new(
-            ServiceName: "Tidal",
-            AlbumId: null,
-            TrackId: "t",
-            Success: false,
-            BytesWritten: 0,
-            Elapsed: TimeSpan.FromSeconds(1),
-            BytesPerSecond: 0,
-            RetryCount: 0,
-            TooManyRequestsCount: 0,
-            ErrorMessage: null);
-
-        Exception? ex = Record.Exception(() => sink.OnTrackCompleted(telemetry));
-        Assert.Null(ex);
-    }
+    // Removed: the plugin-local TidalDownloadTelemetrySink was consolidated into Common's
+    // LoggingDownloadTelemetrySink (registered via AddDownloadTelemetry). Its best-effort
+    // no-throw behavior is now covered by Common's DownloadTelemetryEnrichmentTests
+    // (LoggingSink_* + legacy-record) and DownloadTelemetryService's try/catch.
 
     // ===== TidalCredentials =====
 
