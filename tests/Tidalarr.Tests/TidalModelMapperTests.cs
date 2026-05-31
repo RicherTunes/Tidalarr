@@ -36,6 +36,32 @@ public class TidalModelMapperTests
     }
 
     [Fact]
+    public void ToStreamingTrack_MapsIsrc_ForLidarrImportAnchoring()
+    {
+        // ISRC anchors Lidarr's import track-matching far above fuzzy title distance.
+        // Regression guard: the mapper previously hardcoded Isrc = string.Empty, dropping the
+        // ISRC Tidal returns (TidalTrackDto.isrc) and weakening import matching ("Worst track match").
+        TidalTrackInfo track = new(
+            Id: "t1",
+            Title: "Song",
+            Artists: ["Artist A"],
+            AlbumId: "al1",
+            AlbumTitle: "Album",
+            TrackNumber: 1,
+            Duration: 200,
+            Quality: TidalQuality.Lossless,
+            IsAvailable: true,
+            ReleaseDate: new DateTime(2020, 1, 2))
+        {
+            Isrc = "USABC1234567"
+        };
+
+        StreamingTrack st = this._mapper.ToStreamingTrack(track);
+
+        Assert.Equal("USABC1234567", st.Isrc);
+    }
+
+    [Fact]
     public void ToStreamingTrack_WithPrimaryArtistId_UsesArtistId_NotName()
     {
         // Arrange

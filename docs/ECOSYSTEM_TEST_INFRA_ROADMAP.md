@@ -1,3 +1,5 @@
+> ⚠️ Historical (flagged 2026-05-31): describes a past state; some details below no longer match the current code.
+
 # Ecosystem Test & CI Adoption Roadmap (Tidalarr)
 
 Goal: keep Tidalarr “boringly green” under Lidarr plugin hosting while making failures diagnosable and local validation easy.

@@ -1,3 +1,5 @@
+> ⚠️ Historical (flagged 2026-05-31): describes a past state; some details below no longer match the current code.
+
 # Architectural Enhancement Summary - Lidarr.Plugin.Common v1.1.0
 
 ## ✅ **Successfully Implemented Enhancements**

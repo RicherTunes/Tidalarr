@@ -27,6 +27,18 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     [Fact] public void Check_PluginManifest_Capabilities_HaveBackingTypes_Test() => Assert.True(Check_PluginManifest_Capabilities_HaveBackingTypes().Passed, string.Join("; ", Check_PluginManifest_Capabilities_HaveBackingTypes().Errors));
     [Fact] public void Check_NoFluentValidation_ErrorsApi_Drift_Test() => Assert.True(Check_NoFluentValidation_ErrorsApi_Drift().Passed, string.Join("; ", Check_NoFluentValidation_ErrorsApi_Drift().Errors));
     [Fact] public void Check_UsesCommonPluginConfigRoots_Test() => Assert.True(Check_UsesCommonPluginConfigRoots().Passed, string.Join("; ", Check_UsesCommonPluginConfigRoots().Errors));
+    [Fact] public void Check_UsesCommonDownloadTelemetrySink_Test() => Assert.True(Check_UsesCommonDownloadTelemetrySink().Passed, string.Join("; ", Check_UsesCommonDownloadTelemetrySink().Errors));
+    [Fact] public void Check_UsesCommonLyricsEnricher_Test() => Assert.True(Check_UsesCommonLyricsEnricher().Passed, string.Join("; ", Check_UsesCommonLyricsEnricher().Errors));
+    [Fact] public void Check_UsesCommonDiagnosticTypes_Test() => Assert.True(Check_UsesCommonDiagnosticTypes().Passed, string.Join("; ", Check_UsesCommonDiagnosticTypes().Errors));
+    [Fact] public void Check_DownloadClientUsesPathTraversalGuard_Test() => Assert.True(Check_DownloadClientUsesPathTraversalGuard().Passed, string.Join("; ", Check_DownloadClientUsesPathTraversalGuard().Errors));
+    [Fact] public void Check_FileClassNameParity_Test() => Assert.True(Check_FileClassNameParity().Passed, string.Join("; ", Check_FileClassNameParity().Errors));
+    [Fact] public void Check_ClaudeMdDocumentsCommonHelpers_Test() => Assert.True(Check_ClaudeMdDocumentsCommonHelpers().Passed, string.Join("; ", Check_ClaudeMdDocumentsCommonHelpers().Errors));
+
+    // Album-completion consolidation: tidal's download completion flows through Common's
+    // SimpleDownloadOrchestrator, which now delegates to AlbumCompletionPolicy (Common #570).
+    // This guard pins the shared rule (incomplete album => Failed => Lidarr falls back) and fails
+    // CI if the pinned Common ever regresses it.
+    [Fact] public void Check_EnforcesAlbumCompletionPolicy_Test() => Assert.True(Check_EnforcesAlbumCompletionPolicy().Passed, string.Join("; ", Check_EnforcesAlbumCompletionPolicy().Errors));
 
     [Fact] public void DirectoryBuildProps_Exists_Test() => Assert.True(DirectoryBuildProps_Exists().Passed, string.Join("; ", DirectoryBuildProps_Exists().Errors));
     [Fact] public void DirectoryBuildProps_HasILRepackDisabled_Test() => Assert.True(DirectoryBuildProps_HasILRepackDisabled().Passed, string.Join("; ", DirectoryBuildProps_HasILRepackDisabled().Errors));
@@ -37,6 +49,7 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     [Fact] public void DirectoryBuildProps_HasDeterministic_Test() => Assert.True(DirectoryBuildProps_HasDeterministic().Passed, string.Join("; ", DirectoryBuildProps_HasDeterministic().Errors));
     [Fact] public void DirectoryPackagesProps_Exists_Test() => Assert.True(DirectoryPackagesProps_Exists().Passed, string.Join("; ", DirectoryPackagesProps_Exists().Errors));
     [Fact] public void DirectoryPackagesProps_EnablesCPM_Test() => Assert.True(DirectoryPackagesProps_EnablesCPM().Passed, string.Join("; ", DirectoryPackagesProps_EnablesCPM().Errors));
+    [Fact] public void DirectoryPackagesProps_HostVersionsMatchCanonical_Test() => Assert.True(DirectoryPackagesProps_HostVersionsMatchCanonical().Passed, string.Join("; ", DirectoryPackagesProps_HostVersionsMatchCanonical().Errors));
     [Fact] public void PluginJson_HasAllRequiredFields_Test() => Assert.True(PluginJson_HasAllRequiredFields().Passed, string.Join("; ", PluginJson_HasAllRequiredFields().Errors));
     [Fact] public void PluginJson_TargetFramework_IsNet8_Test() => Assert.True(PluginJson_TargetFramework_IsNet8().Passed, string.Join("; ", PluginJson_TargetFramework_IsNet8().Errors));
     [Fact] public void PluginJson_HasCommonVersion_Test() => Assert.True(PluginJson_HasCommonVersion().Passed, string.Join("; ", PluginJson_HasCommonVersion().Errors));

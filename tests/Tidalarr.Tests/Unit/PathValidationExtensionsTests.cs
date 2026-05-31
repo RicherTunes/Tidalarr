@@ -35,50 +35,46 @@ public class PathValidationExtensionsTests
     [Fact]
     public void IsReasonablePath_WindowsDrivePath_BehavesCorrectlyPerPlatform()
     {
-        // Common's PathValidation.IsReasonablePath() is permissive:
-        // - Checks for invalid characters
-        // - Checks for non-empty root
-        // - Does NOT enforce OS-specific rules (avoids host dependencies)
-        //
-        // Therefore, Windows drive paths are considered "reasonable" on all platforms
+        // Common's PathValidation.IsReasonablePath() requires a non-empty root
+        // (Path.GetPathRoot). Rootedness is inherently OS-specific:
+        // - Windows recognizes "C:/..." as rooted (root "C:\"), so it's reasonable.
+        // - On Linux, Path.GetPathRoot("C:/temp/...") returns "" (drive letters are
+        //   not roots there), so the same string is treated as unrooted -> not reasonable.
         string path = "C:/temp/file.txt";
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path),
-                "Windows drive path should be reasonable on Windows (permissive check)");
+                "Windows drive path is rooted on Windows -> reasonable");
         }
         else
         {
-            // On non-Windows, Common's permissive check still accepts drive paths
-            // (no OS-specific filtering in IsReasonablePath())
-            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path),
-                "Permissive validation accepts drive paths on non-Windows");
+            // On Linux, "C:/..." has no path root, so the permissive check rejects it.
+            Assert.False(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(path),
+                "Windows drive path is not rooted on non-Windows -> not reasonable");
         }
     }
 
     [Fact]
     public void IsReasonablePath_Unc_BehavesCorrectlyPerPlatform()
     {
-        // Common's PathValidation.IsReasonablePath() is permissive:
-        // - Checks for invalid characters
-        // - Checks for non-empty root
-        // - Does NOT enforce OS-specific rules (avoids host dependencies)
-        //
-        // Therefore, UNC paths are considered "reasonable" on all platforms
+        // Common's PathValidation.IsReasonablePath() requires a non-empty root
+        // (Path.GetPathRoot). UNC rootedness is OS-specific:
+        // - Windows recognizes "\\server\share\..." as rooted (UNC root), so reasonable.
+        // - On Linux, backslash is an ordinary filename char (not a separator), so
+        //   Path.GetPathRoot returns "" and the string is treated as unrooted.
         string unc = "\\\\server\\share\\folder";
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc),
-                "UNC path should be reasonable on Windows (permissive check)");
+                "UNC path is rooted on Windows -> reasonable");
         }
         else
         {
-            // On non-Windows, Common's permissive check still accepts UNC paths
-            // (no OS-specific filtering in IsReasonablePath())
-            Assert.True(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc),
-                "Permissive validation accepts UNC paths on non-Windows");
+            // On Linux, a UNC-style string has no path root, so the check rejects it.
+            Assert.False(Tidalarr.Integration.PathValidationExtensions.IsReasonablePath(unc),
+                "UNC path is not rooted on non-Windows -> not reasonable");
         }
     }
 
