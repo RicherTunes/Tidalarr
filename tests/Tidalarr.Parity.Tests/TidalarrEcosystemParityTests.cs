@@ -34,6 +34,12 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     [Fact] public void Check_FileClassNameParity_Test() => Assert.True(Check_FileClassNameParity().Passed, string.Join("; ", Check_FileClassNameParity().Errors));
     [Fact] public void Check_ClaudeMdDocumentsCommonHelpers_Test() => Assert.True(Check_ClaudeMdDocumentsCommonHelpers().Passed, string.Join("; ", Check_ClaudeMdDocumentsCommonHelpers().Errors));
 
+    // Album-completion consolidation: tidal's download completion flows through Common's
+    // SimpleDownloadOrchestrator, which now delegates to AlbumCompletionPolicy (Common #570).
+    // This guard pins the shared rule (incomplete album => Failed => Lidarr falls back) and fails
+    // CI if the pinned Common ever regresses it.
+    [Fact] public void Check_EnforcesAlbumCompletionPolicy_Test() => Assert.True(Check_EnforcesAlbumCompletionPolicy().Passed, string.Join("; ", Check_EnforcesAlbumCompletionPolicy().Errors));
+
     [Fact] public void DirectoryBuildProps_Exists_Test() => Assert.True(DirectoryBuildProps_Exists().Passed, string.Join("; ", DirectoryBuildProps_Exists().Errors));
     [Fact] public void DirectoryBuildProps_HasILRepackDisabled_Test() => Assert.True(DirectoryBuildProps_HasILRepackDisabled().Passed, string.Join("; ", DirectoryBuildProps_HasILRepackDisabled().Errors));
     [Fact] public void DirectoryBuildProps_HasVersionManagement_Test() => Assert.True(DirectoryBuildProps_HasVersionManagement().Passed, string.Join("; ", DirectoryBuildProps_HasVersionManagement().Errors));
