@@ -4,12 +4,13 @@ This document captures a known-good plugin package output. The source of truth f
 
 ## Baseline package
 
-- Command: `./build.ps1 -Package -Configuration Release`
-- Output: `src/Tidalarr/artifacts/packages/tidalarr-1.0.1-net8.0.zip`
+- Command: Use Common's `New-PluginPackage -Csproj src/Tidalarr/Tidalarr.csproj -Manifest plugin.json -Framework net8.0` (or via CI)
+- Output: `src/Tidalarr/artifacts/packages/tidalarr-<version>-net8.0.zip`
 
 ## Expected contents (current)
 
 Required (per `packaging/expected-contents.txt`):
+
 - `Lidarr.Plugin.Tidalarr.dll` (ILRepack-merged plugin assembly — internalizes Common + Abstractions)
 - `plugin.json`
 
@@ -23,6 +24,7 @@ Note: Lidarr.Plugin.Common.dll and Lidarr.Plugin.Abstractions.dll are merged + i
 ## Forbidden contents (should never ship)
 
 Host-provided assemblies (per `packaging/expected-contents.txt`):
+
 - `Lidarr.Core.dll`
 - `Lidarr.Common.dll`
 - `Lidarr.Http.dll`
@@ -33,6 +35,7 @@ Host-provided assemblies (per `packaging/expected-contents.txt`):
 - `NzbDrone.SignalR.dll`
 
 Other host-provided assemblies (should not ship):
+
 - `NLog.dll`
 - `FluentValidation.dll`
 - `Microsoft.Extensions.DependencyInjection.Abstractions.dll`
@@ -45,5 +48,6 @@ Other host-provided assemblies (should not ship):
 - `Newtonsoft.Json.dll`
 
 Merged plugin abstractions (must NOT ship as sidecars — they're internalized in the merged plugin DLL):
+
 - `Lidarr.Plugin.Abstractions.dll`
 - `Lidarr.Plugin.Common.dll`

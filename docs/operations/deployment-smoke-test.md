@@ -26,7 +26,7 @@ This validates host assemblies, manifest metadata, Release build and packages `a
 ```powershell
 ./scripts/deploy-plugin.ps1 `
   -ContainerName lidarr `
-  -PluginZip artifacts/Tidalarr-1.0.1.zip `
+  -PluginZip src/Tidalarr/artifacts/packages/tidalarr-1.2.9-net8.0.zip `
   -PluginId tidalarr
 ```
 
@@ -35,7 +35,7 @@ The script copies the unpacked plugin into `/config/plugins/<PluginId>`, preserv
 ### Manual copy (alternative)
 
 ```powershell
-Expand-Archive -Path artifacts/Tidalarr-1.0.1.zip -DestinationPath artifacts/deploy/Tidalarr -Force
+Expand-Archive -Path src/Tidalarr/artifacts/packages/tidalarr-1.2.9-net8.0.zip -DestinationPath artifacts/deploy/Tidalarr -Force
 # Remove the existing plugin folder on the host, then copy the extracted contents in.
 ```
 
@@ -43,9 +43,11 @@ Expand-Archive -Path artifacts/Tidalarr-1.0.1.zip -DestinationPath artifacts/dep
 
 1. Start the Lidarr container/service.
 2. Tail the logs for assembly load errors:
+
    ```bash
    docker logs -f lidarr | grep -i tidal
    ```
+
 3. Confirm the plugin shows up under `Settings → Plugins` and the version matches `1.0.1`.
 
 ## 5. Regression checks
@@ -57,6 +59,7 @@ Expand-Archive -Path artifacts/Tidalarr-1.0.1.zip -DestinationPath artifacts/dep
 ## 6. Rollback procedure
 
 If anything fails:
+
 1. Stop Lidarr.
 2. Restore the backup folder saved by `deploy-plugin.ps1` (e.g. `tidalarr-backup-2025-09-30T16-50-00`).
 3. Restart Lidarr and capture logs for troubleshooting.
@@ -64,8 +67,3 @@ If anything fails:
 ## 7. Promote to production
 
 Once the smoke test passes, attach the new `Tidalarr-<version>.zip` to the release notes alongside a short changelog and validation log excerpts.
-
-
-
-
-
