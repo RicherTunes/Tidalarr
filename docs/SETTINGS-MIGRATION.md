@@ -1,6 +1,8 @@
+> ⚠️ Historical (flagged 2026-05-31): describes a past state; some details below no longer match the current code.
+
 # Tidalarr Settings Split – Migration Guide
 
-This release restores separate settings types for the indexer and the download client to avoid DI collisions and to keep configuration surfaces distinct in Lidarr.
+This release restored separate settings types for the indexer and the download client. The current codebase uses `TidalIndexerSettings` and `TidalDownloadClientSettings` as the primary settings types, with `TidalarrSettings` maintained for back-compatibility.
 
 ## What changed
 
@@ -62,4 +64,3 @@ The legacy `TidalarrPlugin` remains available and exposes both via one settings 
 ## Validation
 
 Both settings types have focused FluentValidation rules and preserve the previous error codes (e.g., `RedirectRequired`, `ConfigPathRequired`, `DownloadPathRequired`, etc.).
-

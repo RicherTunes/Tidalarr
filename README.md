@@ -5,7 +5,8 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless audio directly f
 ## Installation
 
 ### Prerequisites
-- Lidarr v2.13.0 or higher on the **plugins branch** (`pr-plugins-3.x`, .NET 8)
+
+- Lidarr v3.0.0.4855 or higher on the **plugins branch** (`pr-plugins-3.x`, .NET 8)
 - A Tidal subscription (HiFi / HiFi Plus for lossless and hi-res)
 
 ### Install via the Lidarr UI (recommended)
@@ -15,6 +16,7 @@ Settings → Plugins → paste `https://github.com/RicherTunes/Tidalarr` → Ins
 To build from source instead, see **Getting Started** below.
 
 ## Getting Started
+
 - `git submodule update --init --recursive` to sync the common library and CLI dependencies.
 - `dotnet restore Tidalarr.sln` then `dotnet build Tidalarr.sln` to ensure the solution compiles cleanly.
 - See `TidalCLI/` for manual verification helpers and CLI tooling support.
@@ -22,11 +24,13 @@ To build from source instead, see **Getting Started** below.
 - For framework choices, see `docs/TFM_RATIONALE.md` (core net8.0, CLI net9.0).
 
 ## Contributor Resources
+
 - Read the [Repository Guidelines](AGENTS.md) for coding, testing, and review expectations.
 - Review `docs/` for architecture, testing, and project status background.
 - Check `CLAUDE.md` if you are coordinating with Claude Code or automation agents.
 
 ## Support & Questions
+
 Open a GitHub issue with detailed logs and reproduction steps.
 
 ## Performance tuning
@@ -38,10 +42,12 @@ Tidal downloads are chunked (many HTTP requests per track), so they will not mat
 - `Max Concurrent Chunk Downloads`: parallel chunk requests per track (default `2`, range `1-8`). Note: when `Chunk Delay (ms) > 0`, chunk parallelism is disabled to preserve "delay between requests" semantics.
 
 ## Host vs. Core
+
 - Core plugin (`src/Tidalarr`): hostless runtime used by CLI/tests; no NzbDrone/Lidarr references. Ships in the plugin zip.
 - Host bridge (`src/Tidalarr.HostBridge`): host-only wrappers with NzbDrone annotations and pretty enum labels; translates host UI models to core settings via `IHostSettingsMapper`. Not shipped in the plugin zip.
 - Start here for host wiring: `docs/hostbridge-integration.md`.
 - Framework rationale: `docs/TFM_RATIONALE.md`.
+
 ## CLI: Named argument support for search/download
 
 The CLI now supports named arguments alongside positional ones:
