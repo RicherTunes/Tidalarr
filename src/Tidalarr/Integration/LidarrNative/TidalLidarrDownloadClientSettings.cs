@@ -57,6 +57,14 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
         HelpText = "Maximum number of chunk requests to perform concurrently per track. Higher values can improve speed but may trigger rate limiting.")]
     public int MaxConcurrentChunkDownloads { get; set; } = 2;
 
+    [FieldDefinition(8, Label = "Save Synced Lyrics", Type = FieldType.Checkbox, Section = "Metadata", Advanced = true,
+        HelpText = "Save a synced .lrc lyrics file alongside each downloaded track when lyrics are available.")]
+    public bool SaveSyncedLyrics { get; set; } = true;
+
+    [FieldDefinition(9, Label = "Use LRCLIB for Lyrics", Type = FieldType.Checkbox, Section = "Metadata", Advanced = true,
+        HelpText = "Fall back to the public LRCLIB service when Tidal does not provide synced lyrics. Sends artist/track/album names to lrclib.net.")]
+    public bool UseLRCLIB { get; set; }
+
     public NzbDroneValidationResult Validate()
     {
         return new NzbDroneValidationResult(Validator.Validate(this));
@@ -75,7 +83,9 @@ public class TidalLidarrDownloadClientSettings : IProviderConfig
             ExtractFlac = ExtractFlac,
             DownloadDelay = DownloadDelay,
             MaxConcurrentTrackDownloads = MaxConcurrentTrackDownloads,
-            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads
+            MaxConcurrentChunkDownloads = MaxConcurrentChunkDownloads,
+            SaveSyncedLyrics = SaveSyncedLyrics,
+            UseLRCLIB = UseLRCLIB
         };
     }
 }

@@ -17,7 +17,7 @@ on:
 
 jobs:
   release:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/release-plugin.yml@main
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/release-plugin.yml@c2aca69b8c94bbba2ff9a4884291f0cc501eb623
     # TODO: replace @main with merge-commit SHA after PR #514 merges
     with:
       plugin_name: Lidarr.Plugin.Tidalarr

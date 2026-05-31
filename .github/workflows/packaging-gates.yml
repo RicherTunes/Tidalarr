@@ -27,13 +27,24 @@ concurrency:
 
 jobs:
   packaging-gates:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@workflows/v1
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/packaging-gates.yml@90dd9494fab34d367f6bf205cf25f3a4454bb005
     with:
       common-path: ext/Lidarr.Plugin.Common
       plugin-csproj: src/Tidalarr/Tidalarr.csproj
       manifest-path: plugin.json
       host-assemblies-path: ext/Lidarr-docker/_output/net8.0
       lidarr-docker-version: pr-plugins-3.1.2.4913
-      plugin-load-gate: true
+      # plugin-load-gate uses the Abstractions PluginLoader, which requires the
+      # canonical Abstractions sidecar (shared type identity). Tidalarr
+      # internalizes Abstractions and the LIVE host loads it via
+      # NzbDrone.Core.Plugins.Plugin (TidalarrInstalledPlugin), NOT the
+      # Abstractions loader — so that gate tests a path the host never uses and
+      # is incompatible with the internalize model. Real in-host load is covered
+      # by the Docker E2E job. Match qobuzarr, which omits this gate.
+      plugin-load-gate: false
+      # Tidalarr internalizes Abstractions via ILRepack (release ships no
+      # sidecar; expected-contents.txt forbids it), so opt out of the canonical
+      # Abstractions sidecar gate. See Common #549.
+      require-canonical-abstractions: false
     secrets:
       submodules-token: ${{ secrets.CROSS_REPO_PAT }}

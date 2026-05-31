@@ -113,16 +113,37 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
-          # Exclude LidarrNative files and test files that reference them -
-          # they use host types not available in clean checkout
-          dotnet format Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
+          # "repo-only" = whitespace formatting only, by design. This step runs BEFORE host
+          # assemblies are extracted, so full `dotnet format` cannot compile host-dependent
+          # projects and its semantic analyzers (IDE0001/IDE0009/IDE0008/IDE0059) fire
+          # non-deterministically (only when a project happens to compile). Whitespace formatting
+          # needs no compilation, so it is deterministic here. Semantic style is enforceable
+          # separately in a host-assembly-present job if desired. LidarrNative + host-type tests
+          # stay excluded (clean checkout has no host types).
+          dotnet format whitespace Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
 
       - name: Sync-over-async guard
         shell: pwsh
         run: |
-          $mode = if ('${{ github.event_name }}' -eq 'pull_request') { 'pr' } else { 'ci' }
-          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode $mode
+          # lint-sync-over-async.ps1 accepts -Mode interactive|ci only (ValidateSet); the old
+          # `-Mode pr` failed param binding on every pull_request build. CI wants fail-hard → 'ci'.
+          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode ci
 
-      - name: Run unified plugin pipeline
+      - name: Setup Lidarr host assemblies (Docker, plugins branch)
+        shell: bash
+        run: |
+          set -e
+          mkdir -p ext/Lidarr/_output/net8.0
+          if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
+          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
+          n=0; until docker pull "$IMAGE"; do n=$((n+1)); if [ "$n" -ge 3 ]; then echo "::error::docker pull failed after $n attempts ($IMAGE)"; exit 1; fi; echo "pull failed ($n), retry in 10s"; sleep 10; done
+          cid=$(docker create "$IMAGE")
+          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+          docker rm "$cid" >/dev/null
+          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
+          test -f ext/Lidarr/_output/net8.0/Lidarr.dll || { echo "::error::Lidarr.dll missing after extraction"; exit 1; }
+          echo "Extracted $(ls ext/Lidarr/_output/net8.0/*.dll | wc -l) host assemblies"
+
+      - name: Run unified plugin pipeline (full build incl. host-bridge against real assemblies)
         shell: pwsh
-        run: ./scripts/ci.ps1
+        run: ./scripts/ci.ps1 -UseRealHostAssemblies
