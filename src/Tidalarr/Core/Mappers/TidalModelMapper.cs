@@ -41,7 +41,7 @@ public class TidalModelMapper
             DiscNumber = 1,
             Duration = TimeSpan.FromSeconds(track.Duration),
             IsExplicit = false,
-            Isrc = string.Empty,
+            Isrc = track.Isrc,
             FeaturedArtists = [],
             AvailableQualities = [ToStreamingQuality(track.Quality)],
             PreviewUrl = string.Empty,
