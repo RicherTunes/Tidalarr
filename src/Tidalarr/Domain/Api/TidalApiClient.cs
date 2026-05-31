@@ -330,7 +330,10 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             Quality: MapQualityFromString(dto.audioQuality ?? string.Empty),
             IsAvailable: dto.streamReady,
             ReleaseDate: ParseReleaseDate(dto.album?.releaseDate),
-            PrimaryArtistId: primaryArtistId);
+            PrimaryArtistId: primaryArtistId)
+        {
+            Isrc = dto.isrc ?? string.Empty
+        };
     }
     private static TidalAlbumInfo MapToTidalAlbumInfo(TidalAlbumDto dto)
     {
