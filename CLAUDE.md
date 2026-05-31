@@ -11,9 +11,11 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 **Target framework**: `net8.0` — this plugin MUST target .NET 8.
 
 **Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
+
 ```
 LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
 ```
+
 - Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
 
 **NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
@@ -75,9 +77,10 @@ gh api repos/RicherTunes/tidalarr/releases --jq '.[0] | {tag_name, draft, target
 At least one asset name must contain `net8.0.zip`.
 
 **ALWAYS**:
+
 - Use constants from `TidalConstants.cs` rather than hardcoding.
 - Expose to the user what brings value in `TidalDownloadSettings.cs` or `TidalarrSettings.cs`; otherwise, it should be in `TidalConstants.cs`.
-- Be aware that this project shares a common library with http://github.com/RicherTunes/Lidarr.Plugin.Common so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
+- Be aware that this project shares a common library with <http://github.com/RicherTunes/Lidarr.Plugin.Common> so always think of ways to ensure generic code can be shared with this library so other projects may benefits. Think architecturally when doing so.
 
 ## Plugin DLL Naming Contract (CRITICAL)
 
@@ -125,6 +128,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 | `Integration/HostlessAnnotations.cs` | `FieldDefinitionAttribute` + `FieldOptionAttribute` | Attribute grouping (OK per C# convention) |
 | `Domain/Streaming/TidalStreamManifest.cs` | `TidalStreamManifest` + `ManifestMimeType` enum | Renamed Wave 21 (was `StreamManifest`) — primary matches file |
 | `Domain/Streaming/TidalAudioFormatHandler.cs` | `TidalAudioFormatHandler` | Renamed Wave 21 (was `AudioFormatHandler`) — primary matches file |
+
 - `HostBridgeDownloadTrackerStore` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:38` (static store for in-flight downloads)
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
@@ -226,6 +230,7 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 ## Key Components
 
 ### **Plugin Architecture (Plugin-First Design)**
+
 - **TidalIndexer**: Implements `BaseStreamingIndexer<TidalarrSettings>` for Lidarr search integration
 - **TidalDownloadClient**: Implements `BaseStreamingDownloadClient<TidalDownloadSettings>` for downloads
 - **TidalApiClient**: HTTP client using StreamingApiRequestBuilder pattern
@@ -233,6 +238,7 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 - **TidalResponseCache**: Tidal-specific caching extending StreamingResponseCache
 
 ### **Tidal-Specific Components (In Plugin)**
+
 - **TidalStreamManifest**: DASH manifest parser for chunk URLs (Tidal-specific XML/MPD format)
 - **TidalChunkDownloader**: Sequential chunk download and assembly (Tidal's streaming protocol)
 - **TidalAudioFormatHandler**: M4A container with FLAC codec extraction (Tidal's format)
@@ -240,6 +246,7 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 - **TidalConcurrentDownloadManager**: Semaphore-controlled album downloads
 
 ### **Shared Library Components (In Lidarr.Plugin.Common)**
+
 - **BaseStreamingIndexer/DownloadClient**: Common streaming service patterns
 - **StreamingApiRequestBuilder**: HTTP client with OAuth, rate limiting, retries
 - **StreamingResponseCache**: Generic caching with TTL and memory management
@@ -247,6 +254,7 @@ ext/Lidarr.Plugin.Common/     # Shared library (submodule)
 - **StreamingModels**: Common models (StreamingTrack, StreamingAlbum, etc.)
 
 ### **CLI Architecture (Uses Plugin)**
+
 - **CLI commands invoke plugin methods directly**
 - **No business logic in CLI - pure interface layer**
 - **CLI focuses on user interaction, plugin handles all streaming logic**
@@ -272,6 +280,7 @@ dotnet run -- download-album <album-id>
 ```
 
 ### **Architecture Principle**
+
 - **Plugin**: Contains all business logic, streaming protocols, format handling
 - **CLI**: Thin interface layer that calls plugin methods
 - **Shared Library**: Common patterns used by multiple streaming services
@@ -306,38 +315,44 @@ Tidalarr integrates with `Lidarr.Plugin.Common` v1.1.0+ for:
 ## Configuration
 
 ### **Plugin Configuration**
+
 - Configured through Lidarr UI: Settings → Indexers → Add → Tidalarr
 - Settings handled by `TidalSettings` extending `BaseStreamingSettings`
 - OAuth authentication managed by `TidalOAuthService`
 
 ### **OAuth Authorization URL Field (Do Not Remove)**
 
-Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the indexer and download client settings:
+Tidalarr intentionally exposes an `OAuth Authorization URL` field in the indexer settings:
 
-- **Location**: `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs` and `TidalLidarrDownloadClientSettings.cs`
+- **Location**: `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexerSettings.cs`
 - **Property**: `OAuthAuthUrl` with `[FieldDefinition(0, ...)]`
 
 **Why it exists**:
+
 - Reduces OAuth setup friction and support/debug time
 - Lidarr's UI does not reliably live-update computed fields inside the settings modal after `Test()`. This field exists so users can copy the auth URL without digging through logs, and so we have a reliable “plugin is loaded” signal in `/api/v1/*/schema`.
 - The value is derived from `${ConfigPath}/pkce_state.json`. If missing/expired, the getter creates a fresh PKCE state file and returns the new URL (safe for schema rendering: best-effort, no throws).
 - The field is intentionally derived/read-only (setter is a no-op)
 
 **Regression history** (DO NOT REPEAT):
+
 - ❌ Removed in `ff0cf39` ("remove non-functional OAuthAuthUrl field")
 - ✅ Restored in `2b4225c` ("restore OAuthAuthUrl field with file-based implementation")
 
 **When the field appears empty**:
+
 - The `ConfigPath` is not set or is invalid
 - You changed `ConfigPath` but haven’t saved/re-opened the modal yet (Lidarr typically evaluates computed fields when the modal is opened, not live while editing)
 - Lidarr may not refresh this computed field inside the modal after clicking `Test()`. If you click Test and immediately need the URL, copy it from the validation error message, then refresh/re-open the settings modal to see the field populated.
 
 **Redirect URL lifecycle (important)**:
+
 - The OAuth Redirect URL is a one-time input used to exchange an auth code for tokens.
 - Lidarr persists settings only when the user saves them; plugins cannot reliably mutate the stored Redirect URL value.
 - If tokens expire and you see a state mismatch, the stored Redirect URL is stale. You do not need to clear it first; paste the NEW redirect URL from your most recent OAuth login (overwrite) and click Test again.
 
 **When the field is missing entirely** (triage steps):
+
 1. Confirm plugin is loaded: check `/api/v1/indexer/schema` for Tidalarr
 2. Check Lidarr logs for plugin load errors
 3. Multi-plugin runs can be affected by the upstream Lidarr AssemblyLoadContext lifecycle bug
@@ -346,6 +361,7 @@ Tidalarr intentionally exposes an `OAuth Authorization URL` field in both the in
 **Security**: `pkce_state.json` contains a PKCE `code_verifier`; never commit it or include it in logs/artifacts.
 
 ### **CLI Configuration**
+
 ```bash
 # Configure authentication
 dotnet run -- config set-auth --client-id your_id --client-secret your_secret
@@ -382,16 +398,19 @@ dotnet test -p:IncludeCLIFramework=true -p:PluginPackagingDisable=true
 ### **Build Issues**
 
 **"System.CommandLine not found"**:
+
 - Solution: Use `-p:IncludeCLIFramework=true` for development builds
 - Root cause: CLI framework is opt-in for production-first architecture
 
 **"Missing shared library dependencies"**:
+
 - Solution: Update submodule: `git submodule update --remote`
 - Check: `ext/Lidarr.Plugin.Common` is properly synced
 
 ### **CLI Issues**
 
 **CLI commands not working**:
+
 - Ensure CLI build: `dotnet build TidalCLI/ -p:IncludeCLIFramework=true`
 - Verify CLI project references main plugin correctly
 
@@ -438,17 +457,20 @@ pwsh ext/Lidarr.Plugin.Common/scripts/multi-plugin-coexistence-proof.ps1 -SkipBu
 ## Architecture Benefits
 
 ### **For Development Teams**
+
 - ✅ Full CLI functionality with development flag
 - ✅ Same convenience as before
 - ✅ No workflow changes needed
 
 ### **For Production**
+
 - ✅ Clean stable dependencies
 - ✅ No pre-release packages
 - ✅ Better deployment reliability
 - ✅ Reduced attack surface
 
 ### **For External Adoption**
+
 - ✅ Clean library experience by default
 - ✅ No CLI baggage for plugin-only users
 - ✅ Easier integration for other teams
