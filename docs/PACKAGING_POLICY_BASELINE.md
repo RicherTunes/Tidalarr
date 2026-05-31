@@ -4,7 +4,7 @@ This document captures a known-good plugin package output. The source of truth f
 
 ## Baseline package
 
-- Command: Use Common's `New-PluginPackage -Csproj src/Tidalarr/Tidalarr.csproj -Manifest plugin.json -Framework net8.0` (or via CI)
+- Command: `./build.ps1 -Package -Configuration Release` (wraps Common's `New-PluginPackage`; CI uses the same path)
 - Output: `src/Tidalarr/artifacts/packages/tidalarr-<version>-net8.0.zip`
 
 ## Expected contents (current)
