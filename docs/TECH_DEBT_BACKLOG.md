@@ -2,7 +2,7 @@
 
 This document tracks actionable tech-debt items with acceptance criteria.
 
-## Hot Fixes (done)
+## Done
 
 - Remove stray logs (out.txt, err.txt) and ignore entries
   - [x] Deleted committed files
@@ -10,16 +10,12 @@ This document tracks actionable tech-debt items with acceptance criteria.
 - Conditional CLI test skipping
   - [x] Introduced `CliFactAttribute` with `RUN_REAL_CLI_TESTS` gate
   - [x] Replaced hard Skips in CLI tests
+- ~~Trim unused Polly packages~~ (resolved)
+  - [x] Polly no longer referenced in `Tidalarr.csproj`.
+  - [x] Stale `TidalResiliencePolicy` references cleaned up.
+  - [x] Build/tests green.
 
 ## High Priority (next sprint)
-
-1) ~~Trim unused Polly packages~~ (resolved)
-
-- Context: `TidalResiliencePolicy` has been removed from source (`src/`). Runtime retries now use Common `ExecuteWithRetryAsync`. Polly is absent from `Tidalarr.csproj`.
-- Criteria:
-  - [x] Verify Polly is no longer referenced in `src/Tidalarr/Tidalarr.csproj`; if still present, remove `Polly` and `Polly.Extensions.Http` PackageReferences.
-  - [x] Clean up stale `TidalResiliencePolicy` references in docs and scripts.
-  - [x] Build/tests green.
 
 1) HostBridge → core mapping tests
 
