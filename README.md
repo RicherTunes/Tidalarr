@@ -71,6 +71,7 @@ Settings are available in the Lidarr UI under the plugin's Settings panel. Advan
 | Preferred Quality | Lossless | Low / High / Lossless / HiRes | Audio quality tier. Falls back to the highest your subscription allows; HiFi Plus required for Lossless+. |
 | Include MQA *(adv)* | on | — | Include Master (MQA) releases. |
 | Extract FLAC *(adv)* | on | — | Extract FLAC from M4A containers. |
+| Re-encode AAC *(adv)* | off | — | Transcode AAC streams to 320 kbps when HiRes/Lossless are unavailable. |
 | Chunk Delay *(adv)* | 0 ms | 0–60 000 ms | Delay between chunk requests. Increase if rate-limited. |
 | Max Concurrent Track Downloads *(adv)* | 2 | 1–3 | Parallel tracks per album. |
 | Max Concurrent Chunk Downloads *(adv)* | 2 | 1–8 | Parallel chunk requests per track. Effective parallelism is capped so that tracks × chunks ≤ 6. Disabled when Chunk Delay > 0. |
