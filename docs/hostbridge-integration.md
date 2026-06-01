@@ -1,6 +1,7 @@
 HostBridge Integration Guide
 
 Overview
+
 - Core plugin (src/Tidalarr) is hostless: no NzbDrone/Lidarr references; annotations use internal attributes.
 - HostBridge (src/Tidalarr.HostBridge) provides host-only models decorated with NzbDrone.Core.Annotations and a mapper to convert to core settings.
 - Benefit: CLI/tests run standalone; host UIs still get rich metadata and pretty enum labels.
@@ -17,13 +18,15 @@ services.AddTidalarrHostBridgeServices();
 ```
 
 What gets registered
+
 - IHostSettingsMapper → HostSettingsMapper (singleton)
   - ToCore(TidalarrHostSettings) → Integration.TidalarrSettings
   - ToCore(TidalIndexerHostSettings) → Integration.TidalIndexerSettings
   - ToCore(TidalDownloadClientHostSettings) → Integration.TidalDownloadClientSettings
-  - ToCoreObject(object) → dynamic helper that maps by runtime type
+  - ToCoreObject(object) → dynamic helper that maps by runtime type (an extension method on IHostSettingsMapper, not a member of the interface)
 
 Host Settings vs. Core Settings
+
 - Host-only annotated types (for UI forms):
   - TidalarrHostSettings (implements IIndexerSettings, IProviderConfig)
   - TidalIndexerHostSettings
@@ -34,6 +37,7 @@ Host Settings vs. Core Settings
   - Integration.TidalDownloadClientSettings
 
 Mapping Example
+
 ```
 using Tidalarr.HostBridge.Settings;
 
@@ -51,23 +55,28 @@ public class SettingsHandler
 ```
 
 Pretty Enum Labels
+
 - HostBridge exposes TidalQualityHost with FieldOption labels for UI display.
 - Download client host settings use `SelectOptions = typeof(TidalQualityHost)`; mapper translates to core enum.
 
 Packaging Notes
+
 - HostBridge is not included in the plugin zip; it exists to support host build-time/runtime UI.
-- Core plugin package remains just: Lidarr.Plugin.Tidalarr.dll (+ pdb) and plugin.json, plus Common runtime.
+- Core plugin package remains just: Lidarr.Plugin.Tidalarr.dll (+ pdb) and plugin.json — Common is ILRepack-merged into the plugin DLL, not shipped separately.
 
 CLI/Tests
+
 - CLI diagnostics (settings/indexer/download) run without host assemblies.
 - Optional CLI and packaging tests are under Trait "scope=cli" and are skipped by default.
 
 Migration Tips
+
 - If your host previously used core settings types directly for UI, switch to the HostBridge types and call the mapper to get core models for execution.
 
 Quick Migration Checklist
+
 - Add DI: services.AddTidalarrHostBridgeServices().
-- Replace UI-bound settings types from Integration.* with HostBridge.Settings.* types:
+- Replace UI-bound settings types from Integration.*with HostBridge.Settings.* types:
   - TidalarrHostSettings (replaces TidalarrSettings for host UI)
   - TidalIndexerHostSettings (replaces TidalIndexerSettings for host UI)
   - TidalDownloadClientHostSettings (replaces TidalDownloadClientSettings for host UI)
@@ -76,6 +85,7 @@ Quick Migration Checklist
 - Do not ship HostBridge in the plugin zip; it’s host-only. The core plugin package remains unchanged.
 
 Annotated Host UI Example
+
 ```
 using NzbDrone.Core.Annotations;
 using Tidalarr.HostBridge.Settings;
@@ -91,6 +101,7 @@ public class TidalSettingsPanelModel
 ```
 
 Mapping in Host Code
+
 ```
 using Tidalarr.HostBridge.Settings;
 
@@ -116,7 +127,9 @@ public class TidalSettingsHandler
 ```
 
 Diagnostics JSON Examples (for tooling/tests)
+
 - Settings success (CFG000):
+
 ```
 {
   "success": true,
@@ -124,7 +137,9 @@ Diagnostics JSON Examples (for tooling/tests)
   "error": null
 }
 ```
+
 - Indexer unauthorized (IX200):
+
 ```
 {
   "success": false,
@@ -136,7 +151,9 @@ Diagnostics JSON Examples (for tooling/tests)
   }
 }
 ```
+
 - Download stream error (DL100):
+
 ```
 {
   "success": false,
@@ -150,5 +167,6 @@ Diagnostics JSON Examples (for tooling/tests)
 ```
 
 CI Notes
+
 - Keep HostBridge out of packaging artifacts; it is referenced only by the host.
 - Optional CLI tests live under Trait scope=cli; enable them explicitly on environments with networking and packaging allowed.

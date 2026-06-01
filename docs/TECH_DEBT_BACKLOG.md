@@ -33,7 +33,7 @@ This document tracks actionable tech-debt items with acceptance criteria.
 
 - Criteria:
   - [ ] CI job runs `build.ps1 -Package` for net8.0.
-  - [ ] Fails if zip contains disallowed host assemblies (allowlist: `Lidarr.Plugin.Tidalarr.dll`, `Lidarr.Plugin.Common.dll`).
+  - [ ] Fails if zip contains disallowed host assemblies (allowed: `Lidarr.Plugin.Tidalarr.dll` + `plugin.json`; `Lidarr.Plugin.Common.dll` must NOT be present — it is ILRepack-merged into the plugin DLL).
 
 1) Reduce settings duplication
 

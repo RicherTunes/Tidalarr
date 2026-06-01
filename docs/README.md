@@ -3,7 +3,7 @@
 ## Current
 
 - **HostBridge Integration Guide** — [hostbridge-integration.md](hostbridge-integration.md)
-- **TFM Rationale** (`net8.0` core / `net9.0` CLI) — [TFM_RATIONALE.md](TFM_RATIONALE.md)
+- **TFM Rationale** (`net8.0` core and CLI) — [TFM_RATIONALE.md](TFM_RATIONALE.md)
 - **Settings Migration Notes** — [SETTINGS-MIGRATION.md](SETTINGS-MIGRATION.md)
 - **Plugin Packaging Validation** — [packaging-closure.md](packaging-closure.md)
 - **Packaging Policy Baseline** — [PACKAGING_POLICY_BASELINE.md](PACKAGING_POLICY_BASELINE.md)
