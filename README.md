@@ -127,7 +127,10 @@ src/Tidalarr/
 
 | Page | Description |
 |---|---|
-| [Tidalarr Wiki — Home](wiki/Home.md) | Plugin overview, version, and links to the Common ecosystem |
+| [Home](wiki/Home.md) | Plugin overview, navigation, and performance tuning |
+| [Authentication](wiki/Authentication.md) | OAuth 2.0 + PKCE sign-in (UI & CLI), token refresh, region/market |
+| [Quality & Formats](wiki/Quality-and-Formats.md) | Quality tiers, chunked DASH/BTS assembly, FLAC extraction, ISRC tags, lyrics |
+| [Troubleshooting](wiki/Troubleshooting.md) | Typed errors mapped to cause + fix |
 
 ### Local docs
 

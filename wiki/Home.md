@@ -6,6 +6,20 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 
 For full details — features, installation, configuration, CLI usage, and project structure — see the **[README](../README.md)**.
 
+## Wiki pages
+
+These pages cover Tidal-specific operational detail that goes beyond the README:
+
+| Page | What it covers |
+|---|---|
+| [Authentication](Authentication.md) | OAuth 2.0 + PKCE sign-in (UI & CLI), token refresh, region/market, the "fresh redirect URL" error |
+| [Quality & Formats](Quality-and-Formats.md) | Quality tiers → codecs, chunked DASH/BTS assembly, FLAC extraction, ISRC tags, synced lyrics |
+| [Troubleshooting](Troubleshooting.md) | Typed errors mapped to cause + fix (auth, manifests, rate limits, stream availability, FFmpeg) |
+
+Foundation topics (architecture, extension points, shared helpers, submodule
+pinning) live in **[Common's wiki](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Home.md)**
+and are not duplicated here.
+
 ## Performance tuning
 
 Tidal downloads are chunked (many HTTP requests per track), so they will not match single-file providers 1:1. The defaults aim for a safe baseline; raise cautiously if you hit slow downloads.
