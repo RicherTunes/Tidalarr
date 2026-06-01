@@ -1,12 +1,18 @@
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using Lidarr.Plugin.Common.Services.Streaming.Manifests;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Domain.Streaming;
 
 public class TidalManifestParser
 {
+    // Shared, spec-correct MPEG-DASH segment-index parser (Common). Replaces tidalarr's former
+    // in-house DASH walk, which hardcoded the first $Number$ to 1 and ignored SegmentTemplate
+    // @startNumber (an off-by-one for any manifest whose first segment number is not 1).
+    private static readonly DashManifestParser DashParser = new();
+
     public TidalManifest ParseManifest(string encodedManifest, string mimeType)
     {
         try
@@ -40,7 +46,11 @@ public class TidalManifestParser
             "unknown";
         string codec = NormalizeCodec(codecRaw);
         int sampleRate = int.TryParse(adaptationSet.Attribute("audioSamplingRate")?.Value, out int rate) ? rate : 44100;
-        string[] chunkUrls = ExtractChunkUrlsFromDash(adaptationSet, ns);
+
+        // Segment index resolution (init + ordered media segments) is delegated to Common's
+        // spec-correct parser, which honors @startNumber. Tidal manifests carry only absolute
+        // segment URLs, so no base URL is required.
+        string[] chunkUrls = ExtractChunkUrlsFromDash(adaptationSet, ns, xmlContent);
 
         // Tidal DASH streams are delivered in an MP4/M4A container (even when the codec inside is FLAC).
         // Keep the container extension stable so downstream post-processing can safely extract/remux later.
@@ -147,61 +157,44 @@ public class TidalManifestParser
         return 44100;
     }
 
-    private string[] ExtractChunkUrlsFromDash(XElement adaptationSet, XNamespace ns)
+    private static string[] ExtractChunkUrlsFromDash(XElement adaptationSet, XNamespace ns, string xmlContent)
     {
+        // Delegate the spec-correct walk (init segment at index 0, then @startNumber-based
+        // $Number$ numbering with SegmentTimeline r=+1 repeat semantics) to Common.
+        StreamManifest parsed = DashParser.Parse(xmlContent, string.Empty);
+        if (parsed.Segments.Count > 0)
+        {
+            return [.. parsed.Segments.Select(s => s.Url)];
+        }
+
+        // Degenerate Tidal manifest: a SegmentTemplate@media with neither a SegmentTimeline nor
+        // an @duration yields no media segments under the spec parser. Preserve tidalarr's
+        // historical single-segment fallback (one media URL at @startNumber, default 1), using the
+        // same numbering rules so behavior matches the spec parser had a timeline been present.
         XElement? representation = adaptationSet.Descendants(ns + "Representation").FirstOrDefault();
         string representationId = representation?.Attribute("id")?.Value ?? string.Empty;
-        XElement? template = representation?.Element(ns + "SegmentTemplate") ?? adaptationSet.Descendants(ns + "SegmentTemplate").FirstOrDefault();
+        XElement? template = representation?.Element(ns + "SegmentTemplate")
+            ?? adaptationSet.Descendants(ns + "SegmentTemplate").FirstOrDefault();
         string? mediaTemplate = template?.Attribute("media")?.Value;
         if (string.IsNullOrEmpty(mediaTemplate))
         {
-            string[] mediaTemplates = [.. adaptationSet.Descendants(ns + "SegmentTemplate")
-                .Select(st => st.Attribute("media")?.Value)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Select(s => s!)];
-            return mediaTemplates.Any() ? mediaTemplates : [];
+            return [];
         }
 
-        List<string> urls = [];
-
-        string? initializationTemplate = template?.Attribute("initialization")?.Value;
-        if (!string.IsNullOrEmpty(initializationTemplate))
+        XElement? timeline = template?.Element(ns + "SegmentTimeline")
+            ?? adaptationSet.Descendants(ns + "SegmentTimeline").FirstOrDefault();
+        if (timeline != null)
         {
-            string initUrl = initializationTemplate
-                .Replace("$RepresentationID$", representationId)
-                .Replace("$Number$", "0")
-                .Replace("$Number%06d$", "000000");
-            urls.Add(initUrl);
+            // A timeline was present but produced no segments (e.g. all <S> empty) — nothing to emit.
+            return [];
         }
 
-        XElement? timeline = template?.Element(ns + "SegmentTimeline") ?? adaptationSet.Descendants(ns + "SegmentTimeline").FirstOrDefault();
-        if (timeline == null)
-        {
-            string singleUrl = mediaTemplate
-                .Replace("$RepresentationID$", representationId)
-                .Replace("$Number$", "1")
-                .Replace("$Number%06d$", "000001");
-            urls.Add(singleUrl);
-            return [.. urls];
-        }
-
-        IEnumerable<XElement> segments = timeline.Descendants(ns + "S");
-        int number = 1;
-        foreach (XElement s in segments)
-        {
-            int repeat = int.TryParse(s.Attribute("r")?.Value, out int r) ? r + 1 : 1;
-            for (int i = 0; i < repeat; i++)
-            {
-                string url = mediaTemplate
-                    .Replace("$Number$", number.ToString())
-                    .Replace("$Number%06d$", number.ToString("D6"))
-                    .Replace("$RepresentationID$", representationId);
-                urls.Add(url);
-                number++;
-            }
-        }
-
-        return [.. urls];
+        uint startNumber = uint.TryParse(template?.Attribute("startNumber")?.Value, out uint sn) ? sn : 1;
+        string singleUrl = mediaTemplate
+            .Replace("$RepresentationID$", representationId)
+            .Replace("$Number%06d$", startNumber.ToString("D6"))
+            .Replace("$Number$", startNumber.ToString());
+        return [singleUrl];
     }
 
     private string DetermineFileExtension(string codec, string sampleUrl)
