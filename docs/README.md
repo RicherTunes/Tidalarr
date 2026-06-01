@@ -21,7 +21,7 @@ The following documents are pre-implementation planning artifacts, completed sta
 - **Proposals & feedback** (3 files): `ARCHITECT_FEEDBACK_RESPONSE.md`, `SHARED-LIBRARY-PROPOSAL.md`, `SHARED_LIBRARY_ENHANCEMENT_PROPOSAL.md`
 - **Iteration analyses** (3 files): `ITERATION_1_EDGE_CASES_ANALYSIS.md`, `ITERATION_2_SCALABILITY_ANALYSIS.md`, `ITERATION_3_SHARED_LIBRARY_IMPROVEMENTS.md`
 - **Test coverage & adoption** (3 files): `COVERAGE_ANALYSIS_SUMMARY.md`, `UNIT_TEST_COVERAGE_PLAN.md`, `UNIT_TEST_SUCCESS_SUMMARY.md`, `TESTING_ADOPTION_PLAN.md`
-- **Cross-plugin alignment** (4 files): [alignment/](alignment/) directory
+- **Cross-plugin alignment** (4 files): [alignment/](alignment/) directory — [migration-workstreams.md](alignment/migration-workstreams.md) (Tidalarr/Qobuzarr migration workstreams), [qobuzarr-streaming-module-update.md](alignment/qobuzarr-streaming-module-update.md) (Qobuzarr streaming-module adoption updates), [shared-architecture-goals.md](alignment/shared-architecture-goals.md) (shared architecture guiding principles), [tidalarr-qobuzarr-architecture.md](alignment/tidalarr-qobuzarr-architecture.md) (Tidalarr vs Qobuzarr architecture comparison)
 - **Ecosystem plans** (2 files): `ECOSYSTEM_E2E_PLAN.md`, `ECOSYSTEM_TEST_INFRA_ROADMAP.md`
 - **Tech debt inventory** (v1.0 snapshot): `TECH-DEBT-INVENTORY.md`
 
