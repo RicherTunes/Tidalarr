@@ -640,36 +640,47 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         string albumTitle = album.Title ?? "Unknown Album";
         DateTime releaseDate = album.ReleaseDate;
         int year = releaseDate.Year > 1900 ? releaseDate.Year : 0;
+        int durationSeconds = EstimateAlbumDurationSeconds(album);
 
         // Always offer all quality levels like TrevTV does - let the download handle actual availability.
         // This ensures users see all options regardless of what the search API returns.
         TidalQuality[] allQualities = [TidalQuality.Low, TidalQuality.High, TidalQuality.Lossless, TidalQuality.HiRes];
 
-        // Create a release for each quality level
+        // Per-album fields are constant across tiers; Common's MultiQualityReleaseBuilder loops the
+        // quality specs, composing AlbumReleaseInfoBuilder (per-tier GUID/URL/title) + AlbumSizeEstimator
+        // (per-tier size) so the boilerplate lives in one tested place. Tidal-specific bits (the quality
+        // ladder, bracket tokens, bitrate-per-quality) are supplied below via AddQuality.
+        MultiQualityReleaseBuilder builder = new MultiQualityReleaseBuilder()
+            .WithArtist(artistName)
+            .WithAlbum(albumTitle)
+            .WithYear(year > 0 ? year : null)
+            .WithScheme("tidal")
+            .WithAlbumId(album.Id)
+            .WithDurationSeconds(durationSeconds);
+
         foreach (TidalQuality quality in allQualities)
         {
             (string formatMarker, string? extraMarker) = DetermineTitleMarkers(quality);
-            (string guid, string downloadUrl, string title) = new AlbumReleaseInfoBuilder()
-                .WithArtist(artistName)
-                .WithAlbum(albumTitle)
-                .WithYear(year > 0 ? year : null)
-                .WithFormatMarker(formatMarker)
-                .WithExtraMarker(extraMarker)
-                .WithScheme("tidal")
-                .WithAlbumId(album.Id)
-                .WithQualityHint(QualityNames.GetValueOrDefault(quality, quality.ToString()))
-                .Build();
+            builder.AddQuality(
+                QualityNames.GetValueOrDefault(quality, quality.ToString()),
+                formatMarker,
+                extraMarker,
+                BitrateKbpsForQuality(quality) * 1000.0);
+        }
 
+        string infoUrl = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}";
+        foreach (MultiQualityRelease release in builder.Build())
+        {
             yield return new ReleaseInfo
             {
-                Guid = guid,
-                Title = title,
+                Guid = release.Guid,
+                Title = release.Title,
                 Artist = artistName,
                 Album = albumTitle,
                 PublishDate = releaseDate,
-                DownloadUrl = downloadUrl,
-                InfoUrl = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}",
-                Size = EstimateAlbumSize(album, quality),
+                DownloadUrl = release.DownloadUrl,
+                InfoUrl = infoUrl,
+                Size = release.SizeBytes,
                 DownloadProtocol = nameof(TidalarrDownloadProtocol)
             };
         }
@@ -732,31 +743,34 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         };
     }
 
-    private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
+    // Tidal's per-quality bitrate ladder (kbps). Tidal-specific — stays local; only the generic
+    // duration×bitrate→bytes arithmetic is delegated to Common's AlbumSizeEstimator.
+    // FLAC 16-bit/44.1kHz (Lossless): ~1000 kbps; FLAC 24-bit/96kHz (HiRes): ~3000 kbps
+    // (2.5-4x larger due to bit depth + sample rate); AAC HQ: ~320 kbps; AAC Low: ~96 kbps.
+    private static int BitrateKbpsForQuality(TidalQuality quality) => quality switch
     {
-        // Use actual track durations when available, else estimate from count * 4min average.
-        // FLAC 16-bit/44.1kHz (Lossless): ~1000 kbps
-        // FLAC 24-bit/96kHz (HiRes): ~3000 kbps (2.5-4x larger due to bit depth + sample rate)
-        // AAC HQ: ~320 kbps, AAC Low: ~96 kbps
-        int totalDurationSeconds;
+        TidalQuality.HiRes => 3000,
+        TidalQuality.Lossless => 1000,
+        TidalQuality.High => 320,
+        TidalQuality.Low => 96,
+        _ => 96
+    };
+
+    // Tidal-specific duration estimate: sum actual track durations (defaulting a missing one to 4 min)
+    // when any are known, else count * 4-min average (12 tracks when the count is unknown).
+    private static int EstimateAlbumDurationSeconds(TidalAlbumInfo album)
+    {
         if (album.Tracks?.Count > 0 && album.Tracks.Any(t => t.Duration > 0))
         {
-            totalDurationSeconds = album.Tracks.Sum(t => t.Duration > 0 ? t.Duration : 240);
+            return album.Tracks.Sum(t => t.Duration > 0 ? t.Duration : 240);
         }
-        else
-        {
-            int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12;
-            totalDurationSeconds = trackCount * 240;
-        }
-        int bitrateKbps = quality switch
-        {
-            TidalQuality.HiRes => 3000,    // 24-bit/96kHz FLAC
-            TidalQuality.Lossless => 1000, // 16-bit/44.1kHz FLAC
-            TidalQuality.High => 320,      // AAC 320kbps
-            TidalQuality.Low => 96,        // AAC 96kbps
-            _ => 96                        // AAC 96kbps (fallback)
-        };
 
-        return totalDurationSeconds * bitrateKbps * 125; // Convert to bytes
+        int trackCount = album.Tracks?.Count > 0 ? album.Tracks.Count : 12;
+        return trackCount * 240;
     }
+
+    private static long EstimateAlbumSize(TidalAlbumInfo album, TidalQuality quality)
+        => AlbumSizeEstimator.EstimateBytesFromBitrate(
+            EstimateAlbumDurationSeconds(album),
+            BitrateKbpsForQuality(quality) * 1000.0);
 }
