@@ -147,7 +147,7 @@ public class TidalDownloadClient(
                 throw new InvalidDataException("Downloaded stream contained no data.");
             }
 
-            TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), manifest.FileExtension, manifest.MimeType);
+            DownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), manifest.FileExtension, manifest.MimeType);
 
             audioStream.Position = 0;
             await using (FileStream fileStream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
@@ -247,7 +247,7 @@ public class TidalDownloadClient(
                     throw new InvalidDataException("Downloaded stream contained no data.");
                 }
 
-                TidalDownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), streamInfo.FileExtension, streamInfo.MimeType);
+                DownloadPayloadValidator.ValidateOrThrow(header.AsSpan(0, read), streamInfo.FileExtension, streamInfo.MimeType);
 
                 await fileStream.WriteAsync(header.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 await audioStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
