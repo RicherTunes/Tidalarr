@@ -145,8 +145,13 @@ jobs:
       shell: bash
       run: |
         dotnet restore src/Tidalarr/Tidalarr.csproj
+        # Build hostless to match this job's intent (it only runs State=Quarantined
+        # *unit* tests, which don't need the host-bridge). Without SkipHostBridge the
+        # full plugin build excludes LidarrNative/** under stub host assemblies yet
+        # TidalModule still references it -> CS0234. Mirror the test-project step below.
         dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
-          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
+          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
+          -p:SkipHostBridge=true -p:ExcludeHostBridge=true
 
     - name: Build test project (exclude HostBridge)
       shell: bash
