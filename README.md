@@ -47,17 +47,35 @@ To build from source, see the [Getting Started](#getting-started) section below.
 
 ## Configuration
 
-### Performance tuning
+Settings are available in the Lidarr UI under the plugin's Settings panel. Advanced items are hidden by default — click **Show Advanced** to reveal them.
 
-Tidal downloads are chunked (many HTTP requests per track). The defaults aim for a safe baseline; raise cautiously if you hit slow downloads.
+### Indexer settings
 
 | Setting | Default | Range | Description |
 |---|---|---|---|
-| Chunk Delay (ms) | 0 | 0–60 000 | Delay between chunk requests. Use `0` for maximum speed; increase if you get rate limited. |
-| Max Concurrent Track Downloads | 2 | 1–3 | Parallel tracks per album. |
-| Max Concurrent Chunk Downloads | 2 | 1–8 | Parallel chunk requests per track. When `Chunk Delay > 0`, chunk parallelism is disabled to preserve "delay between requests" semantics. |
+| Config Path | auto | — | Directory for Tidal OAuth tokens. Defaults to `/config/Tidalarr` (Docker) or `~/.config/Tidalarr` (Linux). |
+| OAuth Redirect URL | — | — | Paste the redirect URL from your browser after OAuth sign-in. Overwrite if stale. |
+| Market *(adv)* | `US` | `US` `UK` `DE` `FR` `CA` `AU` `JP` | Tidal API market code. |
+| Early Release Limit *(adv)* | 14 | 0–365 days | Skip pre-release downloads beyond this many days before release. 0 = include all. |
+| Enable Cache *(adv)* | on | — | Cache search results to reduce API calls. |
+| Cache Duration *(adv)* | 15 min | 0–1440 min | Cached search result lifetime. |
 
-For all available settings, see the plugin's Settings panel in the Lidarr UI.
+> **OAuth Authorization URL** is a read-only convenience field derived from Config Path — use it to copy the auth link without digging through logs.
+
+### Download client settings
+
+| Setting | Default | Range | Description |
+|---|---|---|---|
+| Config Path | auto | — | Must match the indexer's Config Path to reuse the same OAuth tokens. |
+| Download Path | — | — | Destination folder for downloaded albums. |
+| Preferred Quality | Lossless | Low / High / Lossless / HiRes | Audio quality tier. Falls back to the highest your subscription allows; HiFi Plus required for Lossless+. |
+| Include MQA *(adv)* | on | — | Include Master (MQA) releases. |
+| Extract FLAC *(adv)* | on | — | Extract FLAC from M4A containers. |
+| Chunk Delay *(adv)* | 0 ms | 0–60 000 ms | Delay between chunk requests. Increase if rate-limited. |
+| Max Concurrent Track Downloads *(adv)* | 2 | 1–3 | Parallel tracks per album. |
+| Max Concurrent Chunk Downloads *(adv)* | 2 | 1–8 | Parallel chunk requests per track. Effective parallelism is capped so that tracks × chunks ≤ 6. Disabled when Chunk Delay > 0. |
+| Save Synced Lyrics *(adv)* | on | — | Save `.lrc` lyrics alongside downloaded tracks. |
+| Use LRCLIB *(adv)* | off | — | Fall back to lrclib.net for lyrics when Tidal has none. Sends artist/track/album names. |
 
 ## Getting Started
 
