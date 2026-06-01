@@ -128,38 +128,39 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nuget-
 
-    - name: Prepare host stub assemblies
-      shell: pwsh
+    - name: Setup Lidarr host assemblies (Docker, plugins branch)
+      shell: bash
       run: |
-        $commonScripts = Join-Path $PWD 'ext/Lidarr.Plugin.Common/scripts'
-        $hostOutput = Join-Path $PWD 'ext/Lidarr/_output/net8.0'
-        if (Test-Path $commonScripts) {
-          $prepareStub = Join-Path $commonScripts 'prepare-host-stub.ps1'
-          if (Test-Path $prepareStub) {
-            Write-Host "Generating host stub assemblies..."
-            & $prepareStub -OutputPath $hostOutput
-          }
-        }
+        set -e
+        mkdir -p ext/Lidarr/_output/net8.0
+        if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
+        IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
+        n=0; until docker pull "$IMAGE"; do n=$((n+1)); if [ "$n" -ge 3 ]; then echo "::error::docker pull failed after $n attempts ($IMAGE)"; exit 1; fi; echo "pull failed ($n), retry in 10s"; sleep 10; done
+        cid=$(docker create "$IMAGE")
+        docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
+        docker rm "$cid" >/dev/null
+        find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
+        test -f ext/Lidarr/_output/net8.0/Lidarr.dll || { echo "::error::Lidarr.dll missing after extraction"; exit 1; }
+        echo "Extracted $(ls ext/Lidarr/_output/net8.0/*.dll | wc -l) host assemblies"
 
     - name: Restore and build
       shell: bash
       run: |
         dotnet restore src/Tidalarr/Tidalarr.csproj
-        # Build hostless to match this job's intent (it only runs State=Quarantined
-        # *unit* tests, which don't need the host-bridge). Without SkipHostBridge the
-        # full plugin build excludes LidarrNative/** under stub host assemblies yet
-        # TidalModule still references it -> CS0234. Mirror the test-project step below.
+        # Build the FULL plugin (incl. LidarrNative host-bridge) against the real
+        # Lidarr host assemblies extracted above. TidalModule.cs references the
+        # LidarrNative namespace unconditionally, so the host-bridge cannot be
+        # excluded — SkipHostBridge stub mode would drop LidarrNative/** and break
+        # with CS0234. Mirrors ci.yml / test-and-coverage.yml / nightly.yml.
         dotnet build src/Tidalarr/Tidalarr.csproj --configuration Release --no-restore \
-          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
-          -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
-    - name: Build test project (exclude HostBridge)
+    - name: Build test project
       shell: bash
       run: |
         dotnet build tests/Tidalarr.Tests/Tidalarr.Tests.csproj \
           --configuration Release -v minimal \
-          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false \
-          -p:SkipHostBridge=true -p:ExcludeHostBridge=true
+          -p:RunAnalyzersDuringBuild=false -p:EnableNETAnalyzers=false
 
     - name: Run quarantined tests (visibility)
       continue-on-error: true
@@ -172,8 +173,7 @@ jobs:
           --blame-hang-timeout 60s \
           --logger "trx;LogFileName=quarantined.trx" \
           --results-directory ./TestResults \
-          -p:PluginPackagingDisable=true \
-          -p:SkipHostBridge=true
+          -p:PluginPackagingDisable=true
 
     - name: Report quarantine count
       if: always()
