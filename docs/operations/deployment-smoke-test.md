@@ -48,7 +48,7 @@ Expand-Archive -Path src/Tidalarr/artifacts/packages/tidalarr-1.2.9-net8.0.zip -
    docker logs -f lidarr | grep -i tidal
    ```
 
-3. Confirm the plugin shows up under `Settings → Plugins` and the version matches `1.0.1`.
+3. Confirm the plugin shows up under `Settings → Plugins` and the version matches the current release (see `VERSION` file at the repo root).
 
 ## 5. Regression checks
 

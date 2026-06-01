@@ -1,5 +1,7 @@
 # Tidalarr
 
+> **Canonical source:** the root [`README.md`](../README.md) is kept up to date. This wiki page may lag behind; prefer the README for the latest installation steps, configuration table, and feature list.
+
 Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio from the [Tidal](https://tidal.com) streaming service. It ships as a single merged DLL (`Lidarr.Plugin.Tidalarr.dll`) targeting `net8.0`.
 
 - **Version**: 1.2.9
@@ -45,7 +47,7 @@ Tidal downloads are chunked (many HTTP requests per track), so they will not mat
 | Max Concurrent Track Downloads | 2 | 1–3 | Parallel tracks per album. |
 | Max Concurrent Chunk Downloads | 2 | 1–8 | Parallel chunk requests per track. When `Chunk Delay > 0`, chunk parallelism is disabled to preserve "delay between requests" semantics. |
 
-Settings are exposed via `TidalarrSettings` (`src/Tidalarr/Integration/TidalarrSettings.cs`) and the host bridge at `src/Tidalarr.HostBridge/`.
+Settings are exposed via the Lidarr UI (see the README config table for the full list) and the core classes at `src/Tidalarr/Integration/`.
 
 ## Getting Started
 
