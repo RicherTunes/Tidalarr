@@ -176,12 +176,12 @@ public class TidalManifestParser
         XElement? template = representation?.Element(ns + "SegmentTemplate")
             ?? adaptationSet.Descendants(ns + "SegmentTemplate").FirstOrDefault();
         string? mediaTemplate = template?.Attribute("media")?.Value;
-        if (string.IsNullOrEmpty(mediaTemplate))
+        if (template is null || string.IsNullOrEmpty(mediaTemplate))
         {
             return [];
         }
 
-        XElement? timeline = template?.Element(ns + "SegmentTimeline")
+        XElement? timeline = template.Element(ns + "SegmentTimeline")
             ?? adaptationSet.Descendants(ns + "SegmentTimeline").FirstOrDefault();
         if (timeline != null)
         {
@@ -189,7 +189,7 @@ public class TidalManifestParser
             return [];
         }
 
-        uint startNumber = uint.TryParse(template?.Attribute("startNumber")?.Value, out uint sn) ? sn : 1;
+        uint startNumber = uint.TryParse(template.Attribute("startNumber")?.Value, out uint sn) ? sn : 1;
         string singleUrl = mediaTemplate
             .Replace("$RepresentationID$", representationId)
             .Replace("$Number%06d$", startNumber.ToString("D6"))
