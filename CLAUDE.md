@@ -640,3 +640,18 @@ brainarr — the per-plugin glue is ~30 lines.
 | Test | Root Cause | Fix |
 |------|-----------|-----|
 | `HostVersionCouplingTests.DirectoryPackagesProps_Should_Match_HostVersions_For_Coupled_Dependencies` | Test reads FluentValidation.dll from `ext/Lidarr/_output` which may not exist in all dev environments (Docker-only assembly) | Guard with `Skip` when assembly directory is missing, or document required setup |
+
+## Ecosystem consolidation & parity discipline
+
+This plugin is one of five copy-paste-adjacent Lidarr streaming plugins (amazonmusicarr, applemusicarr,
+tidalarr, qobuzarr, brainarr) sharing `Lidarr.Plugin.Common`. **Every bug here is likely a bug class** present
+in the sibling plugins too. Before shipping a fix to any shared-surface concern (auth/retry, rate-limit /
+Retry-After, catalog→ReleaseInfo field mapping, path/SSRF guards, token store, pagination, date/number
+parsing): **sweep the other plugins + Common for the same pattern, fix every instance, and push shared logic
+down into Common** (plugins adopt it via a thin DI subclass; the out-of-tree DRM seam stays plugin-owned +
+public — never consolidated, because ILRepack internalizes Common in the merged DLL). Common changes go via an
+**isolated-worktree PR from origin/main**, must re-pin `ext-common-sha.txt`, and must keep this plugin's parity
+tests green (the parity matrix is a contract). Verify the actual mechanism before assuming a class sweeps —
+raw-JSON alias-probing plugins and typed-DTO plugins are vulnerable to different bug classes.
+
+**Canonical rules:** `ext/Lidarr.Plugin.Common/AGENTS.md` → "Ecosystem Consolidation & Parity Discipline".
