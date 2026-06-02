@@ -42,12 +42,22 @@ public class TidalApiClientMalformedTrackTests
     }
 
     [Fact]
-    public async Task GetTrackAsync_NullAlbum_Throws()
+    public async Task GetTrackAsync_NullAlbum_ReturnsTrackWithEmptyAlbum()
     {
+        // Harden campaign: a track with no nested album must NOT throw. The throw lived in
+        // MapToTidalTrackInfo, which also runs via .Select(...) over search/album-track batches —
+        // so one album-less track discarded the ENTIRE batch. It now maps with empty album info.
+        // (Updated from the prior GetTrackAsync_NullAlbum_Throws, which codified that harmful throw.)
         var track = new { id = "t1", title = "T", artist = new { name = "A", id = "a1" }, album = (object?)null, trackNumber = 1, duration = 10, streamReady = true, audioQuality = "LOSSLESS" };
         string json = JsonSerializer.Serialize(track);
         TidalApiClient api = new(new HttpClient(new tests_Tidalarr_Tests_Utils.BodyHandler(json)), new Auth());
-        _ = await Assert.ThrowsAnyAsync<Exception>(() => api.GetTrackAsync("t1"));
+
+        var result = await api.GetTrackAsync("t1");
+
+        Assert.NotNull(result);
+        Assert.Equal("T", result.Title);
+        Assert.Equal(string.Empty, result.AlbumId);
+        Assert.Equal(string.Empty, result.AlbumTitle);
     }
 }
 
