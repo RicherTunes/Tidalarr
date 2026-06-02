@@ -129,23 +129,12 @@ public class TidalLidarrDownloadClient(
             // HostBridgeDownloadOrchestrator (Common Wave A item 2):
             //   snapshot → generate downloadId → insert into tracker → fire-and-forget doWork → return id
             //
-            // Snapshotter for TidalLidarrDownloadClientSettings: field-by-field copy so the
-            // doWork closure is insulated from live settings changes (ProbeOnly-race pattern).
-            // Reference-typed fields: none in this settings class — all primitives/strings.
+            // Snapshotter: a copy of the settings so the doWork closure is insulated from live settings
+            // changes (ProbeOnly-race pattern). See SnapshotSettings — a reflection copy so no field is dropped.
             return _downloadOrchestrator.StartTrackedDownloadAsync<HostBridgeDownloadItem, TidalLidarrDownloadClientSettings>(
                 settings: Settings,
                 tracker: ActiveDownloads,
-                snapshotter: s => new TidalLidarrDownloadClientSettings
-                {
-                    ConfigPath = s.ConfigPath,
-                    DownloadPath = s.DownloadPath,
-                    PreferredQuality = s.PreferredQuality,
-                    IncludeMqa = s.IncludeMqa,
-                    ExtractFlac = s.ExtractFlac,
-                    DownloadDelay = s.DownloadDelay,
-                    MaxConcurrentTrackDownloads = s.MaxConcurrentTrackDownloads,
-                    MaxConcurrentChunkDownloads = s.MaxConcurrentChunkDownloads
-                },
+                snapshotter: SnapshotSettings,
                 itemFactory: (_, downloadId) =>
                 {
                     HostBridgeDownloadItem item = new()
@@ -395,6 +384,26 @@ public class TidalLidarrDownloadClient(
                 : "Test";
             failures.Add(new ValidationFailure(failureField, classification.Hint));
         }
+    }
+
+    /// <summary>
+    /// Field-by-field snapshot of the settings the background download reads, captured synchronously before
+    /// any await. The previous hand-written initializer silently dropped SaveSyncedLyrics + UseLRCLIB, so the
+    /// background download ignored the user's lyric settings. Reflection-copies every read-write property —
+    /// structurally cannot drop a field. Internal so a unit test can pin the contract.
+    /// </summary>
+    internal static TidalLidarrDownloadClientSettings SnapshotSettings(TidalLidarrDownloadClientSettings live)
+    {
+        TidalLidarrDownloadClientSettings snapshot = new();
+        foreach (var p in typeof(TidalLidarrDownloadClientSettings).GetProperties())
+        {
+            if (p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
+            {
+                p.SetValue(snapshot, p.GetValue(live));
+            }
+        }
+
+        return snapshot;
     }
 
     private static string ExtractAlbumIdFromRelease(ReleaseInfo release)
