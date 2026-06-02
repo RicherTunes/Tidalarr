@@ -10,7 +10,7 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 
 ## Key features
 
-- **Search & index** — Tidal albums and tracks appear as Lidarr search results via the indexer.
+- **Search & index** — Tidal albums and tracks appear as Lidarr search results via the indexer, with queries refined by Common's dependency-free `HeuristicQueryOptimizer`.
 - **Chunked DASH downloads** — Tidal's streaming manifest is parsed into chunks, downloaded in parallel, and assembled into M4A or FLAC.
 - **Quality tiers** — Low (AAC 96 kbps), High (AAC 320 kbps), Lossless (FLAC 16-bit/44.1 kHz), and Hi-Res (FLAC up to 24-bit/192 kHz).
 - **FLAC extraction** — optionally extracts FLAC from M4A containers (`ExtractFlac`, on by default).
