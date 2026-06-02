@@ -31,6 +31,10 @@ public class TidalarrEcosystemParityTests : EcosystemParityTestBase
     [Fact] public void Check_UsesCommonLyricsEnricher_Test() => Assert.True(Check_UsesCommonLyricsEnricher().Passed, string.Join("; ", Check_UsesCommonLyricsEnricher().Errors));
     [Fact] public void Check_UsesCommonDiagnosticTypes_Test() => Assert.True(Check_UsesCommonDiagnosticTypes().Passed, string.Join("; ", Check_UsesCommonDiagnosticTypes().Errors));
     [Fact] public void Check_DownloadClientUsesPathTraversalGuard_Test() => Assert.True(Check_DownloadClientUsesPathTraversalGuard().Passed, string.Join("; ", Check_DownloadClientUsesPathTraversalGuard().Errors));
+    // Download-client-id contract (Common #598): GetItems() must stamp DownloadClientInfo.Id from Definition (never 0).
+    [Fact] public void Check_DownloadClientStampsRegisteredClientId_Test() => Assert.True(Check_DownloadClientStampsRegisteredClientId().Passed, string.Join("; ", Check_DownloadClientStampsRegisteredClientId().Errors));
+    // Audio-payload validation consolidated on Common's DownloadPayloadValidator (Common #602; tidal #323 removed the local fork).
+    [Fact] public void Check_DownloadClientUsesCommonPayloadValidator_Test() => Assert.True(Check_DownloadClientUsesCommonPayloadValidator().Passed, string.Join("; ", Check_DownloadClientUsesCommonPayloadValidator().Errors));
     [Fact] public void Check_FileClassNameParity_Test() => Assert.True(Check_FileClassNameParity().Passed, string.Join("; ", Check_FileClassNameParity().Errors));
     [Fact] public void Check_ClaudeMdDocumentsCommonHelpers_Test() => Assert.True(Check_ClaudeMdDocumentsCommonHelpers().Passed, string.Join("; ", Check_ClaudeMdDocumentsCommonHelpers().Errors));
 
