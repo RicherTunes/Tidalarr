@@ -15,6 +15,10 @@ public class TidalStreamManifest
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+    // Shared, spec-correct MPEG-DASH segment-index parser (Common). Replaces tidalarr's former
+    // in-house DASH walk so both manifest entry points route through one code path.
+    private static readonly Lidarr.Plugin.Common.Services.Streaming.Manifests.DashManifestParser DashParser = new();
+
     public string[] ChunkUrls { get; private set; } = [];
     public string FileExtension { get; private set; } = ".m4a";
     public string Codecs { get; private set; } = "MP4A";
@@ -85,7 +89,9 @@ public class TidalStreamManifest
             XDocument doc = XDocument.Parse(decodedManifest);
             XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
 
-            // Navigate the DASH structure: MPD > Period > AdaptationSet > Representation
+            // Navigate the DASH structure: MPD > Period > AdaptationSet > Representation.
+            // Codec/extension are read from the first Representation to preserve historical
+            // behavior (and the "no Representation => keep defaults" contract).
             XElement? adaptationSet = doc.Root?
                 .Elements(ns + "Period").FirstOrDefault()?
                 .Elements(ns + "AdaptationSet").FirstOrDefault();
@@ -100,59 +106,13 @@ public class TidalStreamManifest
                 Codecs = ParseCodecs(codecsAttr);
                 FileExtension = DetermineFileExtension(codecsAttr);
 
-                // Extract RepresentationID for template resolution
-                string representationId = representation.Attribute("id")?.Value ?? "0";
-
-                // Extract segment template
-                XElement? segmentTemplate = representation.Elements(ns + "SegmentTemplate").FirstOrDefault();
-                if (segmentTemplate != null)
-                {
-                    string mediaTemplate = segmentTemplate.Attribute("media")?.Value ?? "";
-                    string initializationTemplate = segmentTemplate.Attribute("initialization")?.Value ?? "";
-
-                    // Handle startNumber (TidalSharp pattern)
-                    uint startNumber = uint.TryParse(segmentTemplate.Attribute("startNumber")?.Value, out uint start) ? start : 1;
-
-                    if (!string.IsNullOrEmpty(mediaTemplate))
-                    {
-                        List<string> urls = [];
-
-                        // Add initialization segment if present
-                        if (!string.IsNullOrEmpty(initializationTemplate))
-                        {
-                            urls.Add(initializationTemplate
-                                .Replace("$RepresentationID$", representationId)
-                                .Replace("$Number$", "0"));
-                        }
-
-                        // Process segment timeline (corrected TidalSharp approach)
-                        XElement? segmentTimeline = segmentTemplate.Elements(ns + "SegmentTimeline").FirstOrDefault();
-                        if (segmentTimeline != null)
-                        {
-                            uint segmentNumber = startNumber; // Use startNumber as initial value
-
-                            foreach (XElement s in segmentTimeline.Elements(ns + "S"))
-                            {
-                                // Critical fix: TidalSharp uses (1 + r) not (r + 1)
-                                int repeat = int.TryParse(s.Attribute("r")?.Value, out int r) ? r : 0;
-                                int segmentCount = 1 + repeat; // 1 occurrence + r repeats
-
-                                // Generate segments with 0-based indexing (TidalSharp pattern)
-                                for (int i = 0; i < segmentCount; i++)
-                                {
-                                    string url = mediaTemplate
-                                        .Replace("$RepresentationID$", representationId)
-                                        .Replace("$Number$", segmentNumber.ToString())
-                                        .Replace("$Number%06d$", segmentNumber.ToString("D6")); // Support padded numbers
-                                    urls.Add(url);
-                                    segmentNumber++;
-                                }
-                            }
-                        }
-
-                        ChunkUrls = [.. urls];
-                    }
-                }
+                // Segment index resolution (init segment at index 0, then @startNumber-based
+                // $Number$ numbering with SegmentTimeline r=+1 repeat semantics) is delegated to
+                // Common's shared, spec-correct parser. Tidal manifests carry absolute segment
+                // URLs, so no base URL is required.
+                Lidarr.Plugin.Common.Services.Streaming.Manifests.StreamManifest parsed =
+                    DashParser.Parse(decodedManifest, string.Empty);
+                ChunkUrls = [.. parsed.Segments.Select(s => s.Url)];
             }
         }
         catch (Exception ex)
