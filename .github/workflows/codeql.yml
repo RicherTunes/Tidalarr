@@ -60,26 +60,17 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Extract Lidarr Plugins Branch Assemblies
-        run: |
-          # Extract assemblies from plugins branch Docker image (same as main CI)
-          mkdir -p ext/Lidarr/_output/net8.0
-          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
-          echo "Pulling $IMAGE..."
-          docker pull "$IMAGE"
-          cid=$(docker create "$IMAGE")
-          echo "Extracting assemblies from container..."
-          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
-          docker rm "$cid" >/dev/null
-          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
-
-          # Verify plugins branch API is present
-          if ! strings ext/Lidarr/_output/net8.0/Lidarr.Core.dll | grep -q "IDownloadProtocol"; then
-            echo "[ERROR] Assemblies do not expose IDownloadProtocol (plugins branch API)."
-            exit 1
-          fi
-          echo "[OK] Plugins branch assemblies extracted successfully"
+      - name: Extract Lidarr assemblies (shared script)
         shell: bash
+        run: bash scripts/extract-lidarr-assemblies.sh --mode minimal
+
+      - name: Remove host FluentValidation to prevent version conflict
+        shell: bash
+        run: |
+          # Common compiles against FluentValidation 11.x (NuGet/CPM) but the host ships 9.5.4;
+          # keeping the host DLL in the assembly probe path causes CS1705 during build.
+          rm -f ext/Lidarr/_output/net8.0/FluentValidation.dll
+          echo "Removed host FluentValidation.dll to prevent CS1705 version conflict"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
