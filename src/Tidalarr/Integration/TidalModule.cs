@@ -7,6 +7,7 @@ using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Performance;
 using Lidarr.Plugin.Common.Services.Network;
+using Lidarr.Plugin.Common.Services.Intelligence;
 using Lidarr.Plugin.Common.Services.Lyrics;
 using Lidarr.Plugin.Common.Services.Registration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -178,6 +179,22 @@ public class TidalModule : StreamingPluginModule
         // shared DownloadTelemetryService. Replaces the deleted plugin-local TidalDownloadTelemetrySink
         // so the log format lives in exactly one file across the ecosystem.
         _ = services.AddDownloadTelemetry();
+
+        // Query optimizer — Common's dependency-free HeuristicQueryOptimizer.
+        // TidalSearchService takes an optional IQueryOptimizer and, when present,
+        // runs an optimize -> search -> learn loop. Registering it here lights up
+        // that previously dead-wired consumer. SAFETY: HeuristicQueryOptimizer sets
+        // OptimizedQuery.Query (the PRIMARY search string) to the *whitespace-
+        // normalized raw query* only — never a term-dropped rewrite. All recall-
+        // adding rewrites (edition-strip, featured-artist-drop, keyword-reduce) go
+        // into OptimizedQuery.Alternatives, which TidalSearchService does not fan
+        // out into. Net effect: the user-visible primary result path is unchanged
+        // (modulo benign whitespace collapse) while the learning loop becomes live.
+        // Singleton so the in-memory metrics accumulate across searches (mirrors the
+        // ILyricsEnricher singleton above). TryAdd so a future plugin-specific
+        // optimizer can override it.
+        services.TryAddSingleton<IQueryOptimizer>(sp =>
+            new HeuristicQueryOptimizer(sp.GetService<ILogger<HeuristicQueryOptimizer>>()));
 
         // Application services
         _ = services.AddScoped<TidalSearchService>();
