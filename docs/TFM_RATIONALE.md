@@ -22,7 +22,7 @@ CLI (TidalCLI, net8.0)
 
 What ships
 
-- Only the net8.0 plugin zip (Lidarr.Plugin.Tidalarr.dll + Common runtime and plugin.json).
+- Only the net8.0 plugin zip (Lidarr.Plugin.Tidalarr.dll + plugin.json). Common/Abstractions are ILRepack-merged and internalized into the plugin DLL — not shipped as separate runtime assemblies.
 - CLI is excluded from packaging and distribution artifacts.
 
 Future Multi-Targeting Plan

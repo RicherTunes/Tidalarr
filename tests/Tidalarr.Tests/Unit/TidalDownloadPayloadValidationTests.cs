@@ -1,9 +1,13 @@
 using System.Text;
-using Tidalarr.Integration;
+using Lidarr.Plugin.Common.Utilities;
 
 namespace Tidalarr.Tests.Unit;
 
-public class TidalDownloadPayloadValidatorTests
+// Pins the download-payload validation contract Tidalarr's download client relies on.
+// The logic is consolidated in Common's DownloadPayloadValidator (the former Tidalarr-local
+// TidalDownloadPayloadValidator fork was removed); these cases passing against Common's
+// validator prove the migration preserved behavior.
+public class TidalDownloadPayloadValidationTests
 {
     [Theory]
     [InlineData("<html><body>blocked</body></html>")]
@@ -14,7 +18,7 @@ public class TidalDownloadPayloadValidatorTests
         byte[] bytes = Encoding.UTF8.GetBytes(payload);
 
         _ = Assert.Throws<InvalidDataException>(() =>
-            TidalDownloadPayloadValidator.ValidateOrThrow(bytes, ".flac", "audio/flac"));
+            DownloadPayloadValidator.ValidateOrThrow(bytes, ".flac", "audio/flac"));
     }
 
     [Fact]
@@ -24,7 +28,7 @@ public class TidalDownloadPayloadValidatorTests
         var flacHeader = new byte[8];
         Encoding.ASCII.GetBytes("fLaC").CopyTo(flacHeader, 0);
 
-        TidalDownloadPayloadValidator.ValidateOrThrow(flacHeader, ".flac", "audio/flac");
+        DownloadPayloadValidator.ValidateOrThrow(flacHeader, ".flac", "audio/flac");
     }
 
     [Fact]
@@ -34,7 +38,7 @@ public class TidalDownloadPayloadValidatorTests
         var mp4Header = new byte[12];
         Encoding.ASCII.GetBytes("ftyp").CopyTo(mp4Header, 4);
 
-        TidalDownloadPayloadValidator.ValidateOrThrow(mp4Header, ".m4a", "audio/mp4");
+        DownloadPayloadValidator.ValidateOrThrow(mp4Header, ".m4a", "audio/mp4");
     }
 
     [Fact]
@@ -45,6 +49,6 @@ public class TidalDownloadPayloadValidatorTests
         Encoding.ASCII.GetBytes("ftyp").CopyTo(mp4Header, 4);
 
         _ = Assert.Throws<InvalidDataException>(() =>
-            TidalDownloadPayloadValidator.ValidateOrThrow(mp4Header, ".flac", "audio/flac"));
+            DownloadPayloadValidator.ValidateOrThrow(mp4Header, ".flac", "audio/flac"));
     }
 }
