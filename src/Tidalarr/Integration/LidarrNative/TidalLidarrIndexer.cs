@@ -348,7 +348,11 @@ public class TidalLidarrIndexer(
         }
     }
 
-    private async Task<bool> TryExchangeAuthorizationCode(ITidalAuth authService, List<ValidationFailure> failures)
+    // internal (not private) so Tidalarr.Tests can characterize the OAuth code-exchange decision
+    // directly (the HttpIndexerBase ctor is fixed by Lidarr's contract, so the test mocks the four
+    // host services and drives this method). InternalsVisibleTo("Tidalarr.Tests") is declared in
+    // src/Tidalarr/Properties/InternalsVisibleTo.cs.
+    internal async Task<bool> TryExchangeAuthorizationCode(ITidalAuth authService, List<ValidationFailure> failures)
     {
         try
         {
@@ -363,7 +367,17 @@ public class TidalLidarrIndexer(
 
             // Load PKCE state (code_verifier) needed for token exchange.
             // Like TrevTV's implementation, we skip state validation - it's for CSRF protection
-            // which isn't relevant in a manual copy/paste OAuth flow.
+            // which isn't relevant in a manual copy/paste OAuth flow (the user IS the redirect
+            // channel). PKCE's code_verifier<->code_challenge binding is the real security control
+            // and is fully preserved below: the exchange always uses the STORED code_verifier.
+            //
+            // We deliberately do NOT compare callbackResult.State against the stored state and
+            // regenerate on mismatch. Doing so minted a fresh code_verifier/challenge/state on every
+            // Test (Lidarr auto-tests + manual clicks), invalidating whatever auth URL the user had
+            // open before they could finish pasting the redirect — an unwinnable "OAuth state
+            // mismatch" loop. Keeping the pending state STABLE across Tests lets the real flow
+            // converge. Genuinely used/expired codes are still surfaced by the
+            // TidalInvalidGrantException (invalid_grant) catch below.
             PKCEStateStore pkceStore = new(Settings.ConfigPath);
             PKCEState? pkceState = await pkceStore.LoadStateAsync().ConfigureAwait(false);
 
@@ -371,14 +385,6 @@ public class TidalLidarrIndexer(
             {
                 this._logger.Warn("No PKCE state found - auth URL may have expired. Generating new one.");
                 await GenerateOAuthAuthUrl(failures).ConfigureAwait(false);
-                return false;
-            }
-
-            if (!PKCEStateStore.IsCallbackStateMatch(pkceState, callbackResult.State))
-            {
-                this._logger.Warn("OAuth state mismatch - likely a stale URL or different browser tab. Regenerating OAuth URL.");
-                PKCEStateStore.RegenerateCodes(Settings.ConfigPath);
-                await GenerateOAuthAuthUrl(failures, prefix: "OAuth state mismatch. ").ConfigureAwait(false);
                 return false;
             }
 
