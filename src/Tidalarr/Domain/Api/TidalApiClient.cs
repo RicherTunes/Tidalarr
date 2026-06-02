@@ -288,12 +288,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     }
     private static TidalTrackInfo MapToTidalTrackInfo(TidalTrackDto dto)
     {
-        if (dto.album == null)
-        {
-            throw new InvalidOperationException("Track response missing album information.");
-        }
-
-
+        // A track with no nested album is unusual but must NOT abort the whole batch. This runs via
+        // .Select(...) over search results and album track lists, so a single album-less track
+        // previously threw and discarded the ENTIRE search result (all albums/tracks/artists). The
+        // album-derived fields below are already null-safe (dto.album?...), so map it with empty
+        // album info instead of throwing.
         List<string> artistNames = [];
         if (!string.IsNullOrWhiteSpace(dto.artist?.name))
         {
