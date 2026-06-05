@@ -23,7 +23,12 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly ILogger<TidalChunkDownloader>? _logger = logger;
-    private readonly ChunkedHttpAssembler _assembler = new(httpClient, logger as ILogger<ChunkedHttpAssembler>);
+    // SSRF policy for segment fetches. Chunk URLs come from Tidal's authenticated manifest. The guard's value
+    // here is blocking literal private/loopback/CGNAT/metadata-host targets — the real SSRF vectors. We keep
+    // AllowHttp=true (Tidal manifests can serve http segment URLs; the assembler had no scheme restriction
+    // before #618, so https-only would be a behaviour regression) and ResolveDns=false (skip a per-host lookup
+    // on the hot path; the manifest source is trusted). Net result is strictly more protection than before.
+    private readonly ChunkedHttpAssembler _assembler = new(httpClient, logger as ILogger<ChunkedHttpAssembler>, new RemoteMediaUriPolicy { AllowHttp = true, ResolveDns = false });
     private const int ChunkBufferSize = 65536;
 
     /// <summary>
