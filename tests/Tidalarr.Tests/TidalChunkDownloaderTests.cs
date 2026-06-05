@@ -18,7 +18,7 @@ public class TidalChunkDownloaderTests
         // Arrange
         string[] testData = ["chunk1data", "chunk2data", "chunk3data"];
         HttpClient httpClient = CreateMockHttpClientWithChunks(testData);
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalStreamInfo streamInfo = new(
             TrackId: "123",
@@ -45,7 +45,7 @@ public class TidalChunkDownloaderTests
     {
         // Arrange
         HttpClient httpClient = new();
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync([]);
@@ -61,7 +61,7 @@ public class TidalChunkDownloaderTests
         (string token, byte[][] encryptedChunks) = BuildEncryptedChunks([plain]);
 
         HttpClient httpClient = CreateMockHttpClientWithBinaryChunks(encryptedChunks);
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["https://test.com/1"],
@@ -83,7 +83,7 @@ public class TidalChunkDownloaderTests
     public async Task DownloadAndAssembleAsync_EncryptedManifestMissingToken_Throws()
     {
         HttpClient httpClient = CreateMockHttpClientWithBinaryChunks([[0x01, 0x02]]);
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
         TidalManifest manifest = new(
             ChunkUrls: ["https://test.com/1"],
             Codec: "flac",

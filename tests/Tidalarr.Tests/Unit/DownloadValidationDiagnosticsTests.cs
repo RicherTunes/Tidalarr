@@ -67,7 +67,7 @@ public class DownloadValidationDiagnosticsTests
     public async Task ValidateDownloadWithDiagnostics_Succeeds_WithCode()
     {
         TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
@@ -83,7 +83,7 @@ public class DownloadValidationDiagnosticsTests
     public async Task ValidateDownloadWithDiagnostics_Fails_WithStableCode()
     {
         TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new FailHandler()));
+        TidalChunkDownloader downloader = new(new HttpClient(new FailHandler()), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 

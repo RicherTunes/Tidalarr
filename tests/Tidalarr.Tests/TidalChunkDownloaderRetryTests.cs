@@ -49,7 +49,7 @@ public class TidalChunkDownloaderRetryTests
         // Arrange
         byte[] expectedData = [1, 2, 3, 4, 5];
         SuccessHandler handler = new(expectedData);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["https://chunk1.test"],
@@ -92,7 +92,7 @@ public class TidalChunkDownloaderRetryTests
             });
         });
 
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["https://chunk1", "https://chunk2", "https://chunk3"],
@@ -117,7 +117,7 @@ public class TidalChunkDownloaderRetryTests
     {
         // Arrange
         SuccessHandler handler = new([]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync(["https://valid-chunk.test"]);
@@ -131,7 +131,7 @@ public class TidalChunkDownloaderRetryTests
     {
         // Arrange
         SuccessHandler handler = new([]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync([]);

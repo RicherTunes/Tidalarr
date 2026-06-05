@@ -19,16 +19,18 @@ public class ChunkDownloadProgress
 /// <see cref="TidalStreamDecryptor"/>, and the legacy public API surface that
 /// existing consumers depend on.
 /// </summary>
-public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownloader>? logger = null)
+public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownloader>? logger = null, RemoteMediaUriPolicy? segmentPolicy = null)
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly ILogger<TidalChunkDownloader>? _logger = logger;
-    // SSRF policy for segment fetches. Chunk URLs come from Tidal's authenticated manifest. The guard's value
-    // here is blocking literal private/loopback/CGNAT/metadata-host targets — the real SSRF vectors. We keep
-    // AllowHttp=true (Tidal manifests can serve http segment URLs; the assembler had no scheme restriction
-    // before #618, so https-only would be a behaviour regression) and ResolveDns=false (skip a per-host lookup
-    // on the hot path; the manifest source is trusted). Net result is strictly more protection than before.
-    private readonly ChunkedHttpAssembler _assembler = new(httpClient, logger as ILogger<ChunkedHttpAssembler>, new RemoteMediaUriPolicy { AllowHttp = true, ResolveDns = false });
+    // SSRF policy for segment fetches. Chunk URLs come from Tidal's authenticated manifest. The guard blocks
+    // literal private/loopback/CGNAT/metadata-host targets — the real SSRF vectors. We keep AllowHttp=true
+    // (Tidal manifests can serve http segment URLs; the assembler had no scheme restriction before #618, so
+    // https-only would be a behaviour regression). R2-02: ResolveDns stays at its strict default (true) — DNS
+    // resolution defends against a host that resolves to an internal address (rebinding / a compromised CDN
+    // record), and the OS resolver caches the lookup. Tests inject a policy with a deterministic DnsResolver.
+    private readonly RemoteMediaUriPolicy _segmentPolicy = segmentPolicy ?? new RemoteMediaUriPolicy { AllowHttp = true };
+    private readonly ChunkedHttpAssembler _assembler = new(httpClient, logger as ILogger<ChunkedHttpAssembler>, segmentPolicy ?? new RemoteMediaUriPolicy { AllowHttp = true });
     private const int ChunkBufferSize = 65536;
 
     /// <summary>
@@ -172,7 +174,11 @@ public class TidalChunkDownloader(HttpClient httpClient, ILogger<TidalChunkDownl
                 return false;
             }
 
-            using HttpResponseMessage response = await this._httpClient.GetAsync(chunkUrls[0], HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            // R2-02: validate the probe URL against the SSRF policy (and keep it in force across redirects)
+            // before issuing the raw GET — an unsafe target throws and is reported inaccessible below.
+            using HttpRequestMessage request = new(HttpMethod.Get, chunkUrls[0]);
+            using HttpResponseMessage response = await MediaRedirectSafeSender.SendValidatedAsync(
+                this._httpClient, request, this._segmentPolicy, HttpCompletionOption.ResponseHeadersRead, cancellationToken: cancellationToken).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
