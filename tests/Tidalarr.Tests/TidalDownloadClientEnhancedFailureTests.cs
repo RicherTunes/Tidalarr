@@ -60,7 +60,7 @@ public class TidalDownloadClientEnhancedFailureTests
         string tmp = Path.Combine(Path.GetTempPath(), $"tidal_enh_fail_{Guid.NewGuid():N}");
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new ThrowingHandler()));
+        TidalChunkDownloader downloader = new(new HttpClient(new ThrowingHandler()), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", tmp, TidalQuality.Lossless);

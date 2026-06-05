@@ -67,7 +67,7 @@ public class TidalDownloadClientValidationTests
     public async Task ValidateDownloadAsync_Success_WhenChunkAccessible()
     {
         TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()));
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler()), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         bool ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
@@ -78,7 +78,7 @@ public class TidalDownloadClientValidationTests
     public async Task ValidateDownloadAsync_False_WhenChunkInaccessible()
     {
         TidalStreamService streamSvc = new(new CoreStub(), new TidalManifestParser());
-        TidalChunkDownloader downloader = new(new HttpClient(new FailHandler()));
+        TidalChunkDownloader downloader = new(new HttpClient(new FailHandler()), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClientSettings settings = new() { PreferredQuality = TidalQuality.Lossless, DownloadPath = Path.GetTempPath() };
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
         bool ok = await client.ValidateDownloadAsync("t1", TidalQuality.Lossless);
