@@ -4,6 +4,7 @@ using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Base;
 using Lidarr.Plugin.Abstractions.Models;
+using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Interfaces;
@@ -30,6 +31,27 @@ public class TidalDownloadClient(
 
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
+
+    /// <summary>
+    /// F-09: true when <paramref name="outputPath"/> resolves inside the configured
+    /// <paramref name="downloadRoot"/> or the system temp dir (the two legitimate write roots — the temp
+    /// dir is allowed because <see cref="DownloadTrackAsync"/> stages there before the host imports).
+    /// Canonical-form containment via Common's <see cref="PathTraversalGuard.IsPathWithinRoot"/> (resolves
+    /// <c>..</c>, defends sibling-prefix + case-twin escapes).
+    /// </summary>
+    internal static bool IsOutputPathAllowed(string outputPath, string? downloadRoot)
+        => PathTraversalGuard.IsPathWithinRoot(outputPath, downloadRoot, Path.GetTempPath());
+
+    /// <summary>Throws <see cref="UnauthorizedAccessException"/> when <paramref name="outputPath"/> would
+    /// write outside the configured download path — call before any mkdir/write/move/delete/tag.</summary>
+    private void EnsureOutputPathAllowed(string outputPath)
+    {
+        if (!IsOutputPathAllowed(outputPath, Settings.DownloadPath))
+        {
+            throw new UnauthorizedAccessException(
+                $"Refusing to write outside the configured download path: '{outputPath}'.");
+        }
+    }
 
     // Implement required abstract methods from BaseStreamingDownloadClient
     protected override async Task<bool> AuthenticateAsync()
@@ -117,6 +139,9 @@ public class TidalDownloadClient(
     {
         try
         {
+            // F-09: refuse a destination outside the configured download path before any filesystem work.
+            EnsureOutputPathAllowed(outputPath);
+
             // Step 1: Get track metadata
             StreamingTrack track = await GetTrackAsync(trackId).ConfigureAwait(false);
             TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
@@ -135,7 +160,10 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken).ConfigureAwait(false);
+            // F-08: assemble to a temp file-backed stream instead of buffering the whole track in a
+            // MemoryStream — large hi-res tracks no longer pin their full size on the managed heap.
+            // Sequential (maxConcurrency 1) to preserve this path's historical ordering contract.
+            await using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(manifest, Settings.DownloadDelay, maxConcurrentChunkDownloads: 1, progress, cancellationToken).ConfigureAwait(false);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
@@ -215,6 +243,9 @@ public class TidalDownloadClient(
     {
         try
         {
+            // F-09: refuse a destination outside the configured download path before any filesystem work.
+            EnsureOutputPathAllowed(outputPath);
+
             StreamingTrack track = await GetTrackAsync(trackId).ConfigureAwait(false);
             TidalQuality quality = preferredQuality ?? Settings.PreferredQuality;
             TidalStreamInfo streamInfo = await this._streamService.GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);

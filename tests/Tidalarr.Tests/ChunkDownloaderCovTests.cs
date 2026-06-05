@@ -105,8 +105,10 @@ public class ChunkDownloaderCovTests
             KeyId: null,
             SecurityToken: null);
 
-        // Act
-        Progress<ChunkDownloadProgress> progress = new(p => progressReports.Add(p));
+        // Act — use a SYNCHRONOUS IProgress: System.Progress<T> posts callbacks to the threadpool with no
+        // ordering/timing guarantee, so progressReports[0] could observe the count-2 report before count-1
+        // (a real race seen flaking in CI). A synchronous collector makes order + count deterministic.
+        IProgress<ChunkDownloadProgress> progress = new SyncProgress<ChunkDownloadProgress>(p => progressReports.Add(p));
         await using Stream _ = await downloader.DownloadAndAssembleToFileStreamAsync(
             manifest, chunkDelayMs: 0, maxConcurrentChunkDownloads: 1, progress: progress);
 
