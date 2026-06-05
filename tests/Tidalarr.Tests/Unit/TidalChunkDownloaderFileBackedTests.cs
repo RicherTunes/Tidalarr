@@ -43,7 +43,7 @@ public class TidalChunkDownloaderFileBackedTests
         });
 
         using HttpClient httpClient = new(handler);
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: urls,
@@ -108,7 +108,7 @@ public class TidalChunkDownloaderFileBackedTests
         });
 
         using HttpClient httpClient = new(handler);
-        TidalChunkDownloader downloader = new(httpClient);
+        TidalChunkDownloader downloader = new(httpClient, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: urls,

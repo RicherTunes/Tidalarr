@@ -69,7 +69,7 @@ public class TidalDownloadClientEnhancedFlowTests
         byte[] payload = ext == ".flac"
             ? [(byte)'f', (byte)'L', (byte)'a', (byte)'C', 0x00, 0x00, 0x00, 0x00]
             : [0x00, 0x00, 0x00, 0x00, (byte)'f', (byte)'t', (byte)'y', (byte)'p', 0x00, 0x00, 0x00, 0x00];
-        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler(payload)));
+        TidalChunkDownloader downloader = new(new HttpClient(new OkHandler(payload)), segmentPolicy: TidalTestPolicies.Resolving);
         TidalDownloadClient client = new(streamSvc, downloader, new CoreStub(mime, ext), new Domain.Quality.TidalQualityDetector(), settings, NullLogger.Instance);
 
         EnhancedDownloadResult res = await client.DownloadTrackEnhancedAsync("t1", tmp, TidalQuality.Lossless);

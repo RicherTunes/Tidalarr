@@ -19,7 +19,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 76-79: Encrypted manifest with null/whitespace security token
         ConstantHandler handler = new([1, 2, 3]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/chunk"],
@@ -44,7 +44,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 76-79: Encrypted manifest with whitespace-only security token
         ConstantHandler handler = new([1, 2, 3]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/chunk"],
@@ -72,7 +72,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 62-64: chunkDelayMs > 0 applies delay
         ConstantHandler handler = new([1, 2, 3]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/1", "http://test/2"],
@@ -104,7 +104,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 150-153: chunkDelayMs > 0 in file-backed variant
         ConstantHandler handler = new([1, 2, 3]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/1", "http://test/2"],
@@ -140,7 +140,7 @@ public class TidalChunkDownloaderCovTests
         byte[][] chunks = [[1], [2], [3]];
 
         SequenceHandler handler = new(() => chunks[callCount++ % chunks.Length]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/1", "http://test/2", "http://test/3"],
@@ -173,7 +173,7 @@ public class TidalChunkDownloaderCovTests
         byte[][] chunks = [[1], [2]];
 
         SequenceHandler handler = new(() => chunks[callCount++ % chunks.Length]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler), loggerMock.Object);
+        TidalChunkDownloader downloader = new(new HttpClient(handler), loggerMock.Object, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/1", "http://test/2"],
@@ -211,7 +211,7 @@ public class TidalChunkDownloaderCovTests
         byte[][] chunks = [[10], [20], [30]];
 
         SequenceHandler handler = new(() => chunks[callCount++ % chunks.Length]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalStreamInfo streamInfo = new(
             TrackId: "track-parallel",
@@ -241,7 +241,7 @@ public class TidalChunkDownloaderCovTests
         byte[][] chunks = [[1], [2]];
 
         SequenceHandler handler = new(() => chunks[callCount++ % chunks.Length]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler), loggerMock.Object);
+        TidalChunkDownloader downloader = new(new HttpClient(handler), loggerMock.Object, segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalStreamInfo streamInfo = new(
             TrackId: "track-parallel-logged",
@@ -275,7 +275,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 281-284: chunkDelayMs > 0 in legacy sequential path
         ConstantHandler handler = new([1, 2, 3]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalStreamInfo streamInfo = new(
             TrackId: "track-delay",
@@ -306,7 +306,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 411-414: catch block returns false on exception
         ExceptionThrowingHandler handler = new();
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         // Act - Request that will throw
         bool result = await downloader.ValidateChunkAccessibilityAsync(["http://will-throw/test"]);
@@ -320,7 +320,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Lines 411-414: Non-success status or exception returns false
         FailingHandler handler = new();
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         // Act
         bool result = await downloader.ValidateChunkAccessibilityAsync(["http://failing/test"]);
@@ -349,7 +349,7 @@ public class TidalChunkDownloaderCovTests
         string base64Token = Convert.ToBase64String(fakeToken);
 
         ConstantHandler handler = new([1, 2, 3, 4, 5]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/chunk"],
@@ -376,7 +376,7 @@ public class TidalChunkDownloaderCovTests
     {
         // Arrange - Line 425-428: RequiresDecryption returns false when not encrypted
         ConstantHandler handler = new([10, 20, 30]);
-        TidalChunkDownloader downloader = new(new HttpClient(handler));
+        TidalChunkDownloader downloader = new(new HttpClient(handler), segmentPolicy: TidalTestPolicies.Resolving);
 
         TidalManifest manifest = new(
             ChunkUrls: ["http://test/chunk"],
