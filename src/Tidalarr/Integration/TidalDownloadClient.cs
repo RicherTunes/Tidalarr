@@ -160,7 +160,10 @@ public class TidalDownloadClient(
                 Logger?.LogDebug($"Download progress: {p.CompletedChunks}/{p.TotalChunks} chunks ({p.ProgressPercentage:F1}%)");
             });
 
-            using MemoryStream audioStream = await this._chunkDownloader.DownloadAndAssembleAsync(manifest, Settings.DownloadDelay, progress, cancellationToken).ConfigureAwait(false);
+            // F-08: assemble to a temp file-backed stream instead of buffering the whole track in a
+            // MemoryStream — large hi-res tracks no longer pin their full size on the managed heap.
+            // Sequential (maxConcurrency 1) to preserve this path's historical ordering contract.
+            await using Stream audioStream = await this._chunkDownloader.DownloadAndAssembleToFileStreamAsync(manifest, Settings.DownloadDelay, maxConcurrentChunkDownloads: 1, progress, cancellationToken).ConfigureAwait(false);
 
             // Step 5: Save assembled audio with correct extension
             string tempPath = outputPath + manifest.FileExtension;
