@@ -26,12 +26,34 @@ public class TidalDownloadClientPathContainmentTests
     }
 
     [Fact]
-    public void IsOutputPathAllowed_UnderSystemTemp_True_EvenWhenRootDiffers()
+    public void IsOutputPathAllowed_UnderPluginTempSubdir_True_EvenWhenRootDiffers()
     {
         var root = Path.Combine(Path.GetTempPath(), $"tidal_root_{Guid.NewGuid():N}");
-        var tempStaged = Path.Combine(Path.GetTempPath(), $"tidalarr_{Guid.NewGuid():N}.flac");
+        // Staging now lives in the plugin-owned %TEMP%/tidalarr subdir, not directly in %TEMP%.
+        var tempStaged = Path.Combine(TidalDownloadClient.PluginTempRoot, $"tidalarr_{Guid.NewGuid():N}.flac");
 
         Assert.True(TidalDownloadClient.IsOutputPathAllowed(tempStaged, root));
+    }
+
+    [Fact]
+    public void IsOutputPathAllowed_ElsewhereInSystemTemp_False()
+    {
+        // R2-11: a path inside the shared %TEMP% but OUTSIDE the plugin subdir must be refused — the temp
+        // allow-root was narrowed from all of %TEMP% to %TEMP%/tidalarr.
+        var root = Path.Combine(Path.GetTempPath(), $"tidal_root_{Guid.NewGuid():N}");
+        var elsewhereInTemp = Path.Combine(Path.GetTempPath(), $"not_tidalarr_{Guid.NewGuid():N}.flac");
+
+        Assert.False(TidalDownloadClient.IsOutputPathAllowed(elsewhereInTemp, root));
+    }
+
+    [Fact]
+    public void IsOutputPathAllowed_SiblingPrefixOfPluginTemp_False()
+    {
+        // "%TEMP%/tidalarr_evil" must not be admitted by a naive prefix match of "%TEMP%/tidalarr".
+        var root = Path.Combine(Path.GetTempPath(), $"tidal_root_{Guid.NewGuid():N}");
+        var siblingPrefix = TidalDownloadClient.PluginTempRoot + $"_evil_{Guid.NewGuid():N}.flac";
+
+        Assert.False(TidalDownloadClient.IsOutputPathAllowed(siblingPrefix, root));
     }
 
     [Fact]
