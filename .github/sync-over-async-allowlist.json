@@ -1,10 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Allowlist of intentional sync-over-async (.GetAwaiter().GetResult()) call-sites. Category A = host requires synchronous entry-point; Category B = avoidable (never listed here). Review entries when they expire -- if the host constraint still exists, renew the date.",
+  "$comment": "Allowlist of intentional sync-over-async (.GetAwaiter().GetResult()) call-sites. Category A = host requires synchronous entry-point; Category B = avoidable (never listed here). Entries are identified semantically by file + pattern + method, NOT by line number — line numbers drift and the linter reports the accurate current line at scan time. Review entries when they expire; if the host constraint still exists, renew the date.",
   "entries": [
     {
       "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs",
-      "line": 340,
       "pattern": "EnsureValidSessionAsync().GetAwaiter().GetResult()",
       "method": "TidalLidarrDownloadClient.Test()",
       "category": "A",
@@ -14,7 +13,6 @@
     },
     {
       "file": "src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs",
-      "line": 506,
       "pattern": "searchTask.GetAwaiter().GetResult()",
       "method": "TidalLidarrIndexer.ParseResponse()",
       "category": "A",
@@ -24,7 +22,6 @@
     },
     {
       "file": "src/Tidalarr/Integration/TidalModule.cs",
-      "line": 110,
       "pattern": "LegacyTokenMigration.MigrateIfPresentAsync(...).GetAwaiter().GetResult()",
       "method": "TidalModule.ConfigureServices()",
       "category": "A",
@@ -34,7 +31,6 @@
     },
     {
       "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
-      "line": 284,
       "pattern": "reader.LoadAsync().GetAwaiter().GetResult()",
       "method": "PKCEStateStore.LoadState()",
       "category": "A",
@@ -44,21 +40,19 @@
     },
     {
       "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
-      "line": 301,
       "pattern": "writer.SaveAsync(...).GetAwaiter().GetResult()",
       "method": "PKCEStateStore.SaveState()",
       "category": "A",
-      "reason": "Sync IPKCEStateStore.SaveState() — same constraint as LoadState (line 284).",
+      "reason": "Sync IPKCEStateStore.SaveState() — same constraint as PKCEStateStore.LoadState().",
       "owner": "alex",
       "expiresOn": "2026-08-01"
     },
     {
       "file": "src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs",
-      "line": 330,
       "pattern": "writer.ClearAsync().GetAwaiter().GetResult()",
       "method": "PKCEStateStore.ClearState()",
       "category": "A",
-      "reason": "Sync IPKCEStateStore.ClearState() — same constraint as LoadState (line 284).",
+      "reason": "Sync IPKCEStateStore.ClearState() — same constraint as PKCEStateStore.LoadState().",
       "owner": "alex",
       "expiresOn": "2026-08-01"
     }
