@@ -32,15 +32,22 @@ public class TidalDownloadClient(
     protected override string ServiceName => "Tidal";
     protected override string ProtocolName => "tidal";
 
+    /// <summary>R2-11: the plugin-owned staging subdirectory under the system temp dir. Only this subtree —
+    /// not all of <c>%TEMP%</c> — is accepted as the alternate write root, so a caller-supplied path landing
+    /// elsewhere in the (world-writable, shared) temp dir is refused. Staging (<see cref="GetTempFilePath"/>)
+    /// writes here.</summary>
+    internal static string PluginTempRoot { get; } = Path.Combine(Path.GetTempPath(), "tidalarr");
+
     /// <summary>
     /// F-09: true when <paramref name="outputPath"/> resolves inside the configured
-    /// <paramref name="downloadRoot"/> or the system temp dir (the two legitimate write roots — the temp
-    /// dir is allowed because <see cref="DownloadTrackAsync"/> stages there before the host imports).
-    /// Canonical-form containment via Common's <see cref="PathTraversalGuard.IsPathWithinRoot"/> (resolves
-    /// <c>..</c>, defends sibling-prefix + case-twin escapes).
+    /// <paramref name="downloadRoot"/> or the plugin's temp subdir (<see cref="PluginTempRoot"/>) — the two
+    /// legitimate write roots; <see cref="DownloadTrackAsync"/> stages in the temp subdir before the host
+    /// imports. Canonical-form containment via Common's <see cref="PathTraversalGuard.IsPathWithinRoot"/>
+    /// (resolves <c>..</c>, defends sibling-prefix + case-twin escapes). R2-11 narrowed the temp root from all
+    /// of <c>%TEMP%</c> to <see cref="PluginTempRoot"/>.
     /// </summary>
     internal static bool IsOutputPathAllowed(string outputPath, string? downloadRoot)
-        => PathTraversalGuard.IsPathWithinRoot(outputPath, downloadRoot, Path.GetTempPath());
+        => PathTraversalGuard.IsPathWithinRoot(outputPath, downloadRoot, PluginTempRoot);
 
     /// <summary>Throws <see cref="UnauthorizedAccessException"/> when <paramref name="outputPath"/> would
     /// write outside the configured download path — call before any mkdir/write/move/delete/tag.</summary>
@@ -454,7 +461,9 @@ public class TidalDownloadClient(
     {
         string safeName = $"{string.Join(", ", track.Artists ?? [])} - {track.Title}";
         safeName = Sanitize.FileNameSegment(safeName.Normalize(NormalizationForm.FormC));
-        return Path.Combine(Path.GetTempPath(), $"tidalarr_{safeName}{extension}");
+        // R2-11: stage inside the plugin-owned temp subdir (the only alternate write root IsOutputPathAllowed
+        // accepts) rather than directly in the shared %TEMP%.
+        return Path.Combine(PluginTempRoot, $"tidalarr_{safeName}{extension}");
     }
 }
 
