@@ -107,7 +107,9 @@ public class TidalModuleEndToEndDiFlowsTests
         // Override seams for deterministic behavior
         _ = services.AddScoped<ITidalAuth, AuthStub>();
         _ = services.AddScoped<ITidalCore, CoreStub>();
-        _ = services.AddScoped(_ => new TidalChunkDownloader(new HttpClient(new OkHandler())));
+        // Inject the resolving SSRF policy so the stub chunk host (https://chunk) classifies as public under the
+        // Strict guard (Common 9691bd8 validates the URL before the first send). Matches the R2-02 test sweep.
+        _ = services.AddScoped(_ => new TidalChunkDownloader(new HttpClient(new OkHandler()), segmentPolicy: TidalTestPolicies.Resolving));
         _ = services.AddScoped(sp => new TidalSearchService(sp.GetRequiredService<ITidalCore>(), new Domain.Quality.TidalQualityDetector()));
 
         ServiceProvider provider = services.BuildServiceProvider();
