@@ -8,7 +8,7 @@ on:
 
 jobs:
   bump:
-    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/bump-common-plugin.yml@c2aca69b8c94bbba2ff9a4884291f0cc501eb623
+    uses: RicherTunes/Lidarr.Plugin.Common/.github/workflows/bump-common-plugin.yml@3167345c5ad3f7ab49ef7bce7d741b69ce8642c5
     # TODO: replace @main with merge-commit SHA after PR #514 merges
     # Quality upgrades absorbed from reusable workflow:
     #   - ubuntu-latest runner (was windows-latest, PS-only)
