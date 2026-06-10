@@ -41,7 +41,7 @@ try {
 
     $zipPath = New-PluginPackage `
         -Csproj 'src/Tidalarr/Tidalarr.csproj' `
-        -Manifest 'src/Tidalarr/plugin.json' `
+        -Manifest 'plugin.json' `
         -Framework net8.0 `
         -Configuration Release `
         -RequireCanonicalAbstractions | Select-Object -Last 1
