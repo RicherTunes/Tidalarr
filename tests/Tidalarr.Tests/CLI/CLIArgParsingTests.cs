@@ -93,7 +93,7 @@ public class CLIArgParsingTests
                 return new CliResult(-1, string.Empty, "dotnet build failed");
             }
         }
-        string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net9.0", "TidalCLI.dll");
+        string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net8.0", "TidalCLI.dll");
 
         System.Diagnostics.ProcessStartInfo psi = new()
         {

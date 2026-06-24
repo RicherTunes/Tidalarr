@@ -343,12 +343,12 @@ public class TidalIndexer : BaseStreamingIndexer<TidalIndexerSettings>, IDisposa
         return this._httpClient;
     }
 
-    public void Dispose()
+    public new void Dispose()
     {
-        _httpClient?.Dispose();
+        base.Dispose();
+        this._httpClient.Dispose();
     }
 }
-
 
 
 

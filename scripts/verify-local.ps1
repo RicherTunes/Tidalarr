@@ -36,12 +36,13 @@ try {
         MainDll              = 'Lidarr.Plugin.Tidalarr.dll'
         HostAssembliesPath   = 'ext/Lidarr/_output/net8.0'
         CommonPath           = 'ext/Lidarr.Plugin.Common'
-        LidarrDockerVersion  = 'pr-plugins-3.1.2.4913'
+        LidarrDockerVersion  = 'nightly-3.1.3.4970'
         BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:SkipHostBridge=false')
         TestProjects         = @('tests/Tidalarr.Tests/Tidalarr.Tests.csproj')
         ExpectedContentsFile = 'packaging/expected-contents.txt'
         WarningBudget        = 100
         WarningBudgetEnforce = $false
+        RequireHermeticTests = $true
     }
 
     $runner = Join-Path $config.CommonPath 'scripts/local-ci.ps1'

@@ -83,12 +83,12 @@ References: src/Tidalarr/Integration/*Settings.cs, src/Tidalarr.HostBridge/Setti
     Labels = @('tech-debt')
   }
   ,@{
-    Title = 'docs(tfms): document net8.0(core) vs net9.0(cli) rationale';
+    Title = 'docs(tfms): keep plugin and CLI net8.0 rationale current';
     Body = @'
-Context: Different TFMs for core and CLI.
+Context: The plugin and CLI now both target net8.0 to match the Lidarr host runtime and avoid extra SDK requirements.
 
 Acceptance:
-- [ ] Add a short doc/rationale and guidance for future alignment.
+- [ ] Keep the short doc/rationale current and document any future TFM migration criteria.
 References: README.md, docs/
 '@;
     Labels = @('tech-debt','docs')

@@ -1,6 +1,6 @@
 # Deployment & Smoke Test Playbook
 
-Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr plugins branch on .NET 8 (e.g., `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`). See CLAUDE.md for the current Docker image tag.
+Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr plugins branch on .NET 8 (e.g., `ghcr.io/hotio/lidarr:nightly-3.1.3.4970`). See CLAUDE.md for the current Docker image tag.
 
 ## 1. Run the unified CI pipeline locally (optional)
 
@@ -8,7 +8,7 @@ Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr 
 ./scripts/ci.ps1
 ```
 
-This validates host assemblies, manifest metadata, Release build and packages `artifacts/Tidalarr-<version>.zip`.
+This validates host assemblies, manifest metadata, Release build and packages `artifacts/Lidarr.Plugin.Tidalarr-v<version>.net8.0.zip`.
 
 ## 2. Prepare your Lidarr container / host
 
@@ -66,4 +66,4 @@ If anything fails:
 
 ## 7. Promote to production
 
-Once the smoke test passes, attach the new `Tidalarr-<version>.zip` to the release notes alongside a short changelog and validation log excerpts.
+Once the smoke test passes, attach the new `Lidarr.Plugin.Tidalarr-v<version>.net8.0.zip` to the release notes alongside a short changelog and validation log excerpts.

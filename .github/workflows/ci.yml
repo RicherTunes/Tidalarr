@@ -1,14 +1,15 @@
 name: CI
-# Gitea-primary CI. The lint job runs fast Common policy gates; the verify job
-# runs the same shared local-ci pipeline developers use locally: host assembly
-# extraction, build, package closure, and tests.
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
   pull_request:
+
 jobs:
   lint:
+    name: Common lint gates
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -16,34 +17,25 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "true"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Init Common submodule
+        uses: ./.github/actions/init-common-submodule
+        with:
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.CI_PAT }}
+
       - name: Common submodule pin guard
         shell: bash
         run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
-      # The bare runner image has no pwsh and the catthehacker container can't reach Gitea
-      # for checkout on this host (the qobuz #12 blocker). Fetch the self-contained release
-      # tarball instead - mechanism proven green on Common's lint job.
-      - name: Install PowerShell
-        shell: bash
-        run: |
-          set -e
-          curl -sSL https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz -o /tmp/pwsh.tgz
-          mkdir -p /opt/pwsh
-          tar -xzf /tmp/pwsh.tgz -C /opt/pwsh
-          chmod +x /opt/pwsh/pwsh
-          echo "/opt/pwsh" >> "$GITHUB_PATH"
-      - name: Install .NET SDK
-        shell: bash
-        run: |
-          set -e
-          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
-          bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
-          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
-          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
-          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
-          "$HOME/.dotnet/dotnet" --version
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
       - name: Common lint gates
         shell: pwsh
         run: |
@@ -74,6 +66,8 @@ jobs:
           Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/ecosystem-parity-lint.ps1' @('-RepoPath', '.', '-CommonRoot', 'ext/Lidarr.Plugin.Common', '-Check', 'VersionContract', '-Mode', 'ci')
 
   verify:
+    name: Full local-ci verification
+    if: ${{ github.server_url == 'https://github.com' }}
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -82,31 +76,25 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "true"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Init Common submodule
+        uses: ./.github/actions/init-common-submodule
+        with:
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.CI_PAT }}
+
       - name: Common submodule pin guard
         shell: bash
         run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
-      - name: Install PowerShell
-        shell: bash
-        run: |
-          set -e
-          curl -sSL https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz -o /tmp/pwsh.tgz
-          mkdir -p /opt/pwsh
-          tar -xzf /tmp/pwsh.tgz -C /opt/pwsh
-          chmod +x /opt/pwsh/pwsh
-          echo "/opt/pwsh" >> "$GITHUB_PATH"
-      - name: Install .NET SDK
-        shell: bash
-        run: |
-          set -e
-          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
-          bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
-          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
-          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
-          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
-          "$HOME/.dotnet/dotnet" --version
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
       - name: Full local-ci verification
-        shell: bash
-        run: pwsh ./scripts/verify-local.ps1
+        shell: pwsh
+        run: ./scripts/verify-local.ps1
