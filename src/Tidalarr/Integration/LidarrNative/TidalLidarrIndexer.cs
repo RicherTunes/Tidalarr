@@ -558,7 +558,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 /// Parser for Tidal search results.
 /// Uses TidalSearchService to perform actual searches and converts results to Lidarr format.
 /// </summary>
-public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger) : IParseIndexerResponse
+public class TidalLidarrParser : IParseIndexerResponse
 {
     private static readonly Dictionary<TidalQuality, string> QualityNames = new()
     {
@@ -568,8 +568,15 @@ public class TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProv
         [TidalQuality.HiRes] = nameof(TidalQuality.HiRes),
     };
 
-    private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly Logger _logger = logger;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly Logger _logger;
+
+    public TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger)
+    {
+        _ = settings;
+        this._serviceProvider = serviceProvider;
+        this._logger = logger;
+    }
 
     public IList<ReleaseInfo> ParseResponse(IndexerResponse indexerResponse)
     {

@@ -14,6 +14,7 @@
   <PropertyGroup>
     <!-- SkipHostBridge default value -->
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
+    <DefineConstants Condition="'$(SkipHostBridge)' == 'true'">$(DefineConstants);SKIP_HOST_BRIDGE</DefineConstants>
   </PropertyGroup>
 
   <!-- SkipHostBridge diagnostic: confirm LidarrNative exclusion is working -->

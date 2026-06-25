@@ -15,23 +15,47 @@ runs:
       env:
         SUBMODULES_TOKEN: ${{ inputs.token }}
       run: |
+        set -euo pipefail
+
         # Mask token immediately to prevent leakage
         if [ -n "${SUBMODULES_TOKEN}" ]; then
           echo "::add-mask::${SUBMODULES_TOKEN}"
         fi
 
-        # Sync submodule URL
-        git submodule sync -- ext/Lidarr.Plugin.Common
+        COMMON_SUBMODULE_PATH="ext/Lidarr.Plugin.Common"
+        COMMON_GITHUB_URL="https://github.com/RicherTunes/Lidarr.Plugin.Common.git"
 
-        # Use GIT_CONFIG_PARAMETERS for scoped authentication (no global/local config mutation)
-        # This applies the insteadOf rewrite ONLY for this single command
+        COMMON_SUBMODULE_NAME="$(
+          git config --file .gitmodules --get-regexp '^submodule\..*\.path$' |
+            awk -v path="${COMMON_SUBMODULE_PATH}" '$2 == path {
+              key=$1
+              sub(/^submodule\./, "", key)
+              sub(/\.path$/, "", key)
+              print key
+              exit
+            }'
+        )"
+
+        if [ -z "${COMMON_SUBMODULE_NAME}" ]; then
+          echo "::error::FATAL: ${COMMON_SUBMODULE_PATH} not found in .gitmodules"
+          exit 1
+        fi
+
+        # Sync from .gitmodules first, then override only this runner's local config on GitHub.
+        git submodule sync -- "${COMMON_SUBMODULE_PATH}"
+        if [ "${GITHUB_SERVER_URL:-}" = "https://github.com" ]; then
+          git config "submodule.${COMMON_SUBMODULE_NAME}.url" "${COMMON_GITHUB_URL}"
+        fi
+
+        # Use GIT_CONFIG_PARAMETERS for scoped authentication so the token is not written to config.
+        # This applies the insteadOf rewrite ONLY for this single command.
         if [ -n "${SUBMODULES_TOKEN}" ]; then
           GIT_CONFIG_PARAMETERS="'url.https://x-access-token:${SUBMODULES_TOKEN}@github.com/.insteadOf=https://github.com/'" \
-            git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
+            git submodule update --init --depth=1 -- "${COMMON_SUBMODULE_PATH}"
         else
           # Fork PRs won't have the token - attempt without auth (will fail for private repos)
           echo "::warning::SUBMODULES_TOKEN not available (fork PR?) - attempting unauthenticated fetch"
-          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common || {
+          git submodule update --init --depth=1 -- "${COMMON_SUBMODULE_PATH}" || {
             echo "::error::Submodule init failed - likely a private repo without auth token"
             exit 1
           }

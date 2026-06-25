@@ -19,7 +19,7 @@ Options:
   -n, --no-build                  Skip the build step
   -v, --verbose                   Use normal verbosity (default: minimal)
   --use-prebuilt-assemblies       Build against pre-built Lidarr binaries
-  --lidarr-version VERSION        Override Lidarr assembly version (default: 2.13.2.4685)
+  --lidarr-version VERSION        Override Lidarr assembly version (default: 3.1.3.4970)
   -h, --help                      Show this help text
 
 Examples:
@@ -43,7 +43,7 @@ RESTORE=false
 NO_BUILD=false
 VERBOSE=false
 USE_PREBUILT=false
-LIDARR_VERSION="2.13.2.4685"
+LIDARR_VERSION="3.1.3.4970"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -158,4 +158,4 @@ if ! $DEPLOY && ! $NO_BUILD; then
   echo "  To deploy automatically: ./build.sh --configuration $CONFIGURATION --deploy"
   echo "  Plugin binaries: src/Tidalarr/bin/$CONFIGURATION"
   echo "  Manual deploy: copy the output to your Lidarr plugins folder"
-fi\n
+fi

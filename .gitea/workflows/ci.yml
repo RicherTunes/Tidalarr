@@ -1,13 +1,7 @@
 name: CI
-# Gitea-primary CI (GitHub Actions is out of credits). This workflow is LINT-ONLY by design:
-#   * The 3 ecosystem gates (date-parsing, sync-over-async, ecosystem-parity) need only pwsh + the
-#     Common submodule scripts -- no Lidarr host assemblies -- so they run cleanly on the shared runner.
-#   * The plugin BUILD + UNIT TESTS need the Lidarr plugins-branch host assemblies (Lidarr.dll etc.),
-#     obtained via the Docker image (download-plugins-branch-assemblies). That is NOT available on the
-#     shared act_runner, so build + tests remain LOCAL-VALIDATION-ONLY (the established merge gate).
-# ACTIVATION: this file does nothing until the repo's Actions are enabled AND the dead .github/workflows
-# are neutralized on the Gitea copy (else Gitea would also run ~20-30 GitHub workflows and clog the
-# single serial runner). See memory: gitea-primary-host.
+# Gitea-primary CI. The lint job runs fast Common policy gates; the verify job
+# runs the same shared local-ci pipeline developers use locally: host assembly
+# extraction, build, package closure, and tests.
 on:
   workflow_dispatch:
   push:
@@ -16,11 +10,18 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      DOTNET_VERSION: 8.0.x
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Common submodule pin guard
+        shell: bash
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
       # The bare runner image has no pwsh and the catthehacker container can't reach Gitea
       # for checkout on this host (the qobuz #12 blocker). Fetch the self-contained release
       # tarball instead - mechanism proven green on Common's lint job.
@@ -33,12 +34,93 @@ jobs:
           tar -xzf /tmp/pwsh.tgz -C /opt/pwsh
           chmod +x /opt/pwsh/pwsh
           echo "/opt/pwsh" >> "$GITHUB_PATH"
-      - name: Date-parsing gate (culture-safety + epoch guard)
+      - name: Install .NET SDK
+        shell: bash
+        run: |
+          set -e
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+          bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
+          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+          "$HOME/.dotnet/dotnet" --version
+      - name: Common lint gates
         shell: pwsh
-        run: ./ext/Lidarr.Plugin.Common/scripts/lint-date-parsing.ps1 -Path . -Mode ci
-      - name: Sync-over-async gate
-        shell: pwsh
-        run: ./ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode ci
-      - name: Ecosystem parity gate
-        shell: pwsh
-        run: ./ext/Lidarr.Plugin.Common/scripts/ecosystem-parity-lint.ps1 -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Invoke-FallbackGate {
+            param([string]$ScriptPath, [string[]]$Arguments)
+            if (-not (Test-Path $ScriptPath)) {
+              Write-Error "Fallback lint gate script not found: $ScriptPath"
+              exit 1
+            }
+            $global:LASTEXITCODE = 0
+            & $ScriptPath @Arguments
+            $gateExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+            if ($gateExitCode -ne 0) { exit $gateExitCode }
+          }
+
+          $runner = './ext/Lidarr.Plugin.Common/scripts/ci/run-plugin-lint-gates.ps1'
+          if (Test-Path $runner) {
+            $global:LASTEXITCODE = 0
+            & $runner -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
+            $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+            exit $runnerExitCode
+          }
+
+          Write-Warning "Shared lint runner not found; using compatibility fallback until Common submodule is repinned."
+          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/lint-date-parsing.ps1' @('-Path', '.', '-Mode', 'ci')
+          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1' @('-Path', '.', '-Mode', 'ci')
+          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/ecosystem-parity-lint.ps1' @('-RepoPath', '.', '-CommonRoot', 'ext/Lidarr.Plugin.Common', '-Check', 'VersionContract', '-Mode', 'ci')
+
+  verify:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DOTNET_VERSION: 8.0.x
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Common submodule pin guard
+        shell: bash
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
+      - name: Install PowerShell
+        shell: bash
+        run: |
+          set -e
+          curl -sSL https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz -o /tmp/pwsh.tgz
+          mkdir -p /opt/pwsh
+          tar -xzf /tmp/pwsh.tgz -C /opt/pwsh
+          chmod +x /opt/pwsh/pwsh
+          echo "/opt/pwsh" >> "$GITHUB_PATH"
+      - name: Install .NET SDK
+        shell: bash
+        run: |
+          set -e
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+          bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
+          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+          "$HOME/.dotnet/dotnet" --version
+      # act_runner executes ubuntu-latest jobs inside the configured Docker image.
+      # The Docker socket is mounted by the runner, but node:20-bookworm does not
+      # ship the docker CLI that verify-local.ps1 invokes.
+      - name: Install Docker CLI
+        shell: bash
+        run: |
+          set -e
+          if ! command -v docker >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends docker.io
+            rm -rf /var/lib/apt/lists/*
+          fi
+          docker --version
+          docker ps >/dev/null
+      - name: Full local-ci verification
+        shell: bash
+        run: pwsh ./scripts/verify-local.ps1

@@ -31,7 +31,7 @@ et6.0 (xt/qobuzarr/Qobuzarr.csproj:4) | Framework parity makes shared library a
 - Qobuzarr maintains numerous bespoke configuration classes (e.g., src/Qobuzarr/src/Settings/QobuzSettings.cs) with additional ML/queue toggles. Need to reconcile which options belong in the shared library vs plugin-specific layers.
 
 ## CLI Harness
-- TidalCLI targets .NET 9 and already leverages the new orchestrator (TidalCLI/Program.cs:297-360, 427-436).
+- Historical note: TidalCLI was listed with a newer CLI TFM in this snapshot, but it now targets net8.0 with the plugin. See CLAUDE.md for current guidance.
 - QobuzCLI still mirrors older flows with broader command surface (see xt/qobuzarr/QobuzCLI). CLI convergence will require abstracting shared commands into Lidarr.Plugin.Common and parameterising the service wiring.
 
 ## Test Strategy
@@ -52,4 +52,3 @@ et6.0 and reference many Lidarr host assemblies (xt/qobuzarr/tests/Qobuzarr.Tes
 5. **Manifest Generation**: Pick either template-driven or static manifests; whichever approach we choose should be codified in Lidarr.Plugin.Common build targets so both plugins ingest identical metadata.
 
 This snapshot completes Step 1 of the alignment plan: we have a concrete map of structural, build, and runtime differences that the remaining steps can address without introducing regressions.
-

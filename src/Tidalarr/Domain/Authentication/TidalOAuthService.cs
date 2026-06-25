@@ -25,6 +25,8 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     // one another (TOCTOU). SemaphoreSlim (no AvailableWaitHandle use) holds no unmanaged handle,
     // so the long-lived auth service has nothing to dispose.
     private readonly System.Threading.SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly object _directRefreshSingleFlightLock = new();
+    private readonly Dictionary<string, Task<TidalTokens>> _directRefreshSingleFlights = new(StringComparer.Ordinal);
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStore<TidalTokens>? tokenStorage = null)
@@ -133,12 +135,55 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
-        return this._currentTokens;
+        TidalTokens tokens = MapToTidalTokens(tokenData);
+        this._currentTokens = tokens;
+        await SaveSessionAsync(tokens).ConfigureAwait(false);
+        return tokens;
     }
 
-    public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+    public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+    {
+        string refreshKey = refreshToken ?? string.Empty;
+        return GetDirectRefreshFlightTask(refreshKey, refreshToken);
+    }
+
+    private async Task<TidalTokens> AwaitDirectRefreshSingleFlightAsync(string refreshKey, Task<TidalTokens> refreshTask)
+    {
+        try
+        {
+            return await refreshTask.ConfigureAwait(false);
+        }
+        finally
+        {
+            if (refreshTask.IsCompleted)
+            {
+                lock (this._directRefreshSingleFlightLock)
+                {
+                    if (this._directRefreshSingleFlights.TryGetValue(refreshKey, out Task<TidalTokens>? activeTask) &&
+                        ReferenceEquals(activeTask, refreshTask))
+                    {
+                        this._directRefreshSingleFlights.Remove(refreshKey);
+                    }
+                }
+            }
+        }
+    }
+
+    private Task<TidalTokens> GetDirectRefreshFlightTask(string refreshKey, string refreshToken)
+    {
+        lock (this._directRefreshSingleFlightLock)
+        {
+            if (!this._directRefreshSingleFlights.TryGetValue(refreshKey, out Task<TidalTokens>? refreshTask))
+            {
+                refreshTask = RefreshTokensCoreAsync(refreshToken);
+                this._directRefreshSingleFlights[refreshKey] = refreshTask;
+            }
+
+            return AwaitDirectRefreshSingleFlightAsync(refreshKey, refreshTask);
+        }
+    }
+
+    private async Task<TidalTokens> RefreshTokensCoreAsync(string refreshToken)
     {
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "OAuthRefresh");
         HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
@@ -152,9 +197,10 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
-        return this._currentTokens;
+        TidalTokens tokens = MapToTidalTokens(tokenData);
+        this._currentTokens = tokens;
+        await SaveSessionAsync(tokens).ConfigureAwait(false);
+        return tokens;
     }
 
     public async Task LogoutAsync()
@@ -396,7 +442,12 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         }
     }
 
-    public async Task<string> RefreshTokenAsync()
+    public Task<string> RefreshTokenAsync()
+    {
+        return RefreshTokenCoreAsync();
+    }
+
+    private async Task<string> RefreshTokenCoreAsync()
     {
         try
         {
@@ -434,7 +485,6 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     public void ClearAuthenticationCache()
     {
         this._currentTokens = null;
-        try { _ = this._tokenStorage.ClearAsync(); } catch { /* ignore */ }
     }
 
     public new bool SupportsRefresh => true;

@@ -34,7 +34,7 @@ Tidalarr builds on the shared [Lidarr.Plugin.Common](https://github.com/RicherTu
 
 ### Prerequisites
 
-- Lidarr **v3.0.0.4855** or higher on the **plugins branch** (`.NET 8` image, e.g. `pr-plugins-3.1.2.4913`).
+- Lidarr **v3.0.0.4855** or higher on the **plugins/nightly branch** (`.NET 8` image, e.g. `nightly-3.1.3.4970`).
 - A Tidal subscription (HiFi or HiFi Plus for lossless/hi-res quality).
 
 ### Install via the Lidarr UI
@@ -139,7 +139,7 @@ src/Tidalarr/
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (Keep a Changelog format) |
 | [`CLAUDE.md`](CLAUDE.md) | Full development guide for contributors and automation |
 | [`docs/hostbridge-integration.md`](docs/hostbridge-integration.md) | Host bridge wiring guide |
-| [`docs/TFM_RATIONALE.md`](docs/TFM_RATIONALE.md) | Why `net8.0` core / `net9.0` CLI |
+| [`docs/TFM_RATIONALE.md`](docs/TFM_RATIONALE.md) | Why the core plugin and CLI target `net8.0` |
 | [`docs/packaging-closure.md`](docs/packaging-closure.md) | Plugin packaging validation |
 | [`docs/ci-gates-verification.md`](docs/ci-gates-verification.md) | CI gate details |
 | [`docs/SETTINGS-MIGRATION.md`](docs/SETTINGS-MIGRATION.md) | Settings migration notes |

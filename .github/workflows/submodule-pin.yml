@@ -1,0 +1,38 @@
+name: Submodule Pin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.gitmodules'
+      - 'ext-common-sha.txt'
+      - 'ext/Lidarr.Plugin.Common'
+      - '.github/workflows/submodule-pin.yml'
+  pull_request:
+    paths:
+      - '.gitmodules'
+      - 'ext-common-sha.txt'
+      - 'ext/Lidarr.Plugin.Common'
+      - '.github/workflows/submodule-pin.yml'
+
+jobs:
+  verify-common-pin:
+    name: Verify Common submodule pin
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init Common submodule
+        uses: ./.github/actions/init-common-submodule
+        with:
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.CI_PAT }}
+
+      - name: Common submodule pin guard
+        shell: bash
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common

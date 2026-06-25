@@ -163,7 +163,7 @@ public class CLIDiagnosticsTests
                 return new CliResult(-1, string.Empty, "dotnet build failed");
             }
         }
-        string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net9.0", "TidalCLI.dll");
+        string cliDll = Path.Combine(RepoRoot, "TidalCLI", "bin", "Release", "net8.0", "TidalCLI.dll");
 
         // Ensure host shim assemblies are present for settings types that reference NzbDrone.*
         string hostOutput = Path.Combine(RepoRoot, "ext", "Lidarr", "_output", "net8.0");
@@ -196,5 +196,4 @@ public class CLIDiagnosticsTests
         return new CliResult(proc.ExitCode, stdout.Trim(), stderr.Trim());
     }
 }
-
 

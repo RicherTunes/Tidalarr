@@ -1,6 +1,7 @@
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Microsoft.Extensions.DependencyInjection;
+using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration;
@@ -12,6 +13,8 @@ internal sealed class ManagedTokenProvider(
 {
     private readonly StreamingTokenManager<TidalTokens, TidalCredentials> manager = manager;
     private readonly IServiceProvider services = services;
+    private readonly object refreshSingleFlightLock = new();
+    private Task<string>? refreshSingleFlight;
 
     public bool SupportsRefresh => true;
     public string ServiceName => "Tidal";
@@ -22,11 +25,69 @@ internal sealed class ManagedTokenProvider(
         return session.AccessToken ?? string.Empty;
     }
 
-    public async Task<string> RefreshTokenAsync()
+    public Task<string> RefreshTokenAsync()
     {
-        await this.manager.RefreshSessionAsync(GetCredentials()).ConfigureAwait(false);
-        TidalTokens session = await this.manager.GetValidSessionAsync(GetCredentials()).ConfigureAwait(false);
-        return session.AccessToken ?? string.Empty;
+        lock (this.refreshSingleFlightLock)
+        {
+            this.refreshSingleFlight ??= RefreshTokenCoreAsync();
+            return AwaitRefreshSingleFlightAsync(this.refreshSingleFlight);
+        }
+    }
+
+    private async Task<string> AwaitRefreshSingleFlightAsync(Task<string> refreshTask)
+    {
+        try
+        {
+            return await refreshTask.ConfigureAwait(false);
+        }
+        finally
+        {
+            if (refreshTask.IsCompleted)
+            {
+                lock (this.refreshSingleFlightLock)
+                {
+                    if (ReferenceEquals(this.refreshSingleFlight, refreshTask))
+                    {
+                        this.refreshSingleFlight = null;
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task<string> RefreshTokenCoreAsync()
+    {
+        try
+        {
+            if (this.services.GetService<ITidalAuth>() is IStreamingTokenProvider tidalTokenProvider &&
+                tidalTokenProvider.SupportsRefresh)
+            {
+                string refreshedAccessToken = await tidalTokenProvider.RefreshTokenAsync().ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(refreshedAccessToken))
+                {
+                    this.manager.ClearSession();
+                    try
+                    {
+                        await this.manager.RefreshSessionAsync(GetCredentials()).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // OAuth state is already refreshed. If Common cannot re-prime now,
+                        // the next GetAccessTokenAsync call will reload from the OAuth service.
+                    }
+
+                    return refreshedAccessToken;
+                }
+            }
+
+            await this.manager.RefreshSessionAsync(GetCredentials()).ConfigureAwait(false);
+            TidalTokens session = await this.manager.GetValidSessionAsync(GetCredentials()).ConfigureAwait(false);
+            return session.AccessToken ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     public Task<bool> ValidateTokenAsync(string token)
@@ -47,16 +108,16 @@ internal sealed class ManagedTokenProvider(
         this.manager.ClearSession();
     }
 
-    private TidalCredentials GetCredentials()
+    internal static TidalCredentials GetCredentials(IServiceProvider services)
     {
         // Prefer aggregated settings if present; otherwise fallback to indexer settings.
-        TidalarrSettings? agg = this.services.GetService<TidalarrSettings>();
+        TidalarrSettings? agg = services.GetService<TidalarrSettings>();
         if (agg is not null)
         {
             return new TidalCredentials(agg.RedirectUrl);
         }
 
-        TidalIndexerSettings? idx = this.services.GetService<TidalIndexerSettings>();
+        TidalIndexerSettings? idx = services.GetService<TidalIndexerSettings>();
         if (idx is not null)
         {
             return new TidalCredentials(idx.RedirectUrl);
@@ -65,5 +126,9 @@ internal sealed class ManagedTokenProvider(
         // As a last resort, provide a non-empty default to pass validation; authentication will still rely on persisted tokens.
         return new TidalCredentials("https://tidal.com/callback");
     }
-}
 
+    private TidalCredentials GetCredentials()
+    {
+        return GetCredentials(this.services);
+    }
+}
