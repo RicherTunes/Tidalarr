@@ -55,6 +55,14 @@
     </ProjectReference>
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\testkit\Lidarr.Plugin.Common.TestKit.csproj" />
   </ItemGroup>
+  <!-- FluentValidation is needed by TidalModule.RegisterServices even when
+       HostBridge-specific tests are excluded from the hermetic CI gate. -->
+  <ItemGroup>
+    <Reference Include="FluentValidation" Condition="Exists('..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll')">
+      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
   <!-- Lidarr assemblies only needed when HostBridge is included -->
   <ItemGroup Condition="'$(ExcludeHostBridge)' != 'true'">
     <Reference Include="Lidarr.Core">
@@ -63,11 +71,6 @@
     </Reference>
     <Reference Include="Lidarr.Common">
       <HintPath>..\..\ext\Lidarr\_output\net8.0\Lidarr.Common.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <!-- FluentValidation: Use Lidarr's copy to avoid AssemblyLoadContext conflicts -->
-    <Reference Include="FluentValidation" Condition="Exists('..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll')">
-      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
