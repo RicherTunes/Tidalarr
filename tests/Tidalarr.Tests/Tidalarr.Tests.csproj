@@ -95,6 +95,7 @@
     <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerOAuthStateExchangeTests.cs" />
     <!-- Exclude ALL Tidal* integration tests - use outdated DTO/model patterns -->
     <Compile Remove="Tidal*.cs" />
+    <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
     <Compile Include="TidalTestPolicies.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />

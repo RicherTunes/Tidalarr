@@ -6,6 +6,8 @@ using Tidalarr.Domain.Authentication;
 
 namespace Tidalarr.Tests;
 
+[Trait("Category", "Integration")]
+[Trait("Area", "E2E/Hermetic")]
 public class TidalOAuthServiceTokenLifecycleTests
 {
     [Fact]
