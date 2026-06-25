@@ -107,6 +107,20 @@ jobs:
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
           "$HOME/.dotnet/dotnet" --version
+      # act_runner executes ubuntu-latest jobs inside the configured Docker image.
+      # The Docker socket is mounted by the runner, but node:20-bookworm does not
+      # ship the docker CLI that verify-local.ps1 invokes.
+      - name: Install Docker CLI
+        shell: bash
+        run: |
+          set -e
+          if ! command -v docker >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends docker.io
+            rm -rf /var/lib/apt/lists/*
+          fi
+          docker --version
+          docker ps >/dev/null
       - name: Full local-ci verification
         shell: bash
         run: pwsh ./scripts/verify-local.ps1
