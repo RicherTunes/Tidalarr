@@ -91,6 +91,21 @@ public class ProviderSwapConcurrencyTests
         await plugin.DisposeAsync();
     }
 
+    [Fact]
+    [Trait("Area", "E2E/Hermetic")]
+    public void CreateAdapterOrDisposeScope_WhenAdapterConstructionThrows_DisposesScope()
+    {
+        RecordingScope scope = new();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            TidalarrPlugin.CreateAdapterOrDisposeScope<object>(
+                scope,
+                static _ => throw new InvalidOperationException("adapter resolution failed")));
+
+        Assert.Equal("adapter resolution failed", ex.Message);
+        Assert.True(scope.Disposed);
+    }
+
     [SkippableFact]
     public async Task ConcurrentApplyAndCreateIndexer_DoesNotThrowObjectDisposedException()
     {
@@ -222,5 +237,16 @@ public class ProviderSwapConcurrencyTests
     private static void AssertProviderDisposed(ServiceProvider provider)
     {
         Assert.Throws<ObjectDisposedException>(() => provider.GetService(typeof(TidalarrSettings)));
+    }
+
+    private sealed class RecordingScope : IServiceScope
+    {
+        public bool Disposed { get; private set; }
+        public IServiceProvider ServiceProvider { get; } = new ServiceCollection().BuildServiceProvider();
+
+        public void Dispose()
+        {
+            Disposed = true;
+        }
     }
 }

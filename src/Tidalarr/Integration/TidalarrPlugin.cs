@@ -133,15 +133,30 @@ public sealed class TidalarrPlugin : IPlugin
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
     {
         IServiceScope scope = CreateTrackedScope();
-        TidalIndexerAdapter adapter = new(scope);
+        TidalIndexerAdapter adapter = CreateAdapterOrDisposeScope(scope, static s => new TidalIndexerAdapter(s));
         return ValueTask.FromResult<IIndexer?>(adapter);
     }
 
     public ValueTask<IDownloadClient?> CreateDownloadClientAsync(CancellationToken cancellationToken = default)
     {
         IServiceScope scope = CreateTrackedScope();
-        TidalDownloadClientAdapter adapter = new(scope);
+        TidalDownloadClientAdapter adapter = CreateAdapterOrDisposeScope(scope, static s => new TidalDownloadClientAdapter(s));
         return ValueTask.FromResult<IDownloadClient?>(adapter);
+    }
+
+    internal static TAdapter CreateAdapterOrDisposeScope<TAdapter>(
+        IServiceScope scope,
+        Func<IServiceScope, TAdapter> factory)
+    {
+        try
+        {
+            return factory(scope);
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
