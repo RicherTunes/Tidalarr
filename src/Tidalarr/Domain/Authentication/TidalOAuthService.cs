@@ -192,6 +192,18 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            // Detect a revoked / expired refresh token: Tidal returns 400 invalid_grant when the
+            // refresh token has been revoked or has aged out.  Signal the caller via a typed
+            // exception (mirroring ExchangeCodeAsync) so it can clear the dead persisted token and
+            // stop hammering the OAuth endpoint.  Other failures stay generic — they are transient
+            // (network blips, 5xx) and MUST NOT clear the still-valid refresh token.
+            if (response.StatusCode == System.Net.HttpStatusCode.BadRequest && IsInvalidGrant(errorContent))
+            {
+                throw new TidalInvalidGrantException(
+                    "Refresh token is invalid or expired — re-authenticate Tidalarr by pasting a fresh redirect URL from a new Tidal browser login.");
+            }
+
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
@@ -385,7 +397,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
                 if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
                 {
                     // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
-                    normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false));
+                    normalized = EnsureRequiredSessionFields(await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false));
                 }
 
                 if (string.IsNullOrWhiteSpace(normalized.SessionId))
@@ -404,7 +416,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
             if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
             {
-                TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
+                TidalTokens refreshed = await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false);
                 TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
                 if (string.IsNullOrWhiteSpace(normalized.SessionId))
                 {
@@ -425,6 +437,27 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         finally
         {
             _refreshGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Refreshes against the stored refresh token, but if Tidal rejects it as revoked / expired
+    /// (<see cref="TidalInvalidGrantException"/> from a 400 invalid_grant), clears the dead
+    /// persisted token first so subsequent <see cref="GetValidTokensAsync"/> calls fail fast with
+    /// "Not authenticated" instead of re-firing the same doomed refresh against Tidal forever
+    /// (the unbounded retry-storm this guards against).  Transient failures (network, 5xx) bubble
+    /// up untouched so the still-valid refresh token survives for a later retry.
+    /// </summary>
+    private async Task<TidalTokens> RefreshOrClearOnRevokedAsync(string refreshToken)
+    {
+        try
+        {
+            return await RefreshTokensAsync(refreshToken).ConfigureAwait(false);
+        }
+        catch (TidalInvalidGrantException)
+        {
+            await ClearCachedSessionAsync().ConfigureAwait(false);
+            throw;
         }
     }
 
@@ -457,7 +490,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
                 return string.Empty;
             }
 
-            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
+            TidalTokens refreshed = await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false);
             return refreshed.AccessToken;
         }
         catch
