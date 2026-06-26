@@ -89,6 +89,7 @@
     <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientSettingsTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientSnapshotTests.cs" />
+    <Compile Remove="Unit\TidalLidarrDownloadClientGetItemsTests.cs" />
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />

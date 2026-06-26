@@ -257,12 +257,36 @@ public class TidalLidarrDownloadClient(
     }
 
     public override IEnumerable<DownloadClientItem> GetItems()
+        // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
+        => ProjectDownloadItems(ActiveDownloads.GetSnapshot(), DownloadClientItemClientInfo.FromDownloadClient(this, false));
+
+    /// <summary>
+    /// Projects the tracker snapshot into Lidarr host items. Extracted as an <c>internal static</c>
+    /// seam so the dedup + status-mapping contract is unit-testable without constructing the host
+    /// download client.
+    ///
+    /// <para><see cref="ActiveDownloads"/> is a <c>ConcurrentDictionary</c> keyed by
+    /// <see cref="HostBridgeDownloadItem.DownloadId"/>, so the snapshot is already unique. The
+    /// explicit dedup-by-DownloadId here is a defensive guard against the cross-plugin "Tracker
+    /// snapshot + active-queue duplicate" bug class: if a future change ever folds a second source
+    /// into this projection, Lidarr must still never receive the same downloadId twice (a duplicate
+    /// corrupts its queue↔history reconciliation). Items with a blank DownloadId are dropped — the
+    /// host indexes its queue by downloadId and a blank key would collide every such item.</para>
+    /// </summary>
+    internal static List<DownloadClientItem> ProjectDownloadItems(
+        IEnumerable<HostBridgeDownloadItem> snapshot,
+        DownloadClientItemClientInfo? clientInfo)
     {
         List<DownloadClientItem> result = [];
+        HashSet<string> seenDownloadIds = new(StringComparer.Ordinal);
 
-        // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
-        foreach (HostBridgeDownloadItem item in ActiveDownloads.GetSnapshot())
+        foreach (HostBridgeDownloadItem item in snapshot)
         {
+            if (string.IsNullOrWhiteSpace(item.DownloadId) || !seenDownloadIds.Add(item.DownloadId))
+            {
+                continue;
+            }
+
             HostBridgeDownloadItemStatus status = item.GetStatus();
             double progress = item.GetProgress();
 
@@ -284,7 +308,7 @@ public class TidalLidarrDownloadClient(
                 TotalSize = item.TotalSize,
                 RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
-                DownloadClientInfo = DownloadClientItemClientInfo.FromDownloadClient(this, false)
+                DownloadClientInfo = clientInfo
             });
         }
 
