@@ -40,23 +40,14 @@ public class TidalLidarrIndexer(
 
     private new readonly Logger _logger = logger;
 
-    // Resolved from the process-wide TidalIndexerRuntimeCache on first call (or on credential change).
-    // Captured as a local field so callers within a single Lidarr invocation see a consistent runtime.
-    private TidalIndexerRuntime? _runtime;
-
     /// <summary>
-    /// Resolve (or lazily build) the runtime for the current settings. Returns the cached runtime
-    /// if credentials haven't changed; builds a fresh one and parks the old one in the graveyard
-    /// otherwise. Returns null when ConfigPath is empty.
+    /// Resolve (or lazily build) the runtime for the current settings from the process-wide
+    /// <see cref="TidalIndexerRuntimeCache"/>. Returns the cached runtime if credentials haven't
+    /// changed; builds a fresh one and parks the old one in the graveyard otherwise. Returns null
+    /// when ConfigPath is empty.
     /// </summary>
-    private async Task<TidalIndexerRuntime?> GetRuntimeAsync(CancellationToken ct = default)
-    {
-        TidalIndexerRuntime? runtime = await TidalIndexerRuntimeCache.Shared
-            .GetAsync(Settings, ct)
-            .ConfigureAwait(false);
-        this._runtime = runtime;
-        return runtime;
-    }
+    private Task<TidalIndexerRuntime?> GetRuntimeAsync(CancellationToken ct = default)
+        => TidalIndexerRuntimeCache.Shared.GetAsync(Settings, ct);
 
     /// <summary>
     /// Synchronous shim used by callers in sync host-contract paths (e.g. <see cref="GetParser"/>).
