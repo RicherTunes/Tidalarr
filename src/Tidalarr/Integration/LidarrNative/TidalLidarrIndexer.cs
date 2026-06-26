@@ -139,60 +139,58 @@ public class TidalLidarrIndexer(
         IIndexerRequestGenerator requestGenerator = GetRequestGenerator();
         IndexerPageableRequestChain requestChain = pageableRequestChainSelector(requestGenerator);
 
-        int attempted = 0;
-        int succeeded = 0;
-        Exception? lastError = null;
+        // Decode the encoded queries while preserving tier grouping: each pageable request is one
+        // search tier (combined, then artist-only, then album-only). The executor runs the tiers
+        // in order and stops at the first that returns albums, so an over-specific combined query
+        // that finds nothing falls back to the artist's catalogue for Lidarr's decision engine.
+        List<IReadOnlyList<string>> tiers = [];
         foreach (IndexerPageableRequest? tier in requestChain.GetAllTiers())
         {
+            List<string> tierQueries = [];
             foreach (IndexerRequest? request in tier)
             {
                 string requestUrl = request.HttpRequest?.Url?.ToString() ?? string.Empty;
-                if (!PlaceholderSearchUri.TryExtractQuery(requestUrl, "tidal", out string? query))
+                if (PlaceholderSearchUri.TryExtractQuery(requestUrl, "tidal", out string? query))
+                {
+                    tierQueries.Add(query);
+                }
+                else
                 {
                     this._logger.Warn("Unexpected request URL format: {0}", requestUrl);
-                    continue;
-                }
-
-                attempted++;
-                try
-                {
-                    TidalSearchResults searchResults = await searchService
-                        .SearchWithQualityDetectionAsync(query, TidalQuality.Lossless)
-                        .ConfigureAwait(false);
-                    succeeded++;
-
-                    if (searchResults.Albums == null || searchResults.Albums.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    this._logger.Debug("Tidal search returned {0} albums for query: {1}", searchResults.Albums.Count, query);
-
-                    foreach (TidalAlbumInfo album in searchResults.Albums)
-                    {
-                        // Create multiple releases per album - one for each available quality
-                        List<ReleaseInfo> albumReleases = [.. TidalLidarrParser.ConvertToReleaseInfosStatic(album)];
-                        this._logger.Debug("Created {0} releases for album: {1}", albumReleases.Count, album.Title);
-                        releases.AddRange(albumReleases);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    lastError = ex;
-                    RecordAuthOutcomeFromException(sp, ex);
-                    this._logger.Warn(ex, "Tidal search failed for query: {0}", query);
                 }
             }
+
+            if (tierQueries.Count > 0)
+            {
+                tiers.Add(tierQueries);
+            }
         }
+
+        TidalTieredAlbumSearch.Outcome outcome = await TidalTieredAlbumSearch.RunAsync(
+            tiers,
+            (q, ct) => searchService.SearchWithQualityDetectionAsync(q, TidalQuality.Lossless, cancellationToken: ct),
+            onError: (q, ex) =>
+            {
+                RecordAuthOutcomeFromException(sp, ex);
+                this._logger.Warn(ex, "Tidal search failed for query: {0}", q);
+            }).ConfigureAwait(false);
 
         // If EVERY attempted query threw, surface the failure instead of a misleading empty
         // result — otherwise Lidarr can't distinguish "no matches" from "all search calls failed".
         // A query that returns no albums does NOT throw, so genuine empty results are unaffected.
-        if (attempted > 0 && succeeded == 0 && lastError is not null)
+        if (outcome.Attempted > 0 && outcome.Succeeded == 0 && outcome.LastError is not null)
         {
             throw new InvalidOperationException(
-                $"All {attempted} Tidal search request(s) failed; surfacing the error instead of an empty result.",
-                lastError);
+                $"All {outcome.Attempted} Tidal search request(s) failed; surfacing the error instead of an empty result.",
+                outcome.LastError);
+        }
+
+        foreach (TidalAlbumInfo album in outcome.Albums)
+        {
+            // Create multiple releases per album - one for each available quality
+            List<ReleaseInfo> albumReleases = [.. TidalLidarrParser.ConvertToReleaseInfosStatic(album)];
+            this._logger.Debug("Created {0} releases for album: {1}", albumReleases.Count, album.Title);
+            releases.AddRange(albumReleases);
         }
 
         this._logger.Debug("Total releases before dedup: {0}", releases.Count);
@@ -517,29 +515,46 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-
-        string searchTerm = $"{searchCriteria.ArtistQuery} {searchCriteria.AlbumQuery}".Trim();
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            chain.Add(GetSearchRequests(searchTerm));
-        }
-
+        AddTiers(chain, TidalSearchTermBuilder.BuildTiers(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery));
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-
-        if (!string.IsNullOrWhiteSpace(searchCriteria.ArtistQuery))
-        {
-            chain.Add(GetSearchRequests(searchCriteria.ArtistQuery));
-        }
-
+        AddTiers(chain, TidalSearchTermBuilder.BuildTiers(searchCriteria.ArtistQuery, albumQuery: null));
         return chain;
     }
 
-    private IEnumerable<IndexerRequest> GetSearchRequests(string searchTerm)
+    // Each tier (combined, then artist-only, then album-only) becomes ONE pageable request whose
+    // pages are the tier's special-character variants. The FetchReleases override iterates the
+    // tiers in order and stops at the first that returns albums, so an over-specific combined
+    // query that finds nothing falls back to the artist's catalogue. Search runs in FetchReleases
+    // via TidalSearchService; these requests only carry the encoded query.
+    private void AddTiers(IndexerPageableRequestChain chain, IReadOnlyList<IReadOnlyList<string>> tiers)
+    {
+        bool firstTier = true;
+        foreach (IReadOnlyList<string> tier in tiers)
+        {
+            List<IndexerRequest> requests = [.. tier.Select(BuildSearchRequest)];
+            if (requests.Count == 0)
+            {
+                continue;
+            }
+
+            if (firstTier)
+            {
+                chain.Add(requests);
+                firstTier = false;
+            }
+            else
+            {
+                chain.AddTier(requests);
+            }
+        }
+    }
+
+    private IndexerRequest BuildSearchRequest(string searchTerm)
     {
         this._logger.Debug($"Generating Tidal search request for: {searchTerm}");
 
@@ -550,7 +565,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
         HttpRequest request = new(requestUrl);
         request.Headers.Accept = "application/json";
 
-        yield return new IndexerRequest(request);
+        return new IndexerRequest(request);
     }
 }
 

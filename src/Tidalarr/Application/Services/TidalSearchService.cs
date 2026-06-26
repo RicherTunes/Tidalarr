@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Lidarr.Plugin.Common.Security;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Lidarr.Plugin.Common.Services;
@@ -23,6 +23,15 @@ public class TidalSearchService(
     private readonly IQueryOptimizer? _queryOptimizer = queryOptimizer;
     private readonly ILogger<TidalSearchService> _logger = logger ?? NullLogger<TidalSearchService>.Instance;
 
+    private static readonly Regex MultiWhitespace = new(@"\s+", RegexOptions.Compiled);
+
+    // Normalize a raw search term: collapse whitespace and trim, but PRESERVE the term's actual
+    // characters (accents, °, ', &, etc.). URL encoding is the request builder's job downstream.
+    // The previous Sanitize.DisplayText call HTML-encoded the query ("Record n°V" -> "Record
+    // n&#176;V", "Beyoncé" -> "Beyonc&#233;"), so any accented or punctuated search reached Tidal
+    // already corrupted and matched nothing.
+    private static string NormalizeSearchTerm(string query) => MultiWhitespace.Replace(query, " ").Trim();
+
     public async Task<TidalSearchResults> SearchWithQualityDetectionAsync(
         string query,
         TidalQuality preferredQuality = TidalQuality.Lossless,
@@ -31,7 +40,7 @@ public class TidalSearchService(
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
-        string sanitizedQuery = Sanitize.DisplayText(query);
+        string sanitizedQuery = NormalizeSearchTerm(query);
 
         // Optimize query if optimizer is available
         string optimizedQuery = sanitizedQuery;
@@ -117,7 +126,7 @@ public class TidalSearchService(
     {
         // Validate and normalize input (URL encoding handled by request builder later)
         _ = Guard.NotNullOrWhiteSpace(query, nameof(query));
-        string sanitizedQuery = Sanitize.DisplayText(query);
+        string sanitizedQuery = NormalizeSearchTerm(query);
 
         // Optimize query based on search type
         string optimizedQuery = sanitizedQuery;
