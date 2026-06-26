@@ -7,7 +7,7 @@ using Tidalarr.Domain.Authentication;
 namespace Tidalarr.Tests;
 
 [Trait("Category", "Integration")]
-[Trait("Area", "OAuth/Token")]
+[Trait("Area", "E2E/Hermetic")]
 public class TidalOAuthServiceRevokedRefreshTokenTests
 {
     private const string InvalidGrantBody = "{\"error\":\"invalid_grant\"}";
