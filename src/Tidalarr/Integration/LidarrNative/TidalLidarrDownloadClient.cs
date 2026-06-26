@@ -20,6 +20,7 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
+using Tidalarr.Integration;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -39,6 +40,7 @@ public class TidalLidarrDownloadClient(
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
     // HostBridgeDownloadTrackerStore is instance-scoped but held in a static field for exactly this reason.
     private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
+    private static readonly TidalDownloadCancellationRegistry ActiveDownloadCancellations = new();
     private static readonly HostBridgeDownloadOrchestrator _downloadOrchestrator = new(logger: null);
     private new readonly Logger _logger = logger;
 
@@ -74,6 +76,19 @@ public class TidalLidarrDownloadClient(
         }
         return runtime;
     }
+
+    /// <summary>
+    /// Runs the album download through the orchestrator. Extracted as a seam so the
+    /// host-cancellation wiring is unit-testable independent of Lidarr's DownloadClientBase.
+    /// </summary>
+    internal static Task<DownloadResult> StartAlbumDownloadAsync(
+        SimpleDownloadOrchestrator orchestrator,
+        string albumId,
+        string outputPath,
+        StreamingQuality quality,
+        IProgress<DownloadProgress> progress,
+        CancellationToken cancellationToken)
+        => orchestrator.DownloadAlbumAsync(albumId, outputPath, quality, progress, cancellationToken);
 
     public override Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
     {
@@ -165,11 +180,13 @@ public class TidalLidarrDownloadClient(
                             }
                         });
 
-                        DownloadResult result = await tidalOrchestrator.DownloadAlbumAsync(
+                        DownloadResult result = await StartAlbumDownloadAsync(
+                            tidalOrchestrator,
                             albumId,
                             outputPath,
-                            quality: desiredQuality,
-                            progress: progressReporter);
+                            desiredQuality,
+                            progressReporter,
+                            ct);
 
                         // Mark as completed (thread-safe updates)
                         if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
@@ -201,6 +218,17 @@ public class TidalLidarrDownloadClient(
                             }
                         }
                     }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        this._logger.Info("Cancelled Tidal download for album {0}", albumId);
+                        if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
+                        {
+                            item.SetStatus(HostBridgeDownloadItemStatus.Cancelled);
+                            item.CompletedAt = DateTime.UtcNow;
+                        }
+
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         // Best-effort: record auth-class outcomes so the next Download/Test
@@ -215,6 +243,10 @@ public class TidalLidarrDownloadClient(
                             item.CompletedAt = DateTime.UtcNow;
                         }
                     }
+                },
+                new HostBridgeDownloadStartOptions<HostBridgeDownloadItem>
+                {
+                    RegisterCancellation = (downloadId, _) => ActiveDownloadCancellations.Register(downloadId)
                 });
         }
         catch (Exception ex)
@@ -239,6 +271,7 @@ public class TidalLidarrDownloadClient(
             {
                 HostBridgeDownloadItemStatus.Completed => DownloadItemStatus.Completed,
                 HostBridgeDownloadItemStatus.Failed    => DownloadItemStatus.Failed,
+                HostBridgeDownloadItemStatus.Cancelled => DownloadItemStatus.Warning,
                 HostBridgeDownloadItemStatus.Downloading => DownloadItemStatus.Downloading,
                 _                                      => DownloadItemStatus.Queued
             };
@@ -260,9 +293,19 @@ public class TidalLidarrDownloadClient(
 
     public override void RemoveItem(DownloadClientItem item, bool deleteData)
     {
-        if (ActiveDownloads.Remove(item.DownloadId, deleteData, out _))
+        var removal = TidalDownloadRemovalCoordinator.Remove(
+            item.DownloadId,
+            deleteData,
+            ActiveDownloads,
+            ActiveDownloadCancellations);
+
+        if (removal.Removed)
         {
-            this._logger.Debug("Removed Tidal download: {0}", item.DownloadId);
+            this._logger.Debug(
+                removal.CancellationSignaled
+                    ? "Cancelled and removed Tidal download: {0}"
+                    : "Removed Tidal download: {0}",
+                item.DownloadId);
         }
     }
 

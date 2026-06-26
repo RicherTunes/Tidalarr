@@ -18,10 +18,10 @@
        ═══════════════════════════════════════════════════════════════════════════ -->
   <ItemGroup Label="Core Framework">
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <!-- NLog MUST match Lidarr host exactly (5.4.0, AssemblyVersion=5.0.0.0).
+    <!-- NLog MUST match Lidarr host exactly (5.5.1, AssemblyVersion=5.0.0.0).
          Host-coupled: do NOT accept dependabot bumps for this package.
          NLog 6.x has AssemblyVersion=6.0.0.0 which conflicts with Lidarr runtime. -->
-    <PackageVersion Include="NLog" Version="5.4.0" />
+    <PackageVersion Include="NLog" Version="5.5.1" />
     <!-- FluentValidation MUST match Lidarr host AssemblyVersion (9.0.0.0). Common pins FV with PrivateAssets="all" so the version does NOT flow transitively. v9.5.4 stamps AssemblyVersion=9.0.0.0 — compatible with host. v11.x stamps 11.0.0.0 — host can NOT resolve, plugin discovery fails (see ext/Lidarr.Plugin.Common/docs/dev-guide/ALC_MULTIPLUGIN_FIX.md).
          Plugin uses Lidarr's assembly reference when available, NuGet package as fallback for CLI/test. -->
     <PackageVersion Include="FluentValidation" Version="9.5.4" />
