@@ -1,22 +1,31 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Tidalarr.Integration.LidarrNative;
+using Lidarr.Plugin.Common.Services.Intelligence;
 using Xunit;
 
 namespace Tidalarr.Tests.Unit.LidarrNative;
 
 /// <summary>
-/// Special-character + fallback matrix for the Tidal search-term builder.
+/// Special-character + fallback matrix for Tidal album/artist search. The variant generation and
+/// fallback-tier ordering were consolidated onto Common's <see cref="SearchQuerySanitizer"/>
+/// (the indexer's <c>TidalLidarrRequestGenerator</c> now calls
+/// <see cref="SearchQuerySanitizer.BuildPlan(string, string, SanitizerOptions)"/>); these tests pin
+/// the same tidal-relevant behavior against that canonical implementation so a Common change can't
+/// silently regress Tidal search.
 ///
-/// Live regression: an album search for "Bleu Jeans Bleu - Record n°V (2026)" returned
-/// 0 results because the indexer issued a single over-specific combined query and a
-/// mid-token symbol (°) was never stripped/varied. The builder must (a) emit recall-
-/// widening variants for special characters without spurious token splits and (b) order
-/// fallback tiers so an empty combined query falls back to artist-only.
+/// Live regression: an album search for "Bleu Jeans Bleu - Record n°V (2026)" returned 0 results
+/// because the indexer issued a single over-specific combined query and a mid-token symbol (°) was
+/// never stripped/varied. The plan must (a) emit recall-widening variants for special characters
+/// without spurious token splits and (b) order fallback tiers so an empty combined query falls back
+/// to artist-only.
 /// </summary>
-public sealed class TidalSearchTermBuilderTests
+public sealed class TidalSearchPlanTests
 {
-    private static IReadOnlyList<string> Variants(string raw) => TidalSearchTermBuilder.GenerateVariants(raw);
+    private static IReadOnlyList<string> Variants(string? raw) => SearchQuerySanitizer.Sanitize(raw).Variants;
+
+    private static IReadOnlyList<IReadOnlyList<string>> Tiers(string? artist, string? album)
+        => SearchQuerySanitizer.BuildPlan(artist, album).Tiers;
 
     [Fact]
     public void Variants_RecordNumeroV_StripsDegreeWithoutTokenSplit()
@@ -75,14 +84,17 @@ public sealed class TidalSearchTermBuilderTests
     [Theory]
     [InlineData("!!!")]
     [InlineData("+/-")]
-    public void Variants_AllSymbolBandName_NeverEmpty_KeepsLiteral(string raw)
+    public void Variants_AllSymbolBandName_HasNoSignal_RoutesToAlias(string raw)
     {
-        var variants = Variants(raw);
+        // Canonical Common contract: a symbol-only title carries no usable search signal, so it
+        // yields no variants and flags NeedsAlias (the caller must artist-scope / alias-resolve it
+        // rather than issue a hopeless symbol-only query). This supersedes the old tidal-local
+        // behavior that kept the literal "!!!" as a variant.
+        var result = SearchQuerySanitizer.Sanitize(raw);
 
-        Assert.NotEmpty(variants);
-        Assert.Contains(raw, variants);
-        // No empty/whitespace-only variant ever leaks through.
-        Assert.DoesNotContain(variants, string.IsNullOrWhiteSpace);
+        Assert.False(result.HasSignal);
+        Assert.True(result.NeedsAlias);
+        Assert.Empty(result.Variants);
     }
 
     [Fact]
@@ -100,7 +112,7 @@ public sealed class TidalSearchTermBuilderTests
     [InlineData(null)]
     public void Variants_EmptyOrWhitespace_ReturnsEmpty(string? raw)
     {
-        Assert.Empty(Variants(raw!));
+        Assert.Empty(Variants(raw));
     }
 
     [Fact]
@@ -113,9 +125,9 @@ public sealed class TidalSearchTermBuilderTests
     // ---- Tier / fallback ordering ----------------------------------------
 
     [Fact]
-    public void BuildTiers_CombinedThenArtistOnlyFallback()
+    public void BuildPlan_CombinedThenArtistOnlyFallback()
     {
-        var tiers = TidalSearchTermBuilder.BuildTiers("Bleu Jeans Bleu", "Record n°V");
+        var tiers = Tiers("Bleu Jeans Bleu", "Record n°V");
 
         Assert.True(tiers.Count >= 2, "expected at least a combined tier and an artist-only fallback tier");
 
@@ -123,14 +135,15 @@ public sealed class TidalSearchTermBuilderTests
         Assert.Contains("Bleu Jeans Bleu Record n°V", tiers[0]);
         Assert.Contains("Bleu Jeans Bleu Record nV", tiers[0]);
 
-        // A later tier carries the artist-only fallback so Lidarr still receives the band catalog.
+        // A later tier carries the FULL (never-truncated) artist-only fallback so Lidarr still
+        // receives the band catalog.
         Assert.Contains(tiers.Skip(1), tier => tier.Contains("Bleu Jeans Bleu"));
     }
 
     [Fact]
-    public void BuildTiers_FirstTierIsCombined_NotArtistOnly()
+    public void BuildPlan_FirstTierIsCombined_NotArtistOnly()
     {
-        var tiers = TidalSearchTermBuilder.BuildTiers("Daft Punk", "Discovery");
+        var tiers = Tiers("Daft Punk", "Discovery");
 
         Assert.NotEmpty(tiers);
         Assert.Contains("Daft Punk Discovery", tiers[0]);
@@ -139,33 +152,33 @@ public sealed class TidalSearchTermBuilderTests
     }
 
     [Fact]
-    public void BuildTiers_IncludesAlbumOnlyFallback_WhenBothPresent()
+    public void BuildPlan_IncludesAlbumOnlyFallback_WhenBothPresent()
     {
-        var tiers = TidalSearchTermBuilder.BuildTiers("Daft Punk", "Discovery");
+        var tiers = Tiers("Daft Punk", "Discovery");
 
         Assert.Contains(tiers.Skip(1), tier => tier.Contains("Discovery"));
     }
 
     [Fact]
-    public void BuildTiers_AlbumEmpty_OnlyOneTier_NoRedundantArtistFallback()
+    public void BuildPlan_AlbumEmpty_OnlyOneTier_NoRedundantArtistFallback()
     {
-        var tiers = TidalSearchTermBuilder.BuildTiers("Daft Punk", "");
+        var tiers = Tiers("Daft Punk", "");
 
         Assert.Single(tiers);
         Assert.Contains("Daft Punk", tiers[0]);
     }
 
     [Fact]
-    public void BuildTiers_BothEmpty_NoTiers()
+    public void BuildPlan_BothEmpty_NoTiers()
     {
-        Assert.Empty(TidalSearchTermBuilder.BuildTiers("", ""));
-        Assert.Empty(TidalSearchTermBuilder.BuildTiers(null, null));
+        Assert.Empty(Tiers("", ""));
+        Assert.Empty(Tiers(null, null));
     }
 
     [Fact]
-    public void BuildTiers_AccentedArtist_FoldedVariantInArtistFallback()
+    public void BuildPlan_AccentedArtist_FoldedVariantInArtistFallback()
     {
-        var tiers = TidalSearchTermBuilder.BuildTiers("Motörhead", "Ace of Spades");
+        var tiers = Tiers("Motörhead", "Ace of Spades");
 
         // The artist-only fallback tier should carry both the literal and accent-folded artist.
         var fallbackTiers = tiers.Skip(1).ToList();

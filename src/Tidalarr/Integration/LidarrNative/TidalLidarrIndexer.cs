@@ -5,6 +5,7 @@ using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Diagnostics;
+using Lidarr.Plugin.Common.Services.Intelligence;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Common.Http;
@@ -515,14 +516,14 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-        AddTiers(chain, TidalSearchTermBuilder.BuildTiers(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery));
+        AddTiers(chain, SearchQuerySanitizer.BuildPlan(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery).Tiers);
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-        AddTiers(chain, TidalSearchTermBuilder.BuildTiers(searchCriteria.ArtistQuery, albumQuery: null));
+        AddTiers(chain, SearchQuerySanitizer.BuildPlan(searchCriteria.ArtistQuery, album: null).Tiers);
         return chain;
     }
 
