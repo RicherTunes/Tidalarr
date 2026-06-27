@@ -554,7 +554,8 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
         // Create a placeholder URL that encodes the search query.
         // The actual search is performed in FetchReleases/ParseResponse via TidalSearchService.
-        string requestUrl = PlaceholderSearchUri.Build("tidal", searchTerm);
+        // Scheme is shared with TidalSearchPlan so the host-free chain-compliance guard stays in sync.
+        string requestUrl = PlaceholderSearchUri.Build(TidalSearchPlan.SearchScheme, searchTerm);
 
         HttpRequest request = new(requestUrl);
         request.Headers.Accept = "application/json";
