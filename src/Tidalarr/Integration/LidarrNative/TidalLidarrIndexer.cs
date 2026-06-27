@@ -158,7 +158,15 @@ public class TidalLidarrIndexer(
             }
         }
 
-        TidalTieredAlbumSearch.Outcome outcome = await TidalTieredAlbumSearch.RunAsync(
+        // Common's delegate-only SearchPlanExecutor drives the decoded tiers under Tidal's
+        // stop-at-first-tier-with-results policy (see TidalAlbumSearch). The delegate owns all
+        // transport (TidalSearchService → api.tidal.com); the executor does NO dedup/mapping —
+        // GUID dedup + ReleaseInfo mapping below stay here. If EVERY attempted query threw, the
+        // executor surfaces the uniform all-failed InvalidOperationException ("Tidal search" label,
+        // byte-identical to the pre-adoption message) instead of a misleading empty result; a query
+        // that returns no albums counts as a success, so genuine empty results are unaffected. A
+        // mid-flight cancellation now propagates as OperationCanceledException (intended delta).
+        IReadOnlyList<TidalAlbumInfo> albums = await TidalAlbumSearch.ExecuteAsync(
             tiers,
             (q, ct) => searchService.SearchWithQualityDetectionAsync(q, TidalQuality.Lossless, cancellationToken: ct),
             onError: (q, ex) =>
@@ -167,17 +175,7 @@ public class TidalLidarrIndexer(
                 this._logger.Warn(ex, "Tidal search failed for query: {0}", q);
             }).ConfigureAwait(false);
 
-        // If EVERY attempted query threw, surface the failure instead of a misleading empty
-        // result — otherwise Lidarr can't distinguish "no matches" from "all search calls failed".
-        // A query that returns no albums does NOT throw, so genuine empty results are unaffected.
-        if (outcome.Attempted > 0 && outcome.Succeeded == 0 && outcome.LastError is not null)
-        {
-            throw new InvalidOperationException(
-                $"All {outcome.Attempted} Tidal search request(s) failed; surfacing the error instead of an empty result.",
-                outcome.LastError);
-        }
-
-        foreach (TidalAlbumInfo album in outcome.Albums)
+        foreach (TidalAlbumInfo album in albums)
         {
             // Create multiple releases per album - one for each available quality
             List<ReleaseInfo> albumReleases = [.. TidalLidarrParser.ConvertToReleaseInfosStatic(album)];
@@ -507,14 +505,14 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-        AddTiers(chain, SearchQuerySanitizer.BuildPlan(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery).Tiers);
+        AddTiers(chain, TidalSearchPlan.Build(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery).Tiers);
         return chain;
     }
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
         IndexerPageableRequestChain chain = new();
-        AddTiers(chain, SearchQuerySanitizer.BuildPlan(searchCriteria.ArtistQuery, album: null).Tiers);
+        AddTiers(chain, TidalSearchPlan.Build(searchCriteria.ArtistQuery, album: null).Tiers);
         return chain;
     }
 
