@@ -84,8 +84,6 @@ public class TidalLidarrIndexerSettings : IIndexerSettings
 
 public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarrIndexerSettings>
 {
-    private static readonly string[] SupportedMarkets = ["US", "UK", "DE", "FR", "CA", "AU", "JP"];
-
     public TidalLidarrIndexerSettingsValidator()
     {
         _ = RuleFor(x => x.ConfigPath)
@@ -98,9 +96,12 @@ public class TidalLidarrIndexerSettingsValidator : AbstractValidator<TidalLidarr
             .Must(BeValidHttpUri).WithMessage("Redirect URL must be a valid HTTP/HTTPS URL")
             .When(x => !string.IsNullOrWhiteSpace(x.RedirectUrl));
 
+        // Accept any 2-letter ISO 3166-1 country code (not a fixed allowlist — the old list both
+        // REJECTED the correct "GB" and ACCEPTED the wrong "UK"). "UK" is tolerated and rewritten to
+        // ISO "GB" at the API boundary by TidalMarket.Normalize.
         _ = RuleFor(x => x.TidalMarket)
-            .Must(market => SupportedMarkets.Contains(market, StringComparer.OrdinalIgnoreCase))
-            .WithMessage("Unsupported market. Supported values: US, UK, DE, FR, CA, AU, JP");
+            .Must(TidalMarket.IsValid)
+            .WithMessage("Market must be a 2-letter ISO 3166-1 country code (e.g. US, GB, DE, FR, CA, AU, JP).");
 
         _ = RuleFor(x => x.EarlyReleaseLimit)
             .InclusiveBetween(0, 365)
