@@ -105,4 +105,47 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
         Assert.Equal(1000, items[0].TotalSize);
         Assert.Equal(750, items[0].RemainingSize);
     }
+
+    // Host-contract: Lidarr uses CanMoveFiles to choose move-vs-copy import and CanBeRemoved to emit
+    // the post-import remove event. Both default to FALSE, so leaving them unset makes a completed
+    // download import copy-only and never get cleaned up (the source piles up). qobuz/amazon set both;
+    // tidal shipped without them (DownloadClientItem ctor at ProjectDownloadItems).
+    [Fact]
+    public void ProjectDownloadItems_CompletedItem_SetsCanMoveFilesAndCanBeRemoved()
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { Item("dl", HostBridgeDownloadItemStatus.Completed) }, clientInfo: null);
+
+        Assert.Single(items);
+        Assert.True(items[0].CanMoveFiles,
+            "a completed download must set CanMoveFiles or Lidarr imports copy-only and never cleans up the source");
+        Assert.True(items[0].CanBeRemoved,
+            "a completed download must set CanBeRemoved or Lidarr never emits the post-import remove event");
+    }
+
+    [Theory]
+    [InlineData(HostBridgeDownloadItemStatus.Downloading)]
+    [InlineData(HostBridgeDownloadItemStatus.Queued)]
+    public void ProjectDownloadItems_InProgressItem_CannotMoveOrRemove(HostBridgeDownloadItemStatus status)
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { Item("dl", status) }, clientInfo: null);
+
+        Assert.Single(items);
+        Assert.False(items[0].CanMoveFiles, "an in-progress download must not be move-imported");
+        Assert.False(items[0].CanBeRemoved, "an in-progress download must not be removed");
+    }
+
+    [Theory]
+    [InlineData(HostBridgeDownloadItemStatus.Failed)]
+    [InlineData(HostBridgeDownloadItemStatus.Cancelled)]
+    public void ProjectDownloadItems_TerminalFailure_CanBeRemovedButNotMoved(HostBridgeDownloadItemStatus status)
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { Item("dl", status) }, clientInfo: null);
+
+        Assert.Single(items);
+        Assert.False(items[0].CanMoveFiles, "a failed/cancelled download has no complete file set to move-import");
+        Assert.True(items[0].CanBeRemoved, "a terminal failure must be removable so the queue can be cleared");
+    }
 }
