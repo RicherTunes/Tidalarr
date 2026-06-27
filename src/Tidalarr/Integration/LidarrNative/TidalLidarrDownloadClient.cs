@@ -308,7 +308,15 @@ public class TidalLidarrDownloadClient(
                 TotalSize = item.TotalSize,
                 RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
-                DownloadClientInfo = clientInfo
+                DownloadClientInfo = clientInfo,
+
+                // Host-contract flags (default FALSE on the host type). A completed download MUST allow
+                // move-import or Lidarr copies and never cleans up the source; a terminal item MUST be
+                // removable so the queue can be cleared. Mirrors qobuz/amazon. (Common host-contract guard.)
+                CanMoveFiles = hostStatus == DownloadItemStatus.Completed && !string.IsNullOrEmpty(item.OutputPath),
+                CanBeRemoved = hostStatus is DownloadItemStatus.Completed
+                    or DownloadItemStatus.Failed
+                    or DownloadItemStatus.Warning
             });
         }
 

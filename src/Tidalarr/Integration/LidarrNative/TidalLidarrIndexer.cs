@@ -166,9 +166,13 @@ public class TidalLidarrIndexer(
         // byte-identical to the pre-adoption message) instead of a misleading empty result; a query
         // that returns no albums counts as a success, so genuine empty results are unaffected. A
         // mid-flight cancellation now propagates as OperationCanceledException (intended delta).
+        // Thread the configured market (ISO 3166-1; "UK" -> "GB") into search; SearchWithQuality...
+        // defaults to "US", so omitting it made every non-US user silently search the US catalogue.
+        string tidalMarket = TidalMarket.Normalize(Settings.TidalMarket);
+
         IReadOnlyList<TidalAlbumInfo> albums = await TidalAlbumSearch.ExecuteAsync(
             tiers,
-            (q, ct) => searchService.SearchWithQualityDetectionAsync(q, TidalQuality.Lossless, cancellationToken: ct),
+            (q, ct) => searchService.SearchWithQualityDetectionAsync(q, TidalQuality.Lossless, market: tidalMarket, cancellationToken: ct),
             onError: (q, ex) =>
             {
                 RecordAuthOutcomeFromException(sp, ex);
