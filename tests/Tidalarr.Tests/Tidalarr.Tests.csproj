@@ -99,8 +99,15 @@
     <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerOAuthStateExchangeTests.cs" />
     <!-- Exclude ALL Tidal* integration tests - use outdated DTO/model patterns -->
     <Compile Remove="Tidal*.cs" />
+    <!-- Host-free OAuth hermetic tests (only Lidarr.Plugin.Common refs, no NzbDrone.Core) MUST be
+         re-included after the broad Tidal*.cs remove so they actually gate under ExcludeHostBridge=true CI.
+         HermeticTestGatingGuard fails if any TidalOAuthService*Tests.cs source file is missing here. -->
+    <Compile Include="TidalOAuthServiceTests.cs" />
+    <Compile Include="TidalOAuthServiceStorageTests.cs" />
+    <Compile Include="TidalOAuthServiceLogoutTests.cs" />
     <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
     <Compile Include="TidalOAuthServiceRevokedRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceMissingRefreshTokenTests.cs" />
     <Compile Include="TidalTestPolicies.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
