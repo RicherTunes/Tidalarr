@@ -1,3 +1,5 @@
+<!-- docval:ignore-workflow-refs — this file is an append-only historical record; workflow paths named in past entries may no longer exist -->
+
 # Changelog
 
 All notable changes to Tidalarr will be documented in this file.
