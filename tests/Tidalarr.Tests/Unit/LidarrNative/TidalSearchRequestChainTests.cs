@@ -20,6 +20,10 @@ public sealed class TidalSearchRequestChainTests : SearchRequestChainComplianceT
 {
     protected override string PlaceholderScheme => TidalSearchPlan.SearchScheme;
 
+    // Tidal emits EVERY BuildPlan variant in exact plan order (no cap, no reorder) — opt into
+    // the F03 exact-sequence guard so duplicates and post-position-0 reorderings are caught.
+    protected override bool RequiresExactPlanSequence => true;
+
     protected override IReadOnlyList<string> GetSearchRequestUrls(string artist, string album)
         => TidalSearchPlan.BuildSearchPlaceholderUrls(artist, album);
 }
