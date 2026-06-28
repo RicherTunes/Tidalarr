@@ -14,10 +14,20 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? tokenStorage = null, Action<string>? onMissingRefreshTokenWarning = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
+    private static readonly NLog.Logger MissingRefreshTokenLogger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly HttpClient _httpClient = httpClient;
     private readonly ITokenStore<TidalTokens> _tokenStorage = tokenStorage ?? new FailOnIOTokenStore<TidalTokens>();
+
+    // Sink for the "no refresh_token returned" defensive warning. Defaults to an NLog Warn; tests inject a
+    // capturing delegate. A token without a refresh_token means automatic renewal is impossible — the access
+    // token will silently expire (~1 week) and force a manual re-login. Warning here, at the moment the token
+    // is obtained, makes a scope/Tidal regression (e.g. offline_access dropped from OAUTH_SCOPE) diagnosable
+    // immediately instead of as a mysterious forced re-login weeks later.
+    private readonly Action<string> _onMissingRefreshTokenWarning = onMissingRefreshTokenWarning ?? (message => MissingRefreshTokenLogger.Warn(message));
+
     private TidalTokens? _currentTokens;
 
     // Single-flight gate: serializes token load/refresh so concurrent callers don't each fire a
@@ -136,6 +146,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
         TidalTokens tokens = MapToTidalTokens(tokenData);
+        WarnIfNoRefreshToken(tokens, "the OAuth code exchange");
         this._currentTokens = tokens;
         await SaveSessionAsync(tokens).ConfigureAwait(false);
         return tokens;
@@ -210,9 +221,26 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         TidalTokens tokens = MapToTidalTokens(tokenData);
+        WarnIfNoRefreshToken(tokens, "a token refresh");
         this._currentTokens = tokens;
         await SaveSessionAsync(tokens).ConfigureAwait(false);
         return tokens;
+    }
+
+    // Defensive: a token with no refresh_token cannot be auto-renewed. Surface it loudly + actionably the
+    // moment it is obtained so the operator can fix the root cause (almost always a missing offline_access
+    // scope) instead of discovering it as a silent forced re-login when the access token expires.
+    private void WarnIfNoRefreshToken(TidalTokens tokens, string context)
+    {
+        if (!string.IsNullOrEmpty(tokens.RefreshToken))
+        {
+            return;
+        }
+
+        this._onMissingRefreshTokenWarning(
+            $"Tidal returned no refresh token during {context}; automatic session renewal is DISABLED — " +
+            "Tidalarr will require a manual re-login when the access token expires. Ensure the OAuth scope " +
+            "includes 'offline_access' (TidalConstants.OAUTH_SCOPE).");
     }
 
     public async Task LogoutAsync()
