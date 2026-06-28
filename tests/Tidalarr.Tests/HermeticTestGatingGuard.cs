@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Xml.Linq;
 using Xunit;
 
 namespace Tidalarr.Tests;
@@ -49,6 +50,79 @@ public class HermeticTestGatingGuard
             "Host-free OAuth hermetic test file(s) exist in source but are NOT compiled into the test assembly " +
             "— add a `<Compile Include=\"<file>.cs\" />` after the `Tidal*.cs` remove in Tidalarr.Tests.csproj " +
             "(these must run under the ExcludeHostBridge=true CI build). Missing: " + string.Join(", ", missing));
+    }
+
+    /// <summary>
+    /// Generalizes the OAuth-only guard to cover every file declared in the
+    /// <c>ExcludeHostBridge=true</c> <c>&lt;Compile Include&gt;</c> list. The old guard hardcoded
+    /// <c>TidalOAuthService*Tests.cs</c> — so any non-OAuth re-included file (e.g.
+    /// <c>TidalTestPolicies.cs</c>) or any new hermetic test added to the include list in the
+    /// future was not verified. This guard reads the csproj at runtime and checks ALL declared
+    /// includes automatically, without needing to update the guard when new files are added.
+    ///
+    /// <para>Fail case caught: a <c>&lt;Compile Include="TidalFoo.cs" /&gt;</c> entry exists in the
+    /// csproj but the primary class name inside <c>TidalFoo.cs</c> does not match the file name
+    /// (typo, rename, class missing) — the old guard would silently pass; this guard fails with the
+    /// file name so the developer knows to fix the class name or the include entry.</para>
+    /// </summary>
+    [Fact]
+    public void AllDeclaredHermeticIncludes_AreCompiledIntoThisAssembly()
+    {
+        string? projectDir = FindTestProjectDir();
+        if (projectDir is null)
+        {
+            return; // source tree not co-located with assembly (packaged run); skip.
+        }
+
+        string csprojPath = Path.Combine(projectDir, "Tidalarr.Tests.csproj");
+        if (!File.Exists(csprojPath))
+        {
+            return; // no csproj found; skip.
+        }
+
+        // Parse the csproj and collect every <Compile Include="..."> in an ExcludeHostBridge=true ItemGroup.
+        XDocument doc = XDocument.Load(csprojPath);
+        XNamespace ns = doc.Root?.GetDefaultNamespace() ?? XNamespace.None;
+
+        List<string> declaredIncludes = doc.Root!
+            .Elements(ns + "ItemGroup")
+            .Where(ig =>
+            {
+                string? cond = (string?)ig.Attribute("Condition");
+                return cond is not null &&
+                       cond.Contains("ExcludeHostBridge", StringComparison.Ordinal) &&
+                       cond.Contains("true", StringComparison.Ordinal);
+            })
+            .SelectMany(ig => ig.Elements(ns + "Compile"))
+            .Select(c => (string?)c.Attribute("Include"))
+            .Where(inc => inc is not null)
+            .Select(inc => inc!)
+            .ToList();
+
+        Assert.True(declaredIncludes.Count > 0,
+            "No <Compile Include> entries found in the ExcludeHostBridge=true ItemGroup of " +
+            "Tidalarr.Tests.csproj. The csproj structure may have changed — review the " +
+            "broad-remove / re-include pattern and update this guard accordingly.");
+
+        HashSet<string> compiledTypeNames = Assembly.GetExecutingAssembly()
+            .GetTypes()
+            .Select(t => t.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // For each declared include, the primary type name must match the file name (by convention).
+        // Internal and nested types are returned by GetTypes() so helpers like TidalTestPolicies are covered.
+        string[] missing = declaredIncludes
+            .Select(inc => Path.GetFileNameWithoutExtension(Path.GetFileName(inc)))
+            .Where(name => !string.IsNullOrEmpty(name) && !compiledTypeNames.Contains(name!))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n)
+            .ToArray()!;
+
+        Assert.True(missing.Length == 0,
+            "Host-free file(s) declared via <Compile Include> in the ExcludeHostBridge=true " +
+            "ItemGroup of Tidalarr.Tests.csproj are NOT compiled into the test assembly. " +
+            "Ensure the file exists, the primary class name matches the filename, and the " +
+            "<Compile Include> path is correct. Missing type(s): " + string.Join(", ", missing));
     }
 
     private static string? FindTestProjectDir()
