@@ -6,7 +6,7 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 - **Repository**: <https://github.com/RicherTunes/Tidalarr>
 - **License**: [MIT](LICENSE)
 
-**Who is this for?** Lidarr users with a Tidal HiFi or HiFi Plus subscription who want automatic, high-quality audio imports. The plugin handles search, download, format conversion, and metadata — all from within the Lidarr UI.
+**Who is this for?** Lidarr users with a Tidal HiFi or HiFi Plus subscription who want automatic, high-quality audio imports. The plugin handles search, download, format conversion, metadata, and lyrics — all from within the Lidarr UI.
 
 ## Key features
 
@@ -15,7 +15,7 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 - **Quality tiers** — Low (AAC 96 kbps), High (AAC 320 kbps), Lossless (FLAC 16-bit/44.1 kHz), and Hi-Res (FLAC up to 24-bit/192 kHz).
 - **FLAC extraction** — optionally extracts FLAC from M4A containers (`ExtractFlac`, on by default).
 - **Synced lyrics** — best-effort `.lrc` fetch via LRCLIB (`SaveSyncedLyrics` / `UseLRCLIB`).
-- **ISRC tag writing** — writes ISRC tags on downloaded tracks to anchor Lidarr import matching.
+- **ISRC tag writing** — writes ISRC tags on downloaded tracks to anchor Lidarr import matching when Tidal returns them.
 - **OAuth 2.0 + PKCE** — secure, token-based authentication; no stored passwords.
 
 ## Built on Lidarr.Plugin.Common

@@ -59,11 +59,11 @@ Related download settings: **Include MQA** (default `true`) and
 
 ## Metadata: ISRC tags
 
-After download, ISRC codes captured from the Tidal API are written into the audio
-file's tags by the shared metadata applier in Common
-(`TagLibAudioMetadataApplier`): the `TSRC` frame for ID3v2, the `ISRC` field for
-FLAC/Vorbis (Xiph) comments, and the MP4/iTunes tag where supported. Accurate
-ISRC tags help Lidarr match imports to the correct release.
+ISRC codes captured from the Tidal API are written into the audio file's tags by
+Common's shared metadata applier (`TagLibAudioMetadataApplier`): the `TSRC`
+frame for ID3v2, the `ISRC` field for FLAC/Vorbis (Xiph) comments, and the
+MP4/iTunes tag where supported. ISRC tags help Lidarr match imports to the
+correct release.
 
 ## Synced lyrics
 
