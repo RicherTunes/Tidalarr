@@ -33,7 +33,7 @@ Tidalarr builds on the shared [Lidarr.Plugin.Common](https://github.com/RicherTu
 **Ecosystem contract:**
 
 - Common is vendored at `ext/Lidarr.Plugin.Common`; the exact pin is tracked by `ext-common-sha.txt` and must be committed with the submodule gitlink.
-- Gitea is the primary CI surface (`.gitea/workflows/ci.yml`): `CI / lint` runs Common's shared plugin lint runner; `CI / verify` runs `scripts/verify-local.ps1`, which delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`. GitHub workflow files remain mirror-only and non-authoritative for merges.
+- Gitea is the primary CI surface (`.gitea/workflows/ci.yml`): `CI / secret-scan` runs Gitleaks with checksum verification, `CI / lint` runs Common's shared plugin lint runner, and `CI / verify` runs `scripts/verify-local.ps1`, which delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`. GitHub workflow files remain mirror-only and non-authoritative for merges.
 - Tidal album search uses Common's `SearchQuerySanitizer` and `SearchPlanExecutor` through the thin `TidalSearchPlan` / `TidalAlbumSearch` seam.
 
 ## Installation

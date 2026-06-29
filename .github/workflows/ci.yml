@@ -7,6 +7,27 @@ on:
   pull_request:
 
 jobs:
+  secret-scan:
+    name: Gitleaks secret scan
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Gitleaks secret scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITLEAKS_SHA256=ba6dbb656933921c775ee5a2d1c13a91046e7952e9d919f9bac4cec61d628e7d
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz -o /tmp/gitleaks.tgz
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --no-banner --redact --exit-code 1
+
   lint:
     name: Common lint gates
     if: ${{ github.server_url == 'https://github.com' }}
@@ -68,7 +89,7 @@ jobs:
   verify:
     name: Full local-ci verification
     if: ${{ github.server_url == 'https://github.com' }}
-    needs: lint
+    needs: [lint, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
