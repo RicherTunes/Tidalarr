@@ -39,7 +39,8 @@ public class TidalLidarrDownloadClient(
     // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
     // HostBridgeDownloadTrackerStore is instance-scoped but held in a static field for exactly this reason.
-    private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
+    private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads =
+        HostBridgeDownloadTrackerStore<HostBridgeDownloadItem>.ForPlugin("Tidalarr");
     private static readonly TidalDownloadCancellationRegistry ActiveDownloadCancellations = new();
     private static readonly HostBridgeDownloadOrchestrator _downloadOrchestrator = new(logger: null);
     private new readonly Logger _logger = logger;

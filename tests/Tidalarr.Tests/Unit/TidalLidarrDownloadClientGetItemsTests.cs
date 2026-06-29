@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using Lidarr.Plugin.Common.HostBridge;
 using NzbDrone.Core.Download;
 using Tidalarr.Integration.LidarrNative;
@@ -15,6 +16,25 @@ namespace Tidalarr.Tests.Unit;
 /// </summary>
 public sealed class TidalLidarrDownloadClientGetItemsTests
 {
+    [Fact]
+    public void StaticTracker_IsPersistentForPluginConfigRoot()
+    {
+        var field = typeof(TidalLidarrDownloadClient)
+            .GetField("ActiveDownloads", BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(field);
+        Assert.Equal(typeof(HostBridgeDownloadTrackerStore<HostBridgeDownloadItem>), field!.FieldType);
+
+        var tracker = field.GetValue(null);
+        var persistencePathField = field.FieldType.GetField("_persistencePath", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(persistencePathField);
+        var persistencePath = Assert.IsType<string>(persistencePathField!.GetValue(tracker));
+        Assert.EndsWith(
+            "/Tidalarr/download-tracker.json",
+            persistencePath.Replace('\\', '/'),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     private static HostBridgeDownloadItem Item(string downloadId, HostBridgeDownloadItemStatus status, double progress = 0, long totalSize = 0)
     {
         var item = new HostBridgeDownloadItem
