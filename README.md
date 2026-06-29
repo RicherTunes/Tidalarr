@@ -24,11 +24,17 @@ Tidalarr builds on the shared [Lidarr.Plugin.Common](https://github.com/RicherTu
 
 | Common wiki page | Why follow it |
 |---|---|
-| [Home](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Home.md) | Overview of the shared library and the four-plugin ecosystem |
+| [Home](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Home.md) | Overview of the shared library and the five-plugin ecosystem |
 | [Architecture Overview](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Architecture-Overview.md) | Base classes, DI container, and the plugin lifecycle that Tidalarr inherits |
 | [SDK and Extension Points](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/SDK-and-Extension-Points.md) | How to extend `BaseStreamingIndexer`, `BaseStreamingDownloadClient`, and other service interfaces |
 | [Shared Helpers Catalog](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Shared-Helpers-Catalog.md) | Ready-made utilities (caching, auth gates, health probes, lyrics enrichment) that Tidalarr consumes |
 | [Versioning and Submodule Pinning](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Versioning-and-Submodule-Pinning.md) | How `ext-common-sha.txt` and the gitlink stay in sync (re-pin manually; no scheduled auto-bump) |
+
+**Ecosystem contract:**
+
+- Common is vendored at `ext/Lidarr.Plugin.Common`; the exact pin is tracked by `ext-common-sha.txt` and must be committed with the submodule gitlink.
+- Gitea is the primary CI surface (`.gitea/workflows/ci.yml`): `CI / lint` runs Common's shared plugin lint runner; `CI / verify` runs `scripts/verify-local.ps1`, which delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`. GitHub workflow files remain mirror-only and non-authoritative for merges.
+- Tidal album search uses Common's `SearchQuerySanitizer` and `SearchPlanExecutor` through the thin `TidalSearchPlan` / `TidalAlbumSearch` seam.
 
 ## Installation
 

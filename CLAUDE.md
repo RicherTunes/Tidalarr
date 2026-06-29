@@ -117,7 +117,7 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 
 ## File ↔ class naming convention
 
-Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the four-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
+Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the five-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
 
 | File | Class(es) | Convention |
 |------|-----------|------------|
@@ -141,7 +141,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `ILyricsEnricher` / `LyricsEnricher` (Common's shared enricher, wrapping `LrclibClient`) — registered in `src/Tidalarr/Integration/TidalModule.cs:174` (`AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher())`), consumed in `src/Tidalarr/Integration/TidalAudioPostProcessor.cs`. Best-effort synced-lyrics (.lrc) fetch alongside audio downloads via LRCLIB public API. **Consolidated to Common** (lyrics pilot, PR #299/#303): the former local `Application/Services/LyricsEnricher.cs` + `ILyricsEnricher` were deleted in favour of Common's; canonical gating (`SaveSyncedLyrics` master toggle + `UseLRCLIB` LRCLIB-fallback) is enforced by the `Check_UsesCommonLyricsEnricher` parity guard.
 - `BoundedConcurrentDictionary<TKey, TValue>` — available (Common v1.15.0+ exposes `ContainsKey`, `Values`, indexer setter, and `IEnumerable<KeyValuePair>` alongside the original v1.10.0 TryAdd/TryGetValue/AddOrUpdate/GetOrAdd surface). No tidal call sites yet — candidates: `PKCEStateStore.InMemoryCache` (`src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs:33`) is domain-bounded by config-path count so adoption isn't required; revisit when a real growth concern surfaces.
 
-See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the cross-plugin parity scorecard (30+ axes × 4 plugins).
+See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the historical cross-plugin parity scorecard. The current five-plugin CI contract is enforced by Common's ecosystem CI manifest and shared lint runner.
 
 ## Test infrastructure: `bin-tests/` split (cross-ALC type identity)
 
