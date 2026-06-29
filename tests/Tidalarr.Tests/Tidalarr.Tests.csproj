@@ -108,6 +108,7 @@
     <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
     <Compile Include="TidalOAuthServiceRevokedRefreshTokenTests.cs" />
     <Compile Include="TidalOAuthServiceMissingRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceRefreshTokenCarryForwardTests.cs" />
     <Compile Include="TidalTestPolicies.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
