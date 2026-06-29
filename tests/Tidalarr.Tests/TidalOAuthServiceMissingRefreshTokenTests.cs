@@ -43,12 +43,28 @@ public class TidalOAuthServiceMissingRefreshTokenTests
     }
 
     [Fact]
-    public async Task RefreshTokens_WhenResponseHasNoRefreshToken_WarnsAutoRenewalDisabled()
+    public async Task RefreshTokens_WhenResponseHasNoRefreshToken_AndOriginalNonEmpty_DoesNotWarn()
     {
+        // Standard OAuth: grant_type=refresh_token responses routinely omit refresh_token.
+        // When the original (carried-forward) token is non-empty the session is healthy —
+        // no warning should be emitted. Only warn when BOTH are empty (offline_access missing).
         List<string> warnings = new();
         TidalOAuthService svc = new(new HttpClient(new CannedOkHandler(TokenJson(string.Empty))), new MemoryTokenStorage(null), warnings.Add);
 
         _ = await svc.RefreshTokensAsync("old_refresh");
+
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public async Task RefreshTokens_WhenResponseHasNoRefreshToken_AndOriginalAlsoEmpty_Warns()
+    {
+        // Genuinely broken: no refresh_token in either the response or the original token.
+        // This is the symptom of offline_access scope not being granted.
+        List<string> warnings = new();
+        TidalOAuthService svc = new(new HttpClient(new CannedOkHandler(TokenJson(string.Empty))), new MemoryTokenStorage(null), warnings.Add);
+
+        _ = await svc.RefreshTokensAsync(string.Empty);
 
         string warning = Assert.Single(warnings);
         Assert.Contains("offline_access", warning, StringComparison.OrdinalIgnoreCase);

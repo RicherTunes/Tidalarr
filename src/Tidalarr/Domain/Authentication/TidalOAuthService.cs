@@ -221,6 +221,20 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
         TidalTokens tokens = MapToTidalTokens(tokenData);
+
+        // Carry forward the refresh token that was just successfully used when the response omits one.
+        // Standard OAuth: grant_type=refresh_token responses routinely do NOT return a refresh_token —
+        // the client simply reuses the original. Without this, the stored token's RefreshToken is
+        // overwritten with null/empty on every renewal cycle, causing GetValidTokensAsync to hit the
+        // !string.IsNullOrEmpty(stored.RefreshToken) guard and throw "Not authenticated" on the next
+        // expiry — the "daily re-login" production bug (confirmed live 2026-06-27).
+        // Only warn when BOTH the response AND the carried-forward token are empty (genuinely broken
+        // scope, e.g. offline_access not granted). The warn on the EXCHANGE path is unchanged.
+        if (string.IsNullOrEmpty(tokens.RefreshToken))
+        {
+            tokens = tokens with { RefreshToken = refreshToken };
+        }
+
         WarnIfNoRefreshToken(tokens, "a token refresh");
         this._currentTokens = tokens;
         await SaveSessionAsync(tokens).ConfigureAwait(false);
