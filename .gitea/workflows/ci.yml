@@ -1,7 +1,8 @@
 name: CI
 # Gitea-primary CI. The lint job runs fast Common policy gates; the verify job
 # runs the same shared local-ci pipeline developers use locally: host assembly
-# extraction, build, package closure, and tests.
+# extraction, build, package closure, and tests. GitHub mirror workflows are
+# intentionally kept in .github/workflows/ci.yml and .github/workflows/submodule-pin.yml.
 on:
   workflow_dispatch:
   push:
