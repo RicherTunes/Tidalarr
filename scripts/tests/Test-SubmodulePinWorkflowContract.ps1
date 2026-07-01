@@ -62,8 +62,14 @@ if (Test-Path -LiteralPath $giteaCiWorkflow) {
         'Gitea CI comments must not reference plugin-root GitHub workflow mirrors.'
     Assert-Condition ($giteaContent -notmatch 'exit\s+\$LASTEXITCODE') `
         'Gitea CI must normalize nullable LASTEXITCODE values before exiting.'
-    Assert-Condition ($giteaContent -match '\$gateExitCode') `
-        'Gitea CI fallback gates must normalize nullable LASTEXITCODE before deciding to exit.'
+    Assert-Condition ($giteaContent -match 'run-plugin-lint-gates\.ps1') `
+        'Gitea CI lint job must use the shared Common lint runner.'
+    Assert-Condition ($giteaContent -match 'Shared lint runner not found') `
+        'Gitea CI lint job must fail closed when the shared Common lint runner is unavailable.'
+    Assert-Condition ($giteaContent -notmatch 'Invoke-FallbackGate') `
+        'Gitea CI must not keep fallback lint gate helpers that can drift from Common.'
+    Assert-Condition ($giteaContent -notmatch '(ecosystem-parity-lint|lint-date-parsing|lint-sync-over-async|lint-test-traits|lint-doc-script-refs)\.ps1') `
+        'Gitea CI must not call Common lint scripts directly; all lint gates must flow through the shared runner.'
     Assert-Condition ($giteaContent -match '\$runnerExitCode') `
         'Gitea CI shared lint runner path must normalize nullable LASTEXITCODE before exiting.'
 }

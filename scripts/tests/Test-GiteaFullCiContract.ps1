@@ -33,6 +33,10 @@ if ($failures.Count -eq 0) {
         'Gitea verify job must install/use the .NET 8 SDK.'
     Assert-Condition ($content -match 'pwsh .*scripts/verify-local\.ps1|pwsh\s+\.\/scripts\/verify-local\.ps1') `
         'Gitea verify job must invoke verify-local.ps1 with PowerShell.'
+    Assert-Condition ($content -match 'run-plugin-lint-gates\.ps1') `
+        'Gitea lint job must invoke Common run-plugin-lint-gates.ps1.'
+    Assert-Condition ($content -notmatch '(ecosystem-parity-lint|lint-date-parsing|lint-sync-over-async|lint-test-traits|lint-doc-script-refs)\.ps1') `
+        'Gitea lint job must not call direct Common lint scripts; direct fallback subsets can silently bypass new Common gates.'
     Assert-Condition ($content -notmatch '-SkipTests') `
         'Gitea verify job must not skip tests.'
     Assert-Condition ($content -notmatch '-Skip[A-Za-z]*|-NoRestore') `
