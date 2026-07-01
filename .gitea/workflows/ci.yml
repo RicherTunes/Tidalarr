@@ -66,30 +66,15 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          function Invoke-FallbackGate {
-            param([string]$ScriptPath, [string[]]$Arguments)
-            if (-not (Test-Path $ScriptPath)) {
-              Write-Error "Fallback lint gate script not found: $ScriptPath"
-              exit 1
-            }
-            $global:LASTEXITCODE = 0
-            & $ScriptPath @Arguments
-            $gateExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
-            if ($gateExitCode -ne 0) { exit $gateExitCode }
-          }
-
           $runner = './ext/Lidarr.Plugin.Common/scripts/ci/run-plugin-lint-gates.ps1'
-          if (Test-Path $runner) {
-            $global:LASTEXITCODE = 0
-            & $runner -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
-            $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
-            exit $runnerExitCode
+          if (-not (Test-Path $runner)) {
+            Write-Error "Shared lint runner not found: $runner"
+            exit 1
           }
-
-          Write-Warning "Shared lint runner not found; using compatibility fallback until Common submodule is repinned."
-          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/lint-date-parsing.ps1' @('-Path', '.', '-Mode', 'ci')
-          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1' @('-Path', '.', '-Mode', 'ci')
-          Invoke-FallbackGate './ext/Lidarr.Plugin.Common/scripts/ecosystem-parity-lint.ps1' @('-RepoPath', '.', '-CommonRoot', 'ext/Lidarr.Plugin.Common', '-Check', 'VersionContract', '-Mode', 'ci')
+          $global:LASTEXITCODE = 0
+          & $runner -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
+          $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+          exit $runnerExitCode
 
   verify:
     needs: [lint, secret-scan]
