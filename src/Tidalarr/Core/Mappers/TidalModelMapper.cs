@@ -61,6 +61,29 @@ public class TidalModelMapper
         return streaming;
     }
 
+    /// <summary>
+    /// Builds real Tidal cover-art image URLs from a cover-art id. Previously these entries held the
+    /// raw id, which broke Common's SimpleDownloadOrchestrator artwork embedder (GetBestCoverArtUrl()
+    /// returned a non-URL). Tidal serves square covers at resources.tidal.com/images/{id-with-slashes}/{size}.jpg.
+    /// </summary>
+    private static Dictionary<string, string> BuildCoverArtUrls(string? coverArtId)
+    {
+        if (string.IsNullOrEmpty(coverArtId))
+        {
+            return new Dictionary<string, string>();
+        }
+
+        string path = coverArtId.Replace("-", "/");
+        string Url(string size) => $"https://resources.tidal.com/images/{path}/{size}.jpg";
+        return new Dictionary<string, string>
+        {
+            ["small"] = Url("320x320"),
+            ["medium"] = Url("640x640"),
+            ["large"] = Url("1280x1280"),
+            ["original"] = Url("1280x1280"),
+        };
+    }
+
     public StreamingAlbum ToStreamingAlbum(TidalAlbumInfo album)
     {
         // Filter null/empty entries before joining to avoid ", , " garbage
@@ -89,13 +112,7 @@ public class TidalModelMapper
             Label = string.Empty,
             Upc = string.Empty,
             AvailableQualities = [.. (album.AvailableQualities ?? []).Select(ToStreamingQuality)],
-            CoverArtUrls = new Dictionary<string, string>
-            {
-                ["small"] = album.CoverArtId ?? string.Empty,
-                ["medium"] = album.CoverArtId ?? string.Empty,
-                ["large"] = album.CoverArtId ?? string.Empty,
-                ["original"] = album.CoverArtId ?? string.Empty
-            },
+            CoverArtUrls = BuildCoverArtUrls(album.CoverArtId),
             ExternalUrls = new Dictionary<string, string>
             {
                 ["tidal"] = $"https://tidal.com/browse/album/{Uri.EscapeDataString(album.Id ?? string.Empty)}"
