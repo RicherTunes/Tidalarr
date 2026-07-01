@@ -19,11 +19,16 @@ public class CiWorkflowContractTests
     }
 
     [Fact]
-    public void GithubMirrorCiWorkflow_RunsSecretScan()
+    public void PluginRootGithubWorkflows_AreAbsent()
     {
-        var workflow = File.ReadAllText(Path.Combine(FindRepositoryRoot(), ".github", "workflows", "ci.yml"));
+        var workflowsRoot = Path.Combine(FindRepositoryRoot(), ".github", "workflows");
+        var workflowFiles = Directory.Exists(workflowsRoot)
+            ? Directory.GetFiles(workflowsRoot, "*.yml")
+                .Concat(Directory.GetFiles(workflowsRoot, "*.yaml"))
+                .ToArray()
+            : [];
 
-        AssertGiteaSecretScanContract(workflow);
+        workflowFiles.Should().BeEmpty("Gitea is the authoritative CI surface for plugin repos");
     }
 
     [Fact]

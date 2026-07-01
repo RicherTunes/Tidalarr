@@ -31,8 +31,13 @@ foreach ($relativePath in $activeDocs) {
 if ($failures.Count -eq 0) {
     $workflowDir = Join-Path $repoRoot '.github\workflows'
     $existingWorkflows = @{}
-    Get-ChildItem -LiteralPath $workflowDir -Filter '*.yml' -File | ForEach-Object {
-        $existingWorkflows[$_.Name] = $true
+    if (Test-Path -LiteralPath $workflowDir) {
+        Get-ChildItem -LiteralPath $workflowDir -Filter '*.yml' -File | ForEach-Object {
+            $existingWorkflows[$_.Name] = $true
+        }
+        Get-ChildItem -LiteralPath $workflowDir -Filter '*.yaml' -File | ForEach-Object {
+            $existingWorkflows[$_.Name] = $true
+        }
     }
 
     foreach ($relativePath in $activeDocs) {

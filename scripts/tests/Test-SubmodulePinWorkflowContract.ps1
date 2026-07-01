@@ -4,8 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $shaPath = Join-Path $repoRoot 'ext-common-sha.txt'
-$githubPinWorkflow = Join-Path $repoRoot '.github\workflows\submodule-pin.yml'
-$githubCiWorkflow = Join-Path $repoRoot '.github\workflows\ci.yml'
+$githubWorkflowDir = Join-Path $repoRoot '.github\workflows'
 $giteaCiWorkflow = Join-Path $repoRoot '.gitea\workflows\ci.yml'
 $expectedContentsWrapper = Join-Path $repoRoot 'scripts\update-expected-contents.ps1'
 $sharedExpectedContentsUpdater = Join-Path $repoRoot 'ext\Lidarr.Plugin.Common\scripts\update-plugin-expected-contents.ps1'
@@ -46,26 +45,21 @@ if (Test-Path -LiteralPath $shaPath) {
     Assert-Condition ($sha -match '^[0-9a-f]{40}$') 'ext-common-sha.txt must contain a lowercase 40-character SHA.'
 }
 
-Assert-WorkflowHasPinGuard -Path $githubPinWorkflow -Name 'GitHub submodule-pin'
-Assert-WorkflowHasPinGuard -Path $githubCiWorkflow -Name 'GitHub CI'
 Assert-WorkflowHasPinGuard -Path $giteaCiWorkflow -Name 'Gitea CI'
 
-if (Test-Path -LiteralPath $githubCiWorkflow) {
-    $githubContent = Get-Content -LiteralPath $githubCiWorkflow -Raw
-    Assert-Condition ($githubContent -notmatch 'exit\s+\$LASTEXITCODE') `
-        'GitHub CI must normalize nullable LASTEXITCODE values before exiting.'
-    Assert-Condition ($githubContent -match '\$gateExitCode') `
-        'GitHub CI fallback gates must normalize nullable LASTEXITCODE before deciding to exit.'
-    Assert-Condition ($githubContent -match '\$runnerExitCode') `
-        'GitHub CI shared lint runner path must normalize nullable LASTEXITCODE before exiting.'
+if (Test-Path -LiteralPath $githubWorkflowDir) {
+    $githubWorkflowFiles = @(
+        Get-ChildItem -LiteralPath $githubWorkflowDir -Filter '*.yml' -File -ErrorAction SilentlyContinue
+        Get-ChildItem -LiteralPath $githubWorkflowDir -Filter '*.yaml' -File -ErrorAction SilentlyContinue
+    )
+    Assert-Condition ($githubWorkflowFiles.Count -eq 0) `
+        "Plugin-root GitHub Actions workflows are intentionally absent; found: $($githubWorkflowFiles.Name -join ', ')"
 }
 
 if (Test-Path -LiteralPath $giteaCiWorkflow) {
     $giteaContent = Get-Content -LiteralPath $giteaCiWorkflow -Raw
-    Assert-Condition ($giteaContent -notmatch 'dead \.github/workflows') `
-        'Gitea CI comments must not call GitHub workflows dead; GitHub workflows are present and GitHub-gated.'
-    Assert-Condition ($giteaContent -notmatch 'neutralized on the Gitea copy') `
-        'Gitea CI comments must not claim GitHub workflows need neutralizing on the Gitea copy.'
+    Assert-Condition ($giteaContent -notmatch '\.github/workflows') `
+        'Gitea CI comments must not reference plugin-root GitHub workflow mirrors.'
     Assert-Condition ($giteaContent -notmatch 'exit\s+\$LASTEXITCODE') `
         'Gitea CI must normalize nullable LASTEXITCODE values before exiting.'
     Assert-Condition ($giteaContent -match '\$gateExitCode') `

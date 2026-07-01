@@ -9,7 +9,7 @@ These checks build and package the Tidalarr plugin and verify that the produced 
 
 ## Current checks
 
-Gitea is the authoritative CI surface. `.gitea/workflows/ci.yml` runs three required policy/build jobs on PRs and `main` pushes, while `.github/workflows/ci.yml` mirrors the same shape for GitHub visibility only:
+Gitea is the authoritative CI surface. `.gitea/workflows/ci.yml` runs three required policy/build jobs on PRs and `main` pushes. This repo intentionally carries no plugin-root GitHub Actions workflows; Common's ecosystem CI contract enforces that the mirror-workflow count stays at zero.
 
 - `secret-scan` downloads the pinned Gitleaks release, verifies the archive checksum, and runs `gitleaks detect --redact --exit-code 1`.
 - `lint` initializes the Common submodule, verifies `ext-common-sha.txt` matches the submodule gitlink, installs .NET 8, and runs Common's shared plugin lint runner (`run-plugin-lint-gates.ps1`) with the legacy three-gate fallback.
@@ -19,10 +19,9 @@ Developers can run the same local path through `scripts/ci.ps1` or `scripts/veri
 
 ## Key practices
 
-- GitHub uses `actions/checkout@v4` and `actions/setup-dotnet@v4`; Gitea installs PowerShell, .NET, and the Docker CLI directly on the runner.
-- The Common submodule is initialized by `.github/actions/init-common-submodule`, using `SUBMODULES_TOKEN` or `CI_PAT` when available and unauthenticated fetch otherwise.
-- The composite submodule action masks the token immediately and scopes the HTTPS credential rewrite to the single `git submodule update` command through `GIT_CONFIG_PARAMETERS`.
-- Both hosted workflows run the same submodule pin guard before lint and verify jobs.
+- Gitea installs PowerShell, .NET, and the Docker CLI directly on the runner.
+- The Gitea lint and verify jobs use recursive checkout and run the same Common submodule pin guard before policy/build work.
+- GitHub-specific workflow setup belongs in Common reusable automation, not duplicated in this plugin repo.
 
 ## NuGet caching
 
