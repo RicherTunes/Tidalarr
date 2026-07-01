@@ -25,6 +25,7 @@ on:
 
 jobs:
   secret-scan:
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -42,6 +43,7 @@ jobs:
           /tmp/gitleaks detect --source . --no-banner --redact --exit-code 1
 
   lint:
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -72,6 +74,7 @@ jobs:
           exit $runnerExitCode
 
   verify:
+    if: ${{ github.server_url == 'https://github.com' }}
     needs: [lint, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 90

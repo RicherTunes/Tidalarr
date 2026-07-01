@@ -49,13 +49,48 @@ if (Test-Path -LiteralPath $shaPath) {
 
 Assert-WorkflowHasPinGuard -Path $giteaCiWorkflow -Name 'Gitea CI'
 
+# The GitHub Actions mirror is REQUIRED under the dual-platform CI parity contract:
+# .github/workflows/ci.yml mirrors the Gitea gate so the same checks build the moment
+# GitHub Actions billing is restored. Keep it a single CI entrypoint (ci.yml or ci.yaml)
+# and keep the Common submodule pin guard wired exactly like the Gitea copy.
+Assert-Condition (Test-Path -LiteralPath $githubWorkflowDir) `
+    "GitHub Actions mirror directory is required (dual-platform CI parity): $githubWorkflowDir"
 if (Test-Path -LiteralPath $githubWorkflowDir) {
     $githubWorkflowFiles = @(
         Get-ChildItem -LiteralPath $githubWorkflowDir -Filter '*.yml' -File -ErrorAction SilentlyContinue
         Get-ChildItem -LiteralPath $githubWorkflowDir -Filter '*.yaml' -File -ErrorAction SilentlyContinue
     )
-    Assert-Condition ($githubWorkflowFiles.Count -eq 0) `
-        "Plugin-root GitHub Actions workflows are intentionally absent; found: $($githubWorkflowFiles.Name -join ', ')"
+    $ghCiYml = Join-Path $githubWorkflowDir 'ci.yml'
+    $ghCiYaml = Join-Path $githubWorkflowDir 'ci.yaml'
+    $hasSingleCiEntrypoint = (Test-Path -LiteralPath $ghCiYml) -xor (Test-Path -LiteralPath $ghCiYaml)
+    Assert-Condition $hasSingleCiEntrypoint `
+        "GitHub Actions mirror must have exactly one CI entrypoint (.github/workflows/ci.yml or ci.yaml); found: $($githubWorkflowFiles.Name -join ', ')"
+    $githubCiWorkflow = if (Test-Path -LiteralPath $ghCiYml) { $ghCiYml } else { $ghCiYaml }
+    Assert-WorkflowHasPinGuard -Path $githubCiWorkflow -Name 'GitHub CI mirror'
+    if (Test-Path -LiteralPath $githubCiWorkflow) {
+        $githubContent = Get-Content -LiteralPath $githubCiWorkflow -Raw
+        $githubNonCommentContent = ((Get-Content -LiteralPath $githubCiWorkflow | Where-Object {
+            -not $_.TrimStart().StartsWith('#')
+        }) -join "`n")
+        $githubOnlyGuard = "if: `${{ github.server_url == 'https://github.com' }}"
+
+        Assert-Condition ($githubContent.Contains($githubOnlyGuard)) `
+            'GitHub CI mirror jobs must be guarded to run only on github.com.'
+        Assert-Condition (([regex]::Matches($githubContent, [regex]::Escape($githubOnlyGuard))).Count -ge 3) `
+            'GitHub CI mirror must guard secret-scan, lint, and verify jobs.'
+        Assert-Condition ($githubNonCommentContent -match 'run-plugin-lint-gates\.ps1') `
+            'GitHub CI mirror lint job must use the shared Common lint runner.'
+        Assert-Condition ($githubNonCommentContent -match 'gitleaks\s+detect') `
+            'GitHub CI mirror must include the secret-scan gate.'
+        Assert-Condition ($githubNonCommentContent -match 'scripts[/\\]verify-local\.ps1') `
+            'GitHub CI mirror must invoke scripts/verify-local.ps1.'
+        Assert-Condition ($githubNonCommentContent -notmatch $runnerOwnedScriptPattern) `
+            'GitHub CI mirror must not call Common lint scripts directly; all lint gates must flow through the shared runner.'
+        Assert-Condition ($githubNonCommentContent -notmatch $runnerSkipSwitchPattern) `
+            'GitHub CI mirror must not pass skip switches to the shared Common lint runner.'
+        Assert-Condition ($githubContent -notmatch 'Invoke-FallbackGate') `
+            'GitHub CI mirror must not keep fallback lint gate helpers that can drift from Common.'
+    }
 }
 
 if (Test-Path -LiteralPath $giteaCiWorkflow) {
