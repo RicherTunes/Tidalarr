@@ -19,7 +19,7 @@ public class CiWorkflowContractTests
     }
 
     [Fact]
-    public void PluginRootGithubWorkflows_AreAbsent()
+    public void PluginRootGithubWorkflow_IsGuardedCiMirror()
     {
         var workflowsRoot = Path.Combine(FindRepositoryRoot(), ".github", "workflows");
         var workflowFiles = Directory.Exists(workflowsRoot)
@@ -28,7 +28,11 @@ public class CiWorkflowContractTests
                 .ToArray()
             : [];
 
-        workflowFiles.Should().BeEmpty("Gitea is the authoritative CI surface for plugin repos");
+        workflowFiles.Should().ContainSingle("the plugin carries one declared GitHub CI mirror");
+        Path.GetFileName(workflowFiles.Single()).Should().Be("ci.yml");
+
+        var workflow = File.ReadAllText(workflowFiles.Single());
+        AssertGithubMirrorContract(workflow);
     }
 
     [Fact]
@@ -69,6 +73,30 @@ jobs:
         var verifyNeeds = ExtractNeeds(verify);
         verifyNeeds.Should().Contain("lint");
         verifyNeeds.Should().Contain("secret-scan");
+    }
+
+    private static void AssertGithubMirrorContract(string workflow)
+    {
+        const string githubOnlyGuard = "if: ${{ github.server_url == 'https://github.com' }}";
+
+        foreach (var jobName in new[] { "secret-scan", "lint", "verify" })
+        {
+            ExtractJobBlock(workflow, jobName).Should().Contain(githubOnlyGuard,
+                "GitHub mirror job '{0}' must not run on Gitea", jobName);
+        }
+
+        workflow.Should().Contain("run-plugin-lint-gates.ps1");
+        workflow.Should().Contain("repin-common-submodule.sh --verify-only");
+        workflow.Should().Contain("gitleaks detect");
+        workflow.Should().Contain("scripts/verify-local.ps1");
+
+        workflow.Should().NotContain("Invoke-FallbackGate", "fallback lint helpers can drift from Common");
+        workflow.Should().NotMatchRegex(
+            @"(?m)^\s*run:\s*.*(ecosystem-parity-lint|lint-date-parsing|lint-sync-over-async|lint-test-traits|lint-doc-script-refs|lint-gitea-secret-scan)\.ps1",
+            "the GitHub mirror must route lint through run-plugin-lint-gates.ps1");
+        workflow.Should().NotMatchRegex(
+            @"-(SkipDateParsing|SkipSyncOverAsync|SkipTestTraits|SkipEcosystemParity|SkipVersionContract|SkipPluginContractTests|SkipDocRefs|SkipGiteaSecretScan)\b",
+            "the GitHub mirror must run the full shared lint gate set");
     }
 
     private static string ExtractJobBlock(string workflow, string jobName)
