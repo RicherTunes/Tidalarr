@@ -303,6 +303,50 @@ public class ModelMapperEdgeCovTests
 
     #endregion
 
+    #region ToStreamingAlbum - CoverArtUrls (download-path artwork embedding)
+
+    [Fact]
+    public void ToStreamingAlbum_BuildsRealTidalCoverArtUrls_NotRawId()
+    {
+        TidalAlbumInfo album = new(
+            Id: "album-1",
+            Title: "Album",
+            Artists: ["Artist"],
+            Tracks: [],
+            AvailableQualities: [],
+            ReleaseDate: DateTime.MinValue,
+            CoverArtId: "1234-5678-90ab",
+            IsAvailable: true);
+
+        StreamingAlbum result = _mapper.ToStreamingAlbum(album);
+
+        // Real resources.tidal.com image URL (dashes -> path slashes), not the raw id — Common's
+        // orchestrator embeds GetBestCoverArtUrl() and a raw id can't be fetched.
+        Assert.Equal("https://resources.tidal.com/images/1234/5678/90ab/1280x1280.jpg", result.CoverArtUrls["large"]);
+        Assert.StartsWith("https://resources.tidal.com/images/", result.GetBestCoverArtUrl());
+        Assert.DoesNotContain("1234-5678-90ab", result.GetBestCoverArtUrl());
+    }
+
+    [Fact]
+    public void ToStreamingAlbum_EmptyCoverArtId_YieldsNoCoverUrls()
+    {
+        TidalAlbumInfo album = new(
+            Id: "album-1",
+            Title: "Album",
+            Artists: ["Artist"],
+            Tracks: [],
+            AvailableQualities: [],
+            ReleaseDate: DateTime.MinValue,
+            CoverArtId: "",
+            IsAvailable: true);
+
+        StreamingAlbum result = _mapper.ToStreamingAlbum(album);
+
+        Assert.Empty(result.CoverArtUrls);
+    }
+
+    #endregion
+
     #region ToStreamingQuality - Lines 134-145 (default case)
 
     [Fact]
