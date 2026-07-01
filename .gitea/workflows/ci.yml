@@ -1,8 +1,8 @@
 name: CI
 # Gitea-primary CI. The lint job runs fast Common policy gates; the verify job
 # runs the same shared local-ci pipeline developers use locally: host assembly
-# extraction, build, package closure, and tests. Plugin-root GitHub Actions
-# workflows are intentionally absent; Gitea owns the merge gate.
+# extraction, build, package closure, and tests. The plugin-root GitHub Actions
+# workflow is a guarded mirror; Gitea owns the merge gate.
 on:
   workflow_dispatch:
   push:

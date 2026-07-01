@@ -1,0 +1,96 @@
+# GitHub Actions mirror of .gitea/workflows/ci.yml (dual-platform CI parity).
+# Billing-blocked as of 2026-07; validated to build once Actions billing is restored.
+# Keep in sync with the .gitea copy -- patch both in the same PR.
+#
+# Jobs mirrored : secret-scan, lint, verify
+# Jobs omitted  : none (all tidalarr Gitea jobs are portable to GitHub)
+#
+# Translation vs .gitea/workflows/ci.yml:
+#   - Checkout     : actions/checkout@v4 with submodules:recursive (replaces the Gitea-only
+#                    hand-rolled git-clone workaround; the Common submodule is public on GitHub)
+#   - .NET SDK     : actions/setup-dotnet@v4 replaces the curl dotnet-install.sh block (both
+#                    lint and verify had the manual install; both now use the action)
+#   - PowerShell   : ubuntu-latest ships pwsh -- "Install PowerShell" tarball step removed
+#   - Docker CLI   : ubuntu-latest ships docker -- "Install Docker CLI" apt step removed
+#   - SourceLink   : -p:EnableSourceLink=false removed; GitHub origin maps correctly
+#   - CS2012 fix   : -m:1 -p:UseSharedCompilation=false retained (open parity gap from feedback)
+#   - schedule     : omitted to avoid surprise billing when credits are restored
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  secret-scan:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Gitleaks secret scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITLEAKS_SHA256=ba6dbb656933921c775ee5a2d1c13a91046e7952e9d919f9bac4cec61d628e7d
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz -o /tmp/gitleaks.tgz
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --no-banner --redact --exit-code 1
+
+  lint:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Common submodule pin guard
+        shell: bash
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Common lint gates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runner = './ext/Lidarr.Plugin.Common/scripts/ci/run-plugin-lint-gates.ps1'
+          if (-not (Test-Path $runner)) {
+            Write-Error "Shared lint runner not found: $runner"
+            exit 1
+          }
+          $global:LASTEXITCODE = 0
+          & $runner -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
+          $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+          exit $runnerExitCode
+
+  verify:
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [lint, secret-scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Common submodule pin guard
+        shell: bash
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Full local-ci verification
+        shell: bash
+        run: pwsh ./scripts/verify-local.ps1
