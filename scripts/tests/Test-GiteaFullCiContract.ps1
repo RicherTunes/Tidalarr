@@ -6,6 +6,8 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $workflowPath = Join-Path $repoRoot '.gitea\workflows\ci.yml'
 $verifyLocalPath = Join-Path $repoRoot 'scripts\verify-local.ps1'
 $failures = New-Object System.Collections.Generic.List[string]
+$runnerOwnedScriptPattern = '(ecosystem-parity-lint|lint-date-parsing|lint-sync-over-async|lint-test-traits|lint-doc-script-refs|lint-gitea-secret-scan)\.ps1'
+$runnerSkipSwitchPattern = '-(SkipDateParsing|SkipSyncOverAsync|SkipTestTraits|SkipEcosystemParity|SkipVersionContract|SkipPluginContractTests|SkipDocRefs|SkipGiteaSecretScan)\b'
 
 function Assert-Condition {
     param(
@@ -22,7 +24,10 @@ Assert-Condition (Test-Path -LiteralPath $workflowPath) "Missing Gitea CI workfl
 Assert-Condition (Test-Path -LiteralPath $verifyLocalPath) "Missing verify-local wrapper: $verifyLocalPath"
 
 if ($failures.Count -eq 0) {
-    $content = Get-Content -LiteralPath $workflowPath -Raw
+    $rawContent = Get-Content -LiteralPath $workflowPath -Raw
+    $content = ((Get-Content -LiteralPath $workflowPath | Where-Object {
+        -not $_.TrimStart().StartsWith('#')
+    }) -join "`n")
     $verifyLocal = Get-Content -LiteralPath $verifyLocalPath -Raw
 
     Assert-Condition ($content -match '(?m)^\s*verify:\s*$') `
@@ -35,8 +40,10 @@ if ($failures.Count -eq 0) {
         'Gitea verify job must invoke verify-local.ps1 with PowerShell.'
     Assert-Condition ($content -match 'run-plugin-lint-gates\.ps1') `
         'Gitea lint job must invoke Common run-plugin-lint-gates.ps1.'
-    Assert-Condition ($content -notmatch '(ecosystem-parity-lint|lint-date-parsing|lint-sync-over-async|lint-test-traits|lint-doc-script-refs)\.ps1') `
+    Assert-Condition ($content -notmatch $runnerOwnedScriptPattern) `
         'Gitea lint job must not call direct Common lint scripts; direct fallback subsets can silently bypass new Common gates.'
+    Assert-Condition ($content -notmatch $runnerSkipSwitchPattern) `
+        'Gitea lint job must not pass skip switches to the shared Common lint runner.'
     Assert-Condition ($content -notmatch '-SkipTests') `
         'Gitea verify job must not skip tests.'
     Assert-Condition ($content -notmatch '-Skip[A-Za-z]*|-NoRestore') `
@@ -49,7 +56,7 @@ if ($failures.Count -eq 0) {
         'Gitea verify job must not swallow failures with || true.'
     Assert-Condition ($content -notmatch '(?m)^\s*exit\s+0\s*$') `
         'Gitea verify job must not force a successful exit.'
-    Assert-Condition ($content -notmatch 'LINT-ONLY|LOCAL-VALIDATION-ONLY|build \+ tests remain LOCAL') `
+    Assert-Condition ($rawContent -notmatch 'LINT-ONLY|LOCAL-VALIDATION-ONLY|build \+ tests remain LOCAL') `
         'Gitea CI comments must not describe build/test as local-only after enabling verify.'
     Assert-Condition ($verifyLocal -match 'RequireHermeticTests\s*=\s*\$true') `
         'verify-local.ps1 must fail if the Gitea hermetic test filter matches zero tests.'
