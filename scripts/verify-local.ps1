@@ -36,12 +36,16 @@ try {
         MainDll              = 'Lidarr.Plugin.Tidalarr.dll'
         HostAssembliesPath   = 'ext/Lidarr/_output/net8.0'
         CommonPath           = 'ext/Lidarr.Plugin.Common'
-        LidarrDockerVersion  = 'pr-plugins-3.1.2.4913'
+        LidarrDockerVersion  = 'nightly-3.1.3.4970'
         BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:SkipHostBridge=false')
-        TestProjects         = @('tests/Tidalarr.Tests/Tidalarr.Tests.csproj')
+        TestProjects         = @(
+            'tests/Tidalarr.Tests/Tidalarr.Tests.csproj',
+            'tests/Tidalarr.Parity.Tests/Tidalarr.Parity.Tests.csproj'
+        )
         ExpectedContentsFile = 'packaging/expected-contents.txt'
         WarningBudget        = 100
         WarningBudgetEnforce = $false
+        RequireHermeticTests = $true
     }
 
     $runner = Join-Path $config.CommonPath 'scripts/local-ci.ps1'
@@ -50,6 +54,14 @@ try {
         Write-Host "  Ensure Common submodule is up to date:" -ForegroundColor Yellow
         Write-Host "  git submodule update --init ext/Lidarr.Plugin.Common" -ForegroundColor Yellow
         exit 1
+    }
+
+    # F4 dropout guard: every *.Tests.csproj in the repo must be either run or skip-listed.
+    # Prevents parity/compliance projects from silently disappearing from CI.
+    $dropoutGuard = Join-Path $config.CommonPath 'scripts/ci/verify-test-projects-gated.ps1'
+    if (Test-Path -LiteralPath $dropoutGuard) {
+        & $dropoutGuard -RepoRoot $repoRoot -RunProjects $config.TestProjects -CI
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 
     $runnerArgs = @{ Config = $config }

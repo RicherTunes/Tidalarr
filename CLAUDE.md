@@ -13,10 +13,10 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 **Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
 
 ```
-LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
+LIDARR_DOCKER_VERSION=nightly-3.1.3.4970
 ```
 
-- Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
+- Image: `ghcr.io/hotio/lidarr:nightly-3.1.3.4970`
 
 **NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
 
@@ -66,7 +66,7 @@ Other constraints the install enforces:
 - Tag parses as a version (`v1.2.3`, `1.2.3`, or `1.2.3-prerelease`)
 - Optional `Minimum Lidarr Version: X.Y.Z.W` in release body must be ≤ host version
 
-Our release zip is named `Lidarr.Plugin.Tidalarr-v<VERSION>.net8.0.zip` (`.github/workflows/release.yml`). Do not rename without keeping the `net8.0.zip` suffix.
+Our release zip is named `Lidarr.Plugin.Tidalarr-v<VERSION>.net8.0.zip`; `scripts/ci.ps1` copies the canonical `New-PluginPackage` output to that artifact name. Do not rename without keeping the `net8.0.zip` suffix.
 
 **Verify a release is installable:**
 
@@ -93,11 +93,11 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 `ext/Lidarr.Plugin.Common` is a git submodule pinned to a specific Common SHA. Two things must always agree on that SHA:
 
 1. **The submodule gitlink** — what `git ls-tree HEAD ext/Lidarr.Plugin.Common` reports (updated by `git add ext/Lidarr.Plugin.Common` after checking out a new Common commit).
-2. **`ext-common-sha.txt`** — a plaintext sentinel (40 hex chars + LF) at the repo root. CI's "Submodule Pinning" job (`.github/workflows/submodule-pin.yml`) fails the build if the gitlink and this file disagree.
+2. **`ext-common-sha.txt`** — a plaintext sentinel (40 hex chars + LF) at the repo root. Keep it in sync with the gitlink when bumping Common; local version-contract tests and shared lint gates catch drift.
 
 **Why the sentinel exists**: the gitlink is invisible in a plain `git diff` (it shows only `-Subproject commit <sha>`), so the sentinel makes the pinned version greppable, reviewable in PRs, and assertable in tests (`VersionContractTests` cross-checks it against `plugin.json`'s `commonVersion`). Seeing `ext-common-sha.txt` dirtied in `git status` after a submodule bump is expected — commit it together with the gitlink.
 
-**To bump the pin**: `pwsh ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --sha-from-submodule --stage` (or the `.ps1` variant) reads the submodule HEAD, rewrites `ext-common-sha.txt`, and stages both so they can't drift. The nightly `bump-common.yml` workflow does this automatically when Common's main advances.
+**To bump the pin**: `pwsh ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --sha-from-submodule --stage` (or the `.ps1` variant) reads the submodule HEAD, rewrites `ext-common-sha.txt`, and stages both so they can't drift. Re-pin manually when Common's main advances — there is no scheduled auto-bump workflow on the Gitea-primary copy.
 
 ## Common helpers in use
 
@@ -117,7 +117,7 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 
 ## File ↔ class naming convention
 
-Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the four-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
+Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the five-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
 
 | File | Class(es) | Convention |
 |------|-----------|------------|
@@ -133,6 +133,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
 - `PlaceholderSearchUri` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:139`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:438`
+- `SearchQuerySanitizer` (Common `Services.Intelligence`) — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs` (`TidalLidarrRequestGenerator.GetSearchRequests` → `SearchQuerySanitizer.BuildPlan(artist, album).Tiers`). Canonical special-character variant generation + combined→artist-only→album-only fallback tiers, consolidating the former local `TidalSearchTermBuilder` (now deleted). Execution is now Common's delegate-only `SearchPlanExecutor` (`Services.Intelligence`), adopted via the thin Lidarr.Core-free `TidalAlbumSearch` adapter (`StopAfterFirstTierWithResults`, `serviceLabel="Tidal search"`, unwraps `TidalSearchResults.Albums`); the former local `TidalTieredAlbumSearch` executor was deleted (its loop mechanics live + are tested in Common). `TidalSearchPlan.Build` is the request generator's single plan-construction entry point so the parity + provenance suites pin the live path. Parity is enforced by `TidalSearchQuerySanitizerParityTests` (subclass of Common's `SearchQuerySanitizerParityTestBase`, 225-case corpus, implementing `BuildPlanViaPlugin`) and search-term provenance by `TidalSearchTermProvenanceTests` (subclass of Common's `SearchTermProvenanceComplianceTestBase`). Chain completeness is gated by `TidalSearchRequestChainTests` (subclass of Common's `SearchRequestChainComplianceTestBase`, TestKit `Compliance`) in `tests/Tidalarr.Tests/Unit/LidarrNative/` — host-free so it runs in the `ExcludeHostBridge=true` CI test build; it drives `TidalSearchPlan.BuildSearchPlaceholderUrls` (the host-free core of `GetSearchRequests`) and asserts the request chain is complete (well-formed placeholder URI, combined-first, only-plan-variants, every variant incl. the artist-only fallback, special-char sanitized). The `LPC0003` analyzer (Common `tools/Analyzers`) is wired into the plugin build to ban HtmlEncode/`DisplayText` on search paths. The critical HTML-encode removal lives in `TidalSearchService.NormalizeSearchTerm` (whitespace-only; the old `Sanitize.DisplayText` encoder corrupted accented/punctuated terms).
 - `PathTraversalGuard` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:401`
 - `AlbumReleaseInfoBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:540`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:583`
 - `TestValidationBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:307`
@@ -140,7 +141,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `ILyricsEnricher` / `LyricsEnricher` (Common's shared enricher, wrapping `LrclibClient`) — registered in `src/Tidalarr/Integration/TidalModule.cs:174` (`AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher())`), consumed in `src/Tidalarr/Integration/TidalAudioPostProcessor.cs`. Best-effort synced-lyrics (.lrc) fetch alongside audio downloads via LRCLIB public API. **Consolidated to Common** (lyrics pilot, PR #299/#303): the former local `Application/Services/LyricsEnricher.cs` + `ILyricsEnricher` were deleted in favour of Common's; canonical gating (`SaveSyncedLyrics` master toggle + `UseLRCLIB` LRCLIB-fallback) is enforced by the `Check_UsesCommonLyricsEnricher` parity guard.
 - `BoundedConcurrentDictionary<TKey, TValue>` — available (Common v1.15.0+ exposes `ContainsKey`, `Values`, indexer setter, and `IEnumerable<KeyValuePair>` alongside the original v1.10.0 TryAdd/TryGetValue/AddOrUpdate/GetOrAdd surface). No tidal call sites yet — candidates: `PKCEStateStore.InMemoryCache` (`src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs:33`) is domain-bounded by config-path count so adoption isn't required; revisit when a real growth concern surfaces.
 
-See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the cross-plugin parity scorecard (30+ axes × 4 plugins).
+See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the historical cross-plugin parity scorecard. The current five-plugin CI contract is enforced by Common's ecosystem CI manifest and shared lint runner.
 
 ## Test infrastructure: `bin-tests/` split (cross-ALC type identity)
 
@@ -569,7 +570,7 @@ wave 22.
 
 ### Pinned image
 
-`ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (single-plugin instance on host
+`ghcr.io/hotio/lidarr:nightly-3.1.3.4970` (single-plugin instance on host
 port `8690` per the multi-plugin guidance in this file). The tag is sourced
 from `scripts/verify-local.ps1`'s `LidarrDockerVersion`. Bump in one place.
 

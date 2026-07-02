@@ -43,29 +43,6 @@ updates:
       - dependency-type: "direct"
       - dependency-type: "indirect"
 
-  # GitHub Actions workflow dependencies
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 3
-    target-branch: "main"
-    reviewers:
-      - "richertunes"
-    assignees:
-      - "richertunes"
-    labels:
-      - "dependencies"
-      - "automated"
-      - "github-actions"
-      - "ci-cd"
-    commit-message:
-      prefix: "deps(actions)"
-      include: "scope"
-
   # Submodule updates
   - package-ecosystem: "gitsubmodule"
     directory: "/"

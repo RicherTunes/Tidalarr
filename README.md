@@ -6,16 +6,16 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 - **Repository**: <https://github.com/RicherTunes/Tidalarr>
 - **License**: [MIT](LICENSE)
 
-**Who is this for?** Lidarr users with a Tidal HiFi or HiFi Plus subscription who want automatic, high-quality audio imports. The plugin handles search, download, format conversion, and metadata — all from within the Lidarr UI.
+**Who is this for?** Lidarr users with a Tidal HiFi or HiFi Plus subscription who want automatic, high-quality audio imports. The plugin handles search, download, format conversion, metadata, and lyrics — all from within the Lidarr UI.
 
 ## Key features
 
-- **Search & index** — Tidal albums and tracks appear as Lidarr search results via the indexer, with queries refined by Common's dependency-free `HeuristicQueryOptimizer`.
+- **Search & index** — Tidal albums and tracks appear as Lidarr search results via the indexer. Queries are sanitized by Common's `SearchQuerySanitizer` (special-character folding + combined → artist-only → album-only fallback tiers) and run through Common's `SearchPlanExecutor` (stop-after-first-tier-with-results) via the `TidalSearchPlan` request generator.
 - **Chunked DASH downloads** — Tidal's streaming manifest is parsed into chunks, downloaded in parallel, and assembled into M4A or FLAC.
 - **Quality tiers** — Low (AAC 96 kbps), High (AAC 320 kbps), Lossless (FLAC 16-bit/44.1 kHz), and Hi-Res (FLAC up to 24-bit/192 kHz).
 - **FLAC extraction** — optionally extracts FLAC from M4A containers (`ExtractFlac`, on by default).
 - **Synced lyrics** — best-effort `.lrc` fetch via LRCLIB (`SaveSyncedLyrics` / `UseLRCLIB`).
-- **ISRC tag writing** — writes ISRC tags on downloaded tracks to anchor Lidarr import matching.
+- **ISRC tag writing** — writes ISRC tags on downloaded tracks to anchor Lidarr import matching when Tidal returns them.
 - **OAuth 2.0 + PKCE** — secure, token-based authentication; no stored passwords.
 
 ## Built on Lidarr.Plugin.Common
@@ -24,17 +24,23 @@ Tidalarr builds on the shared [Lidarr.Plugin.Common](https://github.com/RicherTu
 
 | Common wiki page | Why follow it |
 |---|---|
-| [Home](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Home.md) | Overview of the shared library and the four-plugin ecosystem |
+| [Home](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Home.md) | Overview of the shared library and the five-plugin ecosystem |
 | [Architecture Overview](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Architecture-Overview.md) | Base classes, DI container, and the plugin lifecycle that Tidalarr inherits |
 | [SDK and Extension Points](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/SDK-and-Extension-Points.md) | How to extend `BaseStreamingIndexer`, `BaseStreamingDownloadClient`, and other service interfaces |
 | [Shared Helpers Catalog](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Shared-Helpers-Catalog.md) | Ready-made utilities (caching, auth gates, health probes, lyrics enrichment) that Tidalarr consumes |
-| [Versioning and Submodule Pinning](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Versioning-and-Submodule-Pinning.md) | How `ext-common-sha.txt` and the gitlink stay in sync, and the nightly bump workflow |
+| [Versioning and Submodule Pinning](https://github.com/RicherTunes/Lidarr.Plugin.Common/blob/main/wiki/Versioning-and-Submodule-Pinning.md) | How `ext-common-sha.txt` and the gitlink stay in sync (re-pin manually; no scheduled auto-bump) |
+
+**Ecosystem contract:**
+
+- Common is vendored at `ext/Lidarr.Plugin.Common`; the exact pin is tracked by `ext-common-sha.txt` and must be committed with the submodule gitlink.
+- Gitea is the primary CI surface (`.gitea/workflows/ci.yml`): `CI / secret-scan` runs Gitleaks with checksum verification, `CI / lint` runs Common's shared plugin lint runner, and `CI / verify` runs `scripts/verify-local.ps1`, which delegates to `ext/Lidarr.Plugin.Common/scripts/local-ci.ps1`. The repo also carries `.github/workflows/ci.yml` as a guarded GitHub mirror; Gitea remains authoritative for merges.
+- Tidal album search uses Common's `SearchQuerySanitizer` and `SearchPlanExecutor` through the thin `TidalSearchPlan` / `TidalAlbumSearch` seam.
 
 ## Installation
 
 ### Prerequisites
 
-- Lidarr **v3.0.0.4855** or higher on the **plugins branch** (`.NET 8` image, e.g. `pr-plugins-3.1.2.4913`).
+- Lidarr **v3.0.0.4855** or higher on the **plugins/nightly branch** (`.NET 8` image, e.g. `nightly-3.1.3.4970`).
 - A Tidal subscription (HiFi or HiFi Plus for lossless/hi-res quality).
 
 ### Install via the Lidarr UI
@@ -139,7 +145,7 @@ src/Tidalarr/
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history (Keep a Changelog format) |
 | [`CLAUDE.md`](CLAUDE.md) | Full development guide for contributors and automation |
 | [`docs/hostbridge-integration.md`](docs/hostbridge-integration.md) | Host bridge wiring guide |
-| [`docs/TFM_RATIONALE.md`](docs/TFM_RATIONALE.md) | Why `net8.0` core / `net9.0` CLI |
+| [`docs/TFM_RATIONALE.md`](docs/TFM_RATIONALE.md) | Why the core plugin and CLI target `net8.0` |
 | [`docs/packaging-closure.md`](docs/packaging-closure.md) | Plugin packaging validation |
 | [`docs/ci-gates-verification.md`](docs/ci-gates-verification.md) | CI gate details |
 | [`docs/SETTINGS-MIGRATION.md`](docs/SETTINGS-MIGRATION.md) | Settings migration notes |
