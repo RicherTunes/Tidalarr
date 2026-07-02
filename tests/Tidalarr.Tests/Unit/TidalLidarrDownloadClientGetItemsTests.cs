@@ -23,7 +23,7 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
             .GetField("ActiveDownloads", BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.NotNull(field);
-        Assert.Equal(typeof(HostBridgeDownloadTrackerStore<HostBridgeDownloadItem>), field!.FieldType);
+        Assert.Equal(typeof(HostBridgeDownloadTrackerStore<TidalDownloadItem>), field!.FieldType);
 
         var tracker = field.GetValue(null);
         var persistencePathField = field.FieldType.GetField("_persistencePath", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -167,5 +167,100 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
         Assert.Single(items);
         Assert.False(items[0].CanMoveFiles, "a failed/cancelled download has no complete file set to move-import");
         Assert.True(items[0].CanBeRemoved, "a terminal failure must be removable so the queue can be cleared");
+    }
+
+    // T-failure-message: Lidarr's queue previously showed a bare "Failed" status for every tidal
+    // download failure with zero context on *why* — ProjectDownloadItems never set
+    // DownloadClientItem.Message. TidalDownloadItem (a plugin-local HostBridgeDownloadItem
+    // subclass) now carries a Message set at the two failure sites in Download(); this pins the
+    // projection half of that fix.
+    private static TidalDownloadItem TidalItem(string downloadId, HostBridgeDownloadItemStatus status, string? message = null)
+    {
+        var item = new TidalDownloadItem
+        {
+            DownloadId = downloadId,
+            Title = "Album",
+            Artist = "Artist",
+            OutputPath = "/downloads/Artist/Album",
+            Message = message,
+        };
+        item.SetStatus(status);
+        return item;
+    }
+
+    [Fact]
+    public void ProjectDownloadItems_FailedItem_WithMessage_ProjectsToHostMessage()
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { TidalItem("dl", HostBridgeDownloadItemStatus.Failed, "1 track failed: HTTP 403 Forbidden") },
+            clientInfo: null);
+
+        Assert.Single(items);
+        Assert.Equal("1 track failed: HTTP 403 Forbidden", items[0].Message);
+    }
+
+    [Fact]
+    public void ProjectDownloadItems_ItemWithoutMessage_LeavesHostMessageNull()
+    {
+        // Regression guard: a plain base HostBridgeDownloadItem (as pre-existing tests construct)
+        // or a TidalDownloadItem with no Message set must not fabricate a message.
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { Item("dl", HostBridgeDownloadItemStatus.Completed) }, clientInfo: null);
+
+        Assert.Single(items);
+        Assert.Null(items[0].Message);
+    }
+
+    [Fact]
+    public void ProjectDownloadItems_EmptyMessage_TreatedAsNoMessage()
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[] { TidalItem("dl", HostBridgeDownloadItemStatus.Failed, message: "") },
+            clientInfo: null);
+
+        Assert.Single(items);
+        Assert.Null(items[0].Message);
+    }
+
+    [Theory]
+    [InlineData(0, 1, "Download failed: no track results returned (no track IDs resolved from the API).")]
+    public void BuildFailureMessage_NoTrackResults_ReportsNoTrackIds(int trackResultCount, int fileCount, string expectedPrefix)
+    {
+        string message = TidalLidarrDownloadClient.BuildFailureMessage([], fileCount, trackResultCount);
+        Assert.Equal(expectedPrefix, message);
+    }
+
+    [Fact]
+    public void BuildFailureMessage_SingleFailedTrack_UsesItsErrorMessage()
+    {
+        Lidarr.Plugin.Common.Interfaces.TrackDownloadResult failed = new()
+        {
+            TrackId = "t1",
+            Success = false,
+            ErrorMessage = "HTTP 403 Forbidden",
+        };
+
+        string message = TidalLidarrDownloadClient.BuildFailureMessage([failed], fileCount: 0, trackResultCount: 1);
+
+        Assert.Equal("1 track failed: HTTP 403 Forbidden", message);
+    }
+
+    [Fact]
+    public void BuildFailureMessage_MultipleFailedTracks_ReportsCountAndFirstReason()
+    {
+        Lidarr.Plugin.Common.Interfaces.TrackDownloadResult first = new() { TrackId = "t1", Success = false, ErrorMessage = "Truncated response" };
+        Lidarr.Plugin.Common.Interfaces.TrackDownloadResult second = new() { TrackId = "t2", Success = false, ErrorMessage = "Timeout" };
+
+        string message = TidalLidarrDownloadClient.BuildFailureMessage([first, second], fileCount: 0, trackResultCount: 2);
+
+        Assert.Equal("2 tracks failed (first: Truncated response)", message);
+    }
+
+    [Fact]
+    public void BuildFailureMessage_ZeroFilesNoFailedTracks_ReportsFileCountMismatch()
+    {
+        string message = TidalLidarrDownloadClient.BuildFailureMessage([], fileCount: 0, trackResultCount: 3);
+
+        Assert.Equal("Download failed: 0 files produced from 3 track result(s).", message);
     }
 }
