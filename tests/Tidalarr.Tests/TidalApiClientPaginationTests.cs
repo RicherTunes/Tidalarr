@@ -19,6 +19,9 @@ namespace Tidalarr.Tests;
 /// Fix: page through offset/limit until all declared items are collected, and fail loudly
 /// (Common's PagedResponseValidator / PagedResponseIntegrityException) if pagination stalls
 /// before the declared total is reached, instead of silently returning a partial list.
+///
+/// host-free-ci: this test has no Lidarr host dependency and must be explicitly re-included
+/// after the ExcludeHostBridge=true Tidal*.cs remove in Tidalarr.Tests.csproj.
 /// </summary>
 public class TidalApiClientPaginationTests
 {
