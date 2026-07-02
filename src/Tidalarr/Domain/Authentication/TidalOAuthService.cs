@@ -37,6 +37,8 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     private readonly System.Threading.SemaphoreSlim _refreshGate = new(1, 1);
     private readonly object _directRefreshSingleFlightLock = new();
     private readonly Dictionary<string, Task<TidalTokens>> _directRefreshSingleFlights = new(StringComparer.Ordinal);
+    private readonly object _streamingRefreshSingleFlightLock = new();
+    private Task<string>? _streamingRefreshSingleFlight;
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStore<TidalTokens>? tokenStorage = null)
@@ -540,7 +542,15 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
     public Task<string> RefreshTokenAsync()
     {
-        return RefreshTokenCoreAsync();
+        lock (this._streamingRefreshSingleFlightLock)
+        {
+            if (this._streamingRefreshSingleFlight == null || this._streamingRefreshSingleFlight.IsCompleted)
+            {
+                this._streamingRefreshSingleFlight = RefreshTokenCoreAsync();
+            }
+
+            return this._streamingRefreshSingleFlight;
+        }
     }
 
     private async Task<string> RefreshTokenCoreAsync()
