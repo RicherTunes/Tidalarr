@@ -330,12 +330,8 @@ public sealed class TidalarrPlugin : IPlugin
         // Bool properties
         if (GetBoolValue(map, nameof(TidalarrSettings.EnableCache)) is { } enableCache)
             s.EnableCache = enableCache;
-        if (GetBoolValue(map, nameof(TidalarrSettings.IncludeMqa)) is { } includeMqa)
-            s.IncludeMqa = includeMqa;
         if (GetBoolValue(map, nameof(TidalarrSettings.ExtractFlac)) is { } extractFlac)
             s.ExtractFlac = extractFlac;
-        if (GetBoolValue(map, nameof(TidalarrSettings.ReEncodeAAC)) is { } reEncodeAac)
-            s.ReEncodeAAC = reEncodeAac;
         if (GetBoolValue(map, nameof(TidalarrSettings.SaveSyncedLyrics)) is { } saveLyrics)
             s.SaveSyncedLyrics = saveLyrics;
         if (GetBoolValue(map, nameof(TidalarrSettings.UseLRCLIB)) is { } useLrclib)
@@ -521,9 +517,7 @@ public sealed class TidalarrPlugin : IPlugin
                 new SettingDefinition { Key = nameof(TidalarrSettings.EarlyReleaseLimit), DisplayName = "Early Download Limit", Description = "Pre-release download window in days.", DataType = SettingDataType.Integer, DefaultValue = 14 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.EnableCache), DisplayName = "Enable Cache", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.CacheDuration), DisplayName = "Cache Duration", Description = "Cache TTL in minutes.", DataType = SettingDataType.Integer, DefaultValue = 15 },
-                new SettingDefinition { Key = nameof(TidalarrSettings.IncludeMqa), DisplayName = "Include MQA Masters", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.ExtractFlac), DisplayName = "Extract FLAC from M4A", DataType = SettingDataType.Boolean, DefaultValue = true },
-                new SettingDefinition { Key = nameof(TidalarrSettings.ReEncodeAAC), DisplayName = "Re-encode AAC Streams", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.SaveSyncedLyrics), DisplayName = "Save Synced Lyrics", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.UseLRCLIB), DisplayName = "Use LRCLIB for Lyrics", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.DownloadDelay), DisplayName = "Chunk Delay", Description = "Delay between chunk requests in ms.", DataType = SettingDataType.Integer, DefaultValue = 0 },
@@ -544,9 +538,7 @@ public sealed class TidalarrPlugin : IPlugin
                 [nameof(TidalarrSettings.EarlyReleaseLimit)] = 14,
                 [nameof(TidalarrSettings.EnableCache)] = true,
                 [nameof(TidalarrSettings.CacheDuration)] = 15,
-                [nameof(TidalarrSettings.IncludeMqa)] = true,
                 [nameof(TidalarrSettings.ExtractFlac)] = true,
-                [nameof(TidalarrSettings.ReEncodeAAC)] = false,
                 [nameof(TidalarrSettings.SaveSyncedLyrics)] = true,
                 [nameof(TidalarrSettings.UseLRCLIB)] = false,
                 [nameof(TidalarrSettings.DownloadDelay)] = 0,

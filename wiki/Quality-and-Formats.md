@@ -54,9 +54,6 @@ If FFmpeg is not available, extraction is skipped and the original `.m4a` is kep
 — Tidalarr never produces a mislabeled `.flac`
 (`src/Tidalarr/Domain/Streaming/TidalAudioFormatHandler.cs`).
 
-Related download settings: **Include MQA** (default `true`) and
-**Re-encode AAC** (default `false`).
-
 ## Metadata: ISRC tags
 
 ISRC codes captured from the Tidal API are written into the audio file's tags by

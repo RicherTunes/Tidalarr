@@ -179,6 +179,17 @@ public class TidalLidarrIndexer(
                 this._logger.Warn(ex, "Tidal search failed for query: {0}", q);
             }).ConfigureAwait(false);
 
+        // Early Release Limit: drop albums releasing further in the future than the configured
+        // window (T-3 — previously accepted/validated but never consulted).
+        int albumsBeforeEarlyReleaseFilter = albums.Count;
+        albums = TidalEarlyReleaseFilter.Apply(albums, Settings.EarlyReleaseLimit, DateTime.UtcNow);
+        if (albums.Count != albumsBeforeEarlyReleaseFilter)
+        {
+            this._logger.Debug(
+                "Early Release Limit ({0} days) filtered {1} of {2} albums",
+                Settings.EarlyReleaseLimit, albumsBeforeEarlyReleaseFilter - albums.Count, albumsBeforeEarlyReleaseFilter);
+        }
+
         foreach (TidalAlbumInfo album in albums)
         {
             // Create multiple releases per album - one for each available quality
@@ -578,12 +589,13 @@ public class TidalLidarrParser : IParseIndexerResponse
         [TidalQuality.HiRes] = nameof(TidalQuality.HiRes),
     };
 
+    private readonly TidalLidarrIndexerSettings _settings;
     private readonly IServiceProvider _serviceProvider;
     private readonly Logger _logger;
 
     public TidalLidarrParser(TidalLidarrIndexerSettings settings, IServiceProvider serviceProvider, Logger logger)
     {
-        _ = settings;
+        this._settings = settings;
         this._serviceProvider = serviceProvider;
         this._logger = logger;
     }
@@ -624,8 +636,13 @@ public class TidalLidarrParser : IParseIndexerResponse
                 return releases;
             }
 
+            // Early Release Limit: drop albums releasing further in the future than the configured
+            // window (T-3 — previously accepted/validated but never consulted).
+            IReadOnlyList<TidalAlbumInfo> albums = TidalEarlyReleaseFilter.Apply(
+                searchResults.Albums, this._settings?.EarlyReleaseLimit, DateTime.UtcNow);
+
             // Convert Tidal albums to Lidarr ReleaseInfo - create multiple releases per album (one per quality)
-            foreach (TidalAlbumInfo album in searchResults.Albums)
+            foreach (TidalAlbumInfo album in albums)
             {
                 try
                 {

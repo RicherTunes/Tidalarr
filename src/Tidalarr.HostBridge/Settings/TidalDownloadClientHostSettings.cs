@@ -10,14 +10,8 @@ public class TidalDownloadClientHostSettings
     [FieldDefinition(Integration.SettingsDisplay.Download.DownloadPathOrder, Label = Integration.SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = Integration.SettingsDisplay.Download.DownloadPathHelpText)]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(Integration.SettingsDisplay.Download.IncludeMqaOrder, Label = Integration.SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.IncludeMqaHelpText)]
-    public bool IncludeMqa { get; set; } = true;
-
     [FieldDefinition(Integration.SettingsDisplay.Download.ExtractFlacOrder, Label = Integration.SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.ExtractFlacHelpText)]
     public bool ExtractFlac { get; set; } = true;
-
-    [FieldDefinition(Integration.SettingsDisplay.Download.ReEncodeAACOrder, Label = Integration.SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = Integration.SettingsDisplay.Download.ReEncodeAACHelpText)]
-    public bool ReEncodeAAC { get; set; } = false;
 
     [FieldDefinition(Integration.SettingsDisplay.Download.SaveSyncedLyricsOrder, Label = Integration.SettingsDisplay.Download.SaveSyncedLyricsLabel, Type = FieldType.Checkbox, Advanced = true)]
     public bool SaveSyncedLyrics { get; set; } = true;
@@ -40,9 +34,7 @@ public class TidalDownloadClientHostSettings
         {
             PreferredQuality = MapQuality(PreferredQuality),
             DownloadPath = DownloadPath,
-            IncludeMqa = IncludeMqa,
             ExtractFlac = ExtractFlac,
-            ReEncodeAAC = ReEncodeAAC,
             SaveSyncedLyrics = SaveSyncedLyrics,
             UseLRCLIB = UseLRCLIB,
             DownloadDelay = DownloadDelay,

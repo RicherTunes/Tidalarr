@@ -16,7 +16,6 @@ public class TidalSettingsTests
         Assert.Equal("US", indexer.TidalMarket);
         Assert.True(indexer.EnableCache);
         Assert.Equal(15, indexer.CacheDuration);
-        Assert.True(download.IncludeMqa);
         Assert.Equal(TidalQuality.Lossless, download.PreferredQuality);
     }
 

@@ -176,9 +176,7 @@ public class HostBridgeMappingTests
         Tidalarr.Integration.TidalDownloadClientSettings core = host.ToCore();
         Assert.Equal(Core.Models.TidalQuality.Lossless, core.PreferredQuality);
         Assert.Equal(string.Empty, core.DownloadPath);
-        Assert.True(core.IncludeMqa);
         Assert.True(core.ExtractFlac);
-        Assert.False(core.ReEncodeAAC);
         Assert.True(core.SaveSyncedLyrics);
         Assert.False(core.UseLRCLIB);
         Assert.Equal(0, core.DownloadDelay);
@@ -197,9 +195,7 @@ public class HostBridgeMappingTests
         {
             PreferredQuality = TidalQualityHost.High,
             DownloadPath = "/music/tidal",
-            IncludeMqa = false,
             ExtractFlac = false,
-            ReEncodeAAC = true,
             SaveSyncedLyrics = false,
             UseLRCLIB = true,
             DownloadDelay = 500,
@@ -211,9 +207,7 @@ public class HostBridgeMappingTests
 
         Assert.Equal(Core.Models.TidalQuality.High, core.PreferredQuality);
         Assert.Equal("/music/tidal", core.DownloadPath);
-        Assert.False(core.IncludeMqa);
         Assert.False(core.ExtractFlac);
-        Assert.True(core.ReEncodeAAC);
         Assert.False(core.SaveSyncedLyrics);
         Assert.True(core.UseLRCLIB);
         Assert.Equal(500, core.DownloadDelay);

@@ -876,7 +876,6 @@ public class Program
         return new TidalarrSettings
         {
             PreferredQuality = TidalQuality.Lossless,
-            IncludeMqa = true,
             DownloadPath = Path.Combine(Path.GetTempPath(), "tidalarr-downloads")
         };
     }

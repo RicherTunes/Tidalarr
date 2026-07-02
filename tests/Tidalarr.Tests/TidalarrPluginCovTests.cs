@@ -281,8 +281,8 @@ public class TidalarrPluginCovTests
         // Act - Source lines 299-349: Describe method
         var definitions = plugin.SettingsProvider.Describe();
 
-        // Assert - Count the definitions (16 total in source lines 301-348)
-        Assert.Equal(16, definitions.Count);
+        // Assert - Count the definitions (14 total; T-3 removed IncludeMqa + ReEncodeAAC as dead settings)
+        Assert.Equal(14, definitions.Count);
 
         // Verify required settings are present
         var keys = definitions.Select(d => d.Key).ToList();
@@ -340,8 +340,8 @@ public class TidalarrPluginCovTests
         // Act - Source lines 351-372: GetDefaults method
         var defaults = plugin.SettingsProvider.GetDefaults();
 
-        // Assert - 16 default values (lines 353-371)
-        Assert.Equal(16, defaults.Count);
+        // Assert - 14 default values; T-3 removed IncludeMqa + ReEncodeAAC as dead settings
+        Assert.Equal(14, defaults.Count);
     }
 
     [Fact]
@@ -600,7 +600,7 @@ public class TidalarrPluginCovTests
             ["RedirectUrl"] = "https://tidal.com/callback",
             ["DownloadPath"] = "/downloads",
             ["EnableCache"] = "false", // Bool as string - line 261: string s when bool.TryParse
-            ["IncludeMqa"] = "true"
+            ["ExtractFlac"] = "true"
         };
 
         // Act
