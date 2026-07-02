@@ -27,7 +27,7 @@ What ships
 
 Future Multi-Targeting Plan
 
-- Consider adding net9.0 for CLI and core once the host runtime advances or we introduce ID-based diagnostics everywhere (already in place).
+- Consider adding a newer TFM for CLI and core only after the Lidarr plugins-branch host runtime advances.
 - Guardrails:
   - Keep public surface area stable across TFMs.
   - Verify packaging closure identical across TFMs.
@@ -38,4 +38,4 @@ Operational Guidance
 - Development: Install .NET 8 SDK.
 - CI: Workflows set up .NET 8 for build/test and packaging.
 - Consumers: Use only the packaged net8.0 zip in host deployments.
-- Docker image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (net8).
+- Docker image: `ghcr.io/hotio/lidarr:nightly-3.1.3.4970` (net8).

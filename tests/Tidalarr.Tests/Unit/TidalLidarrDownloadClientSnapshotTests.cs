@@ -1,20 +1,32 @@
 using System;
 using System.Linq;
+using System.Reflection;
+using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Integration.LidarrNative;
 using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
 /// <summary>
-/// SnapshotSettings copies the live settings before the background download reads them. The previous
+/// Common's SettingsSnapshot copies the live settings before the background download reads them. The previous
 /// hand-written initializer dropped SaveSyncedLyrics + UseLRCLIB, so the background download ignored the
-/// user's lyric settings. This reflection sweep pins the FULL copy contract so no field can be silently
-/// dropped again (cross-plugin SnapshotSettings field-drop bug class).
+/// user's lyric settings. These tests pin the full copy contract and guard against reintroducing a local
+/// per-plugin snapshot fork.
 /// </summary>
 public sealed class TidalLidarrDownloadClientSnapshotTests
 {
     [Fact]
-    public void SnapshotSettings_CopiesEveryReadWriteProperty()
+    public void DownloadClient_DoesNotDeclareLocalSnapshotSettingsFork()
+    {
+        var localSnapshot = typeof(TidalLidarrDownloadClient).GetMethod(
+            "SnapshotSettings",
+            BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Null(localSnapshot);
+    }
+
+    [Fact]
+    public void CommonSettingsSnapshot_CopiesEveryReadWriteProperty()
     {
         TidalLidarrDownloadClientSettings live = new();
 
@@ -38,7 +50,7 @@ public sealed class TidalLidarrDownloadClientSnapshotTests
             p.SetValue(live, value);
         }
 
-        var snapshot = TidalLidarrDownloadClient.SnapshotSettings(live);
+        var snapshot = SettingsSnapshot.Copy(live);
 
         foreach (var p in props)
         {
@@ -47,11 +59,11 @@ public sealed class TidalLidarrDownloadClientSnapshotTests
     }
 
     [Fact]
-    public void SnapshotSettings_CopiesLyricsFields_PreviouslyDropped()
+    public void CommonSettingsSnapshot_CopiesLyricsFields_PreviouslyDropped()
     {
         TidalLidarrDownloadClientSettings live = new() { SaveSyncedLyrics = true, UseLRCLIB = false };
 
-        var snapshot = TidalLidarrDownloadClient.SnapshotSettings(live);
+        var snapshot = SettingsSnapshot.Copy(live);
 
         Assert.True(snapshot.SaveSyncedLyrics);
         Assert.False(snapshot.UseLRCLIB);

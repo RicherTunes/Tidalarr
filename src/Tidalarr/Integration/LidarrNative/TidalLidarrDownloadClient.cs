@@ -20,6 +20,7 @@ using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
+using Tidalarr.Integration;
 
 namespace Tidalarr.Integration.LidarrNative;
 
@@ -38,7 +39,9 @@ public class TidalLidarrDownloadClient(
     // IMPORTANT: Lidarr may construct plugin types more than once. Download tracking must be
     // process-wide so queue polling always sees active downloads, even if a new instance is created.
     // HostBridgeDownloadTrackerStore is instance-scoped but held in a static field for exactly this reason.
-    private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads = new();
+    private static readonly HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> ActiveDownloads =
+        HostBridgeDownloadTrackerStore<HostBridgeDownloadItem>.ForPlugin("Tidalarr");
+    private static readonly TidalDownloadCancellationRegistry ActiveDownloadCancellations = new();
     private static readonly HostBridgeDownloadOrchestrator _downloadOrchestrator = new(logger: null);
     private new readonly Logger _logger = logger;
 
@@ -74,6 +77,19 @@ public class TidalLidarrDownloadClient(
         }
         return runtime;
     }
+
+    /// <summary>
+    /// Runs the album download through the orchestrator. Extracted as a seam so the
+    /// host-cancellation wiring is unit-testable independent of Lidarr's DownloadClientBase.
+    /// </summary>
+    internal static Task<DownloadResult> StartAlbumDownloadAsync(
+        SimpleDownloadOrchestrator orchestrator,
+        string albumId,
+        string outputPath,
+        StreamingQuality quality,
+        IProgress<DownloadProgress> progress,
+        CancellationToken cancellationToken)
+        => orchestrator.DownloadAlbumAsync(albumId, outputPath, quality, progress, cancellationToken);
 
     public override Task<string> Download(RemoteAlbum remoteAlbum, IIndexer indexer)
     {
@@ -129,12 +145,11 @@ public class TidalLidarrDownloadClient(
             // HostBridgeDownloadOrchestrator (Common Wave A item 2):
             //   snapshot → generate downloadId → insert into tracker → fire-and-forget doWork → return id
             //
-            // Snapshotter: a copy of the settings so the doWork closure is insulated from live settings
-            // changes (ProbeOnly-race pattern). See SnapshotSettings — a reflection copy so no field is dropped.
+            // The overload without an explicit snapshotter uses Common's SettingsSnapshot.Copy<T> so
+            // scalar/string settings do not fork another per-plugin reflection copier.
             return _downloadOrchestrator.StartTrackedDownloadAsync<HostBridgeDownloadItem, TidalLidarrDownloadClientSettings>(
                 settings: Settings,
                 tracker: ActiveDownloads,
-                snapshotter: SnapshotSettings,
                 itemFactory: (_, downloadId) =>
                 {
                     HostBridgeDownloadItem item = new()
@@ -165,11 +180,13 @@ public class TidalLidarrDownloadClient(
                             }
                         });
 
-                        DownloadResult result = await tidalOrchestrator.DownloadAlbumAsync(
+                        DownloadResult result = await StartAlbumDownloadAsync(
+                            tidalOrchestrator,
                             albumId,
                             outputPath,
-                            quality: desiredQuality,
-                            progress: progressReporter);
+                            desiredQuality,
+                            progressReporter,
+                            ct);
 
                         // Mark as completed (thread-safe updates)
                         if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
@@ -201,6 +218,17 @@ public class TidalLidarrDownloadClient(
                             }
                         }
                     }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        this._logger.Info("Cancelled Tidal download for album {0}", albumId);
+                        if (ActiveDownloads.TryGet(downloadId, out HostBridgeDownloadItem? item) && item is not null)
+                        {
+                            item.SetStatus(HostBridgeDownloadItemStatus.Cancelled);
+                            item.CompletedAt = DateTime.UtcNow;
+                        }
+
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         // Best-effort: record auth-class outcomes so the next Download/Test
@@ -215,6 +243,10 @@ public class TidalLidarrDownloadClient(
                             item.CompletedAt = DateTime.UtcNow;
                         }
                     }
+                },
+                new HostBridgeDownloadStartOptions<HostBridgeDownloadItem>
+                {
+                    RegisterCancellation = (downloadId, _) => ActiveDownloadCancellations.Register(downloadId)
                 });
         }
         catch (Exception ex)
@@ -225,12 +257,36 @@ public class TidalLidarrDownloadClient(
     }
 
     public override IEnumerable<DownloadClientItem> GetItems()
+        // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
+        => ProjectDownloadItems(ActiveDownloads.GetSnapshot(), DownloadClientItemClientInfo.FromDownloadClient(this, false));
+
+    /// <summary>
+    /// Projects the tracker snapshot into Lidarr host items. Extracted as an <c>internal static</c>
+    /// seam so the dedup + status-mapping contract is unit-testable without constructing the host
+    /// download client.
+    ///
+    /// <para><see cref="ActiveDownloads"/> is a <c>ConcurrentDictionary</c> keyed by
+    /// <see cref="HostBridgeDownloadItem.DownloadId"/>, so the snapshot is already unique. The
+    /// explicit dedup-by-DownloadId here is a defensive guard against the cross-plugin "Tracker
+    /// snapshot + active-queue duplicate" bug class: if a future change ever folds a second source
+    /// into this projection, Lidarr must still never receive the same downloadId twice (a duplicate
+    /// corrupts its queue↔history reconciliation). Items with a blank DownloadId are dropped — the
+    /// host indexes its queue by downloadId and a blank key would collide every such item.</para>
+    /// </summary>
+    internal static List<DownloadClientItem> ProjectDownloadItems(
+        IEnumerable<HostBridgeDownloadItem> snapshot,
+        DownloadClientItemClientInfo? clientInfo)
     {
         List<DownloadClientItem> result = [];
+        HashSet<string> seenDownloadIds = new(StringComparer.Ordinal);
 
-        // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
-        foreach (HostBridgeDownloadItem item in ActiveDownloads.GetSnapshot())
+        foreach (HostBridgeDownloadItem item in snapshot)
         {
+            if (string.IsNullOrWhiteSpace(item.DownloadId) || !seenDownloadIds.Add(item.DownloadId))
+            {
+                continue;
+            }
+
             HostBridgeDownloadItemStatus status = item.GetStatus();
             double progress = item.GetProgress();
 
@@ -239,6 +295,7 @@ public class TidalLidarrDownloadClient(
             {
                 HostBridgeDownloadItemStatus.Completed => DownloadItemStatus.Completed,
                 HostBridgeDownloadItemStatus.Failed    => DownloadItemStatus.Failed,
+                HostBridgeDownloadItemStatus.Cancelled => DownloadItemStatus.Warning,
                 HostBridgeDownloadItemStatus.Downloading => DownloadItemStatus.Downloading,
                 _                                      => DownloadItemStatus.Queued
             };
@@ -251,7 +308,15 @@ public class TidalLidarrDownloadClient(
                 TotalSize = item.TotalSize,
                 RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
-                DownloadClientInfo = DownloadClientItemClientInfo.FromDownloadClient(this, false)
+                DownloadClientInfo = clientInfo,
+
+                // Host-contract flags (default FALSE on the host type). A completed download MUST allow
+                // move-import or Lidarr copies and never cleans up the source; a terminal item MUST be
+                // removable so the queue can be cleared. Mirrors qobuz/amazon. (Common host-contract guard.)
+                CanMoveFiles = hostStatus == DownloadItemStatus.Completed && !string.IsNullOrEmpty(item.OutputPath),
+                CanBeRemoved = hostStatus is DownloadItemStatus.Completed
+                    or DownloadItemStatus.Failed
+                    or DownloadItemStatus.Warning
             });
         }
 
@@ -260,9 +325,19 @@ public class TidalLidarrDownloadClient(
 
     public override void RemoveItem(DownloadClientItem item, bool deleteData)
     {
-        if (ActiveDownloads.Remove(item.DownloadId, deleteData, out _))
+        var removal = TidalDownloadRemovalCoordinator.Remove(
+            item.DownloadId,
+            deleteData,
+            ActiveDownloads,
+            ActiveDownloadCancellations);
+
+        if (removal.Removed)
         {
-            this._logger.Debug("Removed Tidal download: {0}", item.DownloadId);
+            this._logger.Debug(
+                removal.CancellationSignaled
+                    ? "Cancelled and removed Tidal download: {0}"
+                    : "Removed Tidal download: {0}",
+                item.DownloadId);
         }
     }
 
@@ -384,26 +459,6 @@ public class TidalLidarrDownloadClient(
                 : "Test";
             failures.Add(new ValidationFailure(failureField, classification.Hint));
         }
-    }
-
-    /// <summary>
-    /// Field-by-field snapshot of the settings the background download reads, captured synchronously before
-    /// any await. The previous hand-written initializer silently dropped SaveSyncedLyrics + UseLRCLIB, so the
-    /// background download ignored the user's lyric settings. Reflection-copies every read-write property —
-    /// structurally cannot drop a field. Internal so a unit test can pin the contract.
-    /// </summary>
-    internal static TidalLidarrDownloadClientSettings SnapshotSettings(TidalLidarrDownloadClientSettings live)
-    {
-        TidalLidarrDownloadClientSettings snapshot = new();
-        foreach (var p in typeof(TidalLidarrDownloadClientSettings).GetProperties())
-        {
-            if (p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
-            {
-                p.SetValue(snapshot, p.GetValue(live));
-            }
-        }
-
-        return snapshot;
     }
 
     private static string ExtractAlbumIdFromRelease(ReleaseInfo release)

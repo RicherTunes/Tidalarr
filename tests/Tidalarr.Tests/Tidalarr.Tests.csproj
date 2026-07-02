@@ -11,6 +11,9 @@
     <!-- RS0025: PublicAPI duplicate entries in submodule - not our concern -->
     <NoWarn>$(NoWarn);RS0025</NoWarn>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ExcludeHostBridge)' == 'true'">
+    <DefineConstants>$(DefineConstants);EXCLUDE_HOST_BRIDGE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="coverlet.msbuild">
@@ -52,6 +55,14 @@
     </ProjectReference>
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\testkit\Lidarr.Plugin.Common.TestKit.csproj" />
   </ItemGroup>
+  <!-- FluentValidation is needed by TidalModule.RegisterServices even when
+       HostBridge-specific tests are excluded from the hermetic CI gate. -->
+  <ItemGroup>
+    <Reference Include="FluentValidation" Condition="Exists('..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll')">
+      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
   <!-- Lidarr assemblies only needed when HostBridge is included -->
   <ItemGroup Condition="'$(ExcludeHostBridge)' != 'true'">
     <Reference Include="Lidarr.Core">
@@ -60,11 +71,6 @@
     </Reference>
     <Reference Include="Lidarr.Common">
       <HintPath>..\..\ext\Lidarr\_output\net8.0\Lidarr.Common.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <!-- FluentValidation: Use Lidarr's copy to avoid AssemblyLoadContext conflicts -->
-    <Reference Include="FluentValidation" Condition="Exists('..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll')">
-      <HintPath>..\..\ext\Lidarr\_output\net8.0\FluentValidation.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
@@ -79,15 +85,31 @@
     <Compile Remove="Unit\TidalQualityEnumParityTests.cs" />
     <Compile Remove="Unit\TidalProtocolTests.cs" />
     <!-- Lidarr-native types (ReleaseInfo, DownloadItemStatus) require Lidarr.Core -->
+    <Compile Remove="Integration\TidalRuntimeCacheTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientGuidParsingTests.cs" />
+    <Compile Remove="Unit\TidalLidarrDownloadClientSettingsTests.cs" />
+    <Compile Remove="Unit\TidalLidarrDownloadClientSnapshotTests.cs" />
+    <Compile Remove="Unit\TidalLidarrDownloadClientGetItemsTests.cs" />
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
     <!-- TidalLidarrParser returns ReleaseInfo from Lidarr.Core -->
     <Compile Remove="Unit\TidalLidarrIndexerSizeEstimationTests.cs" />
+    <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerOAuthStateExchangeTests.cs" />
     <!-- Exclude ALL Tidal* integration tests - use outdated DTO/model patterns -->
     <Compile Remove="Tidal*.cs" />
+    <!-- Host-free OAuth hermetic tests (only Lidarr.Plugin.Common refs, no NzbDrone.Core) MUST be
+         re-included after the broad Tidal*.cs remove so they actually gate under ExcludeHostBridge=true CI.
+         HermeticTestGatingGuard fails if any TidalOAuthService*Tests.cs source file is missing here. -->
+    <Compile Include="TidalOAuthServiceTests.cs" />
+    <Compile Include="TidalOAuthServiceStorageTests.cs" />
+    <Compile Include="TidalOAuthServiceLogoutTests.cs" />
+    <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
+    <Compile Include="TidalOAuthServiceRevokedRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceMissingRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceRefreshTokenCarryForwardTests.cs" />
+    <Compile Include="TidalTestPolicies.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />
