@@ -107,6 +107,7 @@
     <Compile Include="TidalOAuthServiceLogoutTests.cs" />
     <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
     <Compile Include="TidalOAuthServiceRevokedRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceCrossInstanceRotationTests.cs" />
     <Compile Include="TidalOAuthServiceMissingRefreshTokenTests.cs" />
     <Compile Include="TidalOAuthServiceRefreshTokenCarryForwardTests.cs" />
     <Compile Include="TidalTestPolicies.cs" />

@@ -498,6 +498,27 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         }
         catch (TidalInvalidGrantException)
         {
+            // Cross-instance rotation guard. Tidal rotates the refresh token on every use, and this
+            // plugin runs TWO TidalOAuthService instances (the indexer service-provider + the
+            // download-client service-provider) over the SAME token file. When both refresh
+            // concurrently, the loser receives invalid_grant for a token the WINNER already rotated
+            // and persisted — and blindly clearing here would delete the winner's fresh tokens,
+            // forcing a full re-login (the recurring "daily re-login" bug). Before clearing, re-read
+            // the store: if the persisted refresh token is no longer the one we just tried, another
+            // instance already refreshed successfully — adopt its tokens instead of destroying them.
+            TidalTokens? current = await LoadStoredSessionAsync().ConfigureAwait(false);
+            if (current != null
+                && !string.IsNullOrEmpty(current.RefreshToken)
+                && !string.Equals(current.RefreshToken, refreshToken, StringComparison.Ordinal)
+                && !current.IsExpired)
+            {
+                this._currentTokens = current;
+                return current;
+            }
+
+            // The dead token is still the one on disk (or the store is empty/unreadable): it is
+            // genuinely revoked. Clear so subsequent GetValidTokensAsync calls fail fast instead of
+            // re-firing the same doomed refresh against Tidal forever.
             await ClearCachedSessionAsync().ConfigureAwait(false);
             throw;
         }
