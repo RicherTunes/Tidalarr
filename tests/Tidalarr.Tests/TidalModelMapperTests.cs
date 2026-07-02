@@ -129,7 +129,11 @@ public class TidalModelMapperTests
         Assert.Equal("al1", sa.Id);
         Assert.Contains(sa.AvailableQualities, q => q.Id == "HIGH");
         Assert.Contains(sa.AvailableQualities, q => q.Id == "HI_RES");
-        Assert.Equal("aa-bb-cc", sa.CoverArtUrls["original"]);
+        // CoverArtId is a Tidal resource id (dash-separated), not a URL. The mapper builds a real
+        // resources.tidal.com image URL from it (commit 1eaf92f) so Common's SimpleDownloadOrchestrator
+        // artwork embedder can actually fetch the cover; this expectation was stale (still asserted the
+        // raw id) after that intentional behavior change.
+        Assert.Equal("https://resources.tidal.com/images/aa/bb/cc/1280x1280.jpg", sa.CoverArtUrls["original"]);
         Assert.Equal("https://tidal.com/browse/album/al1", sa.ExternalUrls["tidal"]);
         Assert.Equal("al1", sa.Metadata["tidal_id"]);
     }
