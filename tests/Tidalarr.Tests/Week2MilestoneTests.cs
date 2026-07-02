@@ -23,8 +23,7 @@ public class Week2MilestoneTests
         TidalDownloadClientSettings downloadSettings = new()
         {
             PreferredQuality = TidalQuality.Lossless,
-            DownloadPath = Path.GetTempPath(),
-            IncludeMqa = true
+            DownloadPath = Path.GetTempPath()
         };
         ServiceCollection services = new();
         _ = services.AddSingleton(indexerSettings);

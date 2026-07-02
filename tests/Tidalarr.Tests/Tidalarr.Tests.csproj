@@ -131,5 +131,8 @@
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserParseResponseTests.cs" />
     <!-- TidalLidarrIndexerSettingsValidatorTests calls AbstractValidator.Validate() from FluentValidation.dll -->
     <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerSettingsValidatorTests.cs" />
+    <!-- DeadSettingsGuardTests reflects over TidalLidarrIndexerSettings/TidalLidarrDownloadClientSettings,
+         which use NzbDrone.Core.Annotations.FieldDefinitionAttribute (requires Lidarr.Core.dll). -->
+    <Compile Remove="Documentation\DeadSettingsGuardTests.cs" />
   </ItemGroup>
 </Project>

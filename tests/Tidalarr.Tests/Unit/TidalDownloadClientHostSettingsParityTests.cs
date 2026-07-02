@@ -11,9 +11,7 @@ public class TidalDownloadClientHostSettingsParityTests
         {
             PreferredQuality = TidalQualityHost.HiRes,
             DownloadPath = "C:/out",
-            IncludeMqa = false,
             ExtractFlac = false,
-            ReEncodeAAC = true,
             SaveSyncedLyrics = false,
             UseLRCLIB = true,
             DownloadDelay = 123,
@@ -25,9 +23,7 @@ public class TidalDownloadClientHostSettingsParityTests
 
         Assert.Equal(Core.Models.TidalQuality.HiRes, core.PreferredQuality);
         Assert.Equal(host.DownloadPath, core.DownloadPath);
-        Assert.Equal(host.IncludeMqa, core.IncludeMqa);
         Assert.Equal(host.ExtractFlac, core.ExtractFlac);
-        Assert.Equal(host.ReEncodeAAC, core.ReEncodeAAC);
         Assert.Equal(host.SaveSyncedLyrics, core.SaveSyncedLyrics);
         Assert.Equal(host.UseLRCLIB, core.UseLRCLIB);
         Assert.Equal(host.DownloadDelay, core.DownloadDelay);

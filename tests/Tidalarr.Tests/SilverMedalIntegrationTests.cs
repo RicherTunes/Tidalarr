@@ -141,7 +141,6 @@ public class SilverMedalIntegrationTests
         return new TidalDownloadClientSettings
         {
             PreferredQuality = TidalQuality.Lossless,
-            IncludeMqa = true,
             DownloadPath = Path.GetTempPath()
         };
     }
