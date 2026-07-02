@@ -118,28 +118,69 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return [.. (cached.items ?? []).Select(MapToTidalTrackInfo)];
         }
 
-        HttpRequestMessage request = this.NewRequestBuilder()
-            .Endpoint(endpoint)
-            .QueryParams(parameters)
-            .BearerToken(tokens.AccessToken)
-            .WithStreamingDefaults("Tidalarr/1.0.0")
-            .Build();
-        System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
-        sw3.Stop();
-        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
-        _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
-        TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
-        if (dto.items == null)
+        // Tidal's album-tracks endpoint is paginated (limit/offset + a declared
+        // totalNumberOfItems). Fetching a single page and trusting it was complete would
+        // silently truncate any album whose track count exceeds the page the server chose to
+        // return, importing an incomplete album as if it were whole. Page through until every
+        // declared item has been collected, and fail loudly (rather than return a partial
+        // list) if pagination stalls before reaching the declared total.
+        List<TidalTrackDto> allItems = [];
+        int declaredTotal = 0;
+        int offset = 0;
+
+        while (true)
         {
-            throw new InvalidOperationException("Album tracks response missing items collection.");
+            Dictionary<string, string> pageParameters = new(parameters) { ["offset"] = offset.ToString() };
+
+            HttpRequestMessage request = this.NewRequestBuilder()
+                .Endpoint(endpoint)
+                .QueryParams(pageParameters)
+                .BearerToken(tokens.AccessToken)
+                .WithStreamingDefaults("Tidalarr/1.0.0")
+                .Build();
+            System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
+            using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
+            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+            sw3.Stop();
+            this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
+            _ = response.EnsureSuccessStatusCode();
+            string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
+            if (dto.items == null)
+            {
+                throw new InvalidOperationException("Album tracks response missing items collection.");
+            }
+
+            if (offset == 0)
+            {
+                declaredTotal = dto.totalNumberOfItems;
+            }
+
+            if (dto.items.Count == 0)
+            {
+                // No more data to fetch. If this falls short of the declared total the
+                // integrity check below throws instead of returning a partial list.
+                break;
+            }
+
+            allItems.AddRange(dto.items);
+            offset += dto.items.Count;
+
+            if (declaredTotal <= 0 || allItems.Count >= declaredTotal)
+            {
+                break;
+            }
         }
 
-        this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(2));
-        return [.. (dto.items ?? []).Select(MapToTidalTrackInfo)];
+        if (declaredTotal > 0)
+        {
+            Lidarr.Plugin.Common.Services.Http.PagedResponseValidator.Validate(allItems.Count, declaredTotal, $"tidal-album-tracks:{albumId}");
+        }
+
+        TidalAlbumTracksDto combined = new(allItems, declaredTotal > 0 ? declaredTotal : allItems.Count);
+        this._cache?.Set(endpoint, parameters, combined, TimeSpan.FromHours(2));
+        return [.. allItems.Select(MapToTidalTrackInfo)];
     }
     public async Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
