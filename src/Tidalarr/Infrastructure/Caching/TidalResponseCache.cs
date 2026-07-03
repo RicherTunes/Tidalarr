@@ -9,8 +9,29 @@ namespace Tidalarr.Infrastructure.Caching;
 /// </summary>
 public class TidalResponseCache : StreamingResponseCache
 {
-    public TidalResponseCache(ILogger? logger = null) : base(logger!)
+    private readonly bool _enableCache;
+    private readonly TimeSpan _searchCacheDuration;
+
+    /// <summary>
+    /// </summary>
+    /// <param name="logger">Optional logger for cache hit/miss/eviction diagnostics.</param>
+    /// <param name="enableCache">
+    /// Master toggle. When <c>false</c>, every endpoint reports <see cref="ShouldCache"/> = false —
+    /// wires the indexer's "Enable Cache" setting (<see cref="Tidalarr.Integration.TidalIndexerSettings.EnableCache"/>),
+    /// which previously had no runtime effect (T-3).
+    /// </param>
+    /// <param name="searchCacheDuration">
+    /// TTL applied to <c>/search</c> endpoint results. Defaults to 5 minutes when not supplied.
+    /// Wires the indexer's "Cache Duration" setting
+    /// (<see cref="Tidalarr.Integration.TidalIndexerSettings.CacheDuration"/>), which previously had
+    /// no runtime effect (T-3) — search caching always used a hardcoded 5-minute TTL regardless of
+    /// user configuration.
+    /// </param>
+    public TidalResponseCache(ILogger? logger = null, bool enableCache = true, TimeSpan? searchCacheDuration = null) : base(logger!)
     {
+        _enableCache = enableCache;
+        _searchCacheDuration = searchCacheDuration ?? TimeSpan.FromMinutes(5);
+
         // Configure Tidal-specific cache settings
         DefaultCacheDuration = TimeSpan.FromMinutes(15);
         MaxCacheSize = 1000;
@@ -24,16 +45,16 @@ public class TidalResponseCache : StreamingResponseCache
 
     public override bool ShouldCache(string endpoint)
     {
-        // Don't cache playback info as URLs are temporary
-        return !endpoint.Contains("playbackinfo");
+        // Master "Enable Cache" toggle, then never cache playback info as URLs are temporary.
+        return _enableCache && !endpoint.Contains("playbackinfo");
     }
 
     public override TimeSpan GetCacheDuration(string endpoint)
     {
         return endpoint.ToLowerInvariant() switch
         {
-            // Search results - short cache for dynamic content
-            _ when endpoint.Contains("/search") => TimeSpan.FromMinutes(5),
+            // Search results - user-configurable via the "Cache Duration" setting
+            _ when endpoint.Contains("/search") => _searchCacheDuration,
 
             // Albums - longer cache as they rarely change
             _ when endpoint.Contains("/albums/") && !endpoint.Contains("/tracks") => TimeSpan.FromHours(2),

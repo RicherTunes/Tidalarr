@@ -16,6 +16,7 @@ Tidalarr is a Lidarr plugin that indexes and downloads lossless and hi-res audio
 - **FLAC extraction** — optionally extracts FLAC from M4A containers (`ExtractFlac`, on by default).
 - **Synced lyrics** — best-effort `.lrc` fetch via LRCLIB (`SaveSyncedLyrics` / `UseLRCLIB`).
 - **ISRC tag writing** — writes ISRC tags on downloaded tracks to anchor Lidarr import matching when Tidal returns them.
+- **Favorites import list** — mirror your Tidal library (favorite albums and/or artists) into Lidarr as an import list. Reuses the indexer's OAuth session, so no separate login.
 - **OAuth 2.0 + PKCE** — secure, token-based authentication; no stored passwords.
 
 ## Built on Lidarr.Plugin.Common
@@ -75,14 +76,24 @@ Settings are available in the Lidarr UI under the plugin's Settings panel. Advan
 | Config Path | auto | — | Must match the indexer's Config Path to reuse the same OAuth tokens. |
 | Download Path | — | — | Destination folder for downloaded albums. |
 | Preferred Quality | Lossless | Low / High / Lossless / HiRes | Audio quality tier. Falls back to the highest your subscription allows; HiFi Plus required for Lossless+. |
-| Include MQA *(adv)* | on | — | Include Master (MQA) releases. |
 | Extract FLAC *(adv)* | on | — | Extract FLAC from M4A containers. |
-| Re-encode AAC *(adv)* | off | — | Transcode AAC streams to 320 kbps when HiRes/Lossless are unavailable. |
 | Chunk Delay *(adv)* | 0 ms | 0–60 000 ms | Delay between chunk requests. Increase if rate-limited. |
 | Max Concurrent Track Downloads *(adv)* | 2 | 1–3 | Parallel tracks per album. |
 | Max Concurrent Chunk Downloads *(adv)* | 2 | 1–8 | Parallel chunk requests per track. Effective parallelism is capped so that tracks × chunks ≤ 6. Disabled when Chunk Delay > 0. |
 | Save Synced Lyrics *(adv)* | on | — | Save `.lrc` lyrics alongside downloaded tracks. |
 | Use LRCLIB *(adv)* | off | — | Fall back to lrclib.net for lyrics when Tidal has none. Sends artist/track/album names. |
+
+### Import list settings (Tidalarr Favorites)
+
+Add under **Settings → Import Lists → Add → Tidalarr Favorites** to mirror your Tidal favorites into Lidarr. Authentication is shared with the indexer — authenticate the Tidalarr indexer first, then this import list reuses the same session (no separate login).
+
+| Setting | Default | Range | Description |
+|---|---|---|---|
+| Config Path | auto | — | Directory holding the Tidal OAuth tokens. Point it at the same directory the indexer uses. |
+| Favorites To Import | Albums and artists | Albums and artists / Albums only / Artists only | Which slice of your Tidal library to mirror. Favorite albums become artist + album entries; favorite artists become artist entries. |
+| Market *(adv)* | `US` | 2-letter ISO 3166-1 code | Tidal API market code. |
+
+> Lidarr resolves import-list entries by name (then MusicBrainz); Tidal favorites are matched by artist/album name rather than a Tidal catalog id.
 
 ## Getting Started
 

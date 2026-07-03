@@ -91,6 +91,9 @@
     <Compile Remove="Unit\TidalLidarrDownloadClientSnapshotTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientGetItemsTests.cs" />
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
+    <!-- Favorites import list tests reference NzbDrone.Core.ImportLists (host) — excluded in host-free CI.
+         Subfolder path is not caught by the root-level Tidal*.cs remove, so remove it explicitly. -->
+    <Compile Remove="Unit\LidarrNative\TidalFavoritesImportListTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
@@ -107,9 +110,19 @@
     <Compile Include="TidalOAuthServiceLogoutTests.cs" />
     <Compile Include="TidalOAuthServiceTokenLifecycleTests.cs" />
     <Compile Include="TidalOAuthServiceRevokedRefreshTokenTests.cs" />
+    <Compile Include="TidalOAuthServiceCrossInstanceRotationTests.cs" />
     <Compile Include="TidalOAuthServiceMissingRefreshTokenTests.cs" />
     <Compile Include="TidalOAuthServiceRefreshTokenCarryForwardTests.cs" />
     <Compile Include="TidalTestPolicies.cs" />
+    <!-- TidalModelMapperTests.cs only references Lidarr.Plugin.Abstractions.Models + Tidalarr.Core
+         (no NzbDrone/HostBridge types) — swept up by the broad Tidal*.cs remove above with no
+         legitimate reason to stay excluded. It silently failed on main (2026-07-01) with nobody
+         noticing because CI never compiled it; re-included so the hermetic gate actually runs it. -->
+    <Compile Include="TidalModelMapperTests.cs" />
+    <!-- Host-free pagination tests (codex PR #56) — re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientPaginationTests.cs" />
+    <!-- Host-free favorites-import-list API tests (feat B4) — re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientFavoritesTests.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />
@@ -120,8 +133,20 @@
     <Compile Remove="Unit\PathValidationExtensionsTests.cs" />
     <!-- Exclude plugin smoke tests that look for Debug build output -->
     <Compile Remove="PluginSmokeTests.cs" />
-    <!-- Exclude compliance tests with false positives -->
+    <!-- Compliance\TidalDownloadClientHostContractTests.cs genuinely needs NzbDrone.Core.Download +
+         Lidarr.Plugin.Common.HostBridge. TidalarrPluginComplianceTests.cs and
+         TidalarrStreamingComplianceTests.cs also reflect the FULL plugin assembly
+         (Assembly.GetTypes()), which transitively requires Lidarr.Core.dll to be loadable even
+         though neither file directly `using`s a NzbDrone/HostBridge type — verified by actually
+         building+running under ExcludeHostBridge=true (15 ReflectionTypeLoadException failures),
+         not assumed from a `using` scan. All three stay excluded here.
+         TidalarrSecurityComplianceTests.cs is re-included below: it's hermetic-safe (source-file
+         regex scans) except for one test with the same GetTypes() problem, fixed alongside this
+         re-include so the file as a whole is genuinely host-free. -->
     <Compile Remove="Compliance\*.cs" />
+    <!-- Forward slash (portable): keeps HermeticTestGatingGuard's Path.GetFileName parse correct on
+         Linux CI, where '\' is not a path separator. -->
+    <Compile Include="Compliance/TidalarrSecurityComplianceTests.cs" />
     <!-- Exclude token storage tests with platform-specific path behavior -->
     <Compile Remove="JsonTokenStorageTests.cs" />
     <!-- IndexerCovTests uses Moq + FluentValidation.Results — both require Lidarr assemblies -->
@@ -130,5 +155,8 @@
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserParseResponseTests.cs" />
     <!-- TidalLidarrIndexerSettingsValidatorTests calls AbstractValidator.Validate() from FluentValidation.dll -->
     <Compile Remove="Unit\LidarrNative\TidalLidarrIndexerSettingsValidatorTests.cs" />
+    <!-- DeadSettingsGuardTests reflects over TidalLidarrIndexerSettings/TidalLidarrDownloadClientSettings,
+         which use NzbDrone.Core.Annotations.FieldDefinitionAttribute (requires Lidarr.Core.dll). -->
+    <Compile Remove="Documentation\DeadSettingsGuardTests.cs" />
   </ItemGroup>
 </Project>

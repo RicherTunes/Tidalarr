@@ -8,6 +8,16 @@ namespace Tidalarr.Tests.Documentation;
 public class DocumentationTruthTests
 {
     [Fact]
+    public void TidalDownloadClientSource_DoesNotClaimTidalDownloadItemWasRemoved()
+    {
+        var root = FindRepositoryRoot();
+        var source = File.ReadAllText(Path.Combine(root, "src", "Tidalarr", "Integration", "LidarrNative", "TidalLidarrDownloadClient.cs"));
+
+        source.Should().NotContain("TidalDownloadItem removed",
+            "TidalDownloadItem is the active plugin-local tracker subclass used to surface failure messages safely");
+    }
+
+    [Fact]
     public void Docs_AdvertiseIsrcTagWritingWhenCommonMetadataApplierIsActive()
     {
         var root = FindRepositoryRoot();

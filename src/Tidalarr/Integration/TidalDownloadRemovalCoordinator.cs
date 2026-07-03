@@ -4,11 +4,12 @@ namespace Tidalarr.Integration;
 
 internal static class TidalDownloadRemovalCoordinator
 {
-    public static (bool Removed, bool CancellationSignaled) Remove(
+    public static (bool Removed, bool CancellationSignaled) Remove<TItem>(
         string downloadId,
         bool deleteData,
-        HostBridgeDownloadTrackerStore<HostBridgeDownloadItem> activeDownloads,
+        HostBridgeDownloadTrackerStore<TItem> activeDownloads,
         TidalDownloadCancellationRegistry activeDownloadCancellations)
+        where TItem : HostBridgeDownloadItem
     {
         if (activeDownloads is null) throw new ArgumentNullException(nameof(activeDownloads));
         if (activeDownloadCancellations is null) throw new ArgumentNullException(nameof(activeDownloadCancellations));

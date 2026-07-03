@@ -187,7 +187,11 @@ public class TidalModule : StreamingPluginModule
 
         // Shared-integrations
         _ = services.AddSingleton<TidalModelMapper>();
-        _ = services.AddSingleton<TidalResponseCache>();
+        // T-3: built via the factory so the "Enable Cache" / "Cache Duration" settings (copied
+        // around elsewhere but never previously consulted) actually configure the cache.
+        _ = services.AddSingleton(sp => TidalResponseCacheFactory.Create(
+            sp.GetService<TidalIndexerSettings>(),
+            sp.GetService<ILogger<TidalResponseCache>>()));
         _ = services.AddSingleton<TidalRateLimiter>();
         _ = services.AddSingleton<PerformanceMonitor>();
 
@@ -256,9 +260,7 @@ public class TidalModule : StreamingPluginModule
                     BaseUrl = s.BaseUrl,
                     PreferredQuality = s.PreferredQuality,
                     DownloadPath = s.DownloadPath,
-                    IncludeMqa = s.IncludeMqa,
                     ExtractFlac = s.ExtractFlac,
-                    ReEncodeAAC = s.ReEncodeAAC,
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
                     DownloadDelay = s.DownloadDelay,
@@ -343,7 +345,12 @@ public class TidalModule : StreamingPluginModule
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
-        _ = services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
+        // T-3: built via the factory so the "Enable Cache" / "Cache Duration" settings (copied
+        // around elsewhere but never previously consulted) actually configure the cache that
+        // TidalApiClient resolves through IStreamingResponseCache.
+        _ = services.AddSingleton<IStreamingResponseCache>(sp => TidalResponseCacheFactory.Create(
+            sp.GetService<TidalIndexerSettings>(),
+            sp.GetService<ILogger<TidalResponseCache>>()));
         _ = services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
         _ = services.AddSingleton<PerformanceMonitor>();
         _ = services.AddSingleton<NetworkResilienceService>();

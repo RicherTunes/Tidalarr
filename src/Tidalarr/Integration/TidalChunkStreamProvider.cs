@@ -1,5 +1,6 @@
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Abstractions.Models;
+using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;
@@ -30,9 +31,18 @@ namespace Tidalarr.Integration
             {
                 manifest = await this._streamService.GetParsedManifestAsync(trackId, tidalQuality).ConfigureAwait(false);
             }
+            catch (TidalStreamUnavailableException ex) when (ex.Reason.IsPermanent())
+            {
+                // A permanently-unavailable track (rights removed / delisted) must NOT be hidden by the
+                // legacy fallback (which would re-resolve and fail the same way). Record it against the
+                // ambient per-download scope so the download client can suppress the album, then propagate
+                // so the orchestrator records this track as a failure (album → Failed, unchanged).
+                TidalTerminalRestrictionScope.Record(trackId, ex.Reason);
+                throw;
+            }
             catch
             {
-                // Ignore and fall back to legacy stream info path
+                // Transient / other: ignore and fall back to the legacy stream-info path.
             }
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
@@ -53,7 +63,16 @@ namespace Tidalarr.Integration
                 };
             }
 
-            TidalStreamInfo info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            TidalStreamInfo info;
+            try
+            {
+                info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+            }
+            catch (TidalStreamUnavailableException ex) when (ex.Reason.IsPermanent())
+            {
+                TidalTerminalRestrictionScope.Record(trackId, ex.Reason);
+                throw;
+            }
             int maxChunksLegacy = this._settings.GetEffectiveMaxConcurrentChunkDownloads();
             Stream ms = await this._chunkDownloader.DownloadAndAssembleAsync(
                 info,
