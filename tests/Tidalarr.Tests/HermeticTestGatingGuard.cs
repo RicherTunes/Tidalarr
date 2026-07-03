@@ -111,8 +111,13 @@ public class HermeticTestGatingGuard
 
         // For each declared include, the primary type name must match the file name (by convention).
         // Internal and nested types are returned by GetTypes() so helpers like TidalTestPolicies are covered.
+        // Normalize the csproj-authored separators first: MSBuild include paths conventionally use a
+        // backslash (e.g. "Compliance\Foo.cs"), but Path.GetFileName only treats '\' as a separator on
+        // Windows — on Linux it is a valid filename char, so an un-normalized subdirectory include would
+        // yield "Compliance\Foo" and false-fail the guard in CI (this is exactly the Windows-passes /
+        // Linux-fails split that hid this from local Windows runs).
         string[] missing = declaredIncludes
-            .Select(inc => Path.GetFileNameWithoutExtension(Path.GetFileName(inc)))
+            .Select(inc => Path.GetFileNameWithoutExtension(Path.GetFileName(inc.Replace('\\', '/'))))
             .Where(name => !string.IsNullOrEmpty(name) && !compiledTypeNames.Contains(name!))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(n => n)
