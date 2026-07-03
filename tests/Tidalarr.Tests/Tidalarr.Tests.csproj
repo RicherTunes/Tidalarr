@@ -137,7 +137,9 @@
          regex scans) except for one test with the same GetTypes() problem, fixed alongside this
          re-include so the file as a whole is genuinely host-free. -->
     <Compile Remove="Compliance\*.cs" />
-    <Compile Include="Compliance\TidalarrSecurityComplianceTests.cs" />
+    <!-- Forward slash (portable): keeps HermeticTestGatingGuard's Path.GetFileName parse correct on
+         Linux CI, where '\' is not a path separator. -->
+    <Compile Include="Compliance/TidalarrSecurityComplianceTests.cs" />
     <!-- Exclude token storage tests with platform-specific path behavior -->
     <Compile Remove="JsonTokenStorageTests.cs" />
     <!-- IndexerCovTests uses Moq + FluentValidation.Results — both require Lidarr assemblies -->
