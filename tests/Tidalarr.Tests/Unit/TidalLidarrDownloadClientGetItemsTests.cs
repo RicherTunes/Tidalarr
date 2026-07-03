@@ -200,6 +200,25 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
     }
 
     [Fact]
+    public void ProjectDownloadItems_FailedItem_RedactsSensitiveMessage()
+    {
+        var items = TidalLidarrDownloadClient.ProjectDownloadItems(
+            new[]
+            {
+                TidalItem(
+                    "dl",
+                    HostBridgeDownloadItemStatus.Failed,
+                    "Failed https://media.tidal.com/seg.m4s?token=SECRET&signature=PRIVATE"),
+            },
+            clientInfo: null);
+
+        Assert.Single(items);
+        Assert.DoesNotContain("SECRET", items[0].Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("PRIVATE", items[0].Message, StringComparison.Ordinal);
+        Assert.Contains("https://media.tidal.com/seg.m4s?[REDACTED]", items[0].Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProjectDownloadItems_ItemWithoutMessage_LeavesHostMessageNull()
     {
         // Regression guard: a plain base HostBridgeDownloadItem (as pre-existing tests construct)
@@ -243,6 +262,23 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
         string message = TidalLidarrDownloadClient.BuildFailureMessage([failed], fileCount: 0, trackResultCount: 1);
 
         Assert.Equal("1 track failed: HTTP 403 Forbidden", message);
+    }
+
+    [Fact]
+    public void BuildFailureMessage_RedactsSensitiveUrlsFromFailedTrackReason()
+    {
+        Lidarr.Plugin.Common.Interfaces.TrackDownloadResult failed = new()
+        {
+            TrackId = "t1",
+            Success = false,
+            ErrorMessage = "Failed https://media.tidal.com/seg.m4s?token=SECRET&signature=PRIVATE",
+        };
+
+        string message = TidalLidarrDownloadClient.BuildFailureMessage([failed], fileCount: 0, trackResultCount: 1);
+
+        Assert.DoesNotContain("SECRET", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("PRIVATE", message, StringComparison.Ordinal);
+        Assert.Contains("https://media.tidal.com/seg.m4s?[REDACTED]", message, StringComparison.Ordinal);
     }
 
     [Fact]
