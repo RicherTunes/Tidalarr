@@ -306,16 +306,284 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     internal static List<string> FindSensitiveLoggingIssues(string content, string fileName)
     {
         List<string> issues = [];
-        foreach (string keyword in SensitiveLogKeywords)
+        foreach (string logCall in ExtractLogCalls(content))
         {
-            Regex regex = new($@"\.Log\w*\([^;]*\{{\s*\w*{Regex.Escape(keyword)}\w*\s*\}}", RegexOptions.IgnoreCase);
-            if (regex.IsMatch(content))
+            if (LogCallContainsSensitiveStructuredValue(logCall))
             {
                 issues.Add($"Potential sensitive data logging in {fileName}");
             }
         }
 
         return issues;
+    }
+
+    private static bool LogCallContainsSensitiveStructuredValue(string logCall)
+    {
+        string arguments = ExtractInvocationArguments(logCall);
+        if (arguments.Length == 0)
+        {
+            return false;
+        }
+
+        List<string> splitArguments = SplitTopLevelArguments(arguments);
+        int messageIndex = splitArguments.FindIndex(ArgumentContainsStringLiteral);
+        if (messageIndex < 0)
+        {
+            return false;
+        }
+
+        foreach (string placeholder in ExtractStructuredPlaceholders(splitArguments[messageIndex]))
+        {
+            if (ContainsSensitiveKeyword(placeholder))
+            {
+                return true;
+            }
+        }
+
+        for (int i = messageIndex + 1; i < splitArguments.Count; i++)
+        {
+            if (ArgumentExpressionLooksSensitive(splitArguments[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> ExtractLogCalls(string content)
+    {
+        int searchIndex = 0;
+        while (searchIndex < content.Length)
+        {
+            int logIndex = content.IndexOf(".Log", searchIndex, StringComparison.Ordinal);
+            if (logIndex < 0)
+            {
+                yield break;
+            }
+
+            int openParen = content.IndexOf('(', logIndex);
+            if (openParen < 0)
+            {
+                yield break;
+            }
+
+            string methodName = content.Substring(logIndex + 1, openParen - logIndex - 1);
+            if (!Regex.IsMatch(methodName, @"^Log\w*$", RegexOptions.CultureInvariant))
+            {
+                searchIndex = logIndex + 4;
+                continue;
+            }
+
+            int closeParen = FindMatchingParen(content, openParen);
+            if (closeParen < 0)
+            {
+                yield break;
+            }
+
+            yield return content.Substring(logIndex, closeParen - logIndex + 1);
+            searchIndex = closeParen + 1;
+        }
+    }
+
+    private static string ExtractInvocationArguments(string logCall)
+    {
+        int openParen = logCall.IndexOf('(', StringComparison.Ordinal);
+        int closeParen = logCall.LastIndexOf(')');
+        return openParen < 0 || closeParen <= openParen
+            ? string.Empty
+            : logCall.Substring(openParen + 1, closeParen - openParen - 1);
+    }
+
+    private static List<string> SplitTopLevelArguments(string arguments)
+    {
+        List<string> result = [];
+        int start = 0;
+        int depth = 0;
+        StringState stringState = StringState.None;
+
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            char c = arguments[i];
+            if (TryAdvanceStringState(arguments, ref i, ref stringState))
+            {
+                continue;
+            }
+
+            if (stringState != StringState.None)
+            {
+                continue;
+            }
+
+            depth += c switch
+            {
+                '(' or '[' or '{' => 1,
+                ')' or ']' or '}' => -1,
+                _ => 0,
+            };
+
+            if (c == ',' && depth == 0)
+            {
+                result.Add(arguments.Substring(start, i - start).Trim());
+                start = i + 1;
+            }
+        }
+
+        string last = arguments.Substring(start).Trim();
+        if (last.Length > 0)
+        {
+            result.Add(last);
+        }
+
+        return result;
+    }
+
+    private static int FindMatchingParen(string content, int openParen)
+    {
+        int depth = 0;
+        StringState stringState = StringState.None;
+
+        for (int i = openParen; i < content.Length; i++)
+        {
+            char c = content[i];
+            if (TryAdvanceStringState(content, ref i, ref stringState))
+            {
+                continue;
+            }
+
+            if (stringState != StringState.None)
+            {
+                continue;
+            }
+
+            if (c == '(')
+            {
+                depth++;
+            }
+            else if (c == ')')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    private static bool TryAdvanceStringState(string text, ref int index, ref StringState state)
+    {
+        char c = text[index];
+        if (state == StringState.Regular)
+        {
+            if (c == '\\')
+            {
+                index++;
+                return true;
+            }
+
+            if (c == '"')
+            {
+                state = StringState.None;
+            }
+
+            return true;
+        }
+
+        if (state == StringState.Verbatim)
+        {
+            if (c == '"' && index + 1 < text.Length && text[index + 1] == '"')
+            {
+                index++;
+                return true;
+            }
+
+            if (c == '"')
+            {
+                state = StringState.None;
+            }
+
+            return true;
+        }
+
+        if (c == '"' || (c == '$' && index + 1 < text.Length && text[index + 1] == '"'))
+        {
+            state = StringState.Regular;
+            if (c == '$')
+            {
+                index++;
+            }
+
+            return true;
+        }
+
+        if (c == '@' && index + 1 < text.Length && text[index + 1] == '"')
+        {
+            state = StringState.Verbatim;
+            index++;
+            return true;
+        }
+
+        if (c == '$' && index + 2 < text.Length && text[index + 1] == '@' && text[index + 2] == '"')
+        {
+            state = StringState.Verbatim;
+            index += 2;
+            return true;
+        }
+
+        if (c == '@' && index + 2 < text.Length && text[index + 1] == '$' && text[index + 2] == '"')
+        {
+            state = StringState.Verbatim;
+            index += 2;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool ArgumentContainsStringLiteral(string argument)
+        => argument.Contains('"', StringComparison.Ordinal);
+
+    private static IEnumerable<string> ExtractStructuredPlaceholders(string messageTemplateArgument)
+    {
+        foreach (Match match in Regex.Matches(messageTemplateArgument, @"\{\s*([^}:,]+)", RegexOptions.IgnoreCase))
+        {
+            yield return match.Groups[1].Value;
+        }
+    }
+
+    private static bool ArgumentExpressionLooksSensitive(string argument)
+    {
+        string trimmed = argument.Trim();
+        if (trimmed.Length == 0 || trimmed.StartsWith("\"", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return ContainsSensitiveKeyword(trimmed);
+    }
+
+    private static bool ContainsSensitiveKeyword(string value)
+    {
+        string normalized = Regex.Replace(value, @"[^A-Za-z0-9_]", string.Empty);
+        foreach (string keyword in SensitiveLogKeywords)
+        {
+            if (normalized.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private enum StringState
+    {
+        None,
+        Regular,
+        Verbatim,
     }
 
     [Fact]
@@ -336,8 +604,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             issues.AddRange(FindSensitiveLoggingIssues(content, fileName));
         }
 
-        // Allow up to 2 potential issues (may be false positives)
-        Assert.True(issues.Count <= 2, $"Found {issues.Count} potential sensitive data logging issues");
+        Assert.Empty(issues);
     }
 
     [Fact]
@@ -367,6 +634,22 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     {
         // Real detection must still fire: an actual secret value placed into a structured-logging hole.
         string content = "logger.LogInformation($\"User password: {password}\");";
+
+        Assert.NotEmpty(FindSensitiveLoggingIssues(content, "Sample.cs"));
+    }
+
+    [Fact]
+    public void Logging_FlagsSensitiveArgumentPassedThroughGenericPlaceholder()
+    {
+        string content = "logger.LogWarning(\"token={Value}\", token);";
+
+        Assert.NotEmpty(FindSensitiveLoggingIssues(content, "Sample.cs"));
+    }
+
+    [Fact]
+    public void Logging_FlagsCredentialNamedArgumentPassedThroughGenericPlaceholder()
+    {
+        string content = "logger.LogWarning(\"Auth failed: {Error}\", credentialError);";
 
         Assert.NotEmpty(FindSensitiveLoggingIssues(content, "Sample.cs"));
     }
