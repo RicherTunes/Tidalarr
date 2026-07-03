@@ -26,6 +26,28 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
         this._sourceCodePath = Directory.Exists(srcPath) ? Path.GetFullPath(srcPath) : null;
     }
 
+    /// <summary>
+    /// Enumerates hand-written SOURCE .cs files under <paramref name="root"/>, excluding generated build
+    /// output. A plain <c>Directory.GetFiles(root, "*.cs", AllDirectories)</c> also recurses into <c>obj/</c>
+    /// and <c>bin/</c>, which contain generated files such as <c>Tidalarr.AssemblyInfo.cs</c> — SourceLink
+    /// embeds the git repository URL there, and in CI that is the Gitea <c>http://</c> remote, which
+    /// false-flagged <see cref="Network_UsesHttpsForExternalCommunication"/> ("Non-HTTPS URL found in
+    /// Tidalarr.AssemblyInfo.cs"). These compliance checks are meant to inspect source we author, so
+    /// generated output must be excluded to keep the scans deterministic across environments.
+    /// </summary>
+    private static string[] GetSourceCsFiles(string root)
+    {
+        return [.. Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                string relative = Path.GetRelativePath(root, f).Replace('\\', '/');
+                return !relative.StartsWith("obj/", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith("bin/", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Contains("/bin/", StringComparison.OrdinalIgnoreCase);
+            })];
+    }
+
     #region Credential Handling Tests
 
     [Fact]
@@ -44,7 +66,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             @"clientSecret\s*=\s*""[^""]{8,}"""
         ];
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         List<string> issues = [];
 
         foreach (string file in csFiles)
@@ -127,7 +149,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         Regex httpPattern = MyRegex();
         List<string> issues = [];
 
@@ -165,7 +187,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         string[] unsafePatterns =
         [
             "ServerCertificateValidationCallback",
@@ -211,7 +233,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         Regex sqlPattern = MyRegex1();
         List<string> issues = [];
 
@@ -235,7 +257,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         Regex pathPattern = new(@"Path\.(Combine|Join)\([^)]*\+|File\.(Read|Write|Open)\([^)]*\+",
             RegexOptions.IgnoreCase);
         _ = new List<string>();
@@ -304,7 +326,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         List<string> issues = [];
 
         foreach (string file in csFiles)
@@ -361,7 +383,7 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
             return;
         }
 
-        string[] csFiles = Directory.GetFiles(this._sourceCodePath, "*.cs", SearchOption.AllDirectories);
+        string[] csFiles = GetSourceCsFiles(this._sourceCodePath);
         List<string> issues = [];
 
         foreach (string file in csFiles)
