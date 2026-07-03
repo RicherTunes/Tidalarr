@@ -3,6 +3,7 @@ using Lidarr.Plugin.Abstractions.Models;
 using Lidarr.Plugin.Common.HostBridge;
 using Lidarr.Plugin.Common.Interfaces;
 using Lidarr.Plugin.Common.Observability;
+using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Lidarr.Plugin.Common.Services.Bridge;
 using Lidarr.Plugin.Common.Services.Diagnostics;
@@ -284,7 +285,7 @@ public class TidalLidarrDownloadClient(
                             item.SetStatus(HostBridgeDownloadItemStatus.Failed);
                             item.CompletedAt = DateTime.UtcNow;
                             // T-failure-message: same rationale as the track-failure branch above.
-                            item.Message = $"{ex.GetType().Name}: {ex.Message}";
+                            item.Message = $"{ex.GetType().Name}: {Sanitize.SafeErrorMessage(ex.Message)}";
                         }
                     }
                 },
@@ -320,7 +321,7 @@ public class TidalLidarrDownloadClient(
         if (failedTracks.Count > 0)
         {
             string first = failedTracks[0].ErrorMessage;
-            string reason = string.IsNullOrWhiteSpace(first) ? "unknown error" : first;
+            string reason = string.IsNullOrWhiteSpace(first) ? "unknown error" : Sanitize.SafeErrorMessage(first);
             return failedTracks.Count == 1
                 ? $"1 track failed: {reason}"
                 : $"{failedTracks.Count} tracks failed (first: {reason})";
@@ -382,7 +383,7 @@ public class TidalLidarrDownloadClient(
                 DownloadId = item.DownloadId,
                 Title = $"{item.Artist} - {item.Title}",
                 Status = hostStatus,
-                Message = item is TidalDownloadItem { Message: { Length: > 0 } message } ? message : null,
+                Message = item is TidalDownloadItem { Message: { Length: > 0 } message } ? Sanitize.SafeErrorMessage(message) : null,
                 TotalSize = item.TotalSize,
                 RemainingSize = item.TotalSize - (long)(item.TotalSize * progress / 100),
                 OutputPath = new OsPath(item.OutputPath),
@@ -625,6 +626,3 @@ public class TidalLidarrDownloadClient(
             ? new Lidarr.Plugin.Abstractions.Contracts.AuthFailure { ErrorCode = hre.StatusCode?.ToString(), Message = ex.Message }
             : null;
 }
-
-// TidalDownloadItem removed — replaced by Lidarr.Plugin.Common.HostBridge.HostBridgeDownloadItem
-// (Wave A item 1 of the May 2026 unification plan).

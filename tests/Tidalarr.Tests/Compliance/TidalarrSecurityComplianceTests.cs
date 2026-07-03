@@ -296,9 +296,10 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
         ["password", "apiKey", "secret", "token", "credential"];
 
     /// <summary>
-    /// Flags `.Log*(...)` calls that interpolate a sensitive-shaped value into a structured-logging
-    /// placeholder, e.g. <c>logger.LogInformation($"pwd={password}")</c> or
-    /// <c>logger.LogWarning("token={token}", token)</c>. Deliberately requires the keyword to appear
+    /// Flags logger calls that interpolate a sensitive-shaped value into a structured-logging
+    /// placeholder, e.g. <c>logger.LogInformation($"pwd={password}")</c>,
+    /// <c>logger.LogWarning("token={token}", token)</c>, or NLog-style
+    /// <c>logger.Error("token={0}", token)</c>. Deliberately requires the keyword to appear
     /// *inside* a `{...}` hole within the log call's argument list (not merely as prose in the log
     /// message, and not merely near a "Log"-containing identifier like a field named
     /// `MissingRefreshTokenLogger` or a `NLog.LogManager.GetCurrentClassLogger()` declaration).
@@ -356,22 +357,35 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
         int searchIndex = 0;
         while (searchIndex < content.Length)
         {
-            int logIndex = content.IndexOf(".Log", searchIndex, StringComparison.Ordinal);
-            if (logIndex < 0)
+            int dotIndex = content.IndexOf('.', searchIndex);
+            if (dotIndex < 0)
             {
                 yield break;
             }
 
-            int openParen = content.IndexOf('(', logIndex);
-            if (openParen < 0)
+            int methodStart = dotIndex + 1;
+            if (methodStart >= content.Length || !IsIdentifierStart(content[methodStart]))
             {
-                yield break;
+                searchIndex = dotIndex + 1;
+                continue;
             }
 
-            string methodName = content.Substring(logIndex + 1, openParen - logIndex - 1);
-            if (!Regex.IsMatch(methodName, @"^Log\w*$", RegexOptions.CultureInvariant))
+            int methodEnd = methodStart + 1;
+            while (methodEnd < content.Length && IsIdentifierPart(content[methodEnd]))
             {
-                searchIndex = logIndex + 4;
+                methodEnd++;
+            }
+
+            string methodName = content.Substring(methodStart, methodEnd - methodStart);
+            int openParen = methodEnd;
+            while (openParen < content.Length && char.IsWhiteSpace(content[openParen]))
+            {
+                openParen++;
+            }
+
+            if (openParen >= content.Length || content[openParen] != '(' || !IsLoggerMethodName(methodName))
+            {
+                searchIndex = methodEnd;
                 continue;
             }
 
@@ -381,10 +395,20 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
                 yield break;
             }
 
-            yield return content.Substring(logIndex, closeParen - logIndex + 1);
+            yield return content.Substring(dotIndex, closeParen - dotIndex + 1);
             searchIndex = closeParen + 1;
         }
     }
+
+    private static bool IsLoggerMethodName(string methodName)
+        => Regex.IsMatch(methodName, @"^Log\w*$", RegexOptions.CultureInvariant)
+           || methodName is "Trace" or "Debug" or "Info" or "Warn" or "Error" or "Fatal";
+
+    private static bool IsIdentifierStart(char c)
+        => char.IsLetter(c) || c == '_';
+
+    private static bool IsIdentifierPart(char c)
+        => char.IsLetterOrDigit(c) || c == '_';
 
     private static string ExtractInvocationArguments(string logCall)
     {
@@ -650,6 +674,14 @@ public partial class TidalarrSecurityComplianceTests : IDisposable
     public void Logging_FlagsCredentialNamedArgumentPassedThroughGenericPlaceholder()
     {
         string content = "logger.LogWarning(\"Auth failed: {Error}\", credentialError);";
+
+        Assert.NotEmpty(FindSensitiveLoggingIssues(content, "Sample.cs"));
+    }
+
+    [Fact]
+    public void Logging_FlagsSensitiveNLogArgumentPassedThroughGenericPlaceholder()
+    {
+        string content = "_logger.Error(\"token={0}\", token);";
 
         Assert.NotEmpty(FindSensitiveLoggingIssues(content, "Sample.cs"));
     }
