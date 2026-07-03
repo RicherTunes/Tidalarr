@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Lidarr.Plugin.Common.Errors;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
@@ -136,6 +137,26 @@ public class TidalApiClientFavoritesTests
             () => client.GetFavoriteArtistsAsync());
     }
 
+    [Fact]
+    public async Task GetFavoriteAlbumsAsync_LogsRedactedEndpointLabel_NotRawUserId()
+    {
+        const string sensitiveUserId = "sensitive-user-123";
+        FavoritesHandler handler = new("albums", [(0, AlbumsPage(total: 0, albums: []))]);
+        CapturingLogger<TidalApiClient> logger = new();
+        TidalApiClient client = new(
+            new HttpClient(handler),
+            new FavoritesAuth(userId: sensitiveUserId),
+            manifestParser: null,
+            logger: logger);
+
+        _ = await client.GetFavoriteAlbumsAsync();
+
+        Assert.Contains(handler.RequestedPaths, p => p.Contains($"users/{sensitiveUserId}/favorites/albums", StringComparison.Ordinal));
+        string allLogText = string.Join('\n', logger.Messages);
+        Assert.DoesNotContain(sensitiveUserId, allLogText);
+        Assert.Contains("users/{userId}/favorites/albums", allLogText);
+    }
+
     private static string AlbumsPage(int total, (int Id, string Title, string Artist)[] albums)
     {
         var items = albums.Select(a => new
@@ -219,5 +240,30 @@ public class TidalApiClientFavoritesTests
         public TidalCallbackResult ParseCallbackUrl(string callbackUrl) => TidalCallbackResult.Failure("Not implemented in test stub");
 
         private TidalTokens Default() => new("at", "rt", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", userId);
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
+        }
     }
 }

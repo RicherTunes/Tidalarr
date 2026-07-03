@@ -227,6 +227,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
         }
 
         string endpoint = $"users/{tokens.UserId}/favorites/{collection}";
+        string logEndpoint = $"users/{{userId}}/favorites/{collection}";
         Dictionary<string, string> baseParameters = new()
         {
             ["sessionId"] = tokens.SessionId,
@@ -250,11 +251,11 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
                 .WithStreamingDefaults("Tidalarr/1.0.0")
                 .Build();
             System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-            using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
+            using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: logEndpoint);
             HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
             await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
             sw.Stop();
-            this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
+            this._logger.LogApiCallCompleted(service: "tidal", endpoint: logEndpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
             _ = response.EnsureSuccessStatusCode();
             string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
             TidalPagedItemsDto<TidalFavoriteItemDto<TDto>>? dto =
