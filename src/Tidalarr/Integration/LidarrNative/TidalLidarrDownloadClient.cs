@@ -19,8 +19,10 @@ using NzbDrone.Core.Indexers;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
+using Tidalarr.Application.Services;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
+using Tidalarr.Domain.Streaming;
 using Tidalarr.Integration;
 
 namespace Tidalarr.Integration.LidarrNative;
@@ -215,13 +217,33 @@ public class TidalLidarrDownloadClient(
                             }
                         });
 
-                        DownloadResult result = await StartAlbumDownloadAsync(
-                            tidalOrchestrator,
-                            albumId,
-                            outputPath,
-                            desiredQuality,
-                            progressReporter,
-                            ct);
+                        // Terminal-release suppression: open an ambient scope so a permanent per-track
+                        // stream restriction observed deep in the stream provider (which has no album id
+                        // in scope) is collected here, where the album id IS known. The scope value flows
+                        // into every per-track task (incl. the orchestrator's concurrent path).
+                        DownloadResult result;
+                        IReadOnlyList<TidalTerminalRestriction> terminalRestrictions;
+                        using (TidalTerminalRestrictionScope.Begin())
+                        {
+                            result = await StartAlbumDownloadAsync(
+                                tidalOrchestrator,
+                                albumId,
+                                outputPath,
+                                desiredQuality,
+                                progressReporter,
+                                ct);
+                            terminalRestrictions = TidalTerminalRestrictionScope.Snapshot();
+                        }
+
+                        // A failed album download that hit a permanent (terminal) track restriction is
+                        // suppressed from future AUTOMATIC searches so Lidarr stops the re-grab loop. This
+                        // is a search-side side effect ONLY — the album still reports Failed below (the
+                        // completion contract is unchanged).
+                        if (!result.Success)
+                        {
+                            await TidalTerminalSuppressionRecorder.TryRecordAsync(
+                                ReleaseSuppressionStore, albumId, terminalRestrictions, this._logger).ConfigureAwait(false);
+                        }
 
                         // Mark as completed (thread-safe updates)
                         if (ActiveDownloads.TryGet(downloadId, out TidalDownloadItem? item) && item is not null)
@@ -300,6 +322,14 @@ public class TidalLidarrDownloadClient(
             throw;
         }
     }
+
+    /// <summary>
+    /// Durable terminal-release suppression store (Common-backed, keyed by album id). Overridable so tests
+    /// can inject a fake; defaults to the process-wide shared store for the "Tidalarr" plugin. The
+    /// suppress-on-terminal decision itself lives in the host-free <see cref="TidalTerminalSuppressionRecorder"/>
+    /// so it is CI-gated under the hermetic build.
+    /// </summary>
+    protected virtual ITidalReleaseSuppressionStore ReleaseSuppressionStore => TidalReleaseSuppressionStore.Shared;
 
     public override IEnumerable<DownloadClientItem> GetItems()
         // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.
