@@ -27,6 +27,24 @@ public interface ITidalCore
     Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default);
     Task<bool> IsAuthenticatedAsync();
 
+    /// <summary>
+    /// Fetches every album in the authenticated user's Tidal favorites
+    /// (<c>users/{userId}/favorites/albums</c>), paging through the full collection.
+    /// Requires a session with a non-empty <see cref="TidalTokens.UserId"/>.
+    /// Default implementation throws so existing stubs are not broken; concrete clients override.
+    /// </summary>
+    Task<List<TidalAlbumInfo>> GetFavoriteAlbumsAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Favorite albums are not supported by this ITidalCore implementation");
+
+    /// <summary>
+    /// Fetches every artist in the authenticated user's Tidal favorites
+    /// (<c>users/{userId}/favorites/artists</c>), paging through the full collection.
+    /// Requires a session with a non-empty <see cref="TidalTokens.UserId"/>.
+    /// Default implementation throws so existing stubs are not broken; concrete clients override.
+    /// </summary>
+    Task<List<TidalArtistInfo>> GetFavoriteArtistsAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Favorite artists are not supported by this ITidalCore implementation");
+
     // New scalable surface: raw playback info fetch with manifest and mime
     // Default implementation throws to avoid breaking existing stubs; concrete clients should override.
     Task<TidalPlaybackInfoDto> GetPlaybackInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)

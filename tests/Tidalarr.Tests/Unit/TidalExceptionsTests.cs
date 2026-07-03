@@ -88,6 +88,27 @@ public class TidalExceptionsTests
     }
 
     [Fact]
+    public void TidalStreamUnavailableException_DefaultReason_IsUnknownTransient()
+    {
+        // The legacy 3-arg ctor must keep working and default to the safe (non-permanent) reason so a
+        // caller that has not classified the failure can never accidentally trigger suppression.
+        TidalStreamUnavailableException exception = new("track123", TidalQuality.HiRes, "Stream not available");
+
+        Assert.Equal(TidalStreamUnavailableReason.Unknown, exception.Reason);
+        Assert.False(exception.Reason.IsPermanent());
+    }
+
+    [Fact]
+    public void TidalStreamUnavailableException_CarriesClassifiedReason()
+    {
+        TidalStreamUnavailableException exception = new(
+            "track123", TidalQuality.HiRes, "Rights removed", TidalStreamUnavailableReason.RightsRemoved);
+
+        Assert.Equal(TidalStreamUnavailableReason.RightsRemoved, exception.Reason);
+        Assert.True(exception.Reason.IsPermanent());
+    }
+
+    [Fact]
     public void TidalApiException_Constructor_WithStatusCode_SetsStatusCode()
     {
         // Arrange & Act

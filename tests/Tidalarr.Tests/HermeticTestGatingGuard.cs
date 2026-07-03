@@ -111,8 +111,13 @@ public class HermeticTestGatingGuard
 
         // For each declared include, the primary type name must match the file name (by convention).
         // Internal and nested types are returned by GetTypes() so helpers like TidalTestPolicies are covered.
+        // Normalize the csproj-authored separators first: MSBuild include paths conventionally use a
+        // backslash (e.g. "Compliance\Foo.cs"), but Path.GetFileName only treats '\' as a separator on
+        // Windows — on Linux it is a valid filename char, so an un-normalized subdirectory include would
+        // yield "Compliance\Foo" and false-fail the guard in CI (this is exactly the Windows-passes /
+        // Linux-fails split that hid this from local Windows runs).
         string[] missing = declaredIncludes
-            .Select(inc => Path.GetFileNameWithoutExtension(Path.GetFileName(inc)))
+            .Select(inc => Path.GetFileNameWithoutExtension(Path.GetFileName(inc.Replace('\\', '/'))))
             .Where(name => !string.IsNullOrEmpty(name) && !compiledTypeNames.Contains(name!))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(n => n)
@@ -123,6 +128,46 @@ public class HermeticTestGatingGuard
             "ItemGroup of Tidalarr.Tests.csproj are NOT compiled into the test assembly. " +
             "Ensure the file exists, the primary class name matches the filename, and the " +
             "<Compile Include> path is correct. Missing type(s): " + string.Join(", ", missing));
+    }
+
+    /// <summary>
+    /// Root-level <c>Tidal*.cs</c> tests are broadly removed from the host-free CI build, so new
+    /// host-free tests must opt in by adding the <c>host-free-ci</c> marker and a matching
+    /// <c>&lt;Compile Include&gt;</c>. This keeps old host-bound files excluded while making new
+    /// host-free coverage fail by default if someone forgets the include.
+    /// </summary>
+    [Fact]
+    public void AllMarkedHostFreeTidalTests_AreCompiledIntoThisAssembly()
+    {
+        string? projectDir = FindTestProjectDir();
+        if (projectDir is null)
+        {
+            return; // source tree not co-located with assembly (packaged run); skip.
+        }
+
+        string[] markedSources = Directory.GetFiles(projectDir, "Tidal*.cs")
+            .Where(file => File.ReadAllText(file).Contains("host-free-ci", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.True(markedSources.Length > 0,
+            "Expected at least one root-level Tidal*.cs file marked host-free-ci.");
+
+        HashSet<string> compiledTypeNames = Assembly.GetExecutingAssembly()
+            .GetTypes()
+            .Select(t => t.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        string[] missing = markedSources
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(name => !string.IsNullOrEmpty(name) && !compiledTypeNames.Contains(name!))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n)
+            .ToArray()!;
+
+        Assert.True(missing.Length == 0,
+            "Root-level host-free Tidal test file(s) are marked host-free-ci but are NOT compiled " +
+            "into the ExcludeHostBridge=true test assembly. Add a matching <Compile Include> after " +
+            "the broad Tidal*.cs remove. Missing type(s): " + string.Join(", ", missing));
     }
 
     private static string? FindTestProjectDir()

@@ -20,10 +20,18 @@ public class TidalRateLimitException(int retryAfterSeconds, string message) : Ti
     public int RetryAfterSeconds { get; } = retryAfterSeconds;
 }
 
-public class TidalStreamUnavailableException(string trackId, TidalQuality quality, string message) : TidalException(message)
+public class TidalStreamUnavailableException(string trackId, TidalQuality quality, string message, TidalStreamUnavailableReason reason = TidalStreamUnavailableReason.Unknown) : TidalException(message)
 {
     public string TrackId { get; } = trackId;
     public TidalQuality RequestedQuality { get; } = quality;
+
+    /// <summary>
+    /// Classified reason for the failure. Only <see cref="TidalStreamUnavailableReason.RightsRemoved"/>
+    /// (the sole PERMANENT reason) causes terminal-release suppression. Defaults to
+    /// <see cref="TidalStreamUnavailableReason.Unknown"/> (TRANSIENT) so an unclassified throw can never
+    /// accidentally suppress an album.
+    /// </summary>
+    public TidalStreamUnavailableReason Reason { get; } = reason;
 }
 
 public class TidalApiException : TidalException

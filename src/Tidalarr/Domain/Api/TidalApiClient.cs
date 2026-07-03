@@ -8,8 +8,10 @@ using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Constants;
+using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Domain.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -118,28 +120,69 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             return [.. (cached.items ?? []).Select(MapToTidalTrackInfo)];
         }
 
-        HttpRequestMessage request = this.NewRequestBuilder()
-            .Endpoint(endpoint)
-            .QueryParams(parameters)
-            .BearerToken(tokens.AccessToken)
-            .WithStreamingDefaults("Tidalarr/1.0.0")
-            .Build();
-        System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
-        using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
-        sw3.Stop();
-        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
-        _ = response.EnsureSuccessStatusCode();
-        string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
-        TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
-        if (dto.items == null)
+        // Tidal's album-tracks endpoint is paginated (limit/offset + a declared
+        // totalNumberOfItems). Fetching a single page and trusting it was complete would
+        // silently truncate any album whose track count exceeds the page the server chose to
+        // return, importing an incomplete album as if it were whole. Page through until every
+        // declared item has been collected, and fail loudly (rather than return a partial
+        // list) if pagination stalls before reaching the declared total.
+        List<TidalTrackDto> allItems = [];
+        int declaredTotal = 0;
+        int offset = 0;
+
+        while (true)
         {
-            throw new InvalidOperationException("Album tracks response missing items collection.");
+            Dictionary<string, string> pageParameters = new(parameters) { ["offset"] = offset.ToString() };
+
+            HttpRequestMessage request = this.NewRequestBuilder()
+                .Endpoint(endpoint)
+                .QueryParams(pageParameters)
+                .BearerToken(tokens.AccessToken)
+                .WithStreamingDefaults("Tidalarr/1.0.0")
+                .Build();
+            System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
+            using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
+            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+            sw3.Stop();
+            this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
+            _ = response.EnsureSuccessStatusCode();
+            string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            TidalAlbumTracksDto? dto = JsonSerializer.Deserialize<TidalAlbumTracksDto>(content) ?? throw new InvalidOperationException("Failed to parse album tracks response");
+            if (dto.items == null)
+            {
+                throw new InvalidOperationException("Album tracks response missing items collection.");
+            }
+
+            if (offset == 0)
+            {
+                declaredTotal = dto.totalNumberOfItems;
+            }
+
+            if (dto.items.Count == 0)
+            {
+                // No more data to fetch. If this falls short of the declared total the
+                // integrity check below throws instead of returning a partial list.
+                break;
+            }
+
+            allItems.AddRange(dto.items);
+            offset += dto.items.Count;
+
+            if (declaredTotal <= 0 || allItems.Count >= declaredTotal)
+            {
+                break;
+            }
         }
 
-        this._cache?.Set(endpoint, parameters, dto, TimeSpan.FromHours(2));
-        return [.. (dto.items ?? []).Select(MapToTidalTrackInfo)];
+        if (declaredTotal > 0)
+        {
+            Lidarr.Plugin.Common.Services.Http.PagedResponseValidator.Validate(allItems.Count, declaredTotal, $"tidal-album-tracks:{albumId}");
+        }
+
+        TidalAlbumTracksDto combined = new(allItems, declaredTotal > 0 ? declaredTotal : allItems.Count);
+        this._cache?.Set(endpoint, parameters, combined, TimeSpan.FromHours(2));
+        return [.. allItems.Select(MapToTidalTrackInfo)];
     }
     public async Task<TidalAlbumInfo> GetAlbumWithTracksAsync(string albumId, CancellationToken cancellationToken = default)
     {
@@ -155,6 +198,104 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             CoverArtId: album.CoverArtId,
             IsAvailable: album.IsAvailable);
     }
+    public async Task<List<TidalAlbumInfo>> GetFavoriteAlbumsAsync(CancellationToken cancellationToken = default)
+    {
+        List<TidalAlbumDto> dtos = await FetchAllFavoritesAsync<TidalAlbumDto>("albums", cancellationToken).ConfigureAwait(false);
+        return [.. dtos.Select(MapToTidalAlbumInfo)];
+    }
+
+    public async Task<List<TidalArtistInfo>> GetFavoriteArtistsAsync(CancellationToken cancellationToken = default)
+    {
+        List<TidalArtistDto> dtos = await FetchAllFavoritesAsync<TidalArtistDto>("artists", cancellationToken).ConfigureAwait(false);
+        return [.. dtos.Select(MapToTidalArtistInfo)];
+    }
+
+    /// <summary>
+    /// Pages through a user favorites collection (<c>users/{userId}/favorites/{collection}</c>),
+    /// unwrapping each <c>{ created, item }</c> envelope. Terminates on an empty page or once every
+    /// server-declared item has been collected, and fails loudly (rather than truncating) if the
+    /// declared total is not reached. Requires a session with a non-empty UserId.
+    /// </summary>
+    private async Task<List<TDto>> FetchAllFavoritesAsync<TDto>(string collection, CancellationToken cancellationToken)
+    {
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(tokens.UserId))
+        {
+            throw new InvalidOperationException(
+                "Tidal favorites require an authenticated user, but the session has no user id. " +
+                "Complete the OAuth login (configure the Tidalarr indexer and paste a fresh redirect URL) before syncing favorites.");
+        }
+
+        string endpoint = $"users/{tokens.UserId}/favorites/{collection}";
+        string logEndpoint = $"users/{{userId}}/favorites/{collection}";
+        Dictionary<string, string> baseParameters = new()
+        {
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode,
+            ["limit"] = TidalConstants.FAVORITES_PAGE_LIMIT.ToString()
+        };
+
+        List<TDto> allItems = [];
+        int declaredTotal = 0;
+        int offset = 0;
+        int seenEnvelopes = 0;
+
+        for (int page = 0; page < TidalConstants.FAVORITES_MAX_PAGES; page++)
+        {
+            Dictionary<string, string> pageParameters = new(baseParameters) { ["offset"] = offset.ToString() };
+
+            HttpRequestMessage request = this.NewRequestBuilder()
+                .Endpoint(endpoint)
+                .QueryParams(pageParameters)
+                .BearerToken(tokens.AccessToken)
+                .WithStreamingDefaults("Tidalarr/1.0.0")
+                .Build();
+            System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+            using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: logEndpoint);
+            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+            sw.Stop();
+            this._logger.LogApiCallCompleted(service: "tidal", endpoint: logEndpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
+            _ = response.EnsureSuccessStatusCode();
+            string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            TidalPagedItemsDto<TidalFavoriteItemDto<TDto>>? dto =
+                JsonSerializer.Deserialize<TidalPagedItemsDto<TidalFavoriteItemDto<TDto>>>(content)
+                ?? throw new InvalidOperationException($"Failed to parse favorites response for {collection}.");
+
+            if (offset == 0)
+            {
+                declaredTotal = dto.totalNumberOfItems;
+            }
+
+            List<TidalFavoriteItemDto<TDto>> pageItems = dto.items ?? [];
+            if (pageItems.Count == 0)
+            {
+                // No more data. If this falls short of the declared total the integrity check
+                // below throws instead of returning a partial list.
+                break;
+            }
+
+            // Unwrap the { created, item } envelope; skip any null inner item defensively.
+            allItems.AddRange(pageItems.Where(i => i.item is not null).Select(i => i.item!));
+            seenEnvelopes += pageItems.Count;
+            offset += pageItems.Count;
+
+            if (declaredTotal <= 0 || seenEnvelopes >= declaredTotal)
+            {
+                break;
+            }
+        }
+
+        // Integrity is measured against envelopes paged through (not unwrapped items) so a rare
+        // null inner item can't masquerade as truncated pagination.
+        if (declaredTotal > 0)
+        {
+            Lidarr.Plugin.Common.Services.Http.PagedResponseValidator.Validate(seenEnvelopes, declaredTotal, $"tidal-favorites-{collection}");
+        }
+
+        return allItems;
+    }
+
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
         return SearchAsync(query, limit, countryCode: null, cancellationToken);
@@ -215,6 +356,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+        await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content) ?? throw new InvalidOperationException("Failed to parse playback info");
@@ -269,6 +411,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
@@ -452,6 +595,69 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ? ".flac"
             : ".m4a";
     }
+    /// <summary>
+    /// On a non-success playback-info response, classifies the failure and throws a
+    /// <see cref="TidalStreamUnavailableException"/> ONLY when the reason is permanent (rights removed /
+    /// asset delisted). Transient failures (auth, region/tier, not-ready, rate-limit, server, network) are
+    /// deliberately left untouched so the caller's existing <c>EnsureSuccessStatusCode()</c> path — and the
+    /// auth-failure gate / retry semantics that depend on the resulting <see cref="HttpRequestException"/>
+    /// — behave exactly as before. This is the only place a classified stream-unavailable exception is
+    /// thrown; it is the throw-site the audit found missing (the type had zero throw sites).
+    /// </summary>
+    private static async Task ThrowIfPermanentlyUnavailableAsync(
+        HttpResponseMessage response,
+        string trackId,
+        TidalQuality quality,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        int? subStatus = null;
+        string? userMessage = null;
+        try
+        {
+            string body = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using JsonDocument doc = JsonDocument.Parse(body);
+                JsonElement root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    if (root.TryGetProperty("subStatus", out JsonElement ss) && ss.ValueKind == JsonValueKind.Number && ss.TryGetInt32(out int s))
+                    {
+                        subStatus = s;
+                    }
+
+                    if (root.TryGetProperty("userMessage", out JsonElement um) && um.ValueKind == JsonValueKind.String)
+                    {
+                        userMessage = um.GetString();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort: an empty / unparseable error body just means we classify on the status code
+            // alone. The safety bias holds — only HTTP 404 is permanent, so a missing body never
+            // upgrades a transient failure to permanent.
+        }
+
+        TidalStreamUnavailableReason reason = TidalStreamRestrictionClassifier.Classify((int)response.StatusCode, subStatus, userMessage);
+        if (reason.IsPermanent())
+        {
+            throw new TidalStreamUnavailableException(
+                trackId,
+                quality,
+                $"Tidal stream permanently unavailable for track {trackId}: {userMessage ?? response.ReasonPhrase ?? response.StatusCode.ToString()} (HTTP {(int)response.StatusCode}, reason {reason})",
+                reason);
+        }
+
+        // Non-permanent — fall through; the caller's EnsureSuccessStatusCode() preserves prior behavior.
+    }
+
     private static async Task<string> ReadContentAsStringAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Content == null)

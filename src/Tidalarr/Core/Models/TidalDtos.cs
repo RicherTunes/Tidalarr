@@ -178,6 +178,17 @@ public class TidalPlaybackInfoDto
 }
 
 /// <summary>
+/// DTO for a single item in a Tidal favorites collection. Tidal wraps each favorited
+/// entity in a <c>{ created, item }</c> envelope, so <c>users/{id}/favorites/albums</c>
+/// returns items of shape <c>{ "created": "...", "item": { &lt;album&gt; } }</c>.
+/// </summary>
+public class TidalFavoriteItemDto<T>
+{
+    public string? created { get; set; }
+    public T? item { get; set; }
+}
+
+/// <summary>
 /// DTO for Tidal album tracks response from API.
 /// </summary>
 public class TidalAlbumTracksDto

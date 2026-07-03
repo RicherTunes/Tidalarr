@@ -279,7 +279,10 @@ public class SettingsRoundTripFixtureTests
         Assert.True(result.IsValid);
     }
 
-    // ── Full Property Round-Trip (C1 — all 16 properties) ──────────
+    // ── Full Property Round-Trip (C1 — all 14 properties) ──────────
+    // T-3: IncludeMqa + ReEncodeAAC removed (dead settings — accepted/validated/copied
+    // everywhere but never consulted by any runtime consumer; no coherent MQA/AAC-re-encode
+    // behavior existed to wire them into).
 
     [Fact]
     public void Apply_AllProperties_JsonRoundTrip_Accepted()
@@ -294,9 +297,7 @@ public class SettingsRoundTripFixtureTests
             ["EarlyReleaseLimit"] = 30,
             ["EnableCache"] = false,
             ["CacheDuration"] = 60,
-            ["IncludeMqa"] = false,
             ["ExtractFlac"] = false,
-            ["ReEncodeAAC"] = true,
             ["SaveSyncedLyrics"] = false,
             ["UseLRCLIB"] = true,
             ["DownloadDelay"] = 500,
@@ -312,17 +313,17 @@ public class SettingsRoundTripFixtureTests
     }
 
     [Fact]
-    public void Describe_Returns_All_16_Properties()
+    public void Describe_Returns_All_14_Properties()
     {
         IReadOnlyCollection<SettingDefinition> defs = Provider.Describe();
-        Assert.Equal(16, defs.Count);
+        Assert.Equal(14, defs.Count);
     }
 
     [Fact]
-    public void GetDefaults_Returns_All_16_Properties()
+    public void GetDefaults_Returns_All_14_Properties()
     {
         IReadOnlyDictionary<string, object?> defaults = Provider.GetDefaults();
-        Assert.Equal(16, defaults.Count);
+        Assert.Equal(14, defaults.Count);
         Assert.Equal("US", defaults["TidalMarket"]);
         Assert.Equal(14, defaults["EarlyReleaseLimit"]);
         Assert.Equal(true, defaults["EnableCache"]);
@@ -335,7 +336,6 @@ public class SettingsRoundTripFixtureTests
     {
         Dictionary<string, object?> settings = ValidSettings();
         settings["EnableCache"] = false;
-        settings["IncludeMqa"] = false;
         settings["ExtractFlac"] = false;
 
         string json = JsonSerializer.Serialize(settings);

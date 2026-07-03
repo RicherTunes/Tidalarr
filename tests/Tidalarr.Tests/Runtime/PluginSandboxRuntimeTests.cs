@@ -76,7 +76,8 @@ public class PluginSandboxRuntimeTests
         IReadOnlyCollection<SettingDefinition> defs = sandbox.Plugin.SettingsProvider.Describe();
 
         Assert.NotNull(defs);
-        Assert.Equal(16, defs.Count);
+        // T-3 removed IncludeMqa + ReEncodeAAC as dead settings (16 -> 14).
+        Assert.Equal(14, defs.Count);
 
         HashSet<string> keys = [.. defs.Select(d => d.Key)];
         Assert.Contains("ConfigPath", keys);
@@ -96,7 +97,8 @@ public class PluginSandboxRuntimeTests
         IReadOnlyDictionary<string, object?> defaults = sandbox.Plugin.SettingsProvider.GetDefaults();
 
         Assert.NotNull(defaults);
-        Assert.Equal(16, defaults.Count);
+        // T-3 removed IncludeMqa + ReEncodeAAC as dead settings (16 -> 14).
+        Assert.Equal(14, defaults.Count);
         Assert.True(defaults.ContainsKey("PreferredQuality"));
     }
 
