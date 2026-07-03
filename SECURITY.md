@@ -202,7 +202,7 @@ Current vulnerable packages (example - update regularly):
 **External**:
 - Tidal API endpoints
 - NuGet package sources
-- GitHub Actions workflows
+- Gitea Actions workflow (`.gitea/workflows/ci.yml`) and mirror GitHub workflows where present
 - Docker base images (future)
 
 **Internal**:

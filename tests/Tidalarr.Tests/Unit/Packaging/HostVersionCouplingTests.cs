@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Tidalarr.Tests.Utils;
@@ -38,10 +38,18 @@ public sealed class HostVersionCouplingTests
             return;
         }
 
-        string hostFileVersion = NormalizeVersion(ReadHostFileVersion(hostDllPath));
-        Assert.False(string.IsNullOrWhiteSpace(hostFileVersion), $"Host version for {hostDllName} was not found in {hostAssembliesDir}.");
+        var pinnedVersion = ParseVersion(pinned);
+        Assert.NotNull(pinnedVersion);
 
-        Assert.Equal(hostFileVersion, pinned);
+        var hostAssemblyVersion = ReadHostAssemblyVersion(hostDllPath);
+        Assert.NotNull(hostAssemblyVersion);
+
+        // On Linux, FileVersionInfo can report NLog's AssemblyVersion (5.0.0.0)
+        // instead of its package/file version (5.4.0). The load-bearing host
+        // boundary is the AssemblyVersion major: NLog 6.x is unsafe with Lidarr's
+        // NLog 5.x host assembly. Common's version-contract lint enforces the
+        // exact package pin separately.
+        Assert.Equal(hostAssemblyVersion!.Major, pinnedVersion!.Major);
     }
 
     private static string ReadPinnedVersion(string packagesPropsPath, string packageId)
@@ -56,15 +64,15 @@ public sealed class HostVersionCouplingTests
         return version ?? string.Empty;
     }
 
-    private static string ReadHostFileVersion(string path)
+    private static Version? ReadHostAssemblyVersion(string path)
     {
         if (!File.Exists(path))
         {
-            return string.Empty;
+            return null;
         }
 
         string fullPath = new FileInfo(path).FullName;
-        return FileVersionInfo.GetVersionInfo(fullPath).FileVersion ?? string.Empty;
+        return AssemblyName.GetAssemblyName(fullPath).Version;
     }
 
     private static string NormalizeVersion(string value)
@@ -77,5 +85,7 @@ public sealed class HostVersionCouplingTests
         Match match = Regex.Match(value, @"(\d+\.\d+\.\d+)", RegexOptions.CultureInvariant);
         return match.Success ? match.Groups[1].Value : value.Trim();
     }
-}
 
+    private static Version? ParseVersion(string value)
+        => Version.TryParse(value, out var version) ? version : null;
+}

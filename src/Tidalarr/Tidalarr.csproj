@@ -5,15 +5,26 @@
     <!-- Version managed by Directory.Build.props from VERSION file -->
     <!-- Suppress unused parameter warnings for interface implementations and future-proofed parameters -->
     <NoWarn>$(NoWarn);IDE0052;IDE0060</NoWarn>
+    <!-- Scope the wired Lidarr.Plugin.Analyzers to LPC0003 (the search-term HtmlEncode ban this plugin
+         adopts). LPC0001 (prefer the resilience executor over raw HttpClient.SendAsync) + LPC0002 are
+         separate pre-existing tech debt on the Tidal HTTP/OAuth paths — tracked, not addressed here, so
+         they don't pollute this change's warning profile. LPC0003 stays active. -->
+    <NoWarn>$(NoWarn);LPC0001;LPC0002</NoWarn>
     <!-- Output to bin/ root like other plugins for consistent ILRepack behavior -->
     <OutputPath>bin\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Run referenced Roslyn analyzers (Lidarr.Plugin.Analyzers / LPC0003 search-term HtmlEncode ban)
+         on the plugin sources. The repo default (Directory.Build.props) is false; EnableNETAnalyzers
+         is left at that default so ONLY the explicit plugin analyzer runs, not the SDK's full CA set.
+         There is no TreatWarningsAsErrors on this project, so LPC0001/0002 stay non-fatal warnings. -->
+    <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
   </PropertyGroup>
 
   <PropertyGroup>
     <!-- SkipHostBridge default value -->
     <SkipHostBridge Condition="'$(SkipHostBridge)' == ''">false</SkipHostBridge>
+    <DefineConstants Condition="'$(SkipHostBridge)' == 'true'">$(DefineConstants);SKIP_HOST_BRIDGE</DefineConstants>
   </PropertyGroup>
 
   <!-- SkipHostBridge diagnostic: confirm LidarrNative exclusion is working -->
@@ -29,6 +40,16 @@
   <ItemGroup Condition=" '$(UseInRepoCommon)' == 'true' ">
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Lidarr.Plugin.Common.csproj" />
     <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\src\Abstractions\Lidarr.Plugin.Abstractions.csproj" />
+    <!-- LPC0003: bans HtmlEncode / Sanitize.DisplayText on search paths (the shipped "Beyoncé" 0-result
+         bug class — see TidalSearchService.NormalizeSearchTerm). OutputItemType=Analyzer: consumed as a
+         Roslyn analyzer, not a runtime reference; ReferenceOutputAssembly=false keeps the analyzer DLL out
+         of the compile-time reference set (and the merged plugin DLL). Mirrors qobuzarr's adoption. -->
+    <ProjectReference Include="..\..\ext\Lidarr.Plugin.Common\tools\Analyzers\Lidarr.Plugin.Analyzers\Lidarr.Plugin.Analyzers.csproj"
+                      Condition="Exists('..\..\ext\Lidarr.Plugin.Common\tools\Analyzers\Lidarr.Plugin.Analyzers\Lidarr.Plugin.Analyzers.csproj')"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false">
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup Condition=" '$(UseInRepoCommon)' != 'true' ">

@@ -23,7 +23,9 @@ using Tidalarr.Infrastructure.Caching;
 using Lidarr.Plugin.Common.Services.Http;
 using Tidalarr.Infrastructure.Performance;
 using Tidalarr.Infrastructure.Storage;
+#if !SKIP_HOST_BRIDGE
 using Tidalarr.Integration.LidarrNative;
+#endif
 using Lidarr.Plugin.Common.Extensions;
 using Lidarr.Plugin.Common.Services.Download;
 using Lidarr.Plugin.Abstractions.Models;
@@ -35,6 +37,7 @@ namespace Tidalarr.Integration;
 public class TidalModule : StreamingPluginModule
 {
     public const string ModuleName = "Tidalarr";
+    private const string OAuthHttpClientName = "TidalOAuthService";
 
     private static int _hooksRegistered;
 
@@ -81,7 +84,8 @@ public class TidalModule : StreamingPluginModule
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            AllowAutoRedirect = false
         })
         .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
@@ -94,13 +98,14 @@ public class TidalModule : StreamingPluginModule
             return new OAuthDelegatingHandler(tokenProvider, logger);
         });
 
-        _ = services.AddHttpClient<TidalOAuthService>(client =>
+        _ = services.AddHttpClient(OAuthHttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            AllowAutoRedirect = false
         })
         .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
@@ -148,17 +153,45 @@ public class TidalModule : StreamingPluginModule
 
             return store;
         });
-        _ = services.AddScoped<ITidalAuth, TidalOAuthService>();
+        _ = services.AddTransient(sp => new TidalOAuthService(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(OAuthHttpClientName),
+            sp.GetService<ITokenStore<TidalTokens>>()));
+        _ = services.AddSingleton<ITidalAuth>(sp => sp.GetRequiredService<TidalOAuthService>());
         _ = services.AddSingleton<IStreamingAuthManager, TidalStreamingAuthManager>();
         // Token manager + provider
         _ = services.AddSingleton<IStreamingTokenAuthenticationService<TidalTokens, TidalCredentials>>(sp => new TidalAuthTokenAuthAdapter(sp.GetRequiredService<ITidalAuth>()));
-        _ = services.AddSingleton<StreamingTokenManager<TidalTokens, TidalCredentials>>();
+        _ = services.AddSingleton(sp =>
+        {
+            StreamingTokenManagerOptions<TidalTokens> options = new()
+            {
+                RefreshBuffer = TimeSpan.FromMinutes(5),
+                RefreshCheckInterval = TimeSpan.FromMinutes(1),
+                MaxRefreshAttempts = 3,
+                GetSessionExpiry = static session => session.ExpiresAt,
+                ProactiveRefreshCredentialsProvider = () => ManagedTokenProvider.GetCredentials(sp),
+                EnableProactiveRefresh = true
+            };
+
+            // TidalOAuthService owns durable token persistence because it can refresh an
+            // expired stored access token with the stored refresh token. If the generic
+            // manager also owns the same store, it clears expired envelopes before the
+            // OAuth service can read the refresh token.
+            return new StreamingTokenManager<TidalTokens, TidalCredentials>(
+                sp.GetRequiredService<IStreamingTokenAuthenticationService<TidalTokens, TidalCredentials>>(),
+                sp.GetRequiredService<ILogger<StreamingTokenManager<TidalTokens, TidalCredentials>>>(),
+                tokenStore: null,
+                options: options);
+        });
         _ = services.AddSingleton<IStreamingTokenProvider, ManagedTokenProvider>();
         _ = services.AddScoped<ITidalCore, TidalApiClient>();
 
         // Shared-integrations
         _ = services.AddSingleton<TidalModelMapper>();
-        _ = services.AddSingleton<TidalResponseCache>();
+        // T-3: built via the factory so the "Enable Cache" / "Cache Duration" settings (copied
+        // around elsewhere but never previously consulted) actually configure the cache.
+        _ = services.AddSingleton(sp => TidalResponseCacheFactory.Create(
+            sp.GetService<TidalIndexerSettings>(),
+            sp.GetService<ILogger<TidalResponseCache>>()));
         _ = services.AddSingleton<TidalRateLimiter>();
         _ = services.AddSingleton<PerformanceMonitor>();
 
@@ -227,9 +260,7 @@ public class TidalModule : StreamingPluginModule
                     BaseUrl = s.BaseUrl,
                     PreferredQuality = s.PreferredQuality,
                     DownloadPath = s.DownloadPath,
-                    IncludeMqa = s.IncludeMqa,
                     ExtractFlac = s.ExtractFlac,
-                    ReEncodeAAC = s.ReEncodeAAC,
                     SaveSyncedLyrics = s.SaveSyncedLyrics,
                     UseLRCLIB = s.UseLRCLIB,
                     DownloadDelay = s.DownloadDelay,
@@ -250,7 +281,8 @@ public class TidalModule : StreamingPluginModule
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            AllowAutoRedirect = false
         })
         .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
@@ -262,7 +294,8 @@ public class TidalModule : StreamingPluginModule
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            AllowAutoRedirect = false
         })
         .AddHttpMessageHandler<TidalBackendHealthHandler>()
         .AddHttpMessageHandler<Tidalarr.Infrastructure.Performance.TidalRateLimitingHandler>()
@@ -312,7 +345,12 @@ public class TidalModule : StreamingPluginModule
 
     private static void RegisterSharedLibraryServices(IServiceCollection services)
     {
-        _ = services.AddSingleton<IStreamingResponseCache, TidalResponseCache>();
+        // T-3: built via the factory so the "Enable Cache" / "Cache Duration" settings (copied
+        // around elsewhere but never previously consulted) actually configure the cache that
+        // TidalApiClient resolves through IStreamingResponseCache.
+        _ = services.AddSingleton<IStreamingResponseCache>(sp => TidalResponseCacheFactory.Create(
+            sp.GetService<TidalIndexerSettings>(),
+            sp.GetService<ILogger<TidalResponseCache>>()));
         _ = services.AddSingleton<IUniversalAdaptiveRateLimiter>(sp => sp.GetRequiredService<TidalRateLimiter>());
         _ = services.AddSingleton<PerformanceMonitor>();
         _ = services.AddSingleton<NetworkResilienceService>();
@@ -337,6 +375,7 @@ public class TidalModule : StreamingPluginModule
         // Tear down the two static runtime caches on plugin unload. Each holds an
         // IServiceProvider whose HttpClients would otherwise linger in the old ALC until GC.
         // ResetAsync is async; hop to thread pool to avoid deadlocking on captured-context dispose.
+#if !SKIP_HOST_BRIDGE
         PluginLifecycle.RegisterShutdown(
             "TidalIndexerRuntimeCache",
             static () =>
@@ -351,6 +390,7 @@ public class TidalModule : StreamingPluginModule
                 try { Task.Run(() => TidalDownloadClientRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
                 catch { /* teardown errors are not actionable */ }
             });
+#endif
     }
 
     public override void Dispose()
@@ -444,11 +484,5 @@ public class TidalModule : StreamingPluginModule
         }
     }
 }
-
-
-
-
-
-
 
 

@@ -1,5 +1,7 @@
 > ⚠️ Historical (flagged 2026-05-31): describes a past state; some details below no longer match the current code.
 
+<!-- docval:ignore-script-refs — this file is a forward-looking roadmap; scripts referenced under unchecked [ ] items are proposed work that does not exist yet -->
+
 # Ecosystem Test & CI Adoption Roadmap (Tidalarr)
 
 Goal: keep Tidalarr “boringly green” under Lidarr plugin hosting while making failures diagnosable and local validation easy.

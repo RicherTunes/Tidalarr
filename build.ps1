@@ -11,7 +11,7 @@ param(
     [switch]$Package,
     [switch]$VerboseOutput,
     [switch]$UsePrebuiltAssemblies,
-    [string]$LidarrVersion = "2.13.2.4685",
+    [string]$LidarrVersion = "3.1.3.4970",
     [switch]$SkipHostBridge,
     [switch]$Help
 )
@@ -87,11 +87,19 @@ if ($Clean) {
     }
 }
 
-if ($Restore -or -not (Test-Path "packages.lock.json")) {
+if ($Restore -or $SkipHostBridge -or -not (Test-Path "packages.lock.json")) {
     Write-Host ""
     Write-Host "📦 Restoring packages..." -ForegroundColor Blue
     try {
-        dotnet restore Tidalarr.sln --verbosity minimal
+        $restoreParams = @("Tidalarr.sln", "--verbosity", "minimal")
+        if ($SkipHostBridge) {
+            $restoreParams += "-p:SkipHostBridge=true"
+        }
+
+        dotnet restore @restoreParams
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet restore failed with exit code $LASTEXITCODE"
+        }
         Write-Host "✅ Restore complete" -ForegroundColor Green
     }
     catch {
@@ -172,13 +180,12 @@ if (-not $NoBuild) {
         Import-Module $modulePath -Force
         $manifestPath = Join-Path $scriptRoot 'plugin.json'
 
-        # Canonical Abstractions injection + entrypoint validation
+        # Merged/internalized Common + Abstractions policy with entrypoint validation
         $packagePath = New-PluginPackage `
             -Csproj $pluginProject `
             -Manifest $manifestPath `
             -Framework 'net8.0' `
             -Configuration $Configuration `
-            -RequireCanonicalAbstractions `
             -ResolveEntryPoints
         Write-Host "✅ Package created: $packagePath" -ForegroundColor Green
 

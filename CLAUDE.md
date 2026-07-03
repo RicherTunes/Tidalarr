@@ -13,10 +13,10 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 **Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
 
 ```
-LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
+LIDARR_DOCKER_VERSION=nightly-3.1.3.4970
 ```
 
-- Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
+- Image: `ghcr.io/hotio/lidarr:nightly-3.1.3.4970`
 
 **NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
 
@@ -66,7 +66,7 @@ Other constraints the install enforces:
 - Tag parses as a version (`v1.2.3`, `1.2.3`, or `1.2.3-prerelease`)
 - Optional `Minimum Lidarr Version: X.Y.Z.W` in release body must be ≤ host version
 
-Our release zip is named `Lidarr.Plugin.Tidalarr-v<VERSION>.net8.0.zip` (`.github/workflows/release.yml`). Do not rename without keeping the `net8.0.zip` suffix.
+Our release zip is named `Lidarr.Plugin.Tidalarr-v<VERSION>.net8.0.zip`; `scripts/ci.ps1` copies the canonical `New-PluginPackage` output to that artifact name. Do not rename without keeping the `net8.0.zip` suffix.
 
 **Verify a release is installable:**
 
@@ -93,11 +93,11 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 `ext/Lidarr.Plugin.Common` is a git submodule pinned to a specific Common SHA. Two things must always agree on that SHA:
 
 1. **The submodule gitlink** — what `git ls-tree HEAD ext/Lidarr.Plugin.Common` reports (updated by `git add ext/Lidarr.Plugin.Common` after checking out a new Common commit).
-2. **`ext-common-sha.txt`** — a plaintext sentinel (40 hex chars + LF) at the repo root. CI's "Submodule Pinning" job (`.github/workflows/submodule-pin.yml`) fails the build if the gitlink and this file disagree.
+2. **`ext-common-sha.txt`** — a plaintext sentinel (40 hex chars + LF) at the repo root. Keep it in sync with the gitlink when bumping Common; local version-contract tests and shared lint gates catch drift.
 
 **Why the sentinel exists**: the gitlink is invisible in a plain `git diff` (it shows only `-Subproject commit <sha>`), so the sentinel makes the pinned version greppable, reviewable in PRs, and assertable in tests (`VersionContractTests` cross-checks it against `plugin.json`'s `commonVersion`). Seeing `ext-common-sha.txt` dirtied in `git status` after a submodule bump is expected — commit it together with the gitlink.
 
-**To bump the pin**: `pwsh ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --sha-from-submodule --stage` (or the `.ps1` variant) reads the submodule HEAD, rewrites `ext-common-sha.txt`, and stages both so they can't drift. The nightly `bump-common.yml` workflow does this automatically when Common's main advances.
+**To bump the pin**: `pwsh ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --sha-from-submodule --stage` (or the `.ps1` variant) reads the submodule HEAD, rewrites `ext-common-sha.txt`, and stages both so they can't drift. Re-pin manually when Common's main advances — there is no scheduled auto-bump workflow on the Gitea-primary copy.
 
 ## Common helpers in use
 
@@ -115,9 +115,36 @@ For Tidalarr this is satisfied by `<AssemblyName>Lidarr.Plugin.Tidalarr</Assembl
 - `WarnOnce` — **not adopted; not needed**. A repo-wide grep for hand-rolled warn-once patterns (`HashSet<string>` + `_warned.Contains`-style) returns zero hits in `src/` — there's nothing to migrate. Common's `WarnOnce` remains available; revisit if a hot-loop log site adds a per-iteration warning in the future.
 - `HttpExceptionClassifier` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:326` (indexer `Test()` catch) and `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:387` (download client `Test()` catch). Replaces the old `"Test failed ({CLR-type-name}): {ex.Message}"` UX with categorized actionable hints: Auth-class failures route to the `Authentication` validation field so the UI surfaces them in the credential section; Network / RateLimit / Timeout / Server / ClientRequest each get a tailored hint. Matches qobuz's adoption at `src/API/AdaptiveQobuzApiClient.cs:54` + `src/Services/AuthTokenManager.cs:376`.
 
+## Terminal release suppression (stops the permanently-unavailable-track re-grab loop)
+
+A track Tidal has delisted / had its streaming rights removed (surfaced as an HTTP 404 from
+`tracks/{id}/playbackinfopostpaywall` for a track that IS on the album's tracklist) can never be
+downloaded in any quality tier, and Lidarr's blocklist does not fire for this failure mode — so the
+same album is re-grabbed on every scheduled search, forever. Tidal adopts the qobuz-proven fix:
+
+- **Classification (correctness is the whole game).** `TidalStreamRestrictionClassifier.Classify(httpStatus, subStatus, userMessage)` (`Domain/Streaming/`) is a pure function mapping a failed playback-info response to a `TidalStreamUnavailableReason` (`Core/Exceptions/`). **Only `RightsRemoved` (HTTP 404) is PERMANENT**; everything else — auth (401), region/tier (403), not-ready (sub-status 4005), rate-limit (429), server (5xx), network, unknown/empty — is TRANSIENT and never suppressed. The safety bias is absolute: over-suppression permanently hides a recoverable album (a false negative), which is strictly worse than a bounded re-grab loop, so any ambiguous/unrecognized signal defaults to transient. Region/tier is deliberately excluded from permanent (availability can change), matching qobuz's geo decision. `IsPermanent()` is the single source of truth (`TidalStreamUnavailableReasonExtensions`).
+- **Throw site.** `TidalApiClient.GetStreamInfoAsync` / `GetPlaybackInfoAsync` call `ThrowIfPermanentlyUnavailableAsync`, which throws a classified `TidalStreamUnavailableException` **only** for a permanent reason; transient failures fall through to the unchanged `EnsureSuccessStatusCode()` path so the auth-failure gate + retry semantics are untouched. (This closed the audit finding that `TidalStreamUnavailableException` had zero throw sites.) `TidalChunkStreamProvider.GetStreamAsync` no longer swallows a permanent exception — it records it and rethrows.
+- **Bridge (album id is not in the stream provider's scope).** `TidalTerminalRestrictionScope` (`Domain/Streaming/`) is an ambient `AsyncLocal` collector (same pattern as Common's `DownloadTelemetryContext`). `TidalLidarrDownloadClient.Download`'s `doWork` opens a scope around the album download; the provider records any permanent per-track restriction into it; after a **failed** download, `TidalTerminalSuppressionRecorder.TryRecordAsync` writes the album id to the store (best-effort — a store failure never masks the download failure).
+- **Store.** `TidalReleaseSuppressionStore` (`Application/Services/`) is the thin Tidal policy adapter over Common's durable `TerminalReleaseSuppressionStore` (bounded/TTL 30d/disk-persisted, keyed by album id). `ShouldSuppress(reason) = reason.IsPermanent()`. `.Shared` is the process-wide instance for plugin `"Tidalarr"`.
+- **Parser withhold + interactive override.** `TidalReleaseSuppressionFilter.Apply(albums, store, isInteractive)` (`Application/Services/`) withholds suppressed albums on AUTOMATIC/RSS searches (this is what stops the loop) but OFFERS them on an INTERACTIVE (user-initiated) search so a user can recover a previously-restricted album without waiting out the TTL. Applied in `TidalLidarrIndexer.FetchReleases` (interactive flag from `TidalLidarrRequestGenerator.IsInteractiveSearch` ← `AlbumSearchCriteria.InteractiveSearch`) and the fallback `TidalLidarrParser.ParseResponse` (which carries no criteria, so treated as automatic — withhold).
+- **Completion contract is NOT changed.** Suppression is a pure search-side side effect; an incomplete album still always reports `Failed` to Lidarr with the same message. Guarded by `TidalReleaseSuppressionFilterTests`, `TidalReleaseSuppressionStoreTests`, `TidalStreamRestrictionClassifierTests`, `TidalTerminalRestrictionScopeTests`, `TidalTerminalSuppressionRecorderTests`.
+- **Honest caveat.** The permanent trigger (HTTP 404 on playback-info) is a best-effort classification not yet live-validated against every Tidal error shape. It is the ONLY permanent trigger and the recovery paths (interactive search + 30-day TTL) bound the cost of a rare false-permanent. If live data ever shows a transient 404 shape, tighten to additionally require sub-status 2001 — never loosen a transient case to permanent.
+
+## Tidal Favorites import list (first streaming-catalog import list in the ecosystem)
+
+`TidalFavoritesImportList : NzbDrone.Core.ImportLists.ImportListBase<TidalFavoritesImportListSettings>` (`Integration/LidarrNative/`) mirrors the authenticated user's Tidal favorites into Lidarr. It is a **future candidate to generalize into a Common `StreamingImportListBase`** — deliberately kept Tidal-local for now (invest-when-a-second-plugin-needs-it).
+
+- **Discovery.** Inheriting `ImportListBase<T>` is enough for the host's DryIoc `RegisterMany` to auto-construct it (same mechanism as `TidalLidarrIndexer` / `TidalLidarrDownloadClient`; `TidalarrInstalledPlugin` already covers System→Plugins visibility). Ctor takes only the four base host services `(IImportListStatusService, IConfigService, IParsingService, NLog.Logger)`. Because it lives under `Integration/LidarrNative/`, it is compiled out of the host-free CI build by `Directory.Build.props`'s `SkipHostBridge` → `**/LidarrNative/**` `DefaultItemExcludes`, exactly like the indexer/download client.
+- **Auth is SHARED — no re-auth.** Settings expose only `ConfigPath` + `Content` (a `TidalFavoritesContent` Select: albums-and-artists / albums-only / artists-only) + `Market`. The runtime is built by `TidalImportListRuntimeCache` (mirrors `TidalIndexerRuntimeCache`, keyed on `ConfigPath`) which registers `TidalModule.RegisterServices`, so the import list reads the **same OAuth token store** the indexer wrote — the session already carries `TidalTokens.UserId` and `TidalConstants.OAUTH_SCOPE` already includes `r_usr`.
+- **Paginated favorites API.** `TidalApiClient.GetFavoriteAlbumsAsync` / `GetFavoriteArtistsAsync` (on `ITidalCore`) page `users/{userId}/favorites/{albums,artists}` via the shared private `FetchAllFavoritesAsync<TDto>` helper, unwrapping Tidal's `{ created, item }` envelope (`TidalFavoriteItemDto<T>`). Termination is the just-merged `GetAlbumTracksAsync` pattern: stop on empty page or once `seenEnvelopes >= declaredTotal`, `PagedResponseValidator.Validate(seenEnvelopes, declaredTotal, …)` on shortfall (loud, not silent truncation), no over-fetch (single-page = one request), hard-capped by `TidalConstants.FAVORITES_MAX_PAGES`. Integrity is measured on **envelopes paged** (not unwrapped items) so a rare null inner item can't masquerade as truncation. A session with no `UserId` throws an actionable `InvalidOperationException` **before** any network call.
+- **Mapping + host-contract safety.** `TidalFavoritesMapper.Map` → `ImportListItemInfo` (`NzbDrone.Core.Parser.Model`, NOT `NzbDrone.Core.ImportLists` — the type lives in the former namespace): favorite album → `{ Artist = primary artist, Album = title, ReleaseDate }`, favorite artist → `{ Artist = name }`. De-duplicated case-insensitively (space-separated key so `"AB"+"C"` ≠ `"A"+"BC"`), entries missing an essential name dropped. `Fetch()` and `Test()` are sync host contracts driven via `Task.Run(...).GetAwaiter().GetResult()` (indexer's shim) and **never throw** out of the contract — a fetch error logs + returns empty (so the host doesn't clear already-imported items); `Test()` adds an actionable "authenticate the Tidalarr indexer first" `ValidationFailure` when `UserId` is missing. Fetch/auth cores are `internal static` seams (`FetchFavoritesAsync` / `ValidateAuthAsync`) unit-tested against `ITidalCore` / `ITidalAuth` stubs.
+- **No Tidal catalog id on the item.** `ImportListItemInfo` is MusicBrainz/name-oriented; there is no Tidal-native id field, so Lidarr resolves favorites by artist/album **name**. This is a host-contract limitation, documented for users.
+- **Tests.** Host-free `TidalApiClientFavoritesTests` (pagination/envelope/UserId — re-included after the `Tidal*.cs` remove in the test csproj). Host-coupled `TidalFavoritesImportListTests` (mapping/content-selection/dedup/auth-validation — explicitly `Compile Remove`d under `ExcludeHostBridge=true` because the subfolder path escapes the root-level `Tidal*.cs` glob). Live host: Docker E2E `Plugin_Loads_AppearsInImportListSchema` + `ImportList_Test_WithEmptySettings_ReturnsSensibleFailure` (Common TestKit already exposes the import-list schema/test assertions).
+- **Honest caveat.** The favorites endpoint shape (`{ created, item }` envelope, `totalNumberOfItems` pagination) is modeled from Tidal's documented API but not yet live-validated against a real account in this change — flagged for the lidarr-e2e live gate (DryIoc discovery + real-favorites fetch). The `AuthFailureGate` is intentionally NOT wired here (an import list is a low-frequency scheduled call, not the search fan-out loop the gate protects); `GetValidTokensAsync` fast-fails a dead session.
+
 ## File ↔ class naming convention
 
-Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the four-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
+Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, Domain.Api, Integration, Infrastructure, etc.) and prefixes types with `Tidal` so they are unambiguous when grep'd across the five-plugin ecosystem. Multi-class files are allowed for cohesive groupings (DTOs, exception families, attribute annotations); single-class files MUST have the file name match the class name.
 
 | File | Class(es) | Convention |
 |------|-----------|------------|
@@ -133,6 +160,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `HostBridgeDownloadOrchestrator` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:39`
 - `PrefixedReleaseGuidParser` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:363`
 - `PlaceholderSearchUri` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:139`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:438`
+- `SearchQuerySanitizer` (Common `Services.Intelligence`) — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs` (`TidalLidarrRequestGenerator.GetSearchRequests` → `SearchQuerySanitizer.BuildPlan(artist, album).Tiers`). Canonical special-character variant generation + combined→artist-only→album-only fallback tiers, consolidating the former local `TidalSearchTermBuilder` (now deleted). Execution is now Common's delegate-only `SearchPlanExecutor` (`Services.Intelligence`), adopted via the thin Lidarr.Core-free `TidalAlbumSearch` adapter (`StopAfterFirstTierWithResults`, `serviceLabel="Tidal search"`, unwraps `TidalSearchResults.Albums`); the former local `TidalTieredAlbumSearch` executor was deleted (its loop mechanics live + are tested in Common). `TidalSearchPlan.Build` is the request generator's single plan-construction entry point so the parity + provenance suites pin the live path. Parity is enforced by `TidalSearchQuerySanitizerParityTests` (subclass of Common's `SearchQuerySanitizerParityTestBase`, 225-case corpus, implementing `BuildPlanViaPlugin`) and search-term provenance by `TidalSearchTermProvenanceTests` (subclass of Common's `SearchTermProvenanceComplianceTestBase`). Chain completeness is gated by `TidalSearchRequestChainTests` (subclass of Common's `SearchRequestChainComplianceTestBase`, TestKit `Compliance`) in `tests/Tidalarr.Tests/Unit/LidarrNative/` — host-free so it runs in the `ExcludeHostBridge=true` CI test build; it drives `TidalSearchPlan.BuildSearchPlaceholderUrls` (the host-free core of `GetSearchRequests`) and asserts the request chain is complete (well-formed placeholder URI, combined-first, only-plan-variants, every variant incl. the artist-only fallback, special-char sanitized). The `LPC0003` analyzer (Common `tools/Analyzers`) is wired into the plugin build to ban HtmlEncode/`DisplayText` on search paths. The critical HTML-encode removal lives in `TidalSearchService.NormalizeSearchTerm` (whitespace-only; the old `Sanitize.DisplayText` encoder corrupted accented/punctuated terms).
 - `PathTraversalGuard` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:401`
 - `AlbumReleaseInfoBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:540`, `src/Tidalarr/Integration/LidarrNative/TidalLidarrIndexer.cs:583`
 - `TestValidationBuilder` — `src/Tidalarr/Integration/LidarrNative/TidalLidarrDownloadClient.cs:307`
@@ -140,7 +168,7 @@ Tidal's `src/Tidalarr/` tree groups types by responsibility (Domain.Streaming, D
 - `ILyricsEnricher` / `LyricsEnricher` (Common's shared enricher, wrapping `LrclibClient`) — registered in `src/Tidalarr/Integration/TidalModule.cs:174` (`AddSingleton<ILyricsEnricher>(_ => new LyricsEnricher())`), consumed in `src/Tidalarr/Integration/TidalAudioPostProcessor.cs`. Best-effort synced-lyrics (.lrc) fetch alongside audio downloads via LRCLIB public API. **Consolidated to Common** (lyrics pilot, PR #299/#303): the former local `Application/Services/LyricsEnricher.cs` + `ILyricsEnricher` were deleted in favour of Common's; canonical gating (`SaveSyncedLyrics` master toggle + `UseLRCLIB` LRCLIB-fallback) is enforced by the `Check_UsesCommonLyricsEnricher` parity guard.
 - `BoundedConcurrentDictionary<TKey, TValue>` — available (Common v1.15.0+ exposes `ContainsKey`, `Values`, indexer setter, and `IEnumerable<KeyValuePair>` alongside the original v1.10.0 TryAdd/TryGetValue/AddOrUpdate/GetOrAdd surface). No tidal call sites yet — candidates: `PKCEStateStore.InMemoryCache` (`src/Tidalarr/Infrastructure/Storage/PKCEStateStore.cs:33`) is domain-bounded by config-path count so adoption isn't required; revisit when a real growth concern surfaces.
 
-See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the cross-plugin parity scorecard (30+ axes × 4 plugins).
+See `ext/Lidarr.Plugin.Common/CHANGELOG.md` for the full catalog and [`docs/ECOSYSTEM_PARITY_MATRIX.md`](ext/Lidarr.Plugin.Common/docs/ECOSYSTEM_PARITY_MATRIX.md) for the historical cross-plugin parity scorecard. The current five-plugin CI contract is enforced by Common's ecosystem CI manifest and shared lint runner.
 
 ## Test infrastructure: `bin-tests/` split (cross-ALC type identity)
 
@@ -516,12 +544,15 @@ This section tracks technical debt items that should be addressed but are not bl
 | Quality Detection Enhancement | MEDIUM | 2025-01-25 | Fixed TidalSearchService to preserve API-detected qualities from audioQuality field; improved TidalApiClient.DetectAlbumQualities parsing |
 | Artist ID Plumbing | LOW | 2024-12-XX | Added PrimaryArtistId to TidalTrackInfo and TidalAlbumInfo with fallback to name |
 | Silent manifest parse failures | MEDIUM | 2026-05-25 | TidalStreamManifest now logs Warn on ParseStreamData / ParseDashManifest exceptions (previously swallowed silently). |
+| T-3: dead settings (external audit) | HIGH | 2026-07-01 | Five `[FieldDefinition]`-exposed settings had no runtime consumer — the value could be changed with zero observable effect. **Removed** (no coherent behavior existed to wire, and Tidal discontinued MQA in 2023): `IncludeMqa`, `ReEncodeAAC` (the latter also wasn't exposed on the live `TidalLidarrDownloadClientSettings` UI class at all — only on the legacy CLI/HostBridge settings surfaces). **Wired** (clear documented intent, straightforward to implement): `EarlyReleaseLimit` → `TidalEarlyReleaseFilter` (excludes albums releasing further than N days out; `TidalLidarrIndexer.FetchReleases` + `TidalLidarrParser.ParseResponse`), `EnableCache`/`CacheDuration` → `TidalResponseCacheFactory` (configures `TidalResponseCache`'s master on/off + search-endpoint TTL; wired at both `TidalModule.cs` cache registrations). Guarded by `tests/Tidalarr.Tests/Documentation/DeadSettingsGuardTests.cs` — reflects over `TidalLidarrIndexerSettings`/`TidalLidarrDownloadClientSettings` for `[FieldDefinition]` properties and fails if any lacks a real (non-copy, non-`nameof`) consumer reference outside a small settings-declaration/mapping-only file allowlist. Portable to the other four plugins by swapping the settings types + allowlist. |
 
 ### Pending Items
 
 | Item | Priority | File | Description |
 |------|----------|------|-------------|
 | None identified | - | - | Tidalarr has relatively clean architecture with good separation of concerns |
+| `PerformanceMonitor` / `TidalResponseCache` double-registered | LOW | `src/Tidalarr/Integration/TidalModule.cs` | `RegisterSharedLibraryServices` and `ConfigureServices` each independently register `PerformanceMonitor` (as `AddSingleton<PerformanceMonitor>()` twice) and, pre-T-3, `TidalResponseCache`/`IStreamingResponseCache` — two separate singleton instances of what's conceptually one shared cache/monitor. Found during the T-3 audit; T-3 fixed both `TidalResponseCache` registrations to go through `TidalResponseCacheFactory` so either instance now respects Enable Cache/Cache Duration, but did not collapse the duplicate registrations themselves (out of scope — no observed behavioral bug, just wasted instances). |
+| Download tracker items never set `TotalSize` | LOW | `src/Tidalarr/Integration/LidarrNative/` (download tracker) | External audit note: the Lidarr download queue shows progress as `0/0` for Tidal downloads because tracker items never populate `TotalSize`. Not investigated as part of T-3 (out of scope — UI cosmetic, not a dead-setting).|
 
 ## Local Verification (Billing-Blocked CI)
 
@@ -569,7 +600,7 @@ wave 22.
 
 ### Pinned image
 
-`ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (single-plugin instance on host
+`ghcr.io/hotio/lidarr:nightly-3.1.3.4970` (single-plugin instance on host
 port `8690` per the multi-plugin guidance in this file). The tag is sourced
 from `scripts/verify-local.ps1`'s `LidarrDockerVersion`. Bump in one place.
 

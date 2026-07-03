@@ -32,7 +32,7 @@ public class ProviderSwapConcurrencyTests
         return new Dictionary<string, object?>
         {
             ["ConfigPath"] = Path.Combine(Path.GetTempPath(), $"tidalarr-test-{suffix}"),
-            ["RedirectUrl"] = "https://example.com/callback",
+            ["RedirectUrl"] = "https://tidal.com/android/login/auth",
             ["DownloadPath"] = Path.Combine(Path.GetTempPath(), $"tidalarr-dl-{suffix}"),
         };
     }
@@ -55,6 +55,55 @@ public class ProviderSwapConcurrencyTests
         }
 
         return plugin;
+    }
+
+    [SkippableFact]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task SettingsApply_DisposesOldProvider_WhenNoAdapterScopeReferencesIt()
+    {
+        TidalarrPlugin plugin = await CreateInitializedPlugin();
+        ServiceProvider oldProvider = GetCurrentRootProvider(plugin);
+
+        PluginValidationResult applyResult = plugin.SettingsProvider.Apply(MakeValidSettings("retired-no-scope"));
+        Assert.True(applyResult.IsValid, string.Join("; ", applyResult.Errors ?? []));
+
+        AssertProviderDisposed(oldProvider);
+        await plugin.DisposeAsync();
+    }
+
+    [SkippableFact]
+    [Trait("Area", "E2E/Hermetic")]
+    public async Task SettingsApply_DefersOldProviderDisposalUntilAdapterScopeIsDisposed()
+    {
+        TidalarrPlugin plugin = await CreateInitializedPlugin();
+        ServiceProvider oldProvider = GetCurrentRootProvider(plugin);
+        IIndexer? indexer = await plugin.CreateIndexerAsync(CancellationToken.None);
+
+        PluginValidationResult applyResult = plugin.SettingsProvider.Apply(MakeValidSettings("retired-active-scope"));
+        Assert.True(applyResult.IsValid, string.Join("; ", applyResult.Errors ?? []));
+
+        AssertProviderUsable(oldProvider);
+
+        Assert.NotNull(indexer);
+        await indexer!.DisposeAsync();
+
+        AssertProviderDisposed(oldProvider);
+        await plugin.DisposeAsync();
+    }
+
+    [Fact]
+    [Trait("Area", "E2E/Hermetic")]
+    public void CreateAdapterOrDisposeScope_WhenAdapterConstructionThrows_DisposesScope()
+    {
+        RecordingScope scope = new();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            TidalarrPlugin.CreateAdapterOrDisposeScope<object>(
+                scope,
+                static _ => throw new InvalidOperationException("adapter resolution failed")));
+
+        Assert.Equal("adapter resolution failed", ex.Message);
+        Assert.True(scope.Disposed);
     }
 
     [SkippableFact]
@@ -165,5 +214,39 @@ public class ProviderSwapConcurrencyTests
 
         var disposed = exceptions.Where(e => e is ObjectDisposedException).ToList();
         Assert.Empty(disposed);
+    }
+
+    private static ServiceProvider GetCurrentRootProvider(TidalarrPlugin plugin)
+    {
+        System.Reflection.FieldInfo? field = typeof(TidalarrPlugin).GetField(
+            "_serviceProvider",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(field);
+
+        ServiceProvider? provider = (ServiceProvider?)field!.GetValue(plugin);
+        Assert.NotNull(provider);
+        return provider!;
+    }
+
+    private static void AssertProviderUsable(ServiceProvider provider)
+    {
+        object? settings = provider.GetService(typeof(TidalarrSettings));
+        Assert.NotNull(settings);
+    }
+
+    private static void AssertProviderDisposed(ServiceProvider provider)
+    {
+        Assert.Throws<ObjectDisposedException>(() => provider.GetService(typeof(TidalarrSettings)));
+    }
+
+    private sealed class RecordingScope : IServiceScope
+    {
+        public bool Disposed { get; private set; }
+        public IServiceProvider ServiceProvider { get; } = new ServiceCollection().BuildServiceProvider();
+
+        public void Dispose()
+        {
+            Disposed = true;
+        }
     }
 }

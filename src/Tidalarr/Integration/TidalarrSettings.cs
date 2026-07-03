@@ -36,14 +36,8 @@ public class TidalarrSettings : BaseStreamingSettings
     [FieldDefinition(SettingsDisplay.Download.DownloadPathOrder, Label = SettingsDisplay.Download.DownloadPathLabel, Type = FieldType.Path, HelpText = SettingsDisplay.Download.DownloadPathHelpText)]
     public string DownloadPath { get; set; } = string.Empty;
 
-    [FieldDefinition(SettingsDisplay.Download.IncludeMqaOrder, Label = SettingsDisplay.Download.IncludeMqaLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = SettingsDisplay.Download.IncludeMqaHelpText)]
-    public bool IncludeMqa { get; set; } = true;
-
     [FieldDefinition(SettingsDisplay.Download.ExtractFlacOrder, Label = SettingsDisplay.Download.ExtractFlacLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = SettingsDisplay.Download.ExtractFlacHelpText)]
     public bool ExtractFlac { get; set; } = true;
-
-    [FieldDefinition(SettingsDisplay.Download.ReEncodeAACOrder, Label = SettingsDisplay.Download.ReEncodeAACLabel, Type = FieldType.Checkbox, Advanced = true, HelpText = SettingsDisplay.Download.ReEncodeAACHelpText)]
-    public bool ReEncodeAAC { get; set; } = false;
 
     [FieldDefinition(SettingsDisplay.Download.SaveSyncedLyricsOrder, Label = SettingsDisplay.Download.SaveSyncedLyricsLabel, Type = FieldType.Checkbox, Advanced = true)]
     public bool SaveSyncedLyrics { get; set; } = true;

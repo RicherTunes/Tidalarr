@@ -14,10 +14,20 @@ using Lidarr.Plugin.Common.Interfaces;
 
 namespace Tidalarr.Domain.Authentication;
 
-public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? tokenStorage = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
+public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? tokenStorage = null, Action<string>? onMissingRefreshTokenWarning = null) : OAuthStreamingAuthenticationService<TidalTokens, TidalCredentials>(new PKCEGenerator()), ITidalAuth, IStreamingTokenProvider
 {
+    private static readonly NLog.Logger MissingRefreshTokenLogger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly HttpClient _httpClient = httpClient;
     private readonly ITokenStore<TidalTokens> _tokenStorage = tokenStorage ?? new FailOnIOTokenStore<TidalTokens>();
+
+    // Sink for the "no refresh_token returned" defensive warning. Defaults to an NLog Warn; tests inject a
+    // capturing delegate. A token without a refresh_token means automatic renewal is impossible — the access
+    // token will silently expire (~1 week) and force a manual re-login. Warning here, at the moment the token
+    // is obtained, makes a scope/Tidal regression (e.g. offline_access dropped from OAUTH_SCOPE) diagnosable
+    // immediately instead of as a mysterious forced re-login weeks later.
+    private readonly Action<string> _onMissingRefreshTokenWarning = onMissingRefreshTokenWarning ?? (message => MissingRefreshTokenLogger.Warn(message));
+
     private TidalTokens? _currentTokens;
 
     // Single-flight gate: serializes token load/refresh so concurrent callers don't each fire a
@@ -25,6 +35,10 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     // one another (TOCTOU). SemaphoreSlim (no AvailableWaitHandle use) holds no unmanaged handle,
     // so the long-lived auth service has nothing to dispose.
     private readonly System.Threading.SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly object _directRefreshSingleFlightLock = new();
+    private readonly Dictionary<string, Task<TidalTokens>> _directRefreshSingleFlights = new(StringComparer.Ordinal);
+    private readonly object _streamingRefreshSingleFlightLock = new();
+    private Task<string>? _streamingRefreshSingleFlight;
 
     // Backward-compatible overload used by existing tests/clients that passed a PKCE generator
     public TidalOAuthService(HttpClient httpClient, IPKCEGenerator _ /*unused*/, ITokenStore<TidalTokens>? tokenStorage = null)
@@ -133,12 +147,56 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
-        return this._currentTokens;
+        TidalTokens tokens = MapToTidalTokens(tokenData);
+        WarnIfNoRefreshToken(tokens, "the OAuth code exchange");
+        this._currentTokens = tokens;
+        await SaveSessionAsync(tokens).ConfigureAwait(false);
+        return tokens;
     }
 
-    public async Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+    public Task<TidalTokens> RefreshTokensAsync(string refreshToken)
+    {
+        string refreshKey = refreshToken ?? string.Empty;
+        return GetDirectRefreshFlightTask(refreshKey, refreshToken);
+    }
+
+    private async Task<TidalTokens> AwaitDirectRefreshSingleFlightAsync(string refreshKey, Task<TidalTokens> refreshTask)
+    {
+        try
+        {
+            return await refreshTask.ConfigureAwait(false);
+        }
+        finally
+        {
+            if (refreshTask.IsCompleted)
+            {
+                lock (this._directRefreshSingleFlightLock)
+                {
+                    if (this._directRefreshSingleFlights.TryGetValue(refreshKey, out Task<TidalTokens>? activeTask) &&
+                        ReferenceEquals(activeTask, refreshTask))
+                    {
+                        this._directRefreshSingleFlights.Remove(refreshKey);
+                    }
+                }
+            }
+        }
+    }
+
+    private Task<TidalTokens> GetDirectRefreshFlightTask(string refreshKey, string refreshToken)
+    {
+        lock (this._directRefreshSingleFlightLock)
+        {
+            if (!this._directRefreshSingleFlights.TryGetValue(refreshKey, out Task<TidalTokens>? refreshTask))
+            {
+                refreshTask = RefreshTokensCoreAsync(refreshToken);
+                this._directRefreshSingleFlights[refreshKey] = refreshTask;
+            }
+
+            return AwaitDirectRefreshSingleFlightAsync(refreshKey, refreshTask);
+        }
+    }
+
+    private async Task<TidalTokens> RefreshTokensCoreAsync(string refreshToken)
     {
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "OAuthRefresh");
         HttpRequestMessage request = BuildTokenRefreshRequest(refreshToken);
@@ -147,14 +205,58 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         if (!response.IsSuccessStatusCode)
         {
             string errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            // Detect a revoked / expired refresh token: Tidal returns 400 invalid_grant when the
+            // refresh token has been revoked or has aged out.  Signal the caller via a typed
+            // exception (mirroring ExchangeCodeAsync) so it can clear the dead persisted token and
+            // stop hammering the OAuth endpoint.  Other failures stay generic — they are transient
+            // (network blips, 5xx) and MUST NOT clear the still-valid refresh token.
+            if (response.StatusCode == System.Net.HttpStatusCode.BadRequest && IsInvalidGrant(errorContent))
+            {
+                throw new TidalInvalidGrantException(
+                    "Refresh token is invalid or expired — re-authenticate Tidalarr by pasting a fresh redirect URL from a new Tidal browser login.");
+            }
+
             throw new HttpRequestException($"Token refresh failed: {response.StatusCode} - {LogRedactor.Redact(errorContent)}");
         }
 
         string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         TidalTokenResponse? tokenData = JsonSerializer.Deserialize<TidalTokenResponse>(content) ?? throw new InvalidOperationException("Failed to parse refresh token response");
-        this._currentTokens = MapToTidalTokens(tokenData);
-        await SaveSessionAsync(this._currentTokens).ConfigureAwait(false);
-        return this._currentTokens;
+        TidalTokens tokens = MapToTidalTokens(tokenData);
+
+        // Carry forward the refresh token that was just successfully used when the response omits one.
+        // Standard OAuth: grant_type=refresh_token responses routinely do NOT return a refresh_token —
+        // the client simply reuses the original. Without this, the stored token's RefreshToken is
+        // overwritten with null/empty on every renewal cycle, causing GetValidTokensAsync to hit the
+        // !string.IsNullOrEmpty(stored.RefreshToken) guard and throw "Not authenticated" on the next
+        // expiry — the "daily re-login" production bug (confirmed live 2026-06-27).
+        // Only warn when BOTH the response AND the carried-forward token are empty (genuinely broken
+        // scope, e.g. offline_access not granted). The warn on the EXCHANGE path is unchanged.
+        if (string.IsNullOrEmpty(tokens.RefreshToken))
+        {
+            tokens = tokens with { RefreshToken = refreshToken };
+        }
+
+        WarnIfNoRefreshToken(tokens, "a token refresh");
+        this._currentTokens = tokens;
+        await SaveSessionAsync(tokens).ConfigureAwait(false);
+        return tokens;
+    }
+
+    // Defensive: a token with no refresh_token cannot be auto-renewed. Surface it loudly + actionably the
+    // moment it is obtained so the operator can fix the root cause (almost always a missing offline_access
+    // scope) instead of discovering it as a silent forced re-login when the access token expires.
+    private void WarnIfNoRefreshToken(TidalTokens tokens, string context)
+    {
+        if (!string.IsNullOrEmpty(tokens.RefreshToken))
+        {
+            return;
+        }
+
+        this._onMissingRefreshTokenWarning(
+            $"Tidal returned no refresh token during {context}; automatic session renewal is DISABLED — " +
+            "Tidalarr will require a manual re-login when the access token expires. Ensure the OAuth scope " +
+            "includes 'offline_access' (TidalConstants.OAUTH_SCOPE).");
     }
 
     public async Task LogoutAsync()
@@ -339,7 +441,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
                 if (string.IsNullOrWhiteSpace(normalized.SessionId) && !string.IsNullOrEmpty(stored.RefreshToken))
                 {
                     // Stored tokens are structurally incomplete for API calls; attempt a refresh even if not expired.
-                    normalized = EnsureRequiredSessionFields(await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false));
+                    normalized = EnsureRequiredSessionFields(await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false));
                 }
 
                 if (string.IsNullOrWhiteSpace(normalized.SessionId))
@@ -358,7 +460,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
 
             if (stored != null && stored.IsExpired && !string.IsNullOrEmpty(stored.RefreshToken))
             {
-                TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
+                TidalTokens refreshed = await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false);
                 TidalTokens normalized = EnsureRequiredSessionFields(refreshed);
                 if (string.IsNullOrWhiteSpace(normalized.SessionId))
                 {
@@ -382,6 +484,48 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         }
     }
 
+    /// <summary>
+    /// Refreshes against the stored refresh token, but if Tidal rejects it as revoked / expired
+    /// (<see cref="TidalInvalidGrantException"/> from a 400 invalid_grant), clears the dead
+    /// persisted token first so subsequent <see cref="GetValidTokensAsync"/> calls fail fast with
+    /// "Not authenticated" instead of re-firing the same doomed refresh against Tidal forever
+    /// (the unbounded retry-storm this guards against).  Transient failures (network, 5xx) bubble
+    /// up untouched so the still-valid refresh token survives for a later retry.
+    /// </summary>
+    private async Task<TidalTokens> RefreshOrClearOnRevokedAsync(string refreshToken)
+    {
+        try
+        {
+            return await RefreshTokensAsync(refreshToken).ConfigureAwait(false);
+        }
+        catch (TidalInvalidGrantException)
+        {
+            // Cross-instance rotation guard. Tidal rotates the refresh token on every use, and this
+            // plugin runs TWO TidalOAuthService instances (the indexer service-provider + the
+            // download-client service-provider) over the SAME token file. When both refresh
+            // concurrently, the loser receives invalid_grant for a token the WINNER already rotated
+            // and persisted — and blindly clearing here would delete the winner's fresh tokens,
+            // forcing a full re-login (the recurring "daily re-login" bug). Before clearing, re-read
+            // the store: if the persisted refresh token is no longer the one we just tried, another
+            // instance already refreshed successfully — adopt its tokens instead of destroying them.
+            TidalTokens? current = await LoadStoredSessionAsync().ConfigureAwait(false);
+            if (current != null
+                && !string.IsNullOrEmpty(current.RefreshToken)
+                && !string.Equals(current.RefreshToken, refreshToken, StringComparison.Ordinal)
+                && !current.IsExpired)
+            {
+                this._currentTokens = current;
+                return current;
+            }
+
+            // The dead token is still the one on disk (or the store is empty/unreadable): it is
+            // genuinely revoked. Clear so subsequent GetValidTokensAsync calls fail fast instead of
+            // re-firing the same doomed refresh against Tidal forever.
+            await ClearCachedSessionAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     // IStreamingTokenProvider implementation for shared OAuth handler
     public async Task<string> GetAccessTokenAsync()
     {
@@ -396,7 +540,20 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
         }
     }
 
-    public async Task<string> RefreshTokenAsync()
+    public Task<string> RefreshTokenAsync()
+    {
+        lock (this._streamingRefreshSingleFlightLock)
+        {
+            if (this._streamingRefreshSingleFlight == null || this._streamingRefreshSingleFlight.IsCompleted)
+            {
+                this._streamingRefreshSingleFlight = RefreshTokenCoreAsync();
+            }
+
+            return this._streamingRefreshSingleFlight;
+        }
+    }
+
+    private async Task<string> RefreshTokenCoreAsync()
     {
         try
         {
@@ -406,7 +563,7 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
                 return string.Empty;
             }
 
-            TidalTokens refreshed = await RefreshTokensAsync(stored.RefreshToken).ConfigureAwait(false);
+            TidalTokens refreshed = await RefreshOrClearOnRevokedAsync(stored.RefreshToken).ConfigureAwait(false);
             return refreshed.AccessToken;
         }
         catch
@@ -434,7 +591,6 @@ public class TidalOAuthService(HttpClient httpClient, ITokenStore<TidalTokens>? 
     public void ClearAuthenticationCache()
     {
         this._currentTokens = null;
-        try { _ = this._tokenStorage.ClearAsync(); } catch { /* ignore */ }
     }
 
     public new bool SupportsRefresh => true;

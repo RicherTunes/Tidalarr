@@ -1,149 +1,112 @@
+# GitHub Actions mirror of .gitea/workflows/ci.yml (dual-platform CI parity).
+# Billing-blocked as of 2026-07; validated to build once Actions billing is restored.
+# Keep in sync with the .gitea copy -- patch both in the same PR.
+#
+# Jobs mirrored : secret-scan, lint, verify
+# Jobs omitted  : none (all tidalarr Gitea jobs are portable to GitHub)
+#
+# Translation vs .gitea/workflows/ci.yml:
+#   - Checkout     : actions/checkout@v4 with submodules:false, then initialize only Common
+#                    after rewriting the LAN Gitea URL to the GitHub raw-history mirror branch.
+#   - .NET SDK     : actions/setup-dotnet@v4 replaces the curl dotnet-install.sh block (both
+#                    lint and verify had the manual install; both now use the action)
+#   - PowerShell   : ubuntu-latest ships pwsh -- "Install PowerShell" tarball step removed
+#   - Docker CLI   : ubuntu-latest ships docker -- "Install Docker CLI" apt step removed
+#   - SourceLink   : -p:EnableSourceLink=false removed; GitHub origin maps correctly
+#   - CS2012 fix   : -m:1 -p:UseSharedCompilation=false retained (open parity gap from feedback)
+#   - schedule     : omitted to avoid surprise billing when credits are restored
 name: CI
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: read
 
 jobs:
-  parity-lint:
-    name: Parity Lint
+  secret-scan:
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: false
+      - name: Gitleaks secret scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITLEAKS_SHA256=ba6dbb656933921c775ee5a2d1c13a91046e7952e9d919f9bac4cec61d628e7d
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz -o /tmp/gitleaks.tgz
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --no-banner --redact --exit-code 1
 
+  lint:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
       - name: Init Common submodule
         shell: bash
         run: |
-          git config --local url.https://github.com/.insteadOf git@github.com:
-          git submodule sync -- ext/Lidarr.Plugin.Common
-          git submodule update --init --depth=1 -- ext/Lidarr.Plugin.Common
-
-      - name: Assert Common submodule initialized
+          set -euo pipefail
+          common_path="ext/Lidarr.Plugin.Common"
+          github_url="https://github.com/RicherTunes/Lidarr.Plugin.Common.git"
+          git submodule set-url -- "$common_path" "$github_url"
+          git submodule update --init -- "$common_path"
+      - name: Common submodule pin guard
         shell: bash
-        run: |
-          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
-            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
-            exit 1
-          fi
-          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
-          echo "✓ Common submodule initialized at $SHA"
-          if [ -f ext-common-sha.txt ]; then
-            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
-            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
-              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
-            fi
-          fi
-
-      - name: Show Common submodule SHA
-        run: |
-          echo "=== Submodule status ==="
-          git submodule status ext/Lidarr.Plugin.Common
-          echo ""
-          if [ -f ext-common-sha.txt ]; then
-            echo "=== ext-common-sha.txt ==="
-            cat ext-common-sha.txt
-          fi
-
-      - name: Run Parity Lint
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Common lint gates
         shell: pwsh
         run: |
-          $script = "ext/Lidarr.Plugin.Common/scripts/parity-lint.ps1"
-          if (-not (Test-Path $script)) {
-            Write-Error "FATAL: parity-lint.ps1 not found at $script - submodule likely not initialized"
+          $ErrorActionPreference = 'Stop'
+          $runner = './ext/Lidarr.Plugin.Common/scripts/ci/run-plugin-lint-gates.ps1'
+          if (-not (Test-Path $runner)) {
+            Write-Error "Shared lint runner not found: $runner"
             exit 1
           }
-          & $script -Mode ci -RepoPath (Resolve-Path .).Path
+          $global:LASTEXITCODE = 0
+          & $runner -RepoPath . -CommonRoot ext/Lidarr.Plugin.Common -Mode ci
+          $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+          exit $runnerExitCode
 
-  build:
+  verify:
+    if: ${{ github.server_url == 'https://github.com' }}
+    needs: [lint, secret-scan]
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
     steps:
-      - name: Checkout
-        # actions/checkout v4.3.0
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@v4
         with:
           submodules: false
-
-      - name: Init required submodule (Common only)
-        shell: pwsh
-        run: |
-          git config --local url.https://github.com/.insteadOf git@github.com:
-          git submodule sync -- ext/Lidarr.Plugin.Common
-          git submodule update --init --recursive --depth=1 -- ext/Lidarr.Plugin.Common
-
-      - name: Assert Common submodule initialized
+      - name: Init Common submodule
         shell: bash
         run: |
-          if [ ! -d "ext/Lidarr.Plugin.Common/scripts" ]; then
-            echo "::error::FATAL: ext/Lidarr.Plugin.Common/scripts not found - submodule not initialized"
-            exit 1
-          fi
-          SHA=$(git -C ext/Lidarr.Plugin.Common rev-parse --short HEAD 2>/dev/null || echo "<unknown>")
-          echo "✓ Common submodule initialized at $SHA"
-          if [ -f ext-common-sha.txt ]; then
-            EXPECTED=$(cat ext-common-sha.txt | tr -d '\n\r ' | cut -c1-7)
-            if [ -n "$EXPECTED" ] && [ "$SHA" != "<unknown>" ] && [ "${SHA:0:7}" != "$EXPECTED" ]; then
-              echo "::warning::Submodule SHA ($SHA) differs from pinned ($EXPECTED)"
-            fi
-          fi
-
-      - name: Setup .NET SDKs
-        # actions/setup-dotnet v4.3.1
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
-        with:
-          dotnet-version: |
-            8.0.x
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/NuGet.config') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Formatting check (repo-only)
-        if: github.event_name == 'pull_request'
-        shell: pwsh
-        run: |
-          # "repo-only" = whitespace formatting only, by design. This step runs BEFORE host
-          # assemblies are extracted, so full `dotnet format` cannot compile host-dependent
-          # projects and its semantic analyzers (IDE0001/IDE0009/IDE0008/IDE0059) fire
-          # non-deterministically (only when a project happens to compile). Whitespace formatting
-          # needs no compilation, so it is deterministic here. Semantic style is enforceable
-          # separately in a host-assembly-present job if desired. LidarrNative + host-type tests
-          # stay excluded (clean checkout has no host types).
-          dotnet format whitespace Tidalarr.sln --verify-no-changes -v minimal --exclude ext --exclude temp --exclude 'src/Tidalarr/Integration/LidarrNative' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrDownloadClientGuidParsingTests.cs' --exclude 'tests/Tidalarr.Tests/Unit/TidalLidarrIndexerSizeEstimationTests.cs'
-
-      - name: Sync-over-async guard
-        shell: pwsh
-        run: |
-          # lint-sync-over-async.ps1 accepts -Mode interactive|ci only (ValidateSet); the old
-          # `-Mode pr` failed param binding on every pull_request build. CI wants fail-hard → 'ci'.
-          pwsh -File ext/Lidarr.Plugin.Common/scripts/lint-sync-over-async.ps1 -Path . -Mode ci
-
-      - name: Setup Lidarr host assemblies (Docker, plugins branch)
+          set -euo pipefail
+          common_path="ext/Lidarr.Plugin.Common"
+          github_url="https://github.com/RicherTunes/Lidarr.Plugin.Common.git"
+          git submodule set-url -- "$common_path" "$github_url"
+          git submodule update --init -- "$common_path"
+      - name: Common submodule pin guard
         shell: bash
-        run: |
-          set -e
-          mkdir -p ext/Lidarr/_output/net8.0
-          if ! docker --version >/dev/null 2>&1; then echo "::error::Docker required to fetch Lidarr host assemblies"; exit 1; fi
-          IMAGE="ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913"
-          n=0; until docker pull "$IMAGE"; do n=$((n+1)); if [ "$n" -ge 3 ]; then echo "::error::docker pull failed after $n attempts ($IMAGE)"; exit 1; fi; echo "pull failed ($n), retry in 10s"; sleep 10; done
-          cid=$(docker create "$IMAGE")
-          docker cp "$cid:/app" ext/Lidarr/_extracted || docker cp "$cid:/opt/lidarr" ext/Lidarr/_extracted
-          docker rm "$cid" >/dev/null
-          find ext/Lidarr/_extracted -type f -name "*.dll" -exec cp {} ext/Lidarr/_output/net8.0 \;
-          test -f ext/Lidarr/_output/net8.0/Lidarr.dll || { echo "::error::Lidarr.dll missing after extraction"; exit 1; }
-          echo "Extracted $(ls ext/Lidarr/_output/net8.0/*.dll | wc -l) host assemblies"
-
-      - name: Run unified plugin pipeline (full build incl. host-bridge against real assemblies)
-        shell: pwsh
-        run: ./scripts/ci.ps1 -UseRealHostAssemblies
+        run: bash ext/Lidarr.Plugin.Common/scripts/repin-common-submodule.sh --verify-only --path ext/Lidarr.Plugin.Common
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Full local-ci verification
+        shell: bash
+        run: pwsh ./scripts/verify-local.ps1

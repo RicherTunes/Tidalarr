@@ -39,6 +39,13 @@ public class AuthFailureGateAdoptionTests
         return services;
     }
 
+    private static void SkipIfHostBridgeExcluded()
+    {
+#if EXCLUDE_HOST_BRIDGE
+        Skip.If(true, "Host bridge types are excluded in hostless CI.");
+#endif
+    }
+
     [Fact]
     public void TidalModule_RegistersAuthFailureGate_AsSingleton()
     {
@@ -93,9 +100,11 @@ public class AuthFailureGateAdoptionTests
     // in CLAUDE.md "Common helpers in use".
     // ------------------------------------------------------------------ //
 
-    [Fact]
+    [SkippableFact]
     public void TidalLidarrIndexer_DefinesAuthShortCircuitHelper()
     {
+        SkipIfHostBridgeExcluded();
+
         var type = Type.GetType(
             "Tidalarr.Integration.LidarrNative.TidalLidarrIndexer, Lidarr.Plugin.Tidalarr",
             throwOnError: false);
@@ -108,9 +117,11 @@ public class AuthFailureGateAdoptionTests
         Assert.Equal(typeof(bool), method!.ReturnType);
     }
 
-    [Fact]
+    [SkippableFact]
     public void TidalLidarrIndexer_DefinesRecordAuthOutcomeHelper()
     {
+        SkipIfHostBridgeExcluded();
+
         var type = Type.GetType(
             "Tidalarr.Integration.LidarrNative.TidalLidarrIndexer, Lidarr.Plugin.Tidalarr",
             throwOnError: false);
@@ -123,9 +134,11 @@ public class AuthFailureGateAdoptionTests
         Assert.Equal(typeof(void), method!.ReturnType);
     }
 
-    [Fact]
+    [SkippableFact]
     public void TidalLidarrDownloadClient_DefinesAuthShortCircuitHelper()
     {
+        SkipIfHostBridgeExcluded();
+
         var type = Type.GetType(
             "Tidalarr.Integration.LidarrNative.TidalLidarrDownloadClient, Lidarr.Plugin.Tidalarr",
             throwOnError: false);
@@ -138,9 +151,11 @@ public class AuthFailureGateAdoptionTests
         Assert.Equal(typeof(bool), method!.ReturnType);
     }
 
-    [Fact]
+    [SkippableFact]
     public void TidalLidarrDownloadClient_DefinesRecordAuthOutcomeHelper()
     {
+        SkipIfHostBridgeExcluded();
+
         var type = Type.GetType(
             "Tidalarr.Integration.LidarrNative.TidalLidarrDownloadClient, Lidarr.Plugin.Tidalarr",
             throwOnError: false);

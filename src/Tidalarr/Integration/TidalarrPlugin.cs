@@ -13,6 +13,8 @@ public sealed class TidalarrPlugin : IPlugin
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly TidalModule _module = new();
+    private readonly object _providerLifecycleLock = new();
+    private readonly Dictionary<ServiceProvider, ProviderLifecycleState> _providerLifecycle = new();
     private volatile ServiceProvider? _serviceProvider;
     private IPluginContext? _context;
     private TidalarrSettings _settings = new();
@@ -130,46 +132,167 @@ public sealed class TidalarrPlugin : IPlugin
 
     public ValueTask<IIndexer?> CreateIndexerAsync(CancellationToken cancellationToken = default)
     {
-        IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        TidalIndexerAdapter adapter = new(scope);
+        IServiceScope scope = CreateTrackedScope();
+        TidalIndexerAdapter adapter = CreateAdapterOrDisposeScope(scope, static s => new TidalIndexerAdapter(s));
         return ValueTask.FromResult<IIndexer?>(adapter);
     }
 
     public ValueTask<IDownloadClient?> CreateDownloadClientAsync(CancellationToken cancellationToken = default)
     {
-        IServiceScope scope = Services.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        TidalDownloadClientAdapter adapter = new(scope);
+        IServiceScope scope = CreateTrackedScope();
+        TidalDownloadClientAdapter adapter = CreateAdapterOrDisposeScope(scope, static s => new TidalDownloadClientAdapter(s));
         return ValueTask.FromResult<IDownloadClient?>(adapter);
     }
 
+    internal static TAdapter CreateAdapterOrDisposeScope<TAdapter>(
+        IServiceScope scope,
+        Func<IServiceScope, TAdapter> factory)
+    {
+        try
+        {
+            return factory(scope);
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
+    }
+
     /// <summary>
-    /// Atomically swaps the service provider. The old provider is NOT disposed because
-    /// concurrent callers (CreateIndexerAsync, CreateDownloadClientAsync) may still hold
-    /// a reference obtained from the <see cref="Services"/> getter. Disposing would cause
-    /// ObjectDisposedException. The old provider becomes unreachable once all active
-    /// operations complete and is collected by the GC. This is safe because all registered
-    /// services are managed objects with no unmanaged resource leaks.
+    /// Atomically swaps the service provider. Retired providers are disposed after
+    /// adapter scopes created from them are released, which prevents both provider
+    /// swap races and stale singleton timers from surviving settings rebuilds.
     /// </summary>
     private void RebuildServiceProvider()
     {
-        this._serviceProvider = this._module.BuildServiceProvider(this._settings);
+        ServiceProvider newProvider = this._module.BuildServiceProvider(this._settings);
+        ServiceProvider? oldProvider;
+
+        lock (this._providerLifecycleLock)
+        {
+            oldProvider = this._serviceProvider;
+            this._serviceProvider = newProvider;
+            this._providerLifecycle[newProvider] = new ProviderLifecycleState(newProvider);
+
+            if (oldProvider is not null && this._providerLifecycle.TryGetValue(oldProvider, out ProviderLifecycleState? oldState))
+            {
+                oldState.Retired = true;
+            }
+        }
+
+        TryDisposeRetiredProvider(oldProvider);
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (this._serviceProvider is IAsyncDisposable asyncDisposable)
+        List<ServiceProvider> providers;
+
+        lock (this._providerLifecycleLock)
         {
-            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            providers = [.. this._providerLifecycle.Keys];
+            this._providerLifecycle.Clear();
+            this._serviceProvider = null;
         }
-        else
+
+        foreach (ServiceProvider provider in providers)
         {
-            this._serviceProvider?.Dispose();
+            if (provider is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                provider.Dispose();
+            }
         }
-        this._serviceProvider = null;
 
         // Release the static HostGateRegistry background Timer so it does not
         // continue firing after the plugin AssemblyLoadContext is unloaded.
         this._module.Dispose();
+    }
+
+    private IServiceScope CreateTrackedScope()
+    {
+        ServiceProvider provider;
+        ProviderLifecycleState state;
+
+        lock (this._providerLifecycleLock)
+        {
+            provider = this._serviceProvider ?? throw new InvalidOperationException("Plugin services not initialized.");
+            if (!this._providerLifecycle.TryGetValue(provider, out state!))
+            {
+                state = new ProviderLifecycleState(provider);
+                this._providerLifecycle[provider] = state;
+            }
+
+            state.ActiveScopes++;
+        }
+
+        try
+        {
+            IServiceScope scope = provider.GetRequiredService<IServiceScopeFactory>().CreateScope();
+            return new TrackedServiceScope(scope, () => ReleaseTrackedScope(provider));
+        }
+        catch
+        {
+            ReleaseTrackedScope(provider);
+            throw;
+        }
+    }
+
+    private void ReleaseTrackedScope(ServiceProvider provider)
+    {
+        ProviderLifecycleState? stateToDispose = null;
+
+        lock (this._providerLifecycleLock)
+        {
+            if (!this._providerLifecycle.TryGetValue(provider, out ProviderLifecycleState? state))
+            {
+                return;
+            }
+
+            if (state.ActiveScopes > 0)
+            {
+                state.ActiveScopes--;
+            }
+
+            if (state.Retired && state.ActiveScopes == 0)
+            {
+                this._providerLifecycle.Remove(provider);
+                stateToDispose = state;
+            }
+        }
+
+        DisposeProvider(stateToDispose);
+    }
+
+    private void TryDisposeRetiredProvider(ServiceProvider? provider)
+    {
+        if (provider is null)
+        {
+            return;
+        }
+
+        ProviderLifecycleState? stateToDispose = null;
+
+        lock (this._providerLifecycleLock)
+        {
+            if (this._providerLifecycle.TryGetValue(provider, out ProviderLifecycleState? state) &&
+                state.Retired &&
+                state.ActiveScopes == 0)
+            {
+                this._providerLifecycle.Remove(provider);
+                stateToDispose = state;
+            }
+        }
+
+        DisposeProvider(stateToDispose);
+    }
+
+    private static void DisposeProvider(ProviderLifecycleState? state)
+    {
+        state?.Provider.Dispose();
     }
 
     private static TidalarrSettings MapToSettings(IDictionary<string, object?> map)
@@ -207,12 +330,8 @@ public sealed class TidalarrPlugin : IPlugin
         // Bool properties
         if (GetBoolValue(map, nameof(TidalarrSettings.EnableCache)) is { } enableCache)
             s.EnableCache = enableCache;
-        if (GetBoolValue(map, nameof(TidalarrSettings.IncludeMqa)) is { } includeMqa)
-            s.IncludeMqa = includeMqa;
         if (GetBoolValue(map, nameof(TidalarrSettings.ExtractFlac)) is { } extractFlac)
             s.ExtractFlac = extractFlac;
-        if (GetBoolValue(map, nameof(TidalarrSettings.ReEncodeAAC)) is { } reEncodeAac)
-            s.ReEncodeAAC = reEncodeAac;
         if (GetBoolValue(map, nameof(TidalarrSettings.SaveSyncedLyrics)) is { } saveLyrics)
             s.SaveSyncedLyrics = saveLyrics;
         if (GetBoolValue(map, nameof(TidalarrSettings.UseLRCLIB)) is { } useLrclib)
@@ -296,6 +415,63 @@ public sealed class TidalarrPlugin : IPlugin
         return null;
     }
 
+    private sealed class ProviderLifecycleState(ServiceProvider provider)
+    {
+        public ServiceProvider Provider { get; } = provider;
+        public int ActiveScopes { get; set; }
+        public bool Retired { get; set; }
+    }
+
+    private sealed class TrackedServiceScope(IServiceScope inner, Action release) : IServiceScope, IAsyncDisposable
+    {
+        private readonly IServiceScope inner = inner;
+        private readonly Action release = release;
+        private int disposed;
+
+        public IServiceProvider ServiceProvider => this.inner.ServiceProvider;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref this.disposed, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                this.inner.Dispose();
+            }
+            finally
+            {
+                this.release();
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref this.disposed, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                if (this.inner is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    this.inner.Dispose();
+                }
+            }
+            finally
+            {
+                this.release();
+            }
+        }
+    }
+
     private sealed class TidalarrSettingsProvider(TidalarrPlugin plugin) : ISettingsProvider
     {
         private readonly TidalarrPlugin _plugin = plugin;
@@ -341,9 +517,7 @@ public sealed class TidalarrPlugin : IPlugin
                 new SettingDefinition { Key = nameof(TidalarrSettings.EarlyReleaseLimit), DisplayName = "Early Download Limit", Description = "Pre-release download window in days.", DataType = SettingDataType.Integer, DefaultValue = 14 },
                 new SettingDefinition { Key = nameof(TidalarrSettings.EnableCache), DisplayName = "Enable Cache", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.CacheDuration), DisplayName = "Cache Duration", Description = "Cache TTL in minutes.", DataType = SettingDataType.Integer, DefaultValue = 15 },
-                new SettingDefinition { Key = nameof(TidalarrSettings.IncludeMqa), DisplayName = "Include MQA Masters", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.ExtractFlac), DisplayName = "Extract FLAC from M4A", DataType = SettingDataType.Boolean, DefaultValue = true },
-                new SettingDefinition { Key = nameof(TidalarrSettings.ReEncodeAAC), DisplayName = "Re-encode AAC Streams", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.SaveSyncedLyrics), DisplayName = "Save Synced Lyrics", DataType = SettingDataType.Boolean, DefaultValue = true },
                 new SettingDefinition { Key = nameof(TidalarrSettings.UseLRCLIB), DisplayName = "Use LRCLIB for Lyrics", DataType = SettingDataType.Boolean, DefaultValue = false },
                 new SettingDefinition { Key = nameof(TidalarrSettings.DownloadDelay), DisplayName = "Chunk Delay", Description = "Delay between chunk requests in ms.", DataType = SettingDataType.Integer, DefaultValue = 0 },
@@ -364,9 +538,7 @@ public sealed class TidalarrPlugin : IPlugin
                 [nameof(TidalarrSettings.EarlyReleaseLimit)] = 14,
                 [nameof(TidalarrSettings.EnableCache)] = true,
                 [nameof(TidalarrSettings.CacheDuration)] = 15,
-                [nameof(TidalarrSettings.IncludeMqa)] = true,
                 [nameof(TidalarrSettings.ExtractFlac)] = true,
-                [nameof(TidalarrSettings.ReEncodeAAC)] = false,
                 [nameof(TidalarrSettings.SaveSyncedLyrics)] = true,
                 [nameof(TidalarrSettings.UseLRCLIB)] = false,
                 [nameof(TidalarrSettings.DownloadDelay)] = 0,

@@ -39,17 +39,9 @@ public static class SettingsDisplay
         public const string DownloadPathLabel = "Download Path";
         public const string DownloadPathHelpText = "Destination folder for downloaded albums.";
 
-        public const int IncludeMqaOrder = 22;
-        public const string IncludeMqaLabel = "Include MQA Masters";
-        public const string IncludeMqaHelpText = "Allow Master (MQA) releases when available.";
-
         public const int ExtractFlacOrder = 23;
         public const string ExtractFlacLabel = "Extract FLAC from M4A";
         public const string ExtractFlacHelpText = "Convert M4A containers to FLAC when possible.";
-
-        public const int ReEncodeAACOrder = 24;
-        public const string ReEncodeAACLabel = "Re-encode AAC Streams";
-        public const string ReEncodeAACHelpText = "Transcode AAC streams to 320kbps AAC when HiRes/Lossless are unavailable.";
 
         public const int SaveSyncedLyricsOrder = 25;
         public const string SaveSyncedLyricsLabel = "Save Synced Lyrics";

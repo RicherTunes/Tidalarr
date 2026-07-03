@@ -5,7 +5,7 @@ Use this to bring every Lidarr streaming plugin repo in sync with the new isolat
 ## 1. Update submodules & shared tooling
 
 1. `git submodule update --remote --merge ext/Lidarr.Plugin.Common`
-2. Copy `scripts/ci.ps1`, `scripts/verify-local.ps1`, and `.github/workflows/packaging-gates.yml` into the target repo.
+2. Copy `scripts/ci.ps1`, `scripts/verify-local.ps1`, and the shared lint workflow pattern from `.gitea/workflows/ci.yml` into the target repo.
 3. Ensure the repo has an `artifacts/` folder (ignored in git) for packaging outputs.
 
 ## 2. Switch to the host-owned abstractions
@@ -32,7 +32,7 @@ Run `./scripts/ci.ps1` to confirm the manifest matches and the shared library ve
 
 ## 4. CI enforcement
 
-Every plugin should run `.github/workflows/packaging-gates.yml` in CI (which delegates to Common's reusable packaging gates workflow). This ensures:
+Every plugin should run the shared Common lint/parity gates in the Gitea-primary workflow (`.gitea/workflows/ci.yml`). Build/package verification should run through `scripts/ci.ps1` locally and through the workflow verify job when host assemblies and runner resources are available. Together these checks ensure:
 
 - Host assemblies align with the pinned version (via Common's shared CI scripts).
 - Manifest metadata is correct.
