@@ -66,4 +66,23 @@ public sealed class DockerE2ETests
         Skip.If(_fixture.SkipReason is not null, _fixture.SkipReason);
         await _fixture.AssertDownloadClientTestReturnsSensibleFailureAsync();
     }
+
+    // Feature B4: the Tidal Favorites import list is DryIoc-discoverable and appears in the host's
+    // import-list schema — proves the ImportListBase subclass is wired into the running host, not
+    // merely sandbox-loadable.
+    [SkippableFact]
+    [Trait("Category", "DockerE2E")]
+    public async Task Plugin_Loads_AppearsInImportListSchema()
+    {
+        Skip.If(_fixture.SkipReason is not null, _fixture.SkipReason);
+        await _fixture.AssertPluginAppearsInImportListSchemaAsync();
+    }
+
+    [SkippableFact]
+    [Trait("Category", "DockerE2E")]
+    public async Task ImportList_Test_WithEmptySettings_ReturnsSensibleFailure()
+    {
+        Skip.If(_fixture.SkipReason is not null, _fixture.SkipReason);
+        await _fixture.AssertImportListTestReturnsSensibleFailureAsync();
+    }
 }
