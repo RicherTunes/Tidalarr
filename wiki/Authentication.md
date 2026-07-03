@@ -43,10 +43,22 @@ plugin runtime uses Lidarr's configured plugin config root instead.)
 - Tokens are written through an `ITokenStore<TidalTokens>` abstraction
   (`src/Tidalarr/Infrastructure/Storage/`), stored with their expiry time.
 - When a token is near or past expiry, Tidalarr refreshes it automatically using
-  the refresh token. A single-flight gate (one `SemaphoreSlim`) ensures that
-  concurrent downloads trigger only **one** refresh, not a thundering herd.
+  the refresh token. Refreshes are deduplicated by refresh-token value, so
+  concurrent API calls that see the same expired token join one network refresh
+  instead of racing Tidal's refresh-token rotation.
+- Both the indexer and download client resolve credentials through the managed
+  token provider. It checks the stored `ExpiresAt` value before each API use and
+  proactively refreshes near-expiry tokens, so a long-running Lidarr session does
+  not keep using an expired access token.
+- If Tidal rejects an access token before its clock expiry, the shared OAuth
+  handler asks the managed token provider to refresh immediately. The provider
+  clears its cached Common session and re-primes from Tidal's persisted OAuth
+  state, so future requests use the renewed token.
 - Session fields (session id, country code) are recovered from the JWT claims
   (`sid`, `cc`) when the token response omits them.
+- If Tidal revokes the refresh token (for example after password changes,
+  manual logout, or account-side expiry), automatic renewal cannot recover; run
+  the sign-in flow again to issue a new refresh token.
 
 ## Region / market
 

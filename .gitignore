@@ -294,3 +294,6 @@ session.json
 pkce_state.json
 .aeskey
 *.trx
+
+# Local AI-tool artifact (GLM delegate diffs)
+.glm-delegate-diff/

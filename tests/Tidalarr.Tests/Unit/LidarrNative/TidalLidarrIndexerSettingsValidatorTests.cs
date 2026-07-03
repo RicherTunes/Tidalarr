@@ -27,15 +27,29 @@ public sealed class TidalLidarrIndexerSettingsValidatorTests
     }
 
     [Fact]
-    public void UnsupportedMarket_MessageListsSupportedValues()
+    public void InvalidFormatMarket_ProducesActionableError()
     {
-        var settings = new TidalLidarrIndexerSettings { TidalMarket = "ZZ" };
+        // The validator now checks FORMAT (2-letter ISO) instead of a fixed allowlist — Tidal rejects
+        // unknown codes at runtime, and the old allowlist both rejected the correct "GB" and accepted
+        // the wrong "UK". A wrong-length value still fails with a helpful message.
+        var settings = new TidalLidarrIndexerSettings { ConfigPath = "/config/Tidalarr", TidalMarket = "USA" };
         var result = _validator.Validate(settings);
 
-        Assert.False(result.IsValid);
         var error = result.Errors.Single(e => e.PropertyName == nameof(TidalLidarrIndexerSettings.TidalMarket));
-        Assert.Contains("US", error.ErrorMessage);
-        Assert.Contains("UK", error.ErrorMessage);
+        Assert.Contains("2-letter", error.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("GB")] // the correct ISO code the old allowlist WRONGLY rejected
+    [InlineData("UK")] // tolerated (normalized to GB at the API boundary)
+    [InlineData("US")]
+    [InlineData("JP")]
+    public void ValidTwoLetterMarket_PassesValidation(string market)
+    {
+        var settings = new TidalLidarrIndexerSettings { ConfigPath = "/config/Tidalarr", TidalMarket = market };
+        var result = _validator.Validate(settings);
+
+        Assert.DoesNotContain(result.Errors, e => e.PropertyName == nameof(TidalLidarrIndexerSettings.TidalMarket));
     }
 
     [Fact]

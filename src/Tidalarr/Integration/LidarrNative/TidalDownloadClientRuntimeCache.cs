@@ -58,7 +58,6 @@ internal sealed class TidalDownloadClientRuntimeCache
             RedirectUrl = string.Empty,
             DownloadPath = settings.DownloadPath,
             PreferredQuality = settings.PreferredQuality,
-            IncludeMqa = settings.IncludeMqa,
             ExtractFlac = settings.ExtractFlac,
             DownloadDelay = settings.DownloadDelay,
             MaxConcurrentTrackDownloads = settings.MaxConcurrentTrackDownloads,

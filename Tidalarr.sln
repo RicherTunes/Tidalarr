@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tidalarr.Tests", "tests\Tidalarr.Tests\Tidalarr.Tests.csproj", "{08EEBC7E-2379-403D-9737-55ED40391A1A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TidalCLI", "TidalCLI\TidalCLI.csproj", "{0FE0290D-E39B-4BEF-9AE1-0CDF70AAA98C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tidalarr.Parity.Tests", "tests\Tidalarr.Parity.Tests\Tidalarr.Parity.Tests.csproj", "{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,7 +74,20 @@ Global
 		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}.Release|x64.ActiveCfg = Release|Any CPU
 		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}.Release|x64.Build.0 = Release|Any CPU
 		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}.Release|x86.ActiveCfg = Release|Any CPU
-		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}.Release|x86.Build.0 = Release|Any CPU	EndGlobalSection
+		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3}.Release|x86.Build.0 = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|x64.Build.0 = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Debug|x86.Build.0 = Debug|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|x64.ActiveCfg = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|x64.Build.0 = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|x86.ActiveCfg = Release|Any CPU
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
@@ -80,7 +95,6 @@ Global
 		{DBE67B73-4952-48B6-86B8-D823D92067AD} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{08EEBC7E-2379-403D-9737-55ED40391A1A} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{B0F2CF14-B720-4F1B-AB28-C7FDF12BD9C3} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{5407BB62-6C16-4742-9ECB-989AEFFD8E8B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
-
-

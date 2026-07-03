@@ -1,5 +1,4 @@
 using System.IO;
-using System.Linq;
 using Lidarr.Plugin.Common.TestKit.Hosting;
 using Xunit;
 
@@ -19,7 +18,7 @@ namespace Tidalarr.Tests.Runtime;
 ///   - plugin mount path        : /config/plugins/RicherTunes/Tidalarr
 ///   - plugin DLL filename      : Lidarr.Plugin.Tidalarr.dll
 ///   - schema-entry substring   : "Tidal"
-///   - plugin DLL discovery     : src/Tidalarr/bin/{Release|Debug}/Lidarr.Plugin.Tidalarr.dll
+///   - plugin DLL discovery     : artifacts/publish -> package -> raw bin fallback
 /// </summary>
 public sealed class TidalarrLidarrContainerFixture
     : Lidarr.Plugin.Common.TestKit.Hosting.LidarrContainerFixture
@@ -30,7 +29,7 @@ public sealed class TidalarrLidarrContainerFixture
     }
 
     private static LidarrContainerOptions BuildOptions() => new(
-        DockerImage: "ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913",
+        DockerImage: "ghcr.io/hotio/lidarr:nightly-3.1.3.4970",
         ContainerName: "tidalarr-e2e",
         LidarrPort: 8690,
         PluginMountPath: "/config/plugins/RicherTunes/Tidalarr",
@@ -39,17 +38,14 @@ public sealed class TidalarrLidarrContainerFixture
         PluginEntrySubstring: "Tidal",
         RepoRootMarkerFile: "Tidalarr.sln");
 
-    private static string? FindTidalarrPluginDll(string repoRoot)
-    {
-        string[] candidates =
-        [
-            Path.Combine(repoRoot, "src", "Tidalarr", "bin", "Lidarr.Plugin.Tidalarr.dll"),
-            Path.Combine(repoRoot, "src", "Tidalarr", "bin", "Release", "Lidarr.Plugin.Tidalarr.dll"),
-            Path.Combine(repoRoot, "src", "Tidalarr", "bin", "Debug", "Lidarr.Plugin.Tidalarr.dll"),
-        ];
-
-        return candidates.FirstOrDefault(File.Exists);
-    }
+    private static string? FindTidalarrPluginDll(string repoRoot) =>
+        PluginArtifactResolver.FindPluginDll(
+            repoRoot,
+            "Lidarr.Plugin.Tidalarr.dll",
+            Path.Combine("src", "Tidalarr", "artifacts", "publish", "net8.0", "Release", "Lidarr.Plugin.Tidalarr.dll"),
+            Path.Combine("src", "Tidalarr", "bin", "Lidarr.Plugin.Tidalarr.dll"),
+            Path.Combine("src", "Tidalarr", "bin", "Release", "Lidarr.Plugin.Tidalarr.dll"),
+            Path.Combine("src", "Tidalarr", "bin", "Debug", "Lidarr.Plugin.Tidalarr.dll"));
 }
 
 /// <summary>
