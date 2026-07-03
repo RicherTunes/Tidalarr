@@ -19,7 +19,6 @@ using NzbDrone.Core.Localization;
 using NzbDrone.Core.Parser.Model;
 using NzbDrone.Core.RemotePathMappings;
 using Tidalarr.Application.Services;
-using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Mappers;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Streaming;
@@ -241,7 +240,7 @@ public class TidalLidarrDownloadClient(
                         // completion contract is unchanged).
                         if (!result.Success)
                         {
-                            await TryRecordTerminalReleaseSuppressionAsync(
+                            await TidalTerminalSuppressionRecorder.TryRecordAsync(
                                 ReleaseSuppressionStore, albumId, terminalRestrictions, this._logger).ConfigureAwait(false);
                         }
 
@@ -325,43 +324,11 @@ public class TidalLidarrDownloadClient(
 
     /// <summary>
     /// Durable terminal-release suppression store (Common-backed, keyed by album id). Overridable so tests
-    /// can inject a fake; defaults to the process-wide shared store for the "Tidalarr" plugin.
+    /// can inject a fake; defaults to the process-wide shared store for the "Tidalarr" plugin. The
+    /// suppress-on-terminal decision itself lives in the host-free <see cref="TidalTerminalSuppressionRecorder"/>
+    /// so it is CI-gated under the hermetic build.
     /// </summary>
     protected virtual ITidalReleaseSuppressionStore ReleaseSuppressionStore => TidalReleaseSuppressionStore.Shared;
-
-    /// <summary>
-    /// After a FAILED album download, records terminal-release suppression for the album if a permanent
-    /// per-track restriction was observed. Best-effort: a store failure is logged and swallowed so it can
-    /// never mask the original download failure. Extracted as an <c>internal static</c> seam so the
-    /// suppress-on-terminal / don't-suppress-otherwise decision is unit-testable without the host client.
-    /// </summary>
-    internal static async Task TryRecordTerminalReleaseSuppressionAsync(
-        ITidalReleaseSuppressionStore store,
-        string albumId,
-        IReadOnlyList<TidalTerminalRestriction> terminalRestrictions,
-        Logger logger)
-    {
-        var terminal = terminalRestrictions?.FirstOrDefault(t => t.Reason.IsPermanent());
-        if (terminal is null || string.IsNullOrWhiteSpace(albumId))
-        {
-            return;
-        }
-
-        try
-        {
-            await store.SuppressAsync(albumId, terminal.TrackId ?? string.Empty, terminal.Reason, CancellationToken.None).ConfigureAwait(false);
-            logger.Warn(
-                "Suppressed Tidal album {0} from future automatic searches after terminal track restriction ({1}: {2})",
-                albumId, terminal.TrackId, terminal.Reason);
-        }
-        catch (Exception storeException)
-        {
-            logger.Warn(
-                storeException,
-                "Failed to record terminal Tidal release suppression for album {0}; preserving original download failure",
-                albumId);
-        }
-    }
 
     public override IEnumerable<DownloadClientItem> GetItems()
         // GetSnapshot() evicts completed/failed items past the retention window as a side-effect.

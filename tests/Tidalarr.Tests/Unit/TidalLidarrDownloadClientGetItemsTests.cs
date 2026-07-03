@@ -66,6 +66,12 @@ public sealed class TidalLidarrDownloadClientGetItemsTests
         Assert.Equal(new[] { "dl-1", "dl-2", "dl-3" }, items.Select(i => i.DownloadId));
         // DownloadId-distinct is the load-bearing invariant.
         Assert.Equal(items.Count, items.Select(i => i.DownloadId).Distinct().Count());
+
+        // Completion contract: a Failed host-bridge status still projects to Lidarr's Failed status.
+        // Terminal-release suppression is a pure search-side side effect and must never soften this
+        // (an incomplete/failed album must keep reporting Failed so Lidarr can fall back to another source).
+        var failed = items.Single(i => i.DownloadId == "dl-3");
+        Assert.Equal(NzbDrone.Core.Download.DownloadItemStatus.Failed, failed.Status);
     }
 
     [Fact]

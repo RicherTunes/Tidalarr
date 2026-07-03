@@ -1,25 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Lidarr.Plugin.Common.HostBridge;
 using NLog;
 using Tidalarr.Application.Services;
 using Tidalarr.Core.Exceptions;
 using Tidalarr.Domain.Streaming;
-using Tidalarr.Integration.LidarrNative;
 using Xunit;
 
 namespace Tidalarr.Tests.Unit;
 
 /// <summary>
-/// The download-client side of terminal-release suppression: after a failed album download, if a
-/// permanent (terminal) per-track restriction was observed, record the album id in the store. Crucially,
-/// this is a pure search-side side effect — it does NOT change the album-completion contract (an incomplete
-/// album is still reported to Lidarr as Failed).
+/// The download-client side of terminal-release suppression, extracted into the host-free
+/// <see cref="TidalTerminalSuppressionRecorder"/> so it runs under the ExcludeHostBridge=true hermetic CI
+/// build. After a FAILED album download, if a permanent (terminal) per-track restriction was observed, the
+/// album id is recorded in the store. The completion contract (an incomplete album still reports Failed to
+/// Lidarr) is a pure download-client concern and is guarded separately in
+/// <c>TidalLidarrDownloadClientGetItemsTests</c> (host-coupled).
 /// </summary>
-public sealed class TidalTerminalSuppressionRecordingTests
+public sealed class TidalTerminalSuppressionRecorderTests
 {
     [Fact]
     public async Task TryRecord_WithTerminalRestriction_SuppressesAlbumId()
@@ -27,7 +26,7 @@ public sealed class TidalTerminalSuppressionRecordingTests
         var store = new RecordingStore();
         var terminals = new[] { new TidalTerminalRestriction("track-7", TidalStreamUnavailableReason.RightsRemoved) };
 
-        await TidalLidarrDownloadClient.TryRecordTerminalReleaseSuppressionAsync(
+        await TidalTerminalSuppressionRecorder.TryRecordAsync(
             store, "album-42", terminals, LogManager.GetCurrentClassLogger());
 
         Assert.Equal("album-42", store.LastAlbumId);
@@ -40,7 +39,7 @@ public sealed class TidalTerminalSuppressionRecordingTests
     {
         var store = new RecordingStore();
 
-        await TidalLidarrDownloadClient.TryRecordTerminalReleaseSuppressionAsync(
+        await TidalTerminalSuppressionRecorder.TryRecordAsync(
             store, "album-42", Array.Empty<TidalTerminalRestriction>(), LogManager.GetCurrentClassLogger());
 
         Assert.Null(store.LastAlbumId);
@@ -52,7 +51,7 @@ public sealed class TidalTerminalSuppressionRecordingTests
         var store = new RecordingStore();
         var terminals = new[] { new TidalTerminalRestriction("track-7", TidalStreamUnavailableReason.RightsRemoved) };
 
-        await TidalLidarrDownloadClient.TryRecordTerminalReleaseSuppressionAsync(
+        await TidalTerminalSuppressionRecorder.TryRecordAsync(
             store, "  ", terminals, LogManager.GetCurrentClassLogger());
 
         Assert.Null(store.LastAlbumId);
@@ -66,31 +65,10 @@ public sealed class TidalTerminalSuppressionRecordingTests
         var store = new ThrowingStore();
         var terminals = new[] { new TidalTerminalRestriction("track-7", TidalStreamUnavailableReason.RightsRemoved) };
 
-        var ex = await Record.ExceptionAsync(() => TidalLidarrDownloadClient.TryRecordTerminalReleaseSuppressionAsync(
+        var ex = await Record.ExceptionAsync(() => TidalTerminalSuppressionRecorder.TryRecordAsync(
             store, "album-42", terminals, LogManager.GetCurrentClassLogger()));
 
         Assert.Null(ex);
-    }
-
-    // Completion contract: an incomplete album (Failed host-bridge status) still projects to Lidarr's
-    // Failed status. Suppression is search-side only and must not soften this to Completed.
-    [Fact]
-    public void ProjectDownloadItems_FailedAlbum_StillReportsFailed()
-    {
-        var item = new HostBridgeDownloadItem
-        {
-            DownloadId = "dl-1",
-            AlbumId = "album-42",
-            Title = "Album",
-            Artist = "Artist",
-            OutputPath = "/x",
-        };
-        item.SetStatus(HostBridgeDownloadItemStatus.Failed);
-
-        var projected = TidalLidarrDownloadClient.ProjectDownloadItems(new[] { item }, clientInfo: null);
-
-        Assert.Single(projected);
-        Assert.Equal(NzbDrone.Core.Download.DownloadItemStatus.Failed, projected[0].Status);
     }
 
     private sealed class RecordingStore : ITidalReleaseSuppressionStore
