@@ -8,8 +8,10 @@ using Lidarr.Plugin.Common.Observability;
 using Lidarr.Plugin.Common.Services.Http;
 using Lidarr.Plugin.Common.Utilities;
 using Tidalarr.Core.Constants;
+using Tidalarr.Core.Exceptions;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
+using Tidalarr.Domain.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -256,6 +258,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+        await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content) ?? throw new InvalidOperationException("Failed to parse playback info");
@@ -310,6 +313,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
         HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
         TidalPlaybackInfoDto? dto = JsonSerializer.Deserialize<TidalPlaybackInfoDto>(content);
@@ -493,6 +497,69 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             ? ".flac"
             : ".m4a";
     }
+    /// <summary>
+    /// On a non-success playback-info response, classifies the failure and throws a
+    /// <see cref="TidalStreamUnavailableException"/> ONLY when the reason is permanent (rights removed /
+    /// asset delisted). Transient failures (auth, region/tier, not-ready, rate-limit, server, network) are
+    /// deliberately left untouched so the caller's existing <c>EnsureSuccessStatusCode()</c> path — and the
+    /// auth-failure gate / retry semantics that depend on the resulting <see cref="HttpRequestException"/>
+    /// — behave exactly as before. This is the only place a classified stream-unavailable exception is
+    /// thrown; it is the throw-site the audit found missing (the type had zero throw sites).
+    /// </summary>
+    private static async Task ThrowIfPermanentlyUnavailableAsync(
+        HttpResponseMessage response,
+        string trackId,
+        TidalQuality quality,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        int? subStatus = null;
+        string? userMessage = null;
+        try
+        {
+            string body = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using JsonDocument doc = JsonDocument.Parse(body);
+                JsonElement root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    if (root.TryGetProperty("subStatus", out JsonElement ss) && ss.ValueKind == JsonValueKind.Number && ss.TryGetInt32(out int s))
+                    {
+                        subStatus = s;
+                    }
+
+                    if (root.TryGetProperty("userMessage", out JsonElement um) && um.ValueKind == JsonValueKind.String)
+                    {
+                        userMessage = um.GetString();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort: an empty / unparseable error body just means we classify on the status code
+            // alone. The safety bias holds — only HTTP 404 is permanent, so a missing body never
+            // upgrades a transient failure to permanent.
+        }
+
+        TidalStreamUnavailableReason reason = TidalStreamRestrictionClassifier.Classify((int)response.StatusCode, subStatus, userMessage);
+        if (reason.IsPermanent())
+        {
+            throw new TidalStreamUnavailableException(
+                trackId,
+                quality,
+                $"Tidal stream permanently unavailable for track {trackId}: {userMessage ?? response.ReasonPhrase ?? response.StatusCode.ToString()} (HTTP {(int)response.StatusCode}, reason {reason})",
+                reason);
+        }
+
+        // Non-permanent — fall through; the caller's EnsureSuccessStatusCode() preserves prior behavior.
+    }
+
     private static async Task<string> ReadContentAsStringAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Content == null)

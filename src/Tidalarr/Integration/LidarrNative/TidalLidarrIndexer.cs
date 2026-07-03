@@ -190,6 +190,20 @@ public class TidalLidarrIndexer(
                 Settings.EarlyReleaseLimit, albumsBeforeEarlyReleaseFilter - albums.Count, albumsBeforeEarlyReleaseFilter);
         }
 
+        // Terminal-release suppression: withhold albums a prior grab failed on a permanently-unavailable
+        // track (rights removed / delisted) from AUTOMATIC searches — this is what stops the re-grab loop,
+        // since Lidarr's blocklist does not fire for this failure mode. An INTERACTIVE (user-initiated)
+        // search bypasses suppression so a user can recover a previously-restricted album.
+        bool isInteractiveSearch = (requestGenerator as TidalLidarrRequestGenerator)?.IsInteractiveSearch ?? false;
+        int albumsBeforeSuppression = albums.Count;
+        albums = TidalReleaseSuppressionFilter.Apply(albums, TidalReleaseSuppressionStore.Shared, isInteractiveSearch, this._logger);
+        if (albums.Count != albumsBeforeSuppression)
+        {
+            this._logger.Debug(
+                "Terminal-release suppression withheld {0} of {1} albums (interactive={2})",
+                albumsBeforeSuppression - albums.Count, albumsBeforeSuppression, isInteractiveSearch);
+        }
+
         foreach (TidalAlbumInfo album in albums)
         {
             // Create multiple releases per album - one for each available quality
@@ -510,8 +524,17 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
     private readonly TidalLidarrIndexerSettings _settings = settings;
     private readonly Logger _logger = logger;
 
+    /// <summary>
+    /// True when the most recent search this generator built was INTERACTIVE (user-initiated).
+    /// <see cref="TidalLidarrIndexer.FetchReleases"/> reads it after building the request chain to decide
+    /// whether terminal-release suppression is bypassed (interactive = user recovery override). RSS
+    /// (<see cref="GetRecentRequests"/>) is never interactive.
+    /// </summary>
+    public bool IsInteractiveSearch { get; private set; }
+
     public IndexerPageableRequestChain GetRecentRequests()
     {
+        IsInteractiveSearch = false;
         IndexerPageableRequestChain chain = new();
         // Tidal doesn't have a traditional RSS feed
         return chain;
@@ -519,6 +542,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetSearchRequests(AlbumSearchCriteria searchCriteria)
     {
+        IsInteractiveSearch = searchCriteria?.InteractiveSearch ?? false;
         IndexerPageableRequestChain chain = new();
         AddTiers(chain, TidalSearchPlan.Build(searchCriteria.ArtistQuery, searchCriteria.AlbumQuery).Tiers);
         return chain;
@@ -526,6 +550,7 @@ public class TidalLidarrRequestGenerator(TidalLidarrIndexerSettings settings, Lo
 
     public IndexerPageableRequestChain GetSearchRequests(ArtistSearchCriteria searchCriteria)
     {
+        IsInteractiveSearch = searchCriteria?.InteractiveSearch ?? false;
         IndexerPageableRequestChain chain = new();
         AddTiers(chain, TidalSearchPlan.Build(searchCriteria.ArtistQuery, album: null).Tiers);
         return chain;
@@ -640,6 +665,13 @@ public class TidalLidarrParser : IParseIndexerResponse
             // window (T-3 — previously accepted/validated but never consulted).
             IReadOnlyList<TidalAlbumInfo> albums = TidalEarlyReleaseFilter.Apply(
                 searchResults.Albums, this._settings?.EarlyReleaseLimit, DateTime.UtcNow);
+
+            // Terminal-release suppression. This fallback parser path carries no search criteria, so it is
+            // treated as a non-interactive (automatic) search — suppressed albums are withheld. The
+            // interactive-recovery override lives on the primary FetchReleases path, which does have the
+            // criteria.
+            albums = TidalReleaseSuppressionFilter.Apply(
+                albums, TidalReleaseSuppressionStore.Shared, isInteractiveSearch: false, this._logger);
 
             // Convert Tidal albums to Lidarr ReleaseInfo - create multiple releases per album (one per quality)
             foreach (TidalAlbumInfo album in albums)
