@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies (2026-07-03)
 
-- `ext/Lidarr.Plugin.Common` submodule re-pinned to **`a894567d`** (`commonVersion` **`1.18.0-dev`**) so tidalarr stays on the current Common mainline after the template-scaffold CI gates and SettingsBinder malformed-Guid preservation fix. No tidalarr source changes required.
+- `ext/Lidarr.Plugin.Common` submodule re-pinned to **`a5e9dca`** (`commonVersion` **`1.18.0-dev`**) so tidalarr stays on the current Common mainline after the redirect-target DNS/303 SSRF hardening. No tidalarr source changes required: the Tidal API, OAuth, orchestrator, and chunk downloader clients already disable automatic redirects, so Common validates handled media redirects before the next-hop request and keeps DNS-resolution failures retryable while hard-blocking private/unsafe targets.
 
 ### Added (import list — Tidal Favorites, 2026-07-03)
 
