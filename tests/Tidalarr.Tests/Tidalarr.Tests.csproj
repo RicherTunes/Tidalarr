@@ -116,6 +116,8 @@
          legitimate reason to stay excluded. It silently failed on main (2026-07-01) with nobody
          noticing because CI never compiled it; re-included so the hermetic gate actually runs it. -->
     <Compile Include="TidalModelMapperTests.cs" />
+    <!-- Host-free pagination tests (codex PR #56) — re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientPaginationTests.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />
