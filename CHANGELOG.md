@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Dependencies (2026-07-03)
+
+- `ext/Lidarr.Plugin.Common` submodule re-pinned to **`a894567d`** (`commonVersion` **`1.18.0-dev`**) so tidalarr stays on the current Common mainline after the template-scaffold CI gates and SettingsBinder malformed-Guid preservation fix. No tidalarr source changes required.
+
 ### Added (import list — Tidal Favorites, 2026-07-03)
 
 - **Tidal Favorites import list** — the first streaming-catalog import list in the ecosystem. `TidalFavoritesImportList : ImportListBase<TidalFavoritesImportListSettings>` (DryIoc-discovered like the indexer/download client) mirrors the authenticated user's Tidal library into Lidarr: favorite albums (as artist + album entries) and/or favorite artists (as artist entries), selectable via a **Favorites To Import** dropdown (albums and artists / albums only / artists only). Appears in Settings → Import Lists → Add → Tidalarr Favorites.
