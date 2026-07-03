@@ -91,6 +91,9 @@
     <Compile Remove="Unit\TidalLidarrDownloadClientSnapshotTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientGetItemsTests.cs" />
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
+    <!-- Favorites import list tests reference NzbDrone.Core.ImportLists (host) — excluded in host-free CI.
+         Subfolder path is not caught by the root-level Tidal*.cs remove, so remove it explicitly. -->
+    <Compile Remove="Unit\LidarrNative\TidalFavoritesImportListTests.cs" />
     <!-- Exclude Unit/* diagnostics tests that use IReadOnlyList patterns -->
     <Compile Remove="Unit\IndexerDiagnosticsTests.cs" />
     <Compile Remove="Unit\DownloadValidationDiagnosticsTests.cs" />
@@ -118,6 +121,8 @@
     <Compile Include="TidalModelMapperTests.cs" />
     <!-- Host-free pagination tests (codex PR #56) — re-included after the broad Tidal*.cs remove. -->
     <Compile Include="TidalApiClientPaginationTests.cs" />
+    <!-- Host-free favorites-import-list API tests (feat B4) — re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientFavoritesTests.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />

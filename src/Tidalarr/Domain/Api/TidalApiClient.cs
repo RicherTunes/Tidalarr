@@ -198,6 +198,104 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             CoverArtId: album.CoverArtId,
             IsAvailable: album.IsAvailable);
     }
+    public async Task<List<TidalAlbumInfo>> GetFavoriteAlbumsAsync(CancellationToken cancellationToken = default)
+    {
+        List<TidalAlbumDto> dtos = await FetchAllFavoritesAsync<TidalAlbumDto>("albums", cancellationToken).ConfigureAwait(false);
+        return [.. dtos.Select(MapToTidalAlbumInfo)];
+    }
+
+    public async Task<List<TidalArtistInfo>> GetFavoriteArtistsAsync(CancellationToken cancellationToken = default)
+    {
+        List<TidalArtistDto> dtos = await FetchAllFavoritesAsync<TidalArtistDto>("artists", cancellationToken).ConfigureAwait(false);
+        return [.. dtos.Select(MapToTidalArtistInfo)];
+    }
+
+    /// <summary>
+    /// Pages through a user favorites collection (<c>users/{userId}/favorites/{collection}</c>),
+    /// unwrapping each <c>{ created, item }</c> envelope. Terminates on an empty page or once every
+    /// server-declared item has been collected, and fails loudly (rather than truncating) if the
+    /// declared total is not reached. Requires a session with a non-empty UserId.
+    /// </summary>
+    private async Task<List<TDto>> FetchAllFavoritesAsync<TDto>(string collection, CancellationToken cancellationToken)
+    {
+        TidalTokens tokens = await this._authService.GetValidTokensAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(tokens.UserId))
+        {
+            throw new InvalidOperationException(
+                "Tidal favorites require an authenticated user, but the session has no user id. " +
+                "Complete the OAuth login (configure the Tidalarr indexer and paste a fresh redirect URL) before syncing favorites.");
+        }
+
+        string endpoint = $"users/{tokens.UserId}/favorites/{collection}";
+        string logEndpoint = $"users/{{userId}}/favorites/{collection}";
+        Dictionary<string, string> baseParameters = new()
+        {
+            ["sessionId"] = tokens.SessionId,
+            ["countryCode"] = tokens.CountryCode,
+            ["limit"] = TidalConstants.FAVORITES_PAGE_LIMIT.ToString()
+        };
+
+        List<TDto> allItems = [];
+        int declaredTotal = 0;
+        int offset = 0;
+        int seenEnvelopes = 0;
+
+        for (int page = 0; page < TidalConstants.FAVORITES_MAX_PAGES; page++)
+        {
+            Dictionary<string, string> pageParameters = new(baseParameters) { ["offset"] = offset.ToString() };
+
+            HttpRequestMessage request = this.NewRequestBuilder()
+                .Endpoint(endpoint)
+                .QueryParams(pageParameters)
+                .BearerToken(tokens.AccessToken)
+                .WithStreamingDefaults("Tidalarr/1.0.0")
+                .Build();
+            System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+            using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: logEndpoint);
+            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+            sw.Stop();
+            this._logger.LogApiCallCompleted(service: "tidal", endpoint: logEndpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
+            _ = response.EnsureSuccessStatusCode();
+            string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);
+            TidalPagedItemsDto<TidalFavoriteItemDto<TDto>>? dto =
+                JsonSerializer.Deserialize<TidalPagedItemsDto<TidalFavoriteItemDto<TDto>>>(content)
+                ?? throw new InvalidOperationException($"Failed to parse favorites response for {collection}.");
+
+            if (offset == 0)
+            {
+                declaredTotal = dto.totalNumberOfItems;
+            }
+
+            List<TidalFavoriteItemDto<TDto>> pageItems = dto.items ?? [];
+            if (pageItems.Count == 0)
+            {
+                // No more data. If this falls short of the declared total the integrity check
+                // below throws instead of returning a partial list.
+                break;
+            }
+
+            // Unwrap the { created, item } envelope; skip any null inner item defensively.
+            allItems.AddRange(pageItems.Where(i => i.item is not null).Select(i => i.item!));
+            seenEnvelopes += pageItems.Count;
+            offset += pageItems.Count;
+
+            if (declaredTotal <= 0 || seenEnvelopes >= declaredTotal)
+            {
+                break;
+            }
+        }
+
+        // Integrity is measured against envelopes paged through (not unwrapped items) so a rare
+        // null inner item can't masquerade as truncated pagination.
+        if (declaredTotal > 0)
+        {
+            Lidarr.Plugin.Common.Services.Http.PagedResponseValidator.Validate(seenEnvelopes, declaredTotal, $"tidal-favorites-{collection}");
+        }
+
+        return allItems;
+    }
+
     public Task<TidalSearchResults> SearchAsync(string query, int limit = 100, CancellationToken cancellationToken = default)
     {
         return SearchAsync(query, limit, countryCode: null, cancellationToken);

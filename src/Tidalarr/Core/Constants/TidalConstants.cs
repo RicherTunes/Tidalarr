@@ -47,5 +47,15 @@ public static class TidalConstants
     public const int DEFAULT_SEARCH_LIMIT = 100;
     public const int MAX_SEARCH_LIMIT = 1000;
     public const int DEFAULT_ITEM_LIMIT = 1000;
+
+    // Favorites (import-list) pagination. Tidal's users/{id}/favorites/{albums,artists}
+    // endpoints page with limit/offset; 50 is the server's conventional page size and keeps
+    // each request cheap while a large library still pages through completely.
+    public const int FAVORITES_PAGE_LIMIT = 50;
+
+    // Defensive upper bound on favorites pages, guarding against a server that misreports
+    // totalNumberOfItems (or never advances) so pagination can never loop unbounded. At 50
+    // items/page this covers 500k favorited items — far beyond any real Tidal library.
+    public const int FAVORITES_MAX_PAGES = 10_000;
 }
 
