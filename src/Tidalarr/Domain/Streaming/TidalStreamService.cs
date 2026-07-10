@@ -8,9 +8,9 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
     private readonly ITidalCore _apiClient = apiClient;
     private readonly TidalManifestParser _manifestParser = manifestParser;
 
-    public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality)
+    public Task<TidalStreamInfo> GetStreamInfoAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
-        return this._apiClient.GetStreamInfoAsync(trackId, quality);
+        return this._apiClient.GetStreamInfoAsync(trackId, quality, cancellationToken);
     }
 
     public Task<TidalStreamInfo> GetStreamInfoWithManifestParsingAsync(string trackId, TidalQuality quality, string manifest, string manifestMimeType)
@@ -67,11 +67,11 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
 
 
     // Provide parsed manifest with codec/container details for enhanced downloads
-    public async Task<TidalManifest> GetParsedManifestAsync(string trackId, TidalQuality quality)
+    public async Task<TidalManifest> GetParsedManifestAsync(string trackId, TidalQuality quality, CancellationToken cancellationToken = default)
     {
         try
         {
-            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality).ConfigureAwait(false);
+            TidalPlaybackInfoDto playback = await this._apiClient.GetPlaybackInfoAsync(trackId, quality, cancellationToken).ConfigureAwait(false);
             TidalManifest parsed = this._manifestParser.ParseManifest(playback.manifest ?? string.Empty, playback.manifestMimeType ?? string.Empty);
             string? encryptionType = playback.encryptionType;
             bool isEncrypted = !string.IsNullOrWhiteSpace(encryptionType) && !string.Equals(encryptionType, "NONE", StringComparison.OrdinalIgnoreCase);
@@ -88,7 +88,7 @@ public class TidalStreamService(ITidalCore apiClient, TidalManifestParser manife
         catch (NotSupportedException)
         {
             // Fallback: build a minimal manifest from legacy stream info
-            TidalStreamInfo info = await GetStreamInfoAsync(trackId, quality).ConfigureAwait(false);
+            TidalStreamInfo info = await GetStreamInfoAsync(trackId, quality, cancellationToken).ConfigureAwait(false);
             return new TidalManifest(
                 ChunkUrls: info.ChunkUrls,
                 Codec: "MP4A",
