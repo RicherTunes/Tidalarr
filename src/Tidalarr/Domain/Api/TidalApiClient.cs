@@ -63,7 +63,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
@@ -95,7 +95,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw2 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope2 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw2.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw2.Elapsed);
@@ -142,7 +142,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
                 .Build();
             System.Diagnostics.Stopwatch sw3 = System.Diagnostics.Stopwatch.StartNew();
             using IDisposable scope3 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
             await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
             sw3.Stop();
             this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw3.Elapsed);
@@ -252,7 +252,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
                 .Build();
             System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
             using IDisposable scope = this._logger.LogApiCallStarted(service: "tidal", endpoint: logEndpoint);
-            HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
             await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
             sw.Stop();
             this._logger.LogApiCallCompleted(service: "tidal", endpoint: logEndpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw.Elapsed);
@@ -326,7 +326,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw4 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope4 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw4.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw4.Elapsed);
@@ -354,7 +354,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
@@ -412,24 +412,7 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .Build();
         System.Diagnostics.Stopwatch sw5 = System.Diagnostics.Stopwatch.StartNew();
         using IDisposable scope5 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
-        HttpResponseMessage response;
-        try
-        {
-            response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-        {
-            // ExecuteWithRetryAsync disposes throttled responses and surfaces retry exhaustion as an
-            // HttpRequestException, so a persistent 429 would otherwise never reach
-            // ReportRateLimitStatusAsync. The Retry-After header is gone with the disposed response,
-            // so report the same conservative default backoff ReportRateLimitStatusAsync uses when
-            // no usable hint is present.
-            if (this._rateLimitReporter is not null)
-            {
-                await this._rateLimitReporter.ReportRateLimitAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false);
-            }
-            throw;
-        }
+        HttpResponseMessage response = await this.ExecuteWithRetryReporting429Async(request, cancellationToken).ConfigureAwait(false);
         await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
         sw5.Stop();
         this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw5.Elapsed);
@@ -752,6 +735,32 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
     private static bool HasEncoding(HttpResponseMessage response, string encoding)
     {
         return response.Content?.Headers?.ContentEncoding?.Any(e => string.Equals(e, encoding, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    /// <summary>
+    /// Wraps Common's <c>ExecuteWithRetryAsync</c> so 429 retry exhaustion still feeds the
+    /// rate-limit reporter. The retry helper disposes throttled responses and surfaces exhaustion
+    /// as an <see cref="HttpRequestException"/>, so a persistent 429 would otherwise never reach
+    /// <see cref="ReportRateLimitStatusAsync"/> — the reporter stayed blind while Tidal was
+    /// actively throttling us. The Retry-After header is gone with the disposed response, so
+    /// report the same conservative default backoff <see cref="ReportRateLimitStatusAsync"/> uses
+    /// when no usable hint is present. Every endpoint method MUST route through this helper
+    /// instead of calling <c>ExecuteWithRetryAsync</c> directly.
+    /// </summary>
+    private async Task<HttpResponseMessage> ExecuteWithRetryReporting429Async(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            if (this._rateLimitReporter is not null)
+            {
+                await this._rateLimitReporter.ReportRateLimitAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+            }
+            throw;
+        }
     }
 
     /// <summary>

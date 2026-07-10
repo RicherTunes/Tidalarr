@@ -126,6 +126,9 @@
     <!-- Host-free playback-info hardening tests (retry / rate-limit-report / permanent-404 parity) —
          re-included after the broad Tidal*.cs remove. -->
     <Compile Include="TidalApiClientPlaybackInfoHardeningTests.cs" />
+    <!-- Host-free 429-retry-exhaustion parity tests (stream-info + every ExecuteWithRetryAsync +
+         ReportRateLimitStatusAsync endpoint) — re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientStreamInfoHardeningTests.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />

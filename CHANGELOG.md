@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (api — 429-exhaustion rate-limit reporting on every endpoint, 2026-07-10)
+
+- **A persistent 429 now feeds `IRateLimitReporter` on EVERY `TidalApiClient` endpoint, not just playback-info.** `GetStreamInfoAsync` (and the same shape in `GetTrackAsync`, `GetAlbumAsync`, `GetAlbumTracksAsync`, `SearchAsync`, and the favorites pager behind `GetFavoriteAlbumsAsync`/`GetFavoriteArtistsAsync`) had a dead 429-report branch: Common's `ExecuteWithRetryAsync` disposes throttled responses and surfaces retry exhaustion as an `HttpRequestException`, so the post-call `ReportRateLimitStatusAsync(response)` never saw an exhausted 429 — the reporter stayed blind exactly while Tidal was actively throttling. The `GetPlaybackInfoAsync` fix (filtered `catch` on `HttpStatusCode.TooManyRequests` reporting the conservative 60s default, then rethrowing) is now a single private helper, `ExecuteWithRetryReporting429Async`, that every endpoint routes through — including `GetPlaybackInfoAsync` itself, whose inline copy collapsed into it. (`TidalApiClientStreamInfoHardeningTests` pins all six endpoint entry points)
+
 ### Fixed (download — chunk-provider hardening, 2026-07-10)
 
 - **Cancellation now propagates into manifest resolution.** `TidalStreamService.GetStreamInfoAsync` / `GetParsedManifestAsync` accept a `CancellationToken` (default-valued, so existing callers keep compiling) and forward it to `TidalApiClient`'s playback-info/stream-info calls; `TidalChunkStreamProvider.GetStreamAsync` passes the caller's token instead of dropping it, so cancelling a download aborts the manifest fetch promptly instead of letting it complete. (`TidalChunkStreamProviderTests`)
