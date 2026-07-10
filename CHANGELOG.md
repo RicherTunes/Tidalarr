@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies (2026-07-10)
 
+- `ext/Lidarr.Plugin.Common` submodule re-pinned to **`12dd294`** (`commonVersion` **`1.18.0-dev`**) — Common main's 416/containment/LRCLIB hardening merge: 416 resume clean-restart, album-root containment on the naming seam, LRCLIB artist verification — no plugin source changes required. `ext-common-sha.txt` matches the checked-out submodule HEAD.
 - `ext/Lidarr.Plugin.Common` submodule re-pinned to **`d3cc1c3`** (`commonVersion` **`1.18.0-dev`**) — brings the `SimpleDownloadOrchestrator` naming + payload-validation extension seams (`BuildTrackOutputPath` / `ValidateDownloadedPayload`) the adoption above builds on, plus their thread-safety documentation and OCE-contract/telemetry test pins. `ext-common-sha.txt` matches the checked-out submodule HEAD.
 
 ### Dependencies (2026-07-03)
