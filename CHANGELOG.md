@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (download — payload validation, 2026-07-10)
+
+- **Non-audio payloads can no longer reach Lidarr's import as fake audio files.** A CDN/API error body served as HTTP 200 (an HTML soft-404, a JSON problem document) used to land on disk as a `.m4a`/`.flac` and be handed to import — the failure class qobuz hit live. `TidalDownloadOrchestrator` (new, `Application/Services/`) subclasses Common's `SimpleDownloadOrchestrator` and wires its new `ValidateDownloadedPayload` seam to Common's canonical `DownloadPayloadValidator` (text/HTML/JSON detection + audio magic bytes: fLaC, ftyp/M4A, OggS, RIFF, ID3). A rejected payload fails just that track — deleted from disk, feeding the existing AlbumCompletionPolicy incomplete⇒Failed contract. Runs with the FINAL path after post-processing on every download path (album loop and direct track downloads, both the chunk-provider and URL engines). `TidalModule.CreateOrchestrator` now returns it, still passing `metadataApplier: null` so Common's ISRC-writing default applier stays active. (`TidalDownloadOrchestratorTests`)
+
+### Fixed (dev tooling, 2026-07-10)
+
+- `scripts/test.ps1` now builds with `-m:1 -p:UseSharedCompilation=false` — the CLI/tests/plugin projects all reference the Common submodule's Abstractions project, and parallel msbuild nodes raced on its output (`CS2012 cannot open ... for writing`), intermittently failing local test builds. Same fix class the CI workflows already carry.
+
+### Dependencies (2026-07-10)
+
+- `ext/Lidarr.Plugin.Common` submodule re-pinned to **`d3cc1c3`** (`commonVersion` **`1.18.0-dev`**) — brings the `SimpleDownloadOrchestrator` naming + payload-validation extension seams (`BuildTrackOutputPath` / `ValidateDownloadedPayload`) the adoption above builds on, plus their thread-safety documentation and OCE-contract/telemetry test pins. `ext-common-sha.txt` matches the checked-out submodule HEAD.
+
 ### Dependencies (2026-07-03)
 
 - `ext/Lidarr.Plugin.Common` submodule re-pinned to **`a5e9dca`** (`commonVersion` **`1.18.0-dev`**) so tidalarr stays on the current Common mainline after the redirect-target DNS/303 SSRF hardening. No tidalarr source changes required: the Tidal API, OAuth, orchestrator, and chunk downloader clients already disable automatic redirects, so Common validates handled media redirects before the next-hop request and keeps DNS-resolution failures retryable while hard-blocking private/unsafe targets.

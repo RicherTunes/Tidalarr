@@ -63,8 +63,13 @@ try {
 
     # MSBuild properties to pass for test builds
     # PluginPackagingDisable=true prevents ILRepack from making types internal
+    # -m:1 + UseSharedCompilation=false: the CLI/tests/plugin projects all reference the
+    # Common submodule's Abstractions project; parallel msbuild nodes race on its output
+    # (CS2012 "cannot open ... for writing") — same fix the CI workflows carry.
     $msbuildProps = @(
         "-p:PluginPackagingDisable=true"
+        "-m:1"
+        "-p:UseSharedCompilation=false"
     )
 
     if ($ExcludeHostBridge) {
