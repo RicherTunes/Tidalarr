@@ -451,7 +451,9 @@ public class TidalModule : StreamingPluginModule
             return (url, ext);
         }
 
-        return new SimpleDownloadOrchestrator(
+        // TidalDownloadOrchestrator = SimpleDownloadOrchestrator + the payload-validation seam
+        // (rejects HTML/JSON error bodies served as 200 before they reach Lidarr's import as fake audio).
+        return new Application.Services.TidalDownloadOrchestrator(
             serviceName: ModuleName,
             httpClient: httpClient,
             getAlbumAsync: getAlbum,
@@ -461,7 +463,6 @@ public class TidalModule : StreamingPluginModule
             maxConcurrentTracks: maxConcurrentTracks,
             streamProvider: chunkProvider,
             metadataApplier: null,
-            logger: null,
             postProcessor: postProcessor,
             telemetrySink: telemetrySink);
     }
