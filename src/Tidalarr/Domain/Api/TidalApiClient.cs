@@ -410,7 +410,32 @@ public class TidalApiClient(HttpClient httpClient, ITidalAuth authService, IStre
             .BearerToken(tokens.AccessToken)
             .WithStreamingDefaults("Tidalarr/1.0.0")
             .Build();
-        HttpResponseMessage response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        System.Diagnostics.Stopwatch sw5 = System.Diagnostics.Stopwatch.StartNew();
+        using IDisposable scope5 = this._logger.LogApiCallStarted(service: "tidal", endpoint: endpoint);
+        HttpResponseMessage response;
+        try
+        {
+            response = await this._httpClient.ExecuteWithRetryAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            // ExecuteWithRetryAsync disposes throttled responses and surfaces retry exhaustion as an
+            // HttpRequestException, so a persistent 429 would otherwise never reach
+            // ReportRateLimitStatusAsync. The Retry-After header is gone with the disposed response,
+            // so report the same conservative default backoff ReportRateLimitStatusAsync uses when
+            // no usable hint is present.
+            if (this._rateLimitReporter is not null)
+            {
+                await this._rateLimitReporter.ReportRateLimitAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+            }
+            throw;
+        }
+        await ReportRateLimitStatusAsync(response).ConfigureAwait(false);
+        sw5.Stop();
+        this._logger.LogApiCallCompleted(service: "tidal", endpoint: endpoint, statusCode: (int)response.StatusCode, success: response.IsSuccessStatusCode, duration: sw5.Elapsed);
+        // Permanent-restriction classification stays AFTER the transport-level retry — a 404 is not a
+        // retryable status, so ExecuteWithRetryAsync returns it on the FIRST attempt without retrying —
+        // and BEFORE EnsureSuccessStatusCode, mirroring the sibling GetStreamInfoAsync exactly.
         await ThrowIfPermanentlyUnavailableAsync(response, trackId, quality, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
         string content = await ReadContentAsStringAsync(response, cancellationToken).ConfigureAwait(false);

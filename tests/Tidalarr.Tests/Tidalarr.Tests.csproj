@@ -123,6 +123,9 @@
     <Compile Include="TidalApiClientPaginationTests.cs" />
     <!-- Host-free favorites-import-list API tests (feat B4) — re-included after the broad Tidal*.cs remove. -->
     <Compile Include="TidalApiClientFavoritesTests.cs" />
+    <!-- Host-free playback-info hardening tests (retry / rate-limit-report / permanent-404 parity) —
+         re-included after the broad Tidal*.cs remove. -->
+    <Compile Include="TidalApiClientPlaybackInfoHardeningTests.cs" />
     <!-- Integration tests that reference FluentValidation.Results -->
     <Compile Remove="SilverMedalIntegrationTests.cs" />
     <Compile Remove="EndToEndIntegrationTests.cs" />

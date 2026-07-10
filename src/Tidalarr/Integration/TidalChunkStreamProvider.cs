@@ -29,7 +29,7 @@ namespace Tidalarr.Integration
             TidalManifest? manifest = null;
             try
             {
-                manifest = await this._streamService.GetParsedManifestAsync(trackId, tidalQuality).ConfigureAwait(false);
+                manifest = await this._streamService.GetParsedManifestAsync(trackId, tidalQuality, cancellationToken).ConfigureAwait(false);
             }
             catch (TidalStreamUnavailableException ex) when (ex.Reason.IsPermanent())
             {
@@ -40,9 +40,11 @@ namespace Tidalarr.Integration
                 TidalTerminalRestrictionScope.Record(trackId, ex.Reason);
                 throw;
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Transient / other: ignore and fall back to the legacy stream-info path.
+                // Transient / other: ignore and fall back to the legacy stream-info path. Cancellation is
+                // deliberately excluded — a cancelled download must abort promptly, not double the API
+                // load by re-resolving through the legacy path.
             }
 
             if (manifest != null && manifest.ChunkUrls?.Any() == true)
@@ -66,7 +68,7 @@ namespace Tidalarr.Integration
             TidalStreamInfo info;
             try
             {
-                info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality).ConfigureAwait(false);
+                info = await this._streamService.GetStreamInfoAsync(trackId, tidalQuality, cancellationToken).ConfigureAwait(false);
             }
             catch (TidalStreamUnavailableException ex) when (ex.Reason.IsPermanent())
             {
