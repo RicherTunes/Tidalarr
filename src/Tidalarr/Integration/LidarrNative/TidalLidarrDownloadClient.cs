@@ -87,12 +87,14 @@ public class TidalLidarrDownloadClient(
 
     /// <summary>
     /// Resolve (or lazily build) the runtime for the current settings via the process-wide
-    /// <see cref="TidalDownloadClientRuntimeCache"/>. Returns null when ConfigPath is empty.
-    /// Replaces the old double-checked-lock <c>EnsureServicesInitialized()</c> pattern,
-    /// gaining automatic invalidation when ConfigPath changes.
+    /// <see cref="TidalRuntimeCache"/> (shared with the indexer + import list — D-12, so all
+    /// three host classes resolve the SAME singleton TidalOAuthService over one token file).
+    /// Returns null when ConfigPath is empty. Replaces the old double-checked-lock
+    /// <c>EnsureServicesInitialized()</c> pattern, gaining automatic invalidation when
+    /// ConfigPath changes.
     /// </summary>
-    private Task<TidalDownloadClientRuntime?> GetRuntimeAsync(CancellationToken ct = default)
-        => TidalDownloadClientRuntimeCache.Shared.GetAsync(Settings, ct);
+    private Task<TidalRuntime?> GetRuntimeAsync(CancellationToken ct = default)
+        => TidalRuntimeCache.Shared.GetForDownloadClientAsync(Settings, ct);
 
     /// <summary>
     /// Synchronous shim for callers in sync Lidarr host-contract methods (Test, GetParser).
@@ -101,9 +103,9 @@ public class TidalLidarrDownloadClient(
     /// SynchronizationContext captures the calling thread. Credential-change invalidation still
     /// fires through the cache.
     /// </summary>
-    private TidalDownloadClientRuntime? EnsureServicesInitialized()
+    private TidalRuntime? EnsureServicesInitialized()
     {
-        TidalDownloadClientRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
+        TidalRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
         if (runtime is null)
         {
             this._logger.Warn("Tidal download client runtime not available (ConfigPath empty?)");
@@ -133,7 +135,7 @@ public class TidalLidarrDownloadClient(
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Download");
         try
         {
-            TidalDownloadClientRuntime? rt = EnsureServicesInitialized();
+            TidalRuntime? rt = EnsureServicesInitialized();
             if (rt is null)
             {
                 throw new InvalidOperationException("Tidal download client runtime unavailable — ConfigPath may be empty.");
@@ -528,7 +530,7 @@ public class TidalLidarrDownloadClient(
             }
 
             // Initialize services and test authentication (via cache — invalidates on ConfigPath change).
-            TidalDownloadClientRuntime? testRt = EnsureServicesInitialized();
+            TidalRuntime? testRt = EnsureServicesInitialized();
             if (testRt is null)
             {
                 failures.Add(new ValidationFailure("ConfigPath", "Tidal runtime could not be initialized — ConfigPath may be empty."));
@@ -573,7 +575,7 @@ public class TidalLidarrDownloadClient(
             // it mask the original failure.
             try
             {
-                TidalDownloadClientRuntime? runtimeForGate = EnsureServicesInitialized();
+                TidalRuntime? runtimeForGate = EnsureServicesInitialized();
                 if (runtimeForGate is not null)
                 {
                     RecordAuthOutcomeFromException(runtimeForGate.ServiceProvider, ex);
@@ -654,7 +656,7 @@ public class TidalLidarrDownloadClient(
 
     public void Dispose()
     {
-        // Runtime lifetime is managed by TidalDownloadClientRuntimeCache (graveyard pattern).
+        // Runtime lifetime is managed by TidalRuntimeCache (graveyard pattern).
         // Instance-level disposal is a no-op; the cache disposes runtimes after the linger window.
     }
 

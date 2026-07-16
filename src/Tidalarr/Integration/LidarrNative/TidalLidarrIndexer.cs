@@ -42,12 +42,13 @@ public class TidalLidarrIndexer(
 
     /// <summary>
     /// Resolve (or lazily build) the runtime for the current settings from the process-wide
-    /// <see cref="TidalIndexerRuntimeCache"/>. Returns the cached runtime if credentials haven't
-    /// changed; builds a fresh one and parks the old one in the graveyard otherwise. Returns null
-    /// when ConfigPath is empty.
+    /// <see cref="TidalRuntimeCache"/> (shared with the download client + import list — D-12).
+    /// Returns the cached runtime if the credential set (ConfigPath) hasn't changed; builds a
+    /// fresh one and parks the old one in the graveyard otherwise. Returns null when ConfigPath
+    /// is empty.
     /// </summary>
-    private Task<TidalIndexerRuntime?> GetRuntimeAsync(CancellationToken ct = default)
-        => TidalIndexerRuntimeCache.Shared.GetAsync(Settings, ct);
+    private Task<TidalRuntime?> GetRuntimeAsync(CancellationToken ct = default)
+        => TidalRuntimeCache.Shared.GetForIndexerAsync(Settings, ct);
 
     /// <summary>
     /// Synchronous shim used by callers in sync host-contract paths (e.g. <see cref="GetParser"/>).
@@ -56,11 +57,11 @@ public class TidalLidarrIndexer(
     /// SynchronizationContext captures the calling thread. Credential-change invalidation still fires
     /// through the cache.
     /// </summary>
-    private TidalIndexerRuntime? EnsureServicesInitialized()
+    private TidalRuntime? EnsureServicesInitialized()
     {
         // SYNC-OVER-ASYNC: callers (GetParser) are sync Lidarr host contracts.
         // Task.Run avoids deadlock when a SynchronizationContext captures the thread.
-        TidalIndexerRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
+        TidalRuntime? runtime = Task.Run(() => GetRuntimeAsync()).GetAwaiter().GetResult();
         if (runtime is null)
         {
             this._logger.Warn("Tidal indexer runtime not available (ConfigPath empty?)");
@@ -81,7 +82,7 @@ public class TidalLidarrIndexer(
 
     public override IParseIndexerResponse GetParser()
     {
-        TidalIndexerRuntime? rt = EnsureServicesInitialized();
+        TidalRuntime? rt = EnsureServicesInitialized();
         IServiceProvider sp = rt?.ServiceProvider
             ?? throw new InvalidOperationException("Tidal indexer runtime unavailable — ConfigPath may be empty.");
         return new TidalLidarrParser(Settings, sp, this._logger);
@@ -93,7 +94,7 @@ public class TidalLidarrIndexer(
     {
         using PluginLogContext ctx = PluginLogContext.Push("Tidalarr", "Search", provider: "tidal:api");
 
-        TidalIndexerRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
+        TidalRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
         if (rt is null)
         {
             this._logger.Error("Tidal indexer runtime unavailable (ConfigPath empty?)");
@@ -262,7 +263,7 @@ public class TidalLidarrIndexer(
             }
 
             // Initialize services (async; await gives the cache a chance to invalidate on cred change).
-            TidalIndexerRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
+            TidalRuntime? rt = await GetRuntimeAsync().ConfigureAwait(false);
             if (rt is null)
             {
                 failures.Add(new ValidationFailure("ConfigPath", "Tidal runtime could not be initialized — ConfigPath may be empty."));
@@ -311,6 +312,14 @@ public class TidalLidarrIndexer(
                         {
                             return; // Error already added to failures
                         }
+
+                        // D-12: the runtime is keyed on ConfigPath only, so pasting a fresh
+                        // redirect URL no longer rebuilds the provider (which used to hand the
+                        // token manager a clean in-memory session for free). Drop the cached
+                        // session explicitly so the next token fetch reloads the
+                        // freshly-exchanged tokens from the shared TidalOAuthService instead of
+                        // serving a time-valid-but-superseded access token until it expires.
+                        (testSp.GetService<Lidarr.Plugin.Common.Interfaces.IStreamingTokenProvider>())?.ClearAuthenticationCache();
                     }
                     else
                     {
@@ -339,7 +348,7 @@ public class TidalLidarrIndexer(
             // safely by the helper.
             try
             {
-                TidalIndexerRuntime? runtimeForGate = await GetRuntimeAsync().ConfigureAwait(false);
+                TidalRuntime? runtimeForGate = await GetRuntimeAsync().ConfigureAwait(false);
                 if (runtimeForGate is not null)
                 {
                     RecordAuthOutcomeFromException(runtimeForGate.ServiceProvider, ex);
