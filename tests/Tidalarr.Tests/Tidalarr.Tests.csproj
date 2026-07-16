@@ -90,6 +90,7 @@
     <Compile Remove="Unit\TidalLidarrDownloadClientSettingsTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientSnapshotTests.cs" />
     <Compile Remove="Unit\TidalLidarrDownloadClientGetItemsTests.cs" />
+    <Compile Remove="Unit\TidalLidarrDownloadClientTotalSizeTests.cs" />
     <Compile Remove="Unit\LidarrNative\TidalLidarrParserProtocolTests.cs" />
     <!-- Favorites import list tests reference NzbDrone.Core.ImportLists (host) — excluded in host-free CI.
          Subfolder path is not caught by the root-level Tidal*.cs remove, so remove it explicitly. -->
