@@ -13,9 +13,17 @@ namespace Tidalarr.Tests.Unit;
 [Trait("Category", "Unit")]
 public class TidalDownloadRemovalCoordinatorDeleteErrorTests
 {
-    [Fact]
+    [SkippableFact]
     public void Remove_WhenDeleteFails_InvokesOnDeleteError()
     {
+        // The Unix failure injection below revokes directory write permission, but a
+        // privileged process (root — e.g. the Gitea CI container) bypasses permission
+        // checks entirely, so the delete succeeds and the injection is void. The Windows
+        // FileShare.None lock is not affected. Skip only in that root-on-Unix case.
+        Skip.If(
+            !OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess,
+            "Directory write-permission failure injection cannot work as root on Unix.");
+
         var registry = new TidalDownloadCancellationRegistry();
         var tracker = new HostBridgeDownloadTrackerStore<HostBridgeDownloadItem>();
 
