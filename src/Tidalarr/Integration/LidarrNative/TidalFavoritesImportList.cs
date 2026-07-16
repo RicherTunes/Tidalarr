@@ -56,7 +56,7 @@ public class TidalFavoritesImportList(
 
     private async Task<IList<ImportListItemInfo>> FetchInternalAsync(CancellationToken cancellationToken = default)
     {
-        TidalIndexerRuntime? runtime = await TidalImportListRuntimeCache.Shared.GetAsync(Settings, cancellationToken).ConfigureAwait(false);
+        TidalRuntime? runtime = await TidalRuntimeCache.Shared.GetForImportListAsync(Settings, cancellationToken).ConfigureAwait(false);
         if (runtime is null)
         {
             this._logger.Error("Tidal favorites import list runtime unavailable (Config Path empty?)");
@@ -87,7 +87,7 @@ public class TidalFavoritesImportList(
 
     private async Task TestInternalAsync(List<ValidationFailure> failures, CancellationToken cancellationToken = default)
     {
-        TidalIndexerRuntime? runtime = await TidalImportListRuntimeCache.Shared.GetAsync(Settings, cancellationToken).ConfigureAwait(false);
+        TidalRuntime? runtime = await TidalRuntimeCache.Shared.GetForImportListAsync(Settings, cancellationToken).ConfigureAwait(false);
         if (runtime is null)
         {
             failures.Add(new ValidationFailure(nameof(Settings.ConfigPath),

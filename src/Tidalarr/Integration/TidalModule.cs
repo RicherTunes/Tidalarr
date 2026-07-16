@@ -373,22 +373,16 @@ public class TidalModule : StreamingPluginModule
             return;
         }
 
-        // Tear down the two static runtime caches on plugin unload. Each holds an
+        // Tear down the single shared runtime cache on plugin unload (D-12 collapsed the
+        // former indexer/download-client/import-list caches into one). It holds an
         // IServiceProvider whose HttpClients would otherwise linger in the old ALC until GC.
         // ResetAsync is async; hop to thread pool to avoid deadlocking on captured-context dispose.
 #if !SKIP_HOST_BRIDGE
         PluginLifecycle.RegisterShutdown(
-            "TidalIndexerRuntimeCache",
+            "TidalRuntimeCache",
             static () =>
             {
-                try { Task.Run(() => TidalIndexerRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
-                catch { /* teardown errors are not actionable */ }
-            });
-        PluginLifecycle.RegisterShutdown(
-            "TidalDownloadClientRuntimeCache",
-            static () =>
-            {
-                try { Task.Run(() => TidalDownloadClientRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
+                try { Task.Run(() => TidalRuntimeCache.Shared.ResetAsync()).GetAwaiter().GetResult(); }
                 catch { /* teardown errors are not actionable */ }
             });
 #endif

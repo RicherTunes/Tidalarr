@@ -45,8 +45,8 @@ public class DeadSettingsGuardTests
         "TidalIndexerSettings.cs",
         "TidalDownloadClientSettings.cs",
         "TidalarrSettings.cs",
-        "TidalIndexerRuntimeCache.cs",
-        "TidalDownloadClientRuntimeCache.cs",
+        "TidalRuntimeCache.cs",
+        "TidalRuntime.cs",
         "TidalarrPlugin.cs",
     ];
 
