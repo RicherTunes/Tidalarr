@@ -1,18 +1,25 @@
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Security;
 using Lidarr.Plugin.Common.Services.Authentication;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Tidalarr.Core.Interfaces;
 using Tidalarr.Core.Models;
 
 namespace Tidalarr.Integration;
 
 // IStreamingTokenProvider implementation backed by StreamingTokenManager.
+// The logger is optional (default null) so DI graphs without logging — and existing
+// direct constructions — keep working; when present, refresh failures are logged
+// (T-5: they used to be swallowed silently).
 internal sealed class ManagedTokenProvider(
     StreamingTokenManager<TidalTokens, TidalCredentials> manager,
-    IServiceProvider services) : IStreamingTokenProvider
+    IServiceProvider services,
+    ILogger<ManagedTokenProvider>? logger = null) : IStreamingTokenProvider
 {
     private readonly StreamingTokenManager<TidalTokens, TidalCredentials> manager = manager;
     private readonly IServiceProvider services = services;
+    private readonly ILogger<ManagedTokenProvider>? logger = logger;
     private readonly object refreshSingleFlightLock = new();
     private Task<string>? refreshSingleFlight;
 
@@ -70,10 +77,16 @@ internal sealed class ManagedTokenProvider(
                     {
                         await this.manager.RefreshSessionAsync(GetCredentials()).ConfigureAwait(false);
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         // OAuth state is already refreshed. If Common cannot re-prime now,
                         // the next GetAccessTokenAsync call will reload from the OAuth service.
+                        // Best-effort by design, but never silent (T-5). Redacted: exception
+                        // messages from the auth stack can carry token material.
+                        this.logger?.LogDebug(
+                            "Tidal token manager re-prime after OAuth refresh failed ({ExceptionType}): {Reason}. The next GetAccessTokenAsync call will reload from the OAuth service.",
+                            ex.GetType().Name,
+                            Sanitize.SafeErrorMessage(ex.Message));
                     }
 
                     return refreshedAccessToken;
@@ -84,8 +97,16 @@ internal sealed class ManagedTokenProvider(
             TidalTokens session = await this.manager.GetValidSessionAsync(GetCredentials()).ConfigureAwait(false);
             return session.AccessToken ?? string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
+            // Contract: a failed refresh surfaces as an empty token (callers treat it as
+            // "re-authentication required"), but it must never be SILENT (T-5) — auth was
+            // degrading with zero log signal. Redacted: exception messages from the auth
+            // stack can carry token material, so only the type name + sanitized reason go out.
+            this.logger?.LogWarning(
+                "Tidal token refresh failed ({ExceptionType}): {Reason}. Returning an empty token; re-authenticate if this persists.",
+                ex.GetType().Name,
+                Sanitize.SafeErrorMessage(ex.Message));
             return string.Empty;
         }
     }
