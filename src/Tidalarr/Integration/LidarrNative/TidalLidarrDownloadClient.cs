@@ -179,6 +179,12 @@ public class TidalLidarrDownloadClient(
             // string is baked into the download item by itemFactory below.
             string outputPath = BuildOutputPath(remoteAlbum);
 
+            // Queue 0/0 fix: seed the tracker item's TotalSize from the grabbed release's size
+            // estimate (the indexer computes it per quality tier via Common's AlbumSizeEstimator)
+            // so ProjectDownloadItems can derive RemainingSize from progress instead of Lidarr's
+            // queue showing "0/0" for the whole download.
+            long totalSizeBytes = remoteAlbum.Release?.Size ?? 0L;
+
             // HostBridgeDownloadOrchestrator (Common Wave A item 2):
             //   snapshot → generate downloadId → insert into tracker → fire-and-forget doWork → return id
             //
@@ -187,21 +193,8 @@ public class TidalLidarrDownloadClient(
             return _downloadOrchestrator.StartTrackedDownloadAsync<TidalDownloadItem, TidalLidarrDownloadClientSettings>(
                 settings: Settings,
                 tracker: ActiveDownloads,
-                itemFactory: (_, downloadId) =>
-                {
-                    TidalDownloadItem item = new()
-                    {
-                        DownloadId = downloadId,
-                        AlbumId = albumId,
-                        Title = albumTitle,
-                        Artist = artistName,
-                        OutputPath = outputPath,
-                        StartedAt = DateTime.UtcNow
-                    };
-                    item.SetStatus(HostBridgeDownloadItemStatus.Downloading);
-                    item.SetProgress(0);
-                    return item;
-                },
+                itemFactory: (_, downloadId) => CreateTrackedDownloadItem(
+                    downloadId, albumId, albumTitle, artistName, outputPath, totalSizeBytes),
                 doWork: async (_, downloadId, _, ct) =>
                 {
                     try
@@ -324,6 +317,35 @@ public class TidalLidarrDownloadClient(
     }
 
     /// <summary>
+    /// Builds the tracker item inserted when a download starts. Extracted as an <c>internal static</c>
+    /// seam (like <see cref="ProjectDownloadItems"/>) so the item-creation contract — in particular
+    /// that <see cref="HostBridgeDownloadItem.TotalSize"/> is seeded from the release's size estimate
+    /// (queue 0/0 fix) — is unit-testable without constructing the host download client.
+    /// </summary>
+    internal static TidalDownloadItem CreateTrackedDownloadItem(
+        string downloadId,
+        string albumId,
+        string albumTitle,
+        string artistName,
+        string outputPath,
+        long totalSizeBytes)
+    {
+        TidalDownloadItem item = new()
+        {
+            DownloadId = downloadId,
+            AlbumId = albumId,
+            Title = albumTitle,
+            Artist = artistName,
+            OutputPath = outputPath,
+            StartedAt = DateTime.UtcNow,
+            TotalSize = Math.Max(0L, totalSizeBytes)
+        };
+        item.SetStatus(HostBridgeDownloadItemStatus.Downloading);
+        item.SetProgress(0);
+        return item;
+    }
+
+    /// <summary>
     /// Durable terminal-release suppression store (Common-backed, keyed by album id). Overridable so tests
     /// can inject a fake; defaults to the process-wide shared store for the "Tidalarr" plugin. The
     /// suppress-on-terminal decision itself lives in the host-free <see cref="TidalTerminalSuppressionRecorder"/>
@@ -438,7 +460,11 @@ public class TidalLidarrDownloadClient(
             item.DownloadId,
             deleteData,
             ActiveDownloads,
-            ActiveDownloadCancellations);
+            ActiveDownloadCancellations,
+            // D-5: a failed deleteData directory delete used to be swallowed silently (no
+            // onDeleteError callback), leaving orphaned downloads on disk with zero log signal.
+            onDeleteError: ex => this._logger.Warn(
+                ex, "Failed to delete downloaded data while removing Tidal download {0}", item.DownloadId));
 
         if (removal.Removed)
         {

@@ -95,6 +95,17 @@ Add under **Settings → Import Lists → Add → Tidalarr Favorites** to mirror
 
 > Lidarr resolves import-list entries by name (then MusicBrainz); Tidal favorites are matched by artist/album name rather than a Tidal catalog id.
 
+## Terminal release suppression
+
+Some tracks are permanently unavailable on Tidal (rights removed / catalog delisting) even though they still appear on an album's tracklist. No quality tier of such an album can ever complete, and Lidarr's blocklist does not fire for this failure mode — so without intervention the same album would be re-grabbed on every scheduled search, forever.
+
+Tidalarr suppresses these automatically:
+
+- When an album download fails because at least one track is **permanently** unavailable (an HTTP 404 from Tidal's playback-info endpoint — the only signal classified as permanent), the album is recorded in a bounded, disk-persisted suppression store with a 30-day TTL.
+- Suppressed albums are withheld from **automatic/RSS** search results, which stops the re-grab loop.
+- An **interactive** (user-initiated) search still offers suppressed albums, so you can recover an album immediately if it becomes available again — no need to wait out the TTL.
+- Transient failures (auth, region/tier restrictions, rate limits, server errors, network) are never suppressed — classification deliberately errs on the transient side so a recoverable album is never hidden.
+
 ## Getting Started
 
 ```bash

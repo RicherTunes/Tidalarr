@@ -193,7 +193,8 @@ public class TidalModule : StreamingPluginModule
             sp.GetService<TidalIndexerSettings>(),
             sp.GetService<ILogger<TidalResponseCache>>()));
         _ = services.AddSingleton<TidalRateLimiter>();
-        _ = services.AddSingleton<PerformanceMonitor>();
+        // PerformanceMonitor is registered once in RegisterSharedLibraryServices (called first,
+        // above) — a second AddSingleton here left two descriptors of one conceptual singleton.
 
         // Domain services
         _ = services.AddScoped<TidalQualityDetector>();

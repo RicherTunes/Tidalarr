@@ -44,6 +44,23 @@ public class TidalModuleDiTests
         _ = Assert.IsType<TidalRateLimiter>(limiter);
     }
 
+    // PerformanceMonitor was double-registered (RegisterSharedLibraryServices AND ConfigureServices
+    // each called AddSingleton<PerformanceMonitor>()), leaving two descriptors of what is
+    // conceptually one shared monitor — any IEnumerable<PerformanceMonitor> consumer (or a future
+    // decorator) would see two instances. Pin: exactly one registration.
+    [Fact]
+    public void PerformanceMonitor_IsRegisteredExactlyOnce()
+    {
+        ServiceCollection services = new();
+        TidalIndexerSettings indexerSettings = new() { RedirectUrl = "https://tidal.com/android/login/auth?code=x&state=y", ConfigPath = Path.GetTempPath() };
+        _ = services.AddSingleton(indexerSettings);
+        TidalModule.RegisterServices(services);
+
+        int registrations = services.Count(d => d.ServiceType == typeof(PerformanceMonitor));
+
+        Assert.Equal(1, registrations);
+    }
+
     // ---- IQueryOptimizer consumer-switch (Common #611 HeuristicQueryOptimizer) ----
     //
     // TidalSearchService takes an optional IQueryOptimizer ctor parameter and, when
