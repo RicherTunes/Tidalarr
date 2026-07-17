@@ -76,6 +76,50 @@ jobs:
           $runnerExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
           exit $runnerExitCode
 
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_VERSION: 8.0.x
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install PowerShell
+        shell: bash
+        run: |
+          set -e
+          curl -sSL https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz -o /tmp/pwsh.tgz
+          mkdir -p /opt/pwsh
+          tar -xzf /tmp/pwsh.tgz -C /opt/pwsh
+          chmod +x /opt/pwsh/pwsh
+          echo "/opt/pwsh" >> "$GITHUB_PATH"
+      - name: Install .NET SDK
+        shell: bash
+        run: |
+          set -e
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+          bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
+          echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+          "$HOME/.dotnet/dotnet" --version
+      - name: Dependency vulnerability gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scanner = './ext/Lidarr.Plugin.Common/scripts/ci/check-vulnerable-packages.ps1'
+          if (-not (Test-Path $scanner)) {
+            Write-Error "Shared vulnerability scanner not found: $scanner"
+            exit 1
+          }
+          $global:LASTEXITCODE = 0
+          & $scanner -Target Tidalarr.sln
+          $scanExitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
+          exit $scanExitCode
+
   verify:
     needs: [lint, secret-scan]
     runs-on: ubuntu-latest
