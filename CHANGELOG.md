@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-17
+
 ### Changed (chore: Common repin + dependency CVE gate, 2026-07-16)
 
 - **`ext/Lidarr.Plugin.Common` repinned** `12dd294` → `b4b3145` (`ext-common-sha.txt` updated in lockstep). Picks up: OAuth refresh cancellation/timeout hardening in `OAuthStreamingAuthenticationService` (tidal's `TidalOAuthService` overrides the legacy `RefreshTokensInternalAsync(string)` seam, which still works unchanged; the new cancellable overload can be adopted later — no action required now), the shared dependency-CVE scan gate (`ext/Lidarr.Plugin.Common/scripts/ci/check-vulnerable-packages.ps1`), a `System.Security.Cryptography.Xml` 8.0.3 transitive floor in Common, queue-v2 opt-in groundwork, and removal of the dead `TokenDelegatingHandler` + `HostConcurrencyGate` helpers (zero tidalarr references, verified).
