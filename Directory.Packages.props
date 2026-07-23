@@ -39,8 +39,10 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
     <!-- System.Text.Json 8.x for .NET 8 runtime compatibility -->
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
-    <!-- 8.0.2 has GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (High). Force 8.0.3+
-         to clear the Security Audit gate; arrives transitively via Microsoft.IdentityModel. -->
+    <!-- 8.0.2 had GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (High); the 2026-07 advisory
+         wave (CVE-2026-50527 / CVE-2026-47304 et al.) then flagged 8.0.0-8.0.3, patched in
+         8.0.4 — the current Security Audit floor. Arrives transitively via
+         Microsoft.IdentityModel. -->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.4" />
   </ItemGroup>
   <ItemGroup Label="Shared Plugin Ecosystem">
