@@ -4,7 +4,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <!-- Without transitive pinning, a `PackageVersion` for a package that no
          project directly references is silently ignored — meaning our
-         System.Security.Cryptography.Xml 8.0.3 pin doesn't override the
+         System.Security.Cryptography.Xml pin (8.0.4 as of the 2026-07 advisory wave) does not override the
          vulnerable 8.0.2 that arrives via Microsoft.IdentityModel.*. Turn it
          on so any PackageVersion entry can override transitive resolution. -->
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
@@ -41,7 +41,7 @@
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
     <!-- 8.0.2 has GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (High). Force 8.0.3+
          to clear the Security Audit gate; arrives transitively via Microsoft.IdentityModel. -->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.3" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.4" />
   </ItemGroup>
   <ItemGroup Label="Shared Plugin Ecosystem">
     <PackageVersion Include="Lidarr.Plugin.Abstractions" Version="1.2.2" />
