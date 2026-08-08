@@ -35,8 +35,8 @@
          relaxed at the testkit side, NOT enforced upward via CPM transitive pinning
          (which propagates the runtime-incompatible version into the plugin DLL). -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <!-- System.Text.Json 8.x for .NET 8 runtime compatibility -->
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
     <!-- 8.0.2 has GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (High). Force 8.0.3+
