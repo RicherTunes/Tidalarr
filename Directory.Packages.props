@@ -67,7 +67,7 @@
        BUILD TOOLS
        ═══════════════════════════════════════════════════════════════════════════ -->
   <ItemGroup Label="Build Tools">
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.400" />
     <!-- ILRepack for merging plugin dependencies into single DLL -->
     <PackageVersion Include="ILRepack.Lib.MSBuild.Task" Version="2.0.45" />
   </ItemGroup>
