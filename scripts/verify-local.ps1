@@ -44,7 +44,8 @@ try {
         )
         ExpectedContentsFile = 'packaging/expected-contents.txt'
         WarningBudget        = 100
-        WarningBudgetEnforce = $false
+        WarningBudgetMetric  = 'UniqueDiagnostics'
+        WarningBudgetEnforce = $true
         RequireHermeticTests = $true
     }
 
