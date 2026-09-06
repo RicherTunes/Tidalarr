@@ -1,7 +1,7 @@
 {
   "id": "tidalarr",
   "apiVersion": "1.x",
-  "commonVersion": "1.18.0-dev",
+  "commonVersion": "1.18.0",
   "name": "Tidalarr",
   "version": "1.3.0",
   "author": "RicherTunes",
@@ -9,7 +9,7 @@
   "homepage": "https://github.com/RicherTunes/Tidalarr",
   "license": "MIT",
   "tags": ["music", "tidal", "hi-res", "lossless", "oauth"],
-  "minHostVersion": "3.0.0.4855",
+  "minHostVersion": "3.1.3.4970",
   "targetFramework": "net8.0",
   "main": "Lidarr.Plugin.Tidalarr.dll",
   "rootNamespace": "Tidalarr",

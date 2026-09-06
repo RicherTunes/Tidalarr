@@ -41,7 +41,7 @@ Tidalarr builds on the shared [Lidarr.Plugin.Common](https://github.com/RicherTu
 
 ### Prerequisites
 
-- Lidarr **v3.0.0.4855** or higher on the **plugins/nightly branch** (`.NET 8` image, e.g. `nightly-3.1.3.4970`).
+- Lidarr **v3.1.3.4970** or higher on the **plugins/nightly branch** (`.NET 8` image, e.g. `nightly-3.1.3.4970`). The declared minimum is checked against the package's compiled host references.
 - A Tidal subscription (HiFi or HiFi Plus for lossless/hi-res quality).
 
 ### Install via the Lidarr UI
