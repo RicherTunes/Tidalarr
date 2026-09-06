@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adopt one elapsed-budget implementation across generic and typed HTTP execution, including redirect limits; preserve absolute Retry-After dates and existing retry policies.
 - Adopt shared inclusive jitter bounds and overflow-safe backoff-plus-jitter admission; defaults and explicit Retry-After precedence are unchanged.
-- Re-pin `ext/Lidarr.Plugin.Common` to `8cb5caea9e9aaefd3d8107f3854183649bdc8ff7`; `commonVersion`: `1.18.0-dev` -> `1.18.0`.
+- Adopt shared bounded retry waits with timer cleanup before continuation; an expired retry budget now raises a timeout rather than permitting another send after waiting or cloning.
+- Re-pin `ext/Lidarr.Plugin.Common` to `771bd3a18efd712cace51f949eac7823d29d247e`; `commonVersion`: `1.18.0-dev` -> `1.18.0`.
 - Adopt shared cancellation-safe concurrency leases and operation-timeout ownership: cancelled waits and redirects release only owned permits, caller cancellation propagates, and supplied clocks drive timeout expiry.
 - Adopt the Common release containing monotonic retry budgets and overflow-safe exponential backoff; keep Tidal-specific request adapters unchanged.
 - Declare minimum Lidarr `3.1.3.4970` to match the compiled host references. Shared packaging and smoke gates reject understated host requirements.
