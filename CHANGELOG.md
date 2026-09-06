@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Re-pin `ext/Lidarr.Plugin.Common` to `091451c7072527a719a3f9656080cbaa3ef3ef06`; `commonVersion`: `1.18.0-dev` -> `1.18.0`.
+- Re-pin `ext/Lidarr.Plugin.Common` to `e22be313832bf73673279db24a5d47af742f346d`; `commonVersion`: `1.18.0-dev` -> `1.18.0`.
+- Declare minimum Lidarr `3.1.3.4970` to match the compiled host references. Shared packaging and smoke gates reject understated host requirements.
 - Adopt shared retry-budget hardening, authoritative package-version evaluation and ZIP identity checks, and one role-aware Docker smoke runner with run-owned cleanup.
 - Enforce the existing warning budget using shared unique-diagnostic accounting; repeated build output is not new debt and unrepresented summary warnings remain charged.
 
