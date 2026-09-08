@@ -105,7 +105,7 @@ public sealed class PluginPackagingPolicyTests
     [Trait("Category", "Packaging")]
     public void Package_Host_References_Should_Not_Exceed_Declared_312_Floor()
     {
-        var expectedFloor = new Version(3, 1, 2, 4913);
+        Version expectedFloor = new(3, 1, 2, 4913);
         string packagePath = PackagingTestPaths.RequirePackagePath();
         using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
         PluginManifest manifest = ReadPluginJson(zip);
@@ -117,13 +117,13 @@ public sealed class PluginPackagingPolicyTests
         Assert.NotNull(main);
 
         using Stream stream = main!.Open();
-        using var buffer = new MemoryStream();
+        using MemoryStream buffer = new();
         stream.CopyTo(buffer);
         buffer.Position = 0;
-        using var pe = new PEReader(buffer);
+        using PEReader pe = new(buffer);
         MetadataReader metadata = pe.GetMetadataReader();
 
-        var hostReferences = new List<(string Name, Version Version)>();
+        List<(string Name, Version Version)> hostReferences = new();
         foreach (AssemblyReferenceHandle handle in metadata.AssemblyReferences)
         {
             AssemblyReference reference = metadata.GetAssemblyReference(handle);
