@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text.Json;
 using Tidalarr.Tests.Utils;
 
@@ -99,6 +101,47 @@ public sealed class PluginPackagingPolicyTests
         Assert.NotEmpty(dlls);
     }
 
+    [PackagingFact]
+    [Trait("Category", "Packaging")]
+    public void Package_Host_References_Should_Not_Exceed_Declared_312_Floor()
+    {
+        var expectedFloor = new Version(3, 1, 2, 4913);
+        string packagePath = PackagingTestPaths.RequirePackagePath();
+        using ZipArchive zip = PackagingTestPaths.OpenPackageZip(packagePath);
+        PluginManifest manifest = ReadPluginJson(zip);
+
+        Assert.Equal(expectedFloor.ToString(), manifest.MinHostVersion);
+
+        ZipArchiveEntry? main = zip.Entries.SingleOrDefault(e =>
+            string.Equals(e.FullName, manifest.Main, StringComparison.Ordinal));
+        Assert.NotNull(main);
+
+        using Stream stream = main!.Open();
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        buffer.Position = 0;
+        using var pe = new PEReader(buffer);
+        MetadataReader metadata = pe.GetMetadataReader();
+
+        var hostReferences = new List<(string Name, Version Version)>();
+        foreach (AssemblyReferenceHandle handle in metadata.AssemblyReferences)
+        {
+            AssemblyReference reference = metadata.GetAssemblyReference(handle);
+            string name = metadata.GetString(reference.Name);
+            if ((name.Equals("Lidarr", StringComparison.Ordinal)
+                 || name.StartsWith("Lidarr.", StringComparison.Ordinal))
+                && !name.StartsWith("Lidarr.Plugin.", StringComparison.Ordinal))
+            {
+                hostReferences.Add((name, reference.Version));
+            }
+        }
+
+        Assert.NotEmpty(hostReferences);
+        Assert.All(hostReferences, reference => Assert.True(
+            reference.Version <= expectedFloor,
+            $"host reference {reference.Name} {reference.Version} exceeds declared floor {expectedFloor}"));
+    }
+
     private static HashSet<string> GetDllNames(ZipArchive zip)
     {
         return zip.Entries
@@ -124,5 +167,5 @@ public sealed class PluginPackagingPolicyTests
         return manifest!;
     }
 
-    private sealed record PluginManifest(string? Main);
+    private sealed record PluginManifest(string? Main, string? MinHostVersion);
 }
