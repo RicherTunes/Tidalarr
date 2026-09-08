@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pin `ext/Lidarr.Plugin.Common` to `382219972de3bce98f0ed6b393181625c9da4c08` for the shared OpenAI Chat Completions contract; plugin source remains unchanged.
+
 - Adopt one elapsed-budget implementation across generic and typed HTTP execution, including redirect limits; preserve absolute Retry-After dates and existing retry policies.
 - Adopt shared inclusive jitter bounds and overflow-safe backoff-plus-jitter admission; defaults and explicit Retry-After precedence are unchanged.
 - Adopt shared bounded retry waits with timer cleanup before continuation; an expired retry budget now raises a timeout rather than permitting another send after waiting or cloning.
