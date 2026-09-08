@@ -29,7 +29,7 @@ public sealed class TidalarrLidarrContainerFixture
     }
 
     private static LidarrContainerOptions BuildOptions() => new(
-        DockerImage: "ghcr.io/hotio/lidarr:nightly-3.1.3.4970",
+        DockerImage: "ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913",
         ContainerName: "tidalarr-e2e",
         LidarrPort: 8690,
         PluginMountPath: "/config/plugins/RicherTunes/Tidalarr",

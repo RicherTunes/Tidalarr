@@ -11,7 +11,7 @@ param(
     [switch]$Package,
     [switch]$VerboseOutput,
     [switch]$UsePrebuiltAssemblies,
-    [string]$LidarrVersion = "3.1.3.4970",
+    [string]$LidarrVersion = "3.1.2.4913",
     [switch]$SkipHostBridge,
     [switch]$Help
 )

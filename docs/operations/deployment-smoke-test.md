@@ -1,6 +1,6 @@
 # Deployment & Smoke Test Playbook
 
-Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr plugins branch on .NET 8 (e.g., `ghcr.io/hotio/lidarr:nightly-3.1.3.4970`). See CLAUDE.md for the current Docker image tag.
+Use this checklist whenever you cut a new Tidalarr build. It targets the Lidarr plugins branch on .NET 8 (e.g., `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`). See CLAUDE.md for the current Docker image tag.
 
 ## 1. Run the unified CI pipeline locally (optional)
 

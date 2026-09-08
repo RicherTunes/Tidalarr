@@ -13,10 +13,10 @@ Tidalarr is a high-performance Lidarr plugin for Tidal streaming service, built 
 **Lidarr Docker image**: Use ONLY a `.NET 8` plugins-branch image for CI and local testing. The correct tag format is `pr-plugins-3.x.y.z` (net8). Example:
 
 ```
-LIDARR_DOCKER_VERSION=nightly-3.1.3.4970
+LIDARR_DOCKER_VERSION=pr-plugins-3.1.2.4913
 ```
 
-- Image: `ghcr.io/hotio/lidarr:nightly-3.1.3.4970`
+- Image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913`
 
 **NEVER use `pr-plugins-2.x` tags** (e.g., `pr-plugins-2.14.2.4786`) — those are .NET 6 images. Loading a .NET 8 plugin into a .NET 6 host causes `System.Runtime` assembly load failures and Lidarr crash-loops (`Could not load file or assembly 'System.Runtime, Version=8.0.0.0'`).
 
@@ -601,7 +601,7 @@ wave 22.
 
 ### Pinned image
 
-`ghcr.io/hotio/lidarr:nightly-3.1.3.4970` (single-plugin instance on host
+`ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (single-plugin instance on host
 port `8690` per the multi-plugin guidance in this file). The tag is sourced
 from `scripts/verify-local.ps1`'s `LidarrDockerVersion`. Bump in one place.
 
