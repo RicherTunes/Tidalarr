@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pin `ext/Lidarr.Plugin.Common` to `bd17cdb02dc0b6cebbfbc0c0c93aab7f7ee703c8` to adopt bounded SSE physical-line reads and encoded event-size accounting; plugin source remains unchanged.
 - Restore the declared Lidarr floor to `3.1.2.4913` and align build, verification, runtime-smoke, and package-reference contracts with that floor. The release artifact is compiled against the floor and remains subject to real `3.1.2.4913` and `3.1.3.4970` runtime gates.
 
 - Pin `ext/Lidarr.Plugin.Common` to `44a642d4c36076a1a33d663741a2390b45078f37` for the per-invocation OpenAI completion-timeout owner hook; plugin source remains unchanged.
