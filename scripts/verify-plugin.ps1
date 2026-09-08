@@ -39,7 +39,7 @@ if (-not $moduleVersion) {
     throw "VERSION file is empty"
 }
 
-$hostVersionTarget = '3.1.3.4970'
+$hostVersionTarget = '3.1.2.4913'
 $apiMajorPattern = '^1\.x$'
 
 $errors = @()

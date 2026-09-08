@@ -36,7 +36,7 @@ try {
         MainDll              = 'Lidarr.Plugin.Tidalarr.dll'
         HostAssembliesPath   = 'ext/Lidarr/_output/net8.0'
         CommonPath           = 'ext/Lidarr.Plugin.Common'
-        LidarrDockerVersion  = 'nightly-3.1.3.4970'
+        LidarrDockerVersion  = 'pr-plugins-3.1.2.4913'
         BuildFlags           = @('-p:LidarrAssembliesPath={HOST_PATH}', '-p:SkipHostBridge=false')
         TestProjects         = @(
             'tests/Tidalarr.Tests/Tidalarr.Tests.csproj',

@@ -38,4 +38,4 @@ Operational Guidance
 - Development: Install .NET 8 SDK.
 - CI: Workflows set up .NET 8 for build/test and packaging.
 - Consumers: Use only the packaged net8.0 zip in host deployments.
-- Docker image: `ghcr.io/hotio/lidarr:nightly-3.1.3.4970` (net8).
+- Docker image: `ghcr.io/hotio/lidarr:pr-plugins-3.1.2.4913` (net8).
