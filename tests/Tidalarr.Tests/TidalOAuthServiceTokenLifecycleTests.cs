@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Lidarr.Plugin.Common.Interfaces;
+using Lidarr.Plugin.Common.Services.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tidalarr.Core.Models;
 using Tidalarr.Domain.Authentication;
 
@@ -107,6 +109,71 @@ public class TidalOAuthServiceTokenLifecycleTests
         Assert.Equal("new_access", streamingAccessToken);
         Assert.Equal("new_access", directTokens.AccessToken);
         Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task OAuthDelegatingHandler_WhenLate401ArrivesAfterRotation_ReusesCurrentToken()
+    {
+        TidalTokens stored = new("old_access", "old_refresh", "Bearer", DateTime.UtcNow.AddHours(1), "sess", "US", "u1");
+        MemoryTokenStorage storage = new(stored);
+        Domain.Authentication.TidalTokenResponse refreshResponse = new(
+            "new_access",
+            "new_refresh",
+            "Bearer",
+            3600,
+            new TidalUserResponse("sess2", "US", 123));
+        GatedSingleUseRefreshResponseHandler refreshHandler = new(JsonSerializer.Serialize(refreshResponse));
+        TidalOAuthService tokenProvider = new(new HttpClient(refreshHandler), storage);
+        Late401ResourceHandler resourceHandler = new();
+        OAuthDelegatingHandler oauthHandler = new(tokenProvider, NullLogger.Instance)
+        {
+            InnerHandler = resourceHandler
+        };
+        using HttpClient client = new(oauthHandler, disposeHandler: true);
+
+        Task<HttpResponseMessage> first = client.GetAsync("https://api.test/resource1");
+        Task<HttpResponseMessage> second = client.GetAsync("https://api.test/resource2");
+        Task<HttpResponseMessage[]> both = Task.WhenAll(first, second);
+
+        try
+        {
+            await resourceHandler.OriginalRequestsObserved.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(["old_access", "old_access"], resourceHandler.OriginalTokens.OrderBy(token => token).ToArray());
+
+            resourceHandler.ReleaseUnauthorizedResponses();
+            await refreshHandler.RefreshRequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
+            refreshHandler.ReleaseRefreshResponse();
+
+            HttpResponseMessage[] responses = await both;
+            try
+            {
+                Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+            }
+            finally
+            {
+                foreach (HttpResponseMessage response in responses)
+                {
+                    response.Dispose();
+                }
+            }
+
+            Assert.Equal(1, refreshHandler.RequestCount);
+            Assert.Equal(["new_access", "new_access"], resourceHandler.RetryTokens.OrderBy(token => token).ToArray());
+            Assert.Equal("new_refresh", storage.LastSavedTokens?.RefreshToken);
+        }
+        finally
+        {
+            resourceHandler.ReleaseUnauthorizedResponses();
+            refreshHandler.ReleaseRefreshResponse();
+            try
+            {
+                await both.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch
+            {
+                // Preserve the primary assertion or timeout failure while ensuring blocked fixture tasks join.
+            }
+        }
     }
 
     [Fact]
@@ -293,6 +360,115 @@ internal sealed class SingleUseRefreshResponseHandler(string successContent, Tim
             {
                 Content = new StringContent("{\"error\":\"invalid_grant\"}", System.Text.Encoding.UTF8, "application/json")
             };
+    }
+}
+
+internal sealed class GatedSingleUseRefreshResponseHandler(string successContent) : HttpMessageHandler
+{
+    private readonly string successContent = successContent;
+    private readonly TaskCompletionSource<bool> refreshRequestStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> releaseRefreshResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int requestCount;
+
+    public int RequestCount => Volatile.Read(ref this.requestCount);
+    public Task RefreshRequestStarted => this.refreshRequestStarted.Task;
+
+    public void ReleaseRefreshResponse()
+    {
+        this.releaseRefreshResponse.TrySetResult(true);
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        int count = Interlocked.Increment(ref this.requestCount);
+        this.refreshRequestStarted.TrySetResult(true);
+        await this.releaseRefreshResponse.Task.WaitAsync(cancellationToken);
+
+        return count == 1
+            ? new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(this.successContent, System.Text.Encoding.UTF8, "application/json")
+            }
+            : new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("{\"error\":\"invalid_grant\"}", System.Text.Encoding.UTF8, "application/json")
+            };
+    }
+}
+
+internal sealed class Late401ResourceHandler : HttpMessageHandler
+{
+    private readonly object sync = new();
+    private readonly Dictionary<string, int> callsByPath = new(StringComparer.Ordinal);
+    private readonly List<string> originalTokens = [];
+    private readonly List<string> retryTokens = [];
+    private readonly TaskCompletionSource<bool> originalRequestsObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> releaseUnauthorizedResponses = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task OriginalRequestsObserved => this.originalRequestsObserved.Task;
+
+    public IReadOnlyList<string> OriginalTokens
+    {
+        get
+        {
+            lock (this.sync)
+            {
+                return this.originalTokens.ToArray();
+            }
+        }
+    }
+
+    public IReadOnlyList<string> RetryTokens
+    {
+        get
+        {
+            lock (this.sync)
+            {
+                return this.retryTokens.ToArray();
+            }
+        }
+    }
+
+    public void ReleaseUnauthorizedResponses()
+    {
+        this.releaseUnauthorizedResponses.TrySetResult(true);
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string path = request.RequestUri?.AbsolutePath ?? string.Empty;
+        string token = request.Headers.Authorization?.Parameter ?? string.Empty;
+        int call;
+        lock (this.sync)
+        {
+            this.callsByPath.TryGetValue(path, out int previous);
+            call = previous + 1;
+            this.callsByPath[path] = call;
+            if (call == 1)
+            {
+                this.originalTokens.Add(token);
+                if (this.originalTokens.Count == 2)
+                {
+                    this.originalRequestsObserved.TrySetResult(true);
+                }
+            }
+            else
+            {
+                this.retryTokens.Add(token);
+            }
+        }
+
+        if (call == 1)
+        {
+            await this.releaseUnauthorizedResponses.Task.WaitAsync(cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized) { RequestMessage = request };
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request,
+            Content = new StringContent("ok")
+        };
     }
 }
 

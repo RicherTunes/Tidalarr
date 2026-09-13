@@ -104,6 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tidal refresh concurrency coverage now uses explicit start/release barriers
+  and joins blocked fixture tasks during cleanup. The managed-provider test
+  proves eight overlapping public calls share one underlying refresh while a
+  sequential control still permits a later refresh. The OAuth lifecycle
+  coverage also gates two real 401 requests and a single-use refresh response
+  to verify late 401 token reuse.
+
 - `TidalStreamManifest`: parse failures now emit Warn log entries (was silent swallow) for manifest format drift visibility.
 
 ### Changed
