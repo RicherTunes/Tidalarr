@@ -78,18 +78,60 @@ public class ManagedTokenProviderRenewalTests
     [Fact]
     public async Task RefreshTokenAsync_WhenConcurrentRejectedTokenRefreshes_SharesSingleUnderlyingRefresh()
     {
-        RefreshableTidalAuth auth = new()
-        {
-            RefreshDelay = TimeSpan.FromMilliseconds(50)
-        };
+        RefreshableTidalAuth auth = new();
+        auth.EnableRefreshBarrier();
 
         using ServiceProvider provider = BuildProvider(auth);
 
         IStreamingTokenProvider tokenProvider = provider.GetRequiredService<IStreamingTokenProvider>();
-        string[] refreshed = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => tokenProvider.RefreshTokenAsync()));
+        Task<string> first = tokenProvider.RefreshTokenAsync();
+        Task<string>[] followers = [];
+        try
+        {
+            await auth.RefreshStarted.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.All(refreshed, accessToken => Assert.Equal("new-access-1", accessToken));
-        Assert.Equal(1, auth.ProviderRefreshCalls);
+            followers = Enumerable.Range(0, 7)
+                .Select(_ => tokenProvider.RefreshTokenAsync())
+                .ToArray();
+            Task<string[]> allRefreshes = Task.WhenAll(new[] { first }.Concat(followers));
+
+            Assert.Equal(1, auth.ProviderRefreshCalls);
+            Assert.All(new[] { first }.Concat(followers), task => Assert.False(task.IsCompleted));
+
+            auth.ReleaseRefresh();
+            string[] refreshed = await allRefreshes;
+
+            Assert.All(refreshed, accessToken => Assert.Equal("new-access-1", accessToken));
+            Assert.Equal(1, auth.ProviderRefreshCalls);
+            Assert.Equal("new-access-1", await tokenProvider.GetAccessTokenAsync());
+        }
+        finally
+        {
+            auth.ReleaseRefresh();
+            try
+            {
+                await Task.WhenAll(new[] { first }.Concat(followers)).WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch
+            {
+                // Preserve the primary assertion or timeout failure while joining blocked fixture tasks.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_AfterCompletedFlight_AllowsExplicitSequentialRefresh()
+    {
+        RefreshableTidalAuth auth = new();
+
+        using ServiceProvider provider = BuildProvider(auth);
+
+        IStreamingTokenProvider tokenProvider = provider.GetRequiredService<IStreamingTokenProvider>();
+        Assert.Equal("new-access-1", await tokenProvider.RefreshTokenAsync());
+        Assert.Equal("new-access-2", await tokenProvider.RefreshTokenAsync());
+
+        Assert.Equal(2, auth.ProviderRefreshCalls);
+        Assert.Equal("new-access-2", await tokenProvider.GetAccessTokenAsync());
     }
 
     [Fact]
@@ -282,11 +324,25 @@ public class ManagedTokenProviderRenewalTests
 
         private int providerRefreshCalls;
         private int clearAuthenticationCacheCalls;
+        private TaskCompletionSource<bool>? refreshStarted;
+        private TaskCompletionSource<bool>? releaseRefresh;
 
         public int ProviderRefreshCalls => Volatile.Read(ref this.providerRefreshCalls);
         public int ClearAuthenticationCacheCalls => Volatile.Read(ref this.clearAuthenticationCacheCalls);
 
         public TimeSpan RefreshDelay { get; init; }
+        public Task RefreshStarted => this.refreshStarted?.Task ?? Task.CompletedTask;
+
+        public void EnableRefreshBarrier()
+        {
+            this.refreshStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            this.releaseRefresh = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public void ReleaseRefresh()
+        {
+            this.releaseRefresh?.TrySetResult(true);
+        }
 
         public Task<TidalAuthUrl> GenerateAuthUrlAsync()
         {
@@ -327,7 +383,12 @@ public class ManagedTokenProviderRenewalTests
         public async Task<string> RefreshTokenAsync()
         {
             int refreshCall = Interlocked.Increment(ref this.providerRefreshCalls);
-            if (RefreshDelay > TimeSpan.Zero)
+            if (this.refreshStarted is { } started && this.releaseRefresh is { } release)
+            {
+                started.TrySetResult(true);
+                await release.Task;
+            }
+            else if (RefreshDelay > TimeSpan.Zero)
             {
                 await Task.Delay(RefreshDelay);
             }
