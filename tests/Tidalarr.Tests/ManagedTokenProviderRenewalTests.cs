@@ -85,22 +85,38 @@ public class ManagedTokenProviderRenewalTests
 
         IStreamingTokenProvider tokenProvider = provider.GetRequiredService<IStreamingTokenProvider>();
         Task<string> first = tokenProvider.RefreshTokenAsync();
-        await auth.RefreshStarted.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<string>[] followers = [];
+        try
+        {
+            await auth.RefreshStarted.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Task<string>[] followers = Enumerable.Range(0, 7)
-            .Select(_ => tokenProvider.RefreshTokenAsync())
-            .ToArray();
-        Task<string[]> allRefreshes = Task.WhenAll(new[] { first }.Concat(followers));
+            followers = Enumerable.Range(0, 7)
+                .Select(_ => tokenProvider.RefreshTokenAsync())
+                .ToArray();
+            Task<string[]> allRefreshes = Task.WhenAll(new[] { first }.Concat(followers));
 
-        Assert.Equal(1, auth.ProviderRefreshCalls);
-        Assert.False(allRefreshes.IsCompleted);
+            Assert.Equal(1, auth.ProviderRefreshCalls);
+            Assert.All(new[] { first }.Concat(followers), task => Assert.False(task.IsCompleted));
 
-        auth.ReleaseRefresh();
-        string[] refreshed = await allRefreshes;
+            auth.ReleaseRefresh();
+            string[] refreshed = await allRefreshes;
 
-        Assert.All(refreshed, accessToken => Assert.Equal("new-access-1", accessToken));
-        Assert.Equal(1, auth.ProviderRefreshCalls);
-        Assert.Equal("new-access-1", await tokenProvider.GetAccessTokenAsync());
+            Assert.All(refreshed, accessToken => Assert.Equal("new-access-1", accessToken));
+            Assert.Equal(1, auth.ProviderRefreshCalls);
+            Assert.Equal("new-access-1", await tokenProvider.GetAccessTokenAsync());
+        }
+        finally
+        {
+            auth.ReleaseRefresh();
+            try
+            {
+                await Task.WhenAll(new[] { first }.Concat(followers)).WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch
+            {
+                // Preserve the primary assertion or timeout failure while joining blocked fixture tasks.
+            }
+        }
     }
 
     [Fact]
