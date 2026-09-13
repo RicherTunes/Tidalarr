@@ -140,9 +140,12 @@ public class TidalOAuthServiceTokenLifecycleTests
             await resourceHandler.OriginalRequestsObserved.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(["old_access", "old_access"], resourceHandler.OriginalTokens.OrderBy(token => token).ToArray());
 
-            resourceHandler.ReleaseUnauthorizedResponses();
+            resourceHandler.ReleaseFirstUnauthorizedResponse();
             await refreshHandler.RefreshRequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
             refreshHandler.ReleaseRefreshResponse();
+            await resourceHandler.FirstRetryObserved.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Single(resourceHandler.RetryTokens);
+            resourceHandler.ReleaseSecondUnauthorizedResponse();
 
             HttpResponseMessage[] responses = await both;
             try
@@ -163,7 +166,8 @@ public class TidalOAuthServiceTokenLifecycleTests
         }
         finally
         {
-            resourceHandler.ReleaseUnauthorizedResponses();
+            resourceHandler.ReleaseFirstUnauthorizedResponse();
+            resourceHandler.ReleaseSecondUnauthorizedResponse();
             refreshHandler.ReleaseRefreshResponse();
             try
             {
@@ -403,9 +407,12 @@ internal sealed class Late401ResourceHandler : HttpMessageHandler
     private readonly List<string> originalTokens = [];
     private readonly List<string> retryTokens = [];
     private readonly TaskCompletionSource<bool> originalRequestsObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource<bool> releaseUnauthorizedResponses = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> firstRetryObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> releaseFirstUnauthorized = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<bool> releaseSecondUnauthorized = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public Task OriginalRequestsObserved => this.originalRequestsObserved.Task;
+    public Task FirstRetryObserved => this.firstRetryObserved.Task;
 
     public IReadOnlyList<string> OriginalTokens
     {
@@ -429,9 +436,14 @@ internal sealed class Late401ResourceHandler : HttpMessageHandler
         }
     }
 
-    public void ReleaseUnauthorizedResponses()
+    public void ReleaseFirstUnauthorizedResponse()
     {
-        this.releaseUnauthorizedResponses.TrySetResult(true);
+        this.releaseFirstUnauthorized.TrySetResult(true);
+    }
+
+    public void ReleaseSecondUnauthorizedResponse()
+    {
+        this.releaseSecondUnauthorized.TrySetResult(true);
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -439,6 +451,7 @@ internal sealed class Late401ResourceHandler : HttpMessageHandler
         string path = request.RequestUri?.AbsolutePath ?? string.Empty;
         string token = request.Headers.Authorization?.Parameter ?? string.Empty;
         int call;
+        int originalSequence = 0;
         lock (this.sync)
         {
             this.callsByPath.TryGetValue(path, out int previous);
@@ -447,6 +460,7 @@ internal sealed class Late401ResourceHandler : HttpMessageHandler
             if (call == 1)
             {
                 this.originalTokens.Add(token);
+                originalSequence = this.originalTokens.Count;
                 if (this.originalTokens.Count == 2)
                 {
                     this.originalRequestsObserved.TrySetResult(true);
@@ -460,9 +474,14 @@ internal sealed class Late401ResourceHandler : HttpMessageHandler
 
         if (call == 1)
         {
-            await this.releaseUnauthorizedResponses.Task.WaitAsync(cancellationToken);
+            Task release = originalSequence == 1
+                ? this.releaseFirstUnauthorized.Task
+                : this.releaseSecondUnauthorized.Task;
+            await release.WaitAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.Unauthorized) { RequestMessage = request };
         }
+
+        this.firstRetryObserved.TrySetResult(true);
 
         return new HttpResponseMessage(HttpStatusCode.OK)
         {

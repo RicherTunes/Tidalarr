@@ -108,8 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and joins blocked fixture tasks during cleanup. The managed-provider test
   proves eight overlapping public calls share one underlying refresh while a
   sequential control still permits a later refresh. The OAuth lifecycle
-  coverage also gates two real 401 requests and a single-use refresh response
-  to verify late 401 token reuse.
+  coverage gates two real 401 requests independently, completing the first
+  rotated-token retry before releasing the second, and uses a single-use
+  refresh response to verify late 401 token reuse.
 
 - `TidalStreamManifest`: parse failures now emit Warn log entries (was silent swallow) for manifest format drift visibility.
 
